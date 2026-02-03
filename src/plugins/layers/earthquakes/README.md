@@ -1,6 +1,6 @@
-# 🌋 Earthquakes Plugin
+# 🌊 Earthquakes Plugin
 
-**Version:** 1.1.0  
+**Version:** 1.2.0  
 **Last Updated:** 2026-02-03  
 **Category:** Geology  
 **Data Source:** USGS (United States Geological Survey)
@@ -9,36 +9,43 @@
 
 ## Overview
 
-The Earthquakes plugin displays live seismic activity data from the USGS Earthquake Catalog. It visualizes recent earthquakes (M2.5+ from the last 24 hours) with color-coded markers, magnitude-based sizing, and animated notifications for newly detected events.
+The Earthquakes plugin displays live seismic activity data from the USGS Earthquake Catalog with **highly visible colored circle markers** featuring custom seismograph wave icons. Visualizes recent earthquakes (M2.5+ from the last hour) with **magnitude-based sizing and color gradients** for instant visual assessment of earthquake strength.
 
 ---
 
 ## 🌟 Features
 
 ### Core Capabilities
-- **Live Earthquake Data**: USGS M2.5+ earthquakes from the last 24 hours
-- **Animated New Quake Detection**: Growing dot animation highlights newly detected earthquakes
-- **Magnitude-Based Sizing**: Larger circles for stronger quakes (8px–40px)
-- **Color-Coded Severity**: Instant visual assessment of earthquake strength
+- **Live Earthquake Data**: USGS M2.5+ earthquakes from the last hour
+- **Animated New Quake Detection**: Flash animation highlights newly detected earthquakes
+- **Magnitude-Based Sizing**: Larger circles for stronger quakes (16px–40px)
+- **Color-Coded Severity**: Green → Yellow → Orange → Red gradient based on magnitude
 - **Detailed Popups**: Click any earthquake for comprehensive information
 - **Real-time Updates**: Refreshes every 5 minutes automatically
+- **High Visibility Icons**: Colored circles with white seismograph wave symbols
+- **Stable Positions**: Earthquakes stay at exact locations (no movement/drift)
 
-### Visual Indicators (v1.1.0)
-- **🆕 New Earthquake Animation**: 
-  - Growing circle with pulse effect
-  - Expanding ring (50km radius)
-  - 3-second animation duration
+### Visual Indicators (v1.2.0)
+- **Colored Circle Markers**: Background color shows magnitude severity
+- **Seismograph Wave Icon**: Custom SVG with zigzag waves, epicenter dot, and ground triangle
+- **Flash Animation (New Quakes)**: 
+  - Bright flash effect with glow (0.8s duration)
+  - Expanding ring (50km radius, 3s duration)
+  - 🆕 Badge in popup
   - Automatically highlights fresh seismic events
+- **White Border**: 2px white border for contrast on all backgrounds
+- **Box Shadow**: Depth effect for better visibility
 
-### Magnitude Categories
-| Magnitude | Size | Color | Classification |
-|-----------|------|-------|----------------|
-| M2.5-3.0 | 8-12px | 🟡 Yellow | Minor |
-| M3.0-4.0 | 12-16px | 🟠 Orange | Light |
-| M4.0-5.0 | 16-20px | 🟠 Deep Orange | Moderate |
-| M5.0-6.0 | 20-24px | 🔴 Red | Strong |
-| M6.0-7.0 | 24-28px | 🔴 Dark Red | Major |
-| M7.0+ | 28-40px | 🔴 Very Dark Red | Great |
+### Magnitude Categories (Enhanced v1.2.0)
+| Magnitude | Size | Color | Hex | Classification |
+|-----------|------|-------|-----|----------------|
+| M1.0-2.0 | 16px | 🟢 Light Green | #90EE90 | Micro |
+| M2.0-3.0 | 16-20px | 🟡 Yellow | #FFEB3B | Minor |
+| M3.0-4.0 | 20-24px | 🟠 Orange | #FFA500 | Light |
+| M4.0-5.0 | 24-28px | 🟠 Deep Orange | #FF6600 | Moderate |
+| M5.0-6.0 | 28-32px | 🔴 Red | #FF3300 | Strong |
+| M6.0-7.0 | 32-36px | 🔴 Dark Red | #CC0000 | Major |
+| M7.0+ | 36-40px | 🔴 Very Dark Red | #8B0000 | Great |
 
 ---
 
@@ -46,11 +53,11 @@ The Earthquakes plugin displays live seismic activity data from the USGS Earthqu
 
 ### Data Source
 - **Provider**: USGS Earthquake Hazards Program
-- **Feed**: GeoJSON 2.5+ Earthquakes (Last Day)
-- **URL**: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson
+- **Feed**: GeoJSON All Earthquakes (Last Hour) **[Updated v1.2.0]**
+- **URL**: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson
 - **Update Frequency**: Every 5 minutes
-- **Minimum Magnitude**: 2.5
-- **Time Window**: Last 24 hours
+- **Minimum Magnitude**: 1.0+ (shows all detected quakes)
+- **Time Window**: Last hour (more responsive to new activity)
 
 ### Earthquake Properties
 Each earthquake includes:

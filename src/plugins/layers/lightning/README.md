@@ -1,6 +1,6 @@
 # ⚡ Lightning Detection Plugin
 
-**Version:** 1.0.0  
+**Version:** 1.1.0  
 **Last Updated:** 2026-02-03  
 **Category:** Weather  
 **Data Source:** Simulated (designed for Blitzortung.org integration)
@@ -9,35 +9,40 @@
 
 ## Overview
 
-The Lightning Detection plugin visualizes real-time lightning strikes on the map, providing amateur radio operators with critical awareness of nearby electrical storm activity. Lightning can cause interference (QRM/QRN), damage equipment, and pose safety hazards during outdoor operations.
+The Lightning Detection plugin visualizes real-time lightning strikes on the map with **highly visible colored circle markers** and lightning bolt icons (⚡). Provides amateur radio operators with critical awareness of nearby electrical storm activity. Lightning can cause interference (QRM/QRN), damage equipment, and pose safety hazards during outdoor operations.
 
 ---
 
 ## 🌟 Features
 
 ### Core Capabilities
-- **Real-time Lightning Strikes**: Visualize strikes as they occur
-- **Animated Strike Detection**: Flash animation highlights new strikes
+- **Real-time Lightning Strikes**: Visualize strikes with colored circle markers
+- **Animated Strike Detection**: Flash animation highlights new strikes (0.8s)
 - **Age-Based Color Coding**: Strikes fade from gold → orange → red → brown
 - **Strike Intensity Display**: kA (kiloampere) current measurements
 - **Polarity Indication**: Positive (+) and negative (-) strikes
-- **Activity Statistics**: Live dashboard with strike counts
-- **30-Second Updates**: Near real-time data refresh
+- **Activity Statistics**: Live dashboard with minimizable panel
+- **30-Second Updates**: Continuous real-time data refresh
+- **High Visibility Icons**: Colored circles with white lightning bolt (⚡) symbols
+- **Stable Positions**: Strikes stay at exact locations (no movement/drift)
 
 ### Visual Indicators
-- **Flash Animation**: New strikes appear with bright flash (0.8s)
+- **Colored Circle Markers**: Background color shows strike age (size 12-32px)
+- **Lightning Bolt Icon**: White ⚡ symbol centered on circle
+- **Flash Animation**: New strikes appear with bright gold glow (0.8s)
 - **Pulse Ring**: Expanding 30km radius ring for new strikes (2s)
-- **Continuous Pulse**: Subtle pulse on all active strikes
+- **White Border**: 2px white border for contrast on all backgrounds
+- **Box Shadow**: Depth effect for better visibility
 - **🆕 Badge**: New strikes marked in popup
 
 ### Strike Age Colors
-| Age | Color | Hex | Meaning |
-|-----|-------|-----|---------|
-| <1 min | 🟡 Gold | #FFD700 | Fresh strike |
-| 1-5 min | 🟠 Orange | #FFA500 | Recent strike |
-| 5-15 min | 🔴 Red | #FF6B6B | Aging strike |
-| 15-30 min | 🔴 Dark Red | #CD5C5C | Old strike |
-| >30 min | 🟤 Brown | #8B4513 | Very old strike |
+| Age | Color | Hex | Meaning | Icon Size |
+|-----|-------|-----|---------|-----------|
+| <1 min | 🟡 Gold | #FFD700 | Fresh strike | 12-32px |
+| 1-5 min | 🟠 Orange | #FFA500 | Recent strike | 12-32px |
+| 5-15 min | 🔴 Red | #FF6B6B | Aging strike | 12-32px |
+| 15-30 min | 🔴 Dark Red | #CD5C5C | Old strike | 12-32px |
+| >30 min | 🟤 Brown | #8B4513 | Very old strike | 12-32px |
 
 ---
 

@@ -34,8 +34,8 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
       try {
         // USGS GeoJSON feed - All earthquakes from last hour
         const response = await fetch(
-          //'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson'
-          'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson'
+          'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson'
+          //'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson'
         );
         const data = await response.json();
         console.log('Earthquakes fetched:', data.features?.length || 0, 'quakes');
@@ -47,8 +47,8 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
 
     fetchEarthquakes();
     // Refresh every 5 minutes
-    //const interval = setInterval(fetchEarthquakes, 300000);
-    const interval = setInterval(fetchEarthquakes, 60000);
+    const interval = setInterval(fetchEarthquakes, 300000);
+    //const interval = setInterval(fetchEarthquakes, 60000);
 
     return () => clearInterval(interval);
   }, [enabled]);
