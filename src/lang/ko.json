@@ -10,6 +10,8 @@
   "station.settings.language.it": "Italiano",
   "station.settings.language.nl": "Nederlands",
   "station.settings.language.ko": "한국어",
+  "station.settings.language.ru": "Русский",
+  "station.settings.language.ka": "ქართული",
   "station.settings.altitude": "고도 (m)",
   "station.settings.antenna": "안테나",
   "station.settings.button.save": "설정 저장하기",
