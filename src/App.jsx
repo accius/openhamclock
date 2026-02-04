@@ -872,6 +872,8 @@ const App = () => {
             showWSJTX={mapLayers.showWSJTX}
             onToggleSatellites={toggleSatellites}
             hoveredSpot={hoveredSpot}
+            leftSidebarVisible={leftSidebarVisible}
+            rightSidebarVisible={rightSidebarVisible}
           />
           <div style={{ 
             position: 'absolute', 

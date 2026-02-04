@@ -18,26 +18,28 @@ import PluginLayer from './PluginLayer.jsx';
 import { DXNewsTicker } from './DXNewsTicker.jsx';
 
 
-export const WorldMap = ({ 
-  deLocation, 
-  dxLocation, 
-  onDXChange, 
-  potaSpots, 
-  mySpots, 
-  dxPaths, 
-  dxFilters, 
-  satellites, 
+export const WorldMap = ({
+  deLocation,
+  dxLocation,
+  onDXChange,
+  potaSpots,
+  mySpots,
+  dxPaths,
+  dxFilters,
+  satellites,
   pskReporterSpots,
   wsjtxSpots,
-  showDXPaths, 
-  showDXLabels, 
-  onToggleDXLabels, 
-  showPOTA, 
-  showSatellites, 
+  showDXPaths,
+  showDXLabels,
+  onToggleDXLabels,
+  showPOTA,
+  showSatellites,
   showPSKReporter,
   showWSJTX,
-  onToggleSatellites, 
-  hoveredSpot 
+  onToggleSatellites,
+  hoveredSpot,
+  leftSidebarVisible,
+  rightSidebarVisible
 }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -172,7 +174,7 @@ export const WorldMap = ({
   // Update tile layer when style changes
   useEffect(() => {
     if (!mapInstanceRef.current || !tileLayerRef.current) return;
-    
+
     mapInstanceRef.current.removeLayer(tileLayerRef.current);
     tileLayerRef.current = L.tileLayer(MAP_STYLES[mapStyle].url, {
       attribution: MAP_STYLES[mapStyle].attribution,
@@ -180,12 +182,24 @@ export const WorldMap = ({
       crossOrigin: 'anonymous',
       bounds: [[-85, -180], [85, 180]]
     }).addTo(mapInstanceRef.current);
-    
+
     // Ensure terminator is on top
     if (terminatorRef.current) {
       terminatorRef.current.bringToFront();
     }
   }, [mapStyle]);
+
+  // Invalidate map size when sidebars are toggled
+  // This ensures Leaflet recalculates the container dimensions
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const timer = setTimeout(() => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.invalidateSize();
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [leftSidebarVisible, rightSidebarVisible]);
 
   // Countries overlay for "Countries" map style
   useEffect(() => {
