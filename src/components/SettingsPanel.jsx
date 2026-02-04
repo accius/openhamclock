@@ -23,6 +23,19 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave }) => {
   const [layers, setLayers] = useState([]);
   const [activeTab, setActiveTab] = useState('station');
 
+  // Panel settings
+  const [panels, setPanels] = useState(config?.panels || {
+    deLocation: { visible: true, size: 1.0 },
+    dxLocation: { visible: true, size: 1.0 },
+    solar: { visible: true, size: 1.0 },
+    propagation: { visible: true, size: 1.0 },
+    dxCluster: { visible: true, size: 2.0 },
+    pskReporter: { visible: true, size: 1.0 },
+    dxpeditions: { visible: true, size: 1.0 },
+    pota: { visible: true, size: 1.0 },
+    contests: { visible: true, size: 1.0 }
+  });
+
   useEffect(() => {
     if (config) {
       setCallsign(config.callsign || '');
@@ -33,6 +46,17 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave }) => {
       setLayout(config.layout || 'modern');
       setTimezone(config.timezone || '');
       setDxClusterSource(config.dxClusterSource || 'dxspider-proxy');
+      setPanels(config.panels || {
+        deLocation: { visible: true, size: 1.0 },
+        dxLocation: { visible: true, size: 1.0 },
+        solar: { visible: true, size: 1.0 },
+        propagation: { visible: true, size: 1.0 },
+        dxCluster: { visible: true, size: 2.0 },
+        pskReporter: { visible: true, size: 1.0 },
+        dxpeditions: { visible: true, size: 1.0 },
+        pota: { visible: true, size: 1.0 },
+        contests: { visible: true, size: 1.0 }
+      });
       if (config.location?.lat && config.location?.lon) {
         setGridSquare(calculateGridSquare(config.location.lat, config.location.lon));
       }
@@ -145,6 +169,26 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave }) => {
     }
   };
 
+  const handleTogglePanel = (panelId) => {
+    setPanels(prev => ({
+      ...prev,
+      [panelId]: {
+        ...prev[panelId],
+        visible: !prev[panelId].visible
+      }
+    }));
+  };
+
+  const handlePanelSizeChange = (panelId, size) => {
+    setPanels(prev => ({
+      ...prev,
+      [panelId]: {
+        ...prev[panelId],
+        size: parseFloat(size)
+      }
+    }));
+  };
+
   const handleSave = () => {
     onSave({
       ...config,
@@ -154,7 +198,8 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave }) => {
       theme,
       layout,
       timezone,
-      dxClusterSource
+      dxClusterSource,
+      panels
     });
     onClose();
   };
@@ -236,6 +281,23 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave }) => {
             }}
           >
             ⌇ Station
+          </button>
+          <button
+            onClick={() => setActiveTab('panels')}
+            style={{
+              flex: 1,
+              padding: '10px',
+              background: activeTab === 'panels' ? 'var(--accent-amber)' : 'transparent',
+              border: 'none',
+              borderRadius: '6px 6px 0 0',
+              color: activeTab === 'panels' ? '#000' : 'var(--text-secondary)',
+              fontSize: '13px',
+              cursor: 'pointer',
+              fontWeight: activeTab === 'panels' ? '700' : '400',
+              fontFamily: 'JetBrains Mono, monospace'
+            }}
+          >
+            □ Panels
           </button>
           <button
             onClick={() => setActiveTab('layers')}
@@ -655,6 +717,153 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave }) => {
               </div>
             </div>
           </>
+        )}
+
+        {/* Panels Tab */}
+        {activeTab === 'panels' && (
+          <div>
+            <div style={{ marginBottom: '16px', fontSize: '12px', color: 'var(--text-muted)' }}>
+              Toggle panels on/off and adjust their relative sizes
+            </div>
+
+            {/* Left Sidebar Panels */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                LEFT SIDEBAR
+              </div>
+              {[
+                { id: 'deLocation', name: '📍 DE Location', description: 'Your station location and weather' },
+                { id: 'dxLocation', name: '🎯 DX Target', description: 'Target location for DXing' },
+                { id: 'solar', name: '☀️ Solar Indices', description: 'Sunspot numbers and solar flux' },
+                { id: 'propagation', name: '📡 Propagation', description: 'Band conditions and forecasts' }
+              ].map(panel => (
+                <div key={panel.id} style={{
+                  background: 'var(--bg-tertiary)',
+                  border: `1px solid ${panels[panel.id]?.visible !== false ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: '8px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      cursor: 'pointer',
+                      flex: 1
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={panels[panel.id]?.visible !== false}
+                        onChange={() => handleTogglePanel(panel.id)}
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          cursor: 'pointer'
+                        }}
+                      />
+                      <div>
+                        <div style={{
+                          color: panels[panel.id]?.visible !== false ? 'var(--accent-amber)' : 'var(--text-primary)',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          fontFamily: 'JetBrains Mono, monospace'
+                        }}>
+                          {panel.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {panel.description}
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Right Sidebar Panels */}
+            <div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                RIGHT SIDEBAR
+              </div>
+              {[
+                { id: 'dxCluster', name: '📻 DX Cluster', description: 'Live DX spots from cluster', hasSize: true, defaultSize: 2.0 },
+                { id: 'pskReporter', name: '📡 PSK Reporter', description: 'Digital mode spots and WSJT-X', hasSize: true, defaultSize: 1.0 },
+                { id: 'dxpeditions', name: '🏝️ DXpeditions', description: 'Upcoming DXpeditions', hasSize: true, defaultSize: 1.0 },
+                { id: 'pota', name: '🏕️ POTA', description: 'Parks on the Air activators', hasSize: true, defaultSize: 1.0 },
+                { id: 'contests', name: '🏆 Contests', description: 'Upcoming and active contests', hasSize: true, defaultSize: 1.0 }
+              ].map(panel => (
+                <div key={panel.id} style={{
+                  background: 'var(--bg-tertiary)',
+                  border: `1px solid ${panels[panel.id]?.visible !== false ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                  borderRadius: '8px',
+                  padding: '12px',
+                  marginBottom: '8px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <label style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      cursor: 'pointer',
+                      flex: 1
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={panels[panel.id]?.visible !== false}
+                        onChange={() => handleTogglePanel(panel.id)}
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          cursor: 'pointer'
+                        }}
+                      />
+                      <div>
+                        <div style={{
+                          color: panels[panel.id]?.visible !== false ? 'var(--accent-amber)' : 'var(--text-primary)',
+                          fontSize: '13px',
+                          fontWeight: '600',
+                          fontFamily: 'JetBrains Mono, monospace'
+                        }}>
+                          {panel.name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                          {panel.description}
+                        </div>
+                      </div>
+                    </label>
+                  </div>
+
+                  {panels[panel.id]?.visible !== false && panel.hasSize && (
+                    <div style={{ paddingLeft: '28px', marginTop: '8px' }}>
+                      <label style={{
+                        display: 'block',
+                        fontSize: '11px',
+                        color: 'var(--text-muted)',
+                        marginBottom: '6px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                      }}>
+                        Size: {panels[panel.id]?.size || panel.defaultSize}x
+                      </label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="3.0"
+                        step="0.1"
+                        value={panels[panel.id]?.size || panel.defaultSize}
+                        onChange={(e) => handlePanelSizeChange(panel.id, e.target.value)}
+                        style={{
+                          width: '100%',
+                          cursor: 'pointer'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         )}
 
         {/* Map Layers Tab */}

@@ -22,6 +22,19 @@ export const DEFAULT_CONFIG = {
   showSatellites: true,
   showPota: true,
   showDxPaths: true,
+  panels: {
+    // Left sidebar panels
+    deLocation: { visible: true, size: 1.0 },
+    dxLocation: { visible: true, size: 1.0 },
+    solar: { visible: true, size: 1.0 },
+    propagation: { visible: true, size: 1.0 },
+    // Right sidebar panels
+    dxCluster: { visible: true, size: 2.0 },
+    pskReporter: { visible: true, size: 1.0 },
+    dxpeditions: { visible: true, size: 1.0 },
+    pota: { visible: true, size: 1.0 },
+    contests: { visible: true, size: 1.0 }
+  },
   refreshIntervals: {
     spaceWeather: 300000,   // 5 minutes
     bandConditions: 300000, // 5 minutes
@@ -83,6 +96,7 @@ export const loadConfig = () => {
       // Ensure nested objects are properly merged
       location: localConfig.location || config.location,
       defaultDX: localConfig.defaultDX || config.defaultDX,
+      panels: { ...config.panels, ...localConfig.panels },
       refreshIntervals: { ...config.refreshIntervals, ...localConfig.refreshIntervals }
     };
   } 
@@ -92,7 +106,7 @@ export const loadConfig = () => {
     // But only if they have real values (not N0CALL)
     config = {
       ...config,
-      callsign: (serverConfig.callsign && serverConfig.callsign !== 'N0CALL') 
+      callsign: (serverConfig.callsign && serverConfig.callsign !== 'N0CALL')
         ? serverConfig.callsign : config.callsign,
       locator: serverConfig.locator || config.locator,
       location: {
@@ -110,7 +124,8 @@ export const loadConfig = () => {
       use12Hour: serverConfig.timeFormat === '12',
       showSatellites: serverConfig.showSatellites ?? config.showSatellites,
       showPota: serverConfig.showPota ?? config.showPota,
-      showDxPaths: serverConfig.showDxPaths ?? config.showDxPaths
+      showDxPaths: serverConfig.showDxPaths ?? config.showDxPaths,
+      panels: { ...config.panels, ...serverConfig.panels }
     };
   }
   

@@ -2289,7 +2289,7 @@
     // ============================================
     // LEAFLET MAP COMPONENT
     // ============================================
-    const WorldMap = ({ deLocation, dxLocation, onDXChange, potaSpots, mySpots, dxPaths, dxFilters, satellites, showDXPaths, showDXLabels, onToggleDXLabels, showPOTA, showSatellites, onToggleSatellites, hoveredSpot }) => {
+    const WorldMap = ({ deLocation, dxLocation, onDXChange, potaSpots, mySpots, dxPaths, dxFilters, satellites, showDXPaths, showDXLabels, onToggleDXLabels, showPOTA, showSatellites, onToggleSatellites, hoveredSpot, showLeftPanel, showRightPanel }) => {
       const mapRef = useRef(null);
       const mapInstanceRef = useRef(null);
       const tileLayerRef = useRef(null);
@@ -2419,6 +2419,16 @@
           terminatorRef.current.bringToFront();
         }
       }, [mapStyle]);
+
+      useEffect(() => {
+        if (!mapInstanceRef.current) return;
+        const timer = setTimeout(() => {
+          if (mapInstanceRef.current) {
+            mapInstanceRef.current.invalidateSize();
+          }
+        }, 100);
+        return () => clearTimeout(timer);
+      }, [showLeftPanel, showRightPanel]);
 
       // Update markers and path
       useEffect(() => {
@@ -5072,7 +5082,34 @@
       const toggleDXLabels = useCallback(() => setMapLayers(prev => ({ ...prev, showDXLabels: !prev.showDXLabels })), []);
       const togglePOTA = useCallback(() => setMapLayers(prev => ({ ...prev, showPOTA: !prev.showPOTA })), []);
       const toggleSatellites = useCallback(() => setMapLayers(prev => ({ ...prev, showSatellites: !prev.showSatellites })), []);
-      
+
+      const [showLeftPanel, setShowLeftPanel] = useState(() => {
+        try {
+          const stored = localStorage.getItem('openhamclock_showLeftPanel');
+          return stored === 'true';
+        } catch (e) { return true; }
+      });
+      const [showRightPanel, setShowRightPanel] = useState(() => {
+        try {
+          const stored = localStorage.getItem('openhamclock_showRightPanel');
+          return stored === 'true';
+        } catch (e) { return true; }
+      });
+
+      useEffect(() => {
+        try {
+          localStorage.setItem('openhamclock_showLeftPanel', showLeftPanel.toString());
+        } catch (e) { console.error('Failed to save left panel visibility:', e); }
+      }, [showLeftPanel]);
+      useEffect(() => {
+        try {
+          localStorage.setItem('openhamclock_showRightPanel', showRightPanel.toString());
+        } catch (e) { console.error('Failed to save right panel visibility:', e); }
+      }, [showRightPanel]);
+
+      const toggleLeftPanel = useCallback(() => setShowLeftPanel(prev => !prev), []);
+      const toggleRightPanel = useCallback(() => setShowRightPanel(prev => !prev), []);
+
       // 12/24 hour format preference with localStorage persistence
       const [use12Hour, setUse12Hour] = useState(() => {
         try {
@@ -5298,7 +5335,7 @@
             transform: `scale(${scale})`,
             transformOrigin: 'center center',
             display: 'grid',
-            gridTemplateColumns: '280px 1fr 280px',
+            gridTemplateColumns: `${showLeftPanel ? '280px' : '0'} 1fr ${showRightPanel ? '280px' : '0'}`,
             gridTemplateRows: '50px 1fr',
             gap: '8px',
             padding: '8px',
@@ -5359,9 +5396,35 @@
               <div><span style={{ color: 'var(--text-muted)' }}>K </span><span style={{ color: spaceWeather.data?.kIndex >= 4 ? 'var(--accent-red)' : 'var(--accent-green)', fontWeight: '600' }}>{spaceWeather.data?.kIndex ?? '--'}</span></div>
               <div><span style={{ color: 'var(--text-muted)' }}>SSN </span><span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>{spaceWeather.data?.sunspotNumber || '--'}</span></div>
             </div>
-            
+
             {/* Settings & Fullscreen Buttons */}
             <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                onClick={toggleLeftPanel}
+                style={{
+                  background: showLeftPanel ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
+                  border: `1px solid ${showLeftPanel ? 'var(--accent-green)' : 'var(--border-color)'}`,
+                  padding: '6px 12px', borderRadius: '4px',
+                  color: showLeftPanel ? 'var(--accent-green)' : 'var(--text-secondary)',
+                  fontSize: '13px', cursor: 'pointer'
+                }}
+                title={showLeftPanel ? "Hide Left Panel" : "Show Left Panel"}
+              >
+                ◀ L
+              </button>
+              <button
+                onClick={toggleRightPanel}
+                style={{
+                  background: showRightPanel ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
+                  border: `1px solid ${showRightPanel ? 'var(--accent-green)' : 'var(--border-color)'}`,
+                  padding: '6px 12px', borderRadius: '4px',
+                  color: showRightPanel ? 'var(--accent-green)' : 'var(--text-secondary)',
+                  fontSize: '13px', cursor: 'pointer'
+                }}
+                title={showRightPanel ? "Hide Right Panel" : "Show Right Panel"}
+              >
+                R ▶
+              </button>
               <a
                 href="https://buymeacoffee.com/k0cjh"
                 target="_blank"
@@ -5401,7 +5464,7 @@
           </div>
           
           {/* LEFT SIDEBAR */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', overflowX: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', overflowX: 'hidden', visibility: showLeftPanel ? 'visible' : 'hidden' }}>
             {/* DE Location */}
             <div className="panel" style={{ padding: '12px', flex: '0 0 auto' }}>
               <div style={{ fontSize: '13px', color: 'var(--accent-cyan)', fontWeight: '700', marginBottom: '8px' }}>📍 DE - YOUR LOCATION</div>
@@ -5441,12 +5504,12 @@
           
           {/* CENTER - MAP */}
           <div style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden' }}>
-            <WorldMap 
-              deLocation={config.location} 
-              dxLocation={dxLocation} 
-              onDXChange={handleDXChange} 
-              potaSpots={potaSpots.data} 
-              mySpots={mySpots.data} 
+            <WorldMap
+              deLocation={config.location}
+              dxLocation={dxLocation}
+              onDXChange={handleDXChange}
+              potaSpots={potaSpots.data}
+              mySpots={mySpots.data}
               dxPaths={dxPaths.data}
               dxFilters={dxFilters}
               satellites={satellites.positions}
@@ -5457,6 +5520,8 @@
               showSatellites={mapLayers.showSatellites}
               onToggleSatellites={toggleSatellites}
               hoveredSpot={hoveredSpot}
+              showLeftPanel={showLeftPanel}
+              showRightPanel={showRightPanel}
             />
             <div style={{ position: 'absolute', bottom: '8px', left: '50%', transform: 'translateX(-50%)', fontSize: '13px', color: 'var(--text-muted)', background: 'rgba(0,0,0,0.7)', padding: '2px 8px', borderRadius: '4px' }}>
               Click map to set DX • 73 de {config.callsign}
@@ -5464,7 +5529,7 @@
           </div>
           
           {/* RIGHT SIDEBAR */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'hidden', visibility: showRightPanel ? 'visible' : 'hidden' }}>
             {/* DX Cluster - Compact with filters */}
             <div className="panel" style={{ padding: '10px', flex: '1 1 auto', overflow: 'hidden', minHeight: 0 }}>
               <div style={{ fontSize: '12px', color: 'var(--accent-green)', fontWeight: '700', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

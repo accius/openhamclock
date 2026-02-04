@@ -278,6 +278,33 @@ const App = () => {
   const localTime = currentTime.toLocaleTimeString('en-US', localTimeOpts);
   const localDate = currentTime.toLocaleDateString('en-US', localDateOpts);
 
+  // Calculate sidebar visibility for responsive grid
+  const leftSidebarVisible = config.panels?.deLocation?.visible !== false ||
+                           config.panels?.dxLocation?.visible !== false ||
+                           config.panels?.solar?.visible !== false ||
+                           config.panels?.propagation?.visible !== false;
+  const rightSidebarVisible = config.panels?.dxCluster?.visible !== false ||
+                            config.panels?.pskReporter?.visible !== false ||
+                            config.panels?.dxpeditions?.visible !== false ||
+                            config.panels?.pota?.visible !== false ||
+                            config.panels?.contests?.visible !== false;
+  const leftSidebarWidth = leftSidebarVisible ? '270px' : '0px';
+  const rightSidebarWidth = rightSidebarVisible ? '300px' : '0px';
+  
+  // Dynamic grid columns - adjust based on which sidebars are visible
+  const getGridTemplateColumns = () => {
+    if (!leftSidebarVisible && !rightSidebarVisible) {
+      return '1fr'; // Only map visible - single column
+    }
+    if (!leftSidebarVisible) {
+      return `1fr ${rightSidebarWidth}`; // Only right sidebar
+    }
+    if (!rightSidebarVisible) {
+      return `${leftSidebarWidth} 1fr`; // Only left sidebar
+    }
+    return `${leftSidebarWidth} 1fr ${rightSidebarWidth}`; // Both sidebars
+  };
+
   // Scale for small screens
   const [scale, setScale] = useState(1);
   useEffect(() => {
@@ -580,10 +607,10 @@ const App = () => {
           transform: `scale(${scale})`,
           transformOrigin: 'center center',
           display: 'grid',
-          gridTemplateColumns: '270px 1fr 300px',
+          gridTemplateColumns: getGridTemplateColumns(),
           gridTemplateRows: '55px 1fr',
-          gap: '8px',
-          padding: '8px',
+          gap: leftSidebarVisible || rightSidebarVisible ? '8px' : '0',
+          padding: leftSidebarVisible || rightSidebarVisible ? '8px' : '0',
           overflow: 'hidden',
           boxSizing: 'border-box'
         }}>
@@ -604,217 +631,227 @@ const App = () => {
         />
         
         {/* LEFT SIDEBAR */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', overflowX: 'hidden' }}>
-          {/* DE Location + Weather */}
-          <div className="panel" style={{ padding: '14px', flex: '0 0 auto' }}>
-            <div style={{ fontSize: '14px', color: 'var(--accent-cyan)', fontWeight: '700', marginBottom: '10px' }}>📍 DE - YOUR LOCATION</div>
-            <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
-              <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>{deGrid}</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{config.location.lat.toFixed(4)}°, {config.location.lon.toFixed(4)}°</div>
-              <div style={{ marginTop: '8px', fontSize: '13px' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-                <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{deSunTimes.sunrise}</span>
-                <span style={{ color: 'var(--text-secondary)' }}> → </span>
-                <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{deSunTimes.sunset}</span>
-              </div>
-            </div>
-            
-            {/* Local Weather — compact by default, click to expand */}
-            {localWeather.data && (() => {
-              const w = localWeather.data;
-              const deg = `°${w.tempUnit || tempUnit}`;
-              const wind = w.windUnit || 'mph';
-              const vis = w.visUnit || 'mi';
-              return (
-              <div style={{ marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
-                {/* Compact summary row — always visible */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <div 
-                    onClick={() => { const next = !weatherExpanded; setWeatherExpanded(next); try { localStorage.setItem('openhamclock_weatherExpanded', next.toString()); } catch {} }}
-                    style={{ 
-                      display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
-                      userSelect: 'none', flex: 1, minWidth: 0,
-                    }}
-                  >
-                    <span style={{ fontSize: '20px', lineHeight: 1 }}>{w.icon}</span>
-                    <span style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'Orbitron, monospace' }}>
-                      {w.temp}{deg}
-                    </span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.description}</span>
-                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
-                      💨{w.windSpeed}
-                    </span>
-                    <span style={{ 
-                      fontSize: '10px', color: 'var(--text-muted)', 
-                      transform: weatherExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-                      transition: 'transform 0.2s',
-                    }}>▼</span>
-                  </div>
-                  {/* F/C toggle */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const next = tempUnit === 'F' ? 'C' : 'F';
-                      setTempUnit(next);
-                      try { localStorage.setItem('openhamclock_tempUnit', next); } catch {}
-                    }}
-                    style={{
-                      background: 'var(--bg-tertiary)',
-                      border: '1px solid var(--border-color)',
-                      color: 'var(--text-secondary)',
-                      fontSize: '10px',
-                      padding: '1px 5px',
-                      borderRadius: '3px',
-                      cursor: 'pointer',
-                      fontFamily: 'JetBrains Mono, monospace',
-                      fontWeight: '600',
-                      flexShrink: 0,
-                    }}
-                    title={`Switch to °${tempUnit === 'F' ? 'C' : 'F'}`}
-                  >
-                    °{tempUnit === 'F' ? 'C' : 'F'}
-                  </button>
+        {leftSidebarVisible && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflowY: 'auto', overflowX: 'hidden' }}>
+            {/* DE Location + Weather */}
+            {config.panels?.deLocation?.visible !== false && (
+              <div className="panel" style={{ padding: '14px', flex: '0 0 auto' }}>
+              <div style={{ fontSize: '14px', color: 'var(--accent-cyan)', fontWeight: '700', marginBottom: '10px' }}>📍 DE - YOUR LOCATION</div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
+                <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>{deGrid}</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{config.location.lat.toFixed(4)}°, {config.location.lon.toFixed(4)}°</div>
+                <div style={{ marginTop: '8px', fontSize: '13px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
+                  <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{deSunTimes.sunrise}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}> → </span>
+                  <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{deSunTimes.sunset}</span>
                 </div>
-                
-                {/* Expanded details */}
-                {weatherExpanded && (
-                  <div style={{ marginTop: '10px' }}>
-                    {/* Feels like + hi/lo */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '8px', fontFamily: 'JetBrains Mono, monospace' }}>
-                      {w.feelsLike !== w.temp && (
-                        <span style={{ color: 'var(--text-muted)' }}>Feels like {w.feelsLike}{deg}</span>
-                      )}
-                      {w.todayHigh != null && (
-                        <span style={{ color: 'var(--text-muted)', marginLeft: 'auto' }}>
-                          <span style={{ color: 'var(--accent-amber)' }}>▲{w.todayHigh}°</span>
-                          {' '}
-                          <span style={{ color: 'var(--accent-blue)' }}>▼{w.todayLow}°</span>
-                        </span>
-                      )}
-                    </div>
-                    
-                    {/* Detail grid */}
-                    <div style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: '1fr 1fr', 
-                      gap: '6px 12px',
-                      fontSize: '11px',
-                      fontFamily: 'JetBrains Mono, monospace',
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>💨 Wind</span>
-                        <span style={{ color: 'var(--text-secondary)' }}>{w.windDir} {w.windSpeed} {wind}</span>
-                      </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>💧 Humidity</span>
-                        <span style={{ color: 'var(--text-secondary)' }}>{w.humidity}%</span>
-                      </div>
-                      {w.windGusts > w.windSpeed + 5 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>🌬️ Gusts</span>
-                          <span style={{ color: 'var(--text-secondary)' }}>{w.windGusts} {wind}</span>
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>🌡️ Dew Pt</span>
-                        <span style={{ color: 'var(--text-secondary)' }}>{w.dewPoint}{deg}</span>
-                      </div>
-                      {w.pressure && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>🔵 Pressure</span>
-                          <span style={{ color: 'var(--text-secondary)' }}>{w.pressure} hPa</span>
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ color: 'var(--text-muted)' }}>☁️ Clouds</span>
-                        <span style={{ color: 'var(--text-secondary)' }}>{w.cloudCover}%</span>
-                      </div>
-                      {w.visibility && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>👁️ Vis</span>
-                          <span style={{ color: 'var(--text-secondary)' }}>{w.visibility} {vis}</span>
-                        </div>
-                      )}
-                      {w.uvIndex > 0 && (
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                          <span style={{ color: 'var(--text-muted)' }}>☀️ UV</span>
-                          <span style={{ color: w.uvIndex >= 8 ? '#ef4444' : w.uvIndex >= 6 ? '#f97316' : w.uvIndex >= 3 ? '#eab308' : 'var(--text-secondary)' }}>
-                            {w.uvIndex.toFixed(1)}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                    
-                    {/* 3-Day Forecast */}
-                    {w.daily?.length > 0 && (
-                      <div style={{ 
-                        marginTop: '10px', 
-                        paddingTop: '8px', 
-                        borderTop: '1px solid var(--border-color)',
-                      }}>
-                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '600' }}>FORECAST</div>
-                        <div style={{ display: 'flex', gap: '4px' }}>
-                          {w.daily.map((day, i) => (
-                            <div key={i} style={{ 
-                              flex: 1, 
-                              textAlign: 'center', 
-                              padding: '6px 2px',
-                              background: 'var(--bg-tertiary)',
-                              borderRadius: '4px',
-                              fontSize: '10px',
-                            }}>
-                              <div style={{ color: 'var(--text-muted)', fontWeight: '600', marginBottom: '2px' }}>{i === 0 ? 'Today' : day.date}</div>
-                              <div style={{ fontSize: '16px', lineHeight: 1.2 }}>{day.icon}</div>
-                              <div style={{ fontFamily: 'JetBrains Mono, monospace', marginTop: '2px' }}>
-                                <span style={{ color: 'var(--accent-amber)' }}>{day.high}°</span>
-                                <span style={{ color: 'var(--text-muted)' }}>/</span>
-                                <span style={{ color: 'var(--accent-blue)' }}>{day.low}°</span>
-                              </div>
-                              {day.precipProb > 0 && (
-                                <div style={{ color: 'var(--accent-blue)', fontSize: '9px', marginTop: '1px' }}>
-                                  💧{day.precipProb}%
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
-              );
-            })()}
-          </div>
+              
+              {/* Local Weather — compact by default, click to expand */}
+              {localWeather.data && (() => {
+                const w = localWeather.data;
+                const deg = `°${w.tempUnit || tempUnit}`;
+                const wind = w.windUnit || 'mph';
+                const vis = w.visUnit || 'mi';
+                return (
+                <div style={{ marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+                  {/* Compact summary row — always visible */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div 
+                      onClick={() => { const next = !weatherExpanded; setWeatherExpanded(next); try { localStorage.setItem('openhamclock_weatherExpanded', next.toString()); } catch {} }}
+                      style={{ 
+                        display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer',
+                        userSelect: 'none', flex: 1, minWidth: 0,
+                      }}
+                    >
+                      <span style={{ fontSize: '20px', lineHeight: 1 }}>{w.icon}</span>
+                      <span style={{ fontSize: '18px', fontWeight: '700', color: 'var(--text-primary)', fontFamily: 'Orbitron, monospace' }}>
+                        {w.temp}{deg}
+                      </span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-secondary)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.description}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+                        💨{w.windSpeed}
+                      </span>
+                      <span style={{ 
+                        fontSize: '10px', color: 'var(--text-muted)', 
+                        transform: weatherExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                        transition: 'transform 0.2s',
+                      }}>▼</span>
+                    </div>
+                    {/* F/C toggle */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const next = tempUnit === 'F' ? 'C' : 'F';
+                        setTempUnit(next);
+                        try { localStorage.setItem('openhamclock_tempUnit', next); } catch {}
+                      }}
+                      style={{
+                        background: 'var(--bg-tertiary)',
+                        border: '1px solid var(--border-color)',
+                        color: 'var(--text-secondary)',
+                        fontSize: '10px',
+                        padding: '1px 5px',
+                        borderRadius: '3px',
+                        cursor: 'pointer',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontWeight: '600',
+                        flexShrink: 0,
+                      }}
+                      title={`Switch to °${tempUnit === 'F' ? 'C' : 'F'}`}
+                    >
+                      °{tempUnit === 'F' ? 'C' : 'F'}
+                    </button>
+                  </div>
+                  
+                  {/* Expanded details */}
+                  {weatherExpanded && (
+                    <div style={{ marginTop: '10px' }}>
+                      {/* Feels like + hi/lo */}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', marginBottom: '8px', fontFamily: 'JetBrains Mono, monospace' }}>
+                        {w.feelsLike !== w.temp && (
+                          <span style={{ color: 'var(--text-muted)' }}>Feels like {w.feelsLike}{deg}</span>
+                        )}
+                        {w.todayHigh != null && (
+                          <span style={{ color: 'var(--text-muted)', marginLeft: 'auto' }}>
+                            <span style={{ color: 'var(--accent-amber)' }}>▲{w.todayHigh}°</span>
+                            {' '}
+                            <span style={{ color: 'var(--accent-blue)' }}>▼{w.todayLow}°</span>
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Detail grid */}
+                      <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: '1fr 1fr', 
+                        gap: '6px 12px',
+                        fontSize: '11px',
+                        fontFamily: 'JetBrains Mono, monospace',
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>💨 Wind</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{w.windDir} {w.windSpeed} {wind}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>💧 Humidity</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{w.humidity}%</span>
+                        </div>
+                        {w.windGusts > w.windSpeed + 5 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>🌬️ Gusts</span>
+                            <span style={{ color: 'var(--text-secondary)' }}>{w.windGusts} {wind}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>🌡️ Dew Pt</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{w.dewPoint}{deg}</span>
+                        </div>
+                        {w.pressure && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>🔵 Pressure</span>
+                            <span style={{ color: 'var(--text-secondary)' }}>{w.pressure} hPa</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ color: 'var(--text-muted)' }}>☁️ Clouds</span>
+                          <span style={{ color: 'var(--text-secondary)' }}>{w.cloudCover}%</span>
+                        </div>
+                        {w.visibility && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>👁️ Vis</span>
+                            <span style={{ color: 'var(--text-secondary)' }}>{w.visibility} {vis}</span>
+                          </div>
+                        )}
+                        {w.uvIndex > 0 && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-muted)' }}>☀️ UV</span>
+                            <span style={{ color: w.uvIndex >= 8 ? '#ef4444' : w.uvIndex >= 6 ? '#f97316' : w.uvIndex >= 3 ? '#eab308' : 'var(--text-secondary)' }}>
+                              {w.uvIndex.toFixed(1)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* 3-Day Forecast */}
+                      {w.daily?.length > 0 && (
+                        <div style={{ 
+                          marginTop: '10px', 
+                          paddingTop: '8px', 
+                          borderTop: '1px solid var(--border-color)',
+                        }}>
+                          <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '6px', fontWeight: '600' }}>FORECAST</div>
+                          <div style={{ display: 'flex', gap: '4px' }}>
+                            {w.daily.map((day, i) => (
+                              <div key={i} style={{ 
+                                flex: 1, 
+                                textAlign: 'center', 
+                                padding: '6px 2px',
+                                background: 'var(--bg-tertiary)',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                              }}>
+                                <div style={{ color: 'var(--text-muted)', fontWeight: '600', marginBottom: '2px' }}>{i === 0 ? 'Today' : day.date}</div>
+                                <div style={{ fontSize: '16px', lineHeight: 1.2 }}>{day.icon}</div>
+                                <div style={{ fontFamily: 'JetBrains Mono, monospace', marginTop: '2px' }}>
+                                  <span style={{ color: 'var(--accent-amber)' }}>{day.high}°</span>
+                                  <span style={{ color: 'var(--text-muted)' }}>/</span>
+                                  <span style={{ color: 'var(--accent-blue)' }}>{day.low}°</span>
+                                </div>
+                                {day.precipProb > 0 && (
+                                  <div style={{ color: 'var(--accent-blue)', fontSize: '9px', marginTop: '1px' }}>
+                                    💧{day.precipProb}%
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                );
+              })()}
+            </div>
+          )}
           
           {/* DX Location */}
-          <div className="panel" style={{ padding: '14px', flex: '0 0 auto' }}>
-            <div style={{ fontSize: '14px', color: 'var(--accent-green)', fontWeight: '700', marginBottom: '10px' }}>🎯 DX - TARGET</div>
-            <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
-              <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>{dxGrid}</div>
-              <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°</div>
-              <div style={{ marginTop: '8px', fontSize: '13px' }}>
-                <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-                <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{dxSunTimes.sunrise}</span>
-                <span style={{ color: 'var(--text-secondary)' }}> → </span>
-                <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
+          {config.panels?.dxLocation?.visible !== false && (
+            <div className="panel" style={{ padding: '14px', flex: '0 0 auto' }}>
+              <div style={{ fontSize: '14px', color: 'var(--accent-green)', fontWeight: '700', marginBottom: '10px' }}>🎯 DX - TARGET</div>
+              <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
+                <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>{dxGrid}</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°</div>
+                <div style={{ marginTop: '8px', fontSize: '13px' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
+                  <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{dxSunTimes.sunrise}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}> → </span>
+                  <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
           
           {/* Solar Panel */}
-          <SolarPanel solarIndices={solarIndices} />
+          {config.panels?.solar?.visible !== false && (
+            <SolarPanel solarIndices={solarIndices} />
+          )}
           
           {/* VOACAP/Propagation Panel */}
-          <PropagationPanel 
-            propagation={propagation.data} 
-            loading={propagation.loading} 
-            bandConditions={bandConditions} 
-          />
+          {config.panels?.propagation?.visible !== false && (
+            <PropagationPanel 
+              propagation={propagation.data} 
+              loading={propagation.loading} 
+              bandConditions={bandConditions} 
+            />
+          )}
         </div>
+        )}
         
         {/* CENTER - MAP */}
-        <div style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden' }}>
+        <div style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', width: '100%', height: '100%', minWidth: 0 }}>
           <WorldMap
             deLocation={config.location}
             dxLocation={dxLocation}
@@ -852,71 +889,83 @@ const App = () => {
         </div>
         
         {/* RIGHT SIDEBAR */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
-          {/* DX Cluster - primary panel, takes most space */}
-          <div style={{ flex: '2 1 auto', minHeight: '180px', overflow: 'hidden' }}>
-            <DXClusterPanel
-              data={dxCluster.data}
-              loading={dxCluster.loading}
-              totalSpots={dxCluster.totalSpots}
-              filters={dxFilters}
-              onFilterChange={setDxFilters}
-              onOpenFilters={() => setShowDXFilters(true)}
-              onHoverSpot={setHoveredSpot}
-              hoveredSpot={hoveredSpot}
-              showOnMap={mapLayers.showDXPaths}
-              onToggleMap={toggleDXPaths}
-            />
+        {rightSidebarVisible && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
+            {/* DX Cluster - primary panel, takes most space */}
+            {config.panels?.dxCluster?.visible !== false && (
+              <div style={{ flex: `${config.panels.dxCluster.size || 2} 1 auto`, minHeight: '180px', overflow: 'hidden' }}>
+                <DXClusterPanel
+                data={dxCluster.data}
+                loading={dxCluster.loading}
+                totalSpots={dxCluster.totalSpots}
+                filters={dxFilters}
+                onFilterChange={setDxFilters}
+                onOpenFilters={() => setShowDXFilters(true)}
+                onHoverSpot={setHoveredSpot}
+                hoveredSpot={hoveredSpot}
+                showOnMap={mapLayers.showDXPaths}
+                onToggleMap={toggleDXPaths}
+              />
+            </div>
+            )}
+            
+            {/* PSKReporter + WSJT-X - digital mode spots */}
+            {config.panels?.pskReporter?.visible !== false && (
+              <div style={{ flex: `${config.panels.pskReporter.size || 1} 1 auto`, minHeight: '140px', overflow: 'hidden' }}>
+                <PSKReporterPanel 
+                callsign={config.callsign}
+                showOnMap={mapLayers.showPSKReporter}
+                onToggleMap={togglePSKReporter}
+                filters={pskFilters}
+                onOpenFilters={() => setShowPSKFilters(true)}
+                onShowOnMap={(report) => {
+                  if (report.lat && report.lon) {
+                    setDxLocation({ lat: report.lat, lon: report.lon, call: report.receiver || report.sender });
+                  }
+                }}
+                wsjtxDecodes={wsjtx.decodes}
+                wsjtxClients={wsjtx.clients}
+                wsjtxQsos={wsjtx.qsos}
+                wsjtxStats={wsjtx.stats}
+                wsjtxLoading={wsjtx.loading}
+                wsjtxEnabled={wsjtx.enabled}
+                wsjtxPort={wsjtx.port}
+                wsjtxRelayEnabled={wsjtx.relayEnabled}
+                wsjtxRelayConnected={wsjtx.relayConnected}
+                wsjtxSessionId={wsjtx.sessionId}
+                showWSJTXOnMap={mapLayers.showWSJTX}
+                onToggleWSJTXMap={toggleWSJTX}
+              />
+            </div>
+            )}
+            
+            {/* DXpeditions */}
+            {config.panels?.dxpeditions?.visible !== false && (
+              <div style={{ flex: `${config.panels.dxpeditions?.size || 1} 0 auto`, minHeight: '70px', maxHeight: '100px', overflow: 'hidden' }}>
+                <DXpeditionPanel data={dxpeditions.data} loading={dxpeditions.loading} />
+              </div>
+            )}
+            
+            {/* POTA */}
+            {config.panels?.pota?.visible !== false && (
+              <div style={{ flex: `${config.panels.pota?.size || 1} 0 auto`, minHeight: '60px', maxHeight: '90px', overflow: 'hidden' }}>
+                <POTAPanel 
+                data={potaSpots.data} 
+                loading={potaSpots.loading} 
+                showOnMap={mapLayers.showPOTA}
+                onToggleMap={togglePOTA}
+              />
+            </div>
+            )}
+            
+            {/* Contests - at bottom, compact */}
+            {config.panels?.contests?.visible !== false && (
+              <div style={{ flex: `${config.panels.contests?.size || 1} 0 auto`, minHeight: '80px', maxHeight: '120px', overflow: 'hidden' }}>
+                <ContestPanel data={contests.data} loading={contests.loading} />
+              </div>
+            )}
           </div>
-          
-          {/* PSKReporter + WSJT-X - digital mode spots */}
-          <div style={{ flex: '1 1 auto', minHeight: '140px', overflow: 'hidden' }}>
-            <PSKReporterPanel 
-              callsign={config.callsign}
-              showOnMap={mapLayers.showPSKReporter}
-              onToggleMap={togglePSKReporter}
-              filters={pskFilters}
-              onOpenFilters={() => setShowPSKFilters(true)}
-              onShowOnMap={(report) => {
-                if (report.lat && report.lon) {
-                  setDxLocation({ lat: report.lat, lon: report.lon, call: report.receiver || report.sender });
-                }
-              }}
-              wsjtxDecodes={wsjtx.decodes}
-              wsjtxClients={wsjtx.clients}
-              wsjtxQsos={wsjtx.qsos}
-              wsjtxStats={wsjtx.stats}
-              wsjtxLoading={wsjtx.loading}
-              wsjtxEnabled={wsjtx.enabled}
-              wsjtxPort={wsjtx.port}
-              wsjtxRelayEnabled={wsjtx.relayEnabled}
-              wsjtxRelayConnected={wsjtx.relayConnected}
-              wsjtxSessionId={wsjtx.sessionId}
-              showWSJTXOnMap={mapLayers.showWSJTX}
-              onToggleWSJTXMap={toggleWSJTX}
-            />
-          </div>
-          
-          {/* DXpeditions */}
-          <div style={{ flex: '0 0 auto', minHeight: '70px', maxHeight: '100px', overflow: 'hidden' }}>
-            <DXpeditionPanel data={dxpeditions.data} loading={dxpeditions.loading} />
-          </div>
-          
-          {/* POTA */}
-          <div style={{ flex: '0 0 auto', minHeight: '60px', maxHeight: '90px', overflow: 'hidden' }}>
-            <POTAPanel 
-              data={potaSpots.data} 
-              loading={potaSpots.loading} 
-              showOnMap={mapLayers.showPOTA}
-              onToggleMap={togglePOTA}
-            />
-          </div>
-          
-          {/* Contests - at bottom, compact */}
-          <div style={{ flex: '0 0 auto', minHeight: '80px', maxHeight: '120px', overflow: 'hidden' }}>
-            <ContestPanel data={contests.data} loading={contests.loading} />
-          </div>
-        </div>
+        )}
       </div>
       )}
       
