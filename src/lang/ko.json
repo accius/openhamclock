@@ -11,6 +11,7 @@
   "station.settings.language.nl": "Nederlands",
   "station.settings.language.ko": "한국어",
   "station.settings.language.sl": "Slovenščina",
+  "station.settings.language.cs": "Čeština",
   "station.settings.altitude": "고도 (m)",
   "station.settings.antenna": "안테나",
   "station.settings.button.save": "설정 저장하기",

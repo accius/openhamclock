@@ -12,6 +12,7 @@ import translationIT from './it.json';
 import translationNL from './nl.json';
 import translationKO from './ko.json';
 import translationSL from './sl.json';
+import translationCS from './cs.json';
 
 export const LANGUAGES = [
   { code: 'en', name: 'English', flag: '🇬🇧' },
@@ -24,6 +25,7 @@ export const LANGUAGES = [
   { code: 'ko', name: '한국어', flag: '🇰🇷' },
   { code: 'it', name: 'Italiano', flag: '🇮🇹' },
   { code: 'sl', name: 'Slovenščina', flag: '🇸🇮' }
+  { code: 'cs', name: 'Čeština', flag: '🇨🇿' }
 ];
 
 export const resources = {
@@ -36,7 +38,8 @@ export const resources = {
   ja: { translation: translationJA },
   ko: { translation: translationKO },
   it: { translation: translationIT },
-  sl: { translation: translationSL }
+  sl: { translation: translationSL },
+  cs: { translation: translationCS }
 };
 
 i18n
