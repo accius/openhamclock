@@ -232,7 +232,7 @@ function addMinimizeToggle(element, storageKey) {
   });
 }
 
-export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemoryMode = false }) {
+export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemoryMode = false, units = 'metric' }) {
   const [strikeMarkers, setStrikeMarkers] = useState([]);
   const [lightningData, setLightningData] = useState([]);
   const [statsControl, setStatsControl] = useState(null);
@@ -769,7 +769,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
     const nearbyNewStrikes = lightningData.filter(strike => {
       if (strike.timestamp < ONE_MINUTE_AGO) return false;
       
-      const distance = calculateDistance(stationLat, stationLon, strike.lat, strike.lon, 'km');
+      const distance = calculateDistance(stationLat, stationLon, strike.lat, strike.lon, units === 'imperial' ? 'mi' : 'km');
       return distance <= ALERT_RADIUS_KM;
     });
     
@@ -863,7 +863,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
           max-width: 280px;
         `;
         div.innerHTML = `
-          <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px;">📍 Nearby Strikes (30km)</div>
+          <div style="font-weight: bold; font-size: 14px; margin-bottom: 8px;">📍 Nearby Strikes (${units === 'imperial' ? '19mi' : '30km'})</div>
           <div style="opacity: 0.7; font-size: 10px;">No recent strikes</div>
         `;
         
@@ -975,10 +975,10 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
     const PROXIMITY_RADIUS_KM = 30;
     const now = Date.now();
 
-    // Find all strikes within 30km
+    // Find all strikes within 30km/19mi
     const nearbyStrikes = lightningData
       .map(strike => {
-        const distance = calculateDistance(stationLat, stationLon, strike.lat, strike.lon, 'km');
+        const distance = calculateDistance(stationLat, stationLon, strike.lat, strike.lon, units === 'imperial' ? 'mi' : 'km');
         return { ...strike, distance };
       })
       .filter(strike => strike.distance <= PROXIMITY_RADIUS_KM)
@@ -989,7 +989,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
     if (nearbyStrikes.length === 0) {
       contentHTML = `
         <div style="opacity: 0.7; font-size: 10px; text-align: center; padding: 10px 0;">
-          ✅ No strikes within 30km<br>
+          ✅ No strikes within ${units === 'imperial' ? '19mi' : '30km'}<br>
           <span style="font-size: 9px; color: var(--text-muted);">All clear</span>
         </div>
       `;
@@ -1005,7 +1005,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
             ⚡ ${nearbyStrikes.length} strike${nearbyStrikes.length > 1 ? 's' : ''} detected
           </div>
           <div style="font-size: 10px;">
-            <strong>Closest:</strong> ${closestStrike.distance.toFixed(1)} km<br>
+            <strong>Closest:</strong> ${closestStrike.distance.toFixed(1)} ${units === 'imperial' ? 'mi' : 'km'}<br>
             <strong>Time:</strong> ${ageStr}<br>
             <strong>Polarity:</strong> ${closestStrike.polarity === 'positive' ? '+' : '-'} ${Math.round(closestStrike.intensity)} kA
           </div>
@@ -1018,7 +1018,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
               const timeStr = age < 60 ? `${age}s` : `${Math.floor(age / 60)}m`;
               return `
                 <div style="padding: 2px 0; border-bottom: 1px dotted var(--border-color);">
-                  ${idx + 1}. ${strike.distance.toFixed(1)} km • ${timeStr} • ${strike.polarity === 'positive' ? '+' : '-'}${Math.round(strike.intensity)} kA
+                  ${idx + 1}. ${strike.distance.toFixed(1)} ${units === 'imperial' ? 'mi' : 'km'} • ${timeStr} • ${strike.polarity === 'positive' ? '+' : '-'}${Math.round(strike.intensity)} kA
                 </div>
               `;
             }).join('')}

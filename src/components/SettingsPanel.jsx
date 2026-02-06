@@ -15,10 +15,12 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   const [lon, setLon] = useState(config?.location?.lon || 0);
   const [theme, setTheme] = useState(config?.theme || 'dark');
   const [layout, setLayout] = useState(config?.layout || 'modern');
+  const [units, setUnits] = useState(config?.units || 'metric');
   const [timezone, setTimezone] = useState(config?.timezone || '');
   const [dxClusterSource, setDxClusterSource] = useState(config?.dxClusterSource || 'dxspider-proxy');
   const [customDxCluster, setCustomDxCluster] = useState(config?.customDxCluster || { enabled: false, host: '', port: 7300 });
   const [lowMemoryMode, setLowMemoryMode] = useState(config?.lowMemoryMode || false);
+  const [satelliteSearch, setSatelliteSearch] = useState('');
   const { t, i18n } = useTranslation();
 
   // Layer controls
@@ -33,6 +35,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       setLon(config.location?.lon || 0);
       setTheme(config.theme || 'dark');
       setLayout(config.layout || 'modern');
+      setUnits(config.units || 'metric');
       setTimezone(config.timezone || '');
       setDxClusterSource(config.dxClusterSource || 'dxspider-proxy');
       setCustomDxCluster(config.customDxCluster || { enabled: false, host: '', port: 7300 });
@@ -157,6 +160,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       location: { lat: parseFloat(lat), lon: parseFloat(lon) },
       theme,
       layout,
+      units,
       timezone,
       dxClusterSource,
       customDxCluster,
@@ -478,6 +482,37 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
                 {themeDescriptions[theme]}
+              </div>
+            </div>
+
+            {/* Units */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                Units
+              </label>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                {['imperial', 'metric'].map((u) => (
+                  <button
+                    key={u}
+                    onClick={() => setUnits(u)}
+                    style={{
+                      padding: '12px',
+                      background: units === u ? 'var(--accent-cyan)' : 'var(--bg-tertiary)',
+                      border: `1px solid ${units === u ? 'var(--accent-cyan)' : 'var(--border-color)'}`,
+                      borderRadius: '6px',
+                      color: units === u ? '#000' : 'var(--text-secondary)',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      fontWeight: units === u ? '700' : '400',
+                      textTransform: 'capitalize'
+                    }}
+                  >
+                    {u === 'imperial' ? '🇺🇸' : '🌍'} {u}
+                  </button>
+                ))}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                {units === 'imperial' ? '°F, miles (mi)' : '°C, kilometers (km)'}
               </div>
             </div>
 
@@ -979,6 +1014,47 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 : `${satelliteFilters.length} satellite(s) selected`}
             </div>
             
+            {/* Search Box */}
+            <div style={{
+              position: 'relative',
+              marginBottom: '12px'
+            }}>
+              <input
+                type="text"
+                value={satelliteSearch}
+                onChange={(e) => setSatelliteSearch(e.target.value)}
+                placeholder="🔍 Search satellites..."
+                style={{
+                  width: '100%',
+                  padding: '8px 32px 8px 12px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--text-primary)',
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: '12px',
+                  outline: 'none'
+                }}
+              />
+              {satelliteSearch && (
+                <button
+                  onClick={() => setSatelliteSearch('')}
+                  style={{
+                    position: 'absolute',
+                    right: '8px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#ff6666',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    padding: '4px 8px'
+                  }}
+                >×</button>
+              )}
+            </div>
+            
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
@@ -986,7 +1062,12 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               maxHeight: '400px',
               overflowY: 'auto'
             }}>
-              {(satellites || []).map(sat => {
+              {(satellites || [])
+                .filter(sat => 
+                  !satelliteSearch || 
+                  sat.name.toLowerCase().includes(satelliteSearch.toLowerCase())
+                )
+                .map(sat => {
                 const isSelected = satelliteFilters.includes(sat.name);
                 return (
                   <button
@@ -1035,15 +1116,6 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                         overflow: 'hidden',
                         textOverflow: 'ellipsis'
                       }}>{sat.name}</div>
-                      {sat.visible !== undefined && (
-                        <div style={{
-                          fontSize: '9px',
-                          color: sat.visible ? '#00ff88' : 'var(--text-muted)',
-                          marginTop: '2px'
-                        }}>
-                          {sat.visible ? '● Visible' : '○ Below horizon'}
-                        </div>
-                      )}
                     </div>
                   </button>
                 );

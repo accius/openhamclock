@@ -3669,15 +3669,37 @@ app.get('/api/satellites/tle', async (req, res) => {
           // Extract NORAD ID from line 1
           const noradId = parseInt(line1.substring(2, 7));
           
-          // Check if this is a satellite we care about
+          // First check if this is a satellite we have metadata for
+          let satInfo = null;
+          let satKey = null;
           for (const [key, sat] of Object.entries(HAM_SATELLITES)) {
             if (sat.norad === noradId) {
-              tleData[key] = {
-                ...sat,
-                tle1: line1,
-                tle2: line2
-              };
+              satKey = key;
+              satInfo = sat;
+              break;
             }
+          }
+          
+          // If found in our list, use our metadata
+          if (satInfo) {
+            tleData[satKey] = {
+              ...satInfo,
+              tle1: line1,
+              tle2: line2
+            };
+          } else {
+            // Otherwise include ALL amateur satellites with basic info
+            // Use the name from TLE as the key (sanitized)
+            const cleanName = name.replace(/[^A-Z0-9\-]/g, '_').substring(0, 30);
+            tleData[cleanName] = {
+              norad: noradId,
+              name: name,
+              color: '#6699ff', // Default blue color
+              priority: 4,
+              mode: 'Amateur',
+              tle1: line1,
+              tle2: line2
+            };
           }
         }
       }
