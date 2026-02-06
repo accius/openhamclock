@@ -786,6 +786,27 @@ The original HamClock uses `-55`, so there's no conflict between OpenHamClock an
 
 **Deploying your own proxy:** The proxy is typically deployed separately (e.g., on Railway) and connected to the main app via the `DXSPIDER_PROXY_URL` environment variable. A default shared proxy is provided out of the box, so most users don't need to run their own.
 
+**Configuration (recommended):** Create `dxspider-proxy/config.json` to customize the proxy without editing `server.js`.
+
+Example:
+```json
+{
+  "callsign": "OPENHAMCLOCK-56",
+  "port": 3001,
+  "logLevel": "info",
+  "nodes": [
+    { "host": "dxspider.co.uk", "port": 7300, "name": "DX Spider UK (G6NHU)" },
+    { "host": "dxc.nc7j.com", "port": 7373, "name": "NC7J" },
+    { "host": "dxc.ai9t.com", "port": 7373, "name": "AI9T" },
+    { "host": "dxc.w6cua.org", "port": 7300, "name": "W6CUA" }
+  ]
+}
+```
+
+Notes:
+- You can override any value via env vars (`CALLSIGN`, `PORT`, `LOG_LEVEL`).
+- Use `DXSPIDER_PROXY_CONFIG` to point to a custom config path.
+
 ---
 
 ## WSJT-X Relay Agent
