@@ -706,10 +706,30 @@ The Pi setup script installs Node.js 20, clones the repository, builds the front
 
 ### Docker
 
-**Docker Compose (recommended):**
+**Pulling from DockerHub (recommended):**
+
+```bash
+docker pull accius/openhamclock:latest
+```
+
+**Run with Docker Compose:**
 
 ```bash
 docker-compose up -d
+```
+
+**Run with Docker CLI:**
+
+```bash
+docker run -d \
+  --name openhamclock \
+  -p 3000:3000 \
+  -p 2237:2237/udp \
+  -e CALLSIGN=K0CJH \
+  -e LOCATOR=EN10 \
+  -e HOST=0.0.0.0 \
+  -e TZ=America/New_York \
+  accius/openhamclock:latest
 ```
 
 **Manual Docker build:**
@@ -719,18 +739,43 @@ docker build -t openhamclock .
 docker run -d -p 3000:3000 -p 2237:2237/udp --name openhamclock openhamclock
 ```
 
+**Docker Configuration:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| **Ports** | `3000`, `2237/udp` | Port 3000 for web UI, port 2237/udp for WSJT-X (optional) |
+| **Healthcheck** | `/api/health` | Automatic health check every 30 seconds |
+
+**Required Environment Variables:**
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `CALLSIGN` | Your amateur radio callsign | `K0CJH` |
+| `LOCATOR` | Maidenhead grid square (4 or 6 chars) | `EN10` |
+| `HOST` | Bind address (`0.0.0.0` for external access) | `0.0.0.0` |
+
+**Optional Environment Variables:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | HTTP server port | `3000` |
+| `NODE_ENV` | Runtime environment | `production` |
+| `TZ` | IANA timezone (e.g., `America/New_York`) | *(browser)* |
+| `WSJTX_RELAY_KEY` | Secret key for WSJT-X relay (cloud deployments) | *(none)* |
+| `LOG_LEVEL` | `debug`, `info`, `warn`, `error` | `warn` |
+| `THEME` | `dark`, `light`, `legacy`, `retro` | `dark` |
+| `LAYOUT` | `modern`, `classic` | `modern` |
+| `UNITS` | `imperial` or `metric` | `imperial` |
+| `OPENWEATHER_API_KEY` | Optional OpenWeatherMap API key | *(none)* |
+| `ITURHFPROP_URL` | Optional ITURHFProp microservice URL | *(none)* |
+| `SHOW_POTA` | Show POTA markers on map | `true` |
+| `SHOW_SATELLITES` | Show satellite tracks | `true` |
+| `SHOW_DX_PATHS` | Show DX signal paths | `true` |
+| `WSJTX_ENABLED` | Enable WSJT-X UDP listener | `true` |
+| `WSJTX_UDP_PORT` | WSJT-X UDP port | `2237` |
+| `SPOT_RETENTION_MINUTES` | DX spot retention (5-30) | `30` |
+
 The Dockerfile uses a multi-stage build: Stage 1 compiles the React frontend with Vite, Stage 2 creates a minimal production image with only the server and built assets. The UDP port mapping (`-p 2237:2237/udp`) is only needed if you use WSJT-X integration.
-
-**Environment variables:** Pass your configuration via Docker environment variables:
-
-```bash
-docker run -d \
-  -p 3000:3000 \
-  -e CALLSIGN=K0CJH \
-  -e LOCATOR=EN10 \
-  -e HOST=0.0.0.0 \
-  openhamclock
-```
 
 ### Railway (Cloud)
 
