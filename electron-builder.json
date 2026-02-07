@@ -1,0 +1,19 @@
+{
+  "appId": "com.openhamclock.app",
+  "directories": {
+    "output": "dist-electron"
+  },
+  "files": ["dist/**/*", "electron/**/*"],
+  "win": {
+    "signAndEditExecutable": false,
+    "forceCodeSigning": false
+  },
+  "mac": {
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false
+  },
+  "linux": {
+    "target": ["AppImage", "deb"],
+    "category": "Utility"
+  }
+}

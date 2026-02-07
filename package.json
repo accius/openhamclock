@@ -2,14 +2,16 @@
   "name": "openhamclock",
   "version": "3.14.26",
   "description": "Amateur Radio Dashboard - A modern web-based HamClock alternative",
-  "main": "server.js",
+  "main": "electron/main.js",
   "scripts": {
-    "dev": "vite",
     "build": "vite build",
+    "dev": "vite",
+    "electron": "electron .",
+    "electron-builder": "electron-builder",
     "preview": "vite preview",
     "prestart": "npm run build",
-    "start": "node server.js",
     "server": "node server.js",
+    "start": "node server.js",
     "test": "echo \"Tests passing\" && exit 0"
   },
   "dependencies": {
@@ -30,6 +32,8 @@
   "devDependencies": {
     "@playwright/test": "^1.58.1",
     "@vitejs/plugin-react": "^4.2.1",
+    "electron": "^40.2.1",
+    "electron-builder": "^26.7.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "vite": "^5.0.10"
