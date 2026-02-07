@@ -28,6 +28,10 @@ import {
 import DockableApp from './DockableApp.jsx';
 import { resetLayout } from './store/layoutStore.js';
 
+// Shared render components
+import DELocationPanel from './renders/renderDELocation.jsx';
+import DXLocationPanel from './renders/renderDXLocation.jsx';
+
 // Hooks
 import {
   useSpaceWeather,
@@ -1436,122 +1440,30 @@ const App = () => {
             {/* DE Location + Weather */}
             {config.panels?.deLocation?.visible !== false && (
               <div className="panel" style={{ padding: '14px', flex: '0 0 auto' }}>
-              <div style={{ fontSize: '14px', color: 'var(--accent-cyan)', fontWeight: '700', marginBottom: '10px' }}>
-                {t('app.dxLocation.deTitle')}
+                <DELocationPanel
+                  location={config.location}
+                  grid={deGrid}
+                  sunTimes={deSunTimes}
+                  tempUnit={tempUnit}
+                  onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch {} }}
+                />
               </div>
-              <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
-                <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>{deGrid}</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{config.location.lat.toFixed(4)}°, {config.location.lon.toFixed(4)}°</div>
-                <div style={{ marginTop: '8px', fontSize: '13px' }}>
-                  <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-                  <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{deSunTimes.sunrise}</span>
-                  <span style={{ color: 'var(--text-secondary)' }}> → </span>
-                  <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{deSunTimes.sunset}</span>
-                </div>
-              </div>
-              
-              <WeatherPanel
-                location={config.location}
-                tempUnit={tempUnit}
-                onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch {} }}
-              />
-            </div>
           )}
           
           {/* DX Location */}
           {config.panels?.dxLocation?.visible !== false && (
             <div className="panel" style={{ padding: '14px', flex: '0 0 auto' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <div style={{ fontSize: '14px', color: 'var(--accent-green)', fontWeight: '700' }}>
-                  {t('app.dxLocation.dxTitle')}
-                </div>
-                <button
-                  onClick={handleToggleDxLock}
-                  title={dxLocked ? t('app.dxLock.unlockTooltip') : t('app.dxLock.lockTooltip')}
-                  style={{
-                    background: dxLocked ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
-                    color: dxLocked ? '#000' : 'var(--text-secondary)',
-                    border: '1px solid ' + (dxLocked ? 'var(--accent-amber)' : 'var(--border-color)'),
-                    borderRadius: '4px',
-                    padding: '2px 6px',
-                    fontSize: '10px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  {dxLocked ? '🔒' : '🔓'}
-                </button>
-              </div>
-              <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>{dxGrid}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°</div>
-                  <div style={{ marginTop: '8px', fontSize: '13px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-                    <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{dxSunTimes.sunrise}</span>
-                    <span style={{ color: 'var(--text-secondary)' }}> → </span>
-                    <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
-                  </div>
-                </div>
-                <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '12px', marginLeft: '12px', minWidth: '90px' }}>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '11px', marginBottom: '4px' }}>{t('app.dxLocation.beamDir')}</div>
-                  <div style={{ fontSize: '13px', marginBottom: '3px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>{t('app.dxLocation.sp')} </span>
-                    <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{(() => {
-                      const deLat = config.location.lat * Math.PI / 180;
-                      const deLon = config.location.lon * Math.PI / 180;
-                      const dxLat = dxLocation.lat * Math.PI / 180;
-                      const dxLon = dxLocation.lon * Math.PI / 180;
-                      const dLon = dxLon - deLon;
-                      const y = Math.sin(dLon) * Math.cos(dxLat);
-                      const x = Math.cos(deLat) * Math.sin(dxLat) - Math.sin(deLat) * Math.cos(dxLat) * Math.cos(dLon);
-                      let sp = Math.atan2(y, x) * 180 / Math.PI;
-                      sp = (sp + 360) % 360;
-                      return Math.round(sp);
-                    })()}°</span>
-                  </div>
-                  <div style={{ fontSize: '13px', marginBottom: '6px' }}>
-                    <span style={{ color: 'var(--text-secondary)' }}>{t('app.dxLocation.lp')} </span>
-                    <span style={{ color: 'var(--accent-purple)', fontWeight: '700' }}>{(() => {
-                      const deLat = config.location.lat * Math.PI / 180;
-                      const deLon = config.location.lon * Math.PI / 180;
-                      const dxLat = dxLocation.lat * Math.PI / 180;
-                      const dxLon = dxLocation.lon * Math.PI / 180;
-                      const dLon = dxLon - deLon;
-                      const y = Math.sin(dLon) * Math.cos(dxLat);
-                      const x = Math.cos(deLat) * Math.sin(dxLat) - Math.sin(deLat) * Math.cos(dxLat) * Math.cos(dLon);
-                      let sp = Math.atan2(y, x) * 180 / Math.PI;
-                      sp = (sp + 360) % 360;
-                      let lp = (sp + 180) % 360;
-                      return Math.round(lp);
-                    })()}°</span>
-                  </div>
-                  <div style={{ fontSize: '13px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
-                    <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{(() => {
-                      // Haversine distance formula
-                      const R = 6371; // Earth radius in km
-                      const deLat = config.location.lat * Math.PI / 180;
-                      const deLon = config.location.lon * Math.PI / 180;
-                      const dxLat = dxLocation.lat * Math.PI / 180;
-                      const dxLon = dxLocation.lon * Math.PI / 180;
-                      const dLat = dxLat - deLat;
-                      const dLon = dxLon - deLon;
-                      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                                Math.cos(deLat) * Math.cos(dxLat) *
-                                Math.sin(dLon/2) * Math.sin(dLon/2);
-                      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                      const km = R * c;
-                      return `📏 ${Math.round(km).toLocaleString()} km`;
-                    })()}</span>
-                  </div>
-                </div>
-              </div>
-              {showDxWeather && (
-                <WeatherPanel
-                  location={dxLocation}
-                  tempUnit={tempUnit}
-                  onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch {} }}
-                />
-              )}
+              <DXLocationPanel
+                deLocation={config.location}
+                dxLocation={dxLocation}
+                grid={dxGrid}
+                sunTimes={dxSunTimes}
+                dxLocked={dxLocked}
+                onToggleDxLock={handleToggleDxLock}
+                showWeather={showDxWeather}
+                tempUnit={tempUnit}
+                onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch {} }}
+              />
             </div>
           )}
 
