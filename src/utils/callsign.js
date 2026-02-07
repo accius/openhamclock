@@ -301,7 +301,7 @@ export const applyDXFilters = (item, filters) => {
 
   // DX (spot) ITU Zone 'exclude' filter
   if (filters.excludeItuZones?.length > 0) {
-    if (dxInfo.ituZone && !filters.excludeItuZones.includes(dxInfo.ituZone)) {
+    if (dxInfo.ituZone && filters.excludeItuZones.includes(dxInfo.ituZone)) {
       return false;
     }
   }
