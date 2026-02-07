@@ -10,6 +10,8 @@
     "prestart": "npm run build",
     "start": "node server.js",
     "server": "node server.js",
+    "storybook": "storybook dev -p 6006 --initial-path=/story/overview-home--home",
+    "build-storybook": "storybook build",
     "test": "echo \"Tests passing\" && exit 0"
   },
   "dependencies": {
@@ -29,7 +31,10 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.1",
+    "@storybook/addon-essentials": "8.6.15",
+    "@storybook/react-vite": "8.6.15",
     "@vitejs/plugin-react": "^4.2.1",
+    "storybook": "8.6.15",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "vite": "^5.0.10"
