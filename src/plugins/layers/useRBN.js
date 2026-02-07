@@ -704,7 +704,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
 
       div.innerHTML = `
         <div style="margin-bottom: 8px;">
-          <b>📡 RBN: ${callsign}</b>
+          <b>📡 RBN: <span id="rbn-callsign-display">${callsign}</span></b>
         </div>
         <div id="rbn-stats-display" style="margin-bottom: 8px; color: var(--text-secondary);">
           Spots: <b>0</b> | Skimmers: <b>0</b><br>
@@ -835,6 +835,22 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       }
     };
   }, [map, enabled, callsign]); // Only recreate when map, enabled, or callsign changes
+
+  // Separate effect to update callsign display when it changes
+  useEffect(() => {
+    if (!enabled || !controlRef.current) return;
+    
+    const container = controlRef.current.getContainer();
+    if (!container) return;
+    
+    // Find callsign display element (before or after minimize toggle wraps content)
+    const callsignDisplay = container.querySelector('#rbn-callsign-display') || 
+                           container.querySelector('.rbn-panel-content #rbn-callsign-display');
+    
+    if (callsignDisplay) {
+      callsignDisplay.textContent = callsign || 'N0CALL';
+    }
+  }, [enabled, callsign]);
 
   // Separate effect to update stats display without recreating the entire control
   useEffect(() => {
