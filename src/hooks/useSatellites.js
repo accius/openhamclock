@@ -122,12 +122,8 @@ export const useSatellites = (observerLocation) => {
         }
       });
 
-      // Sort by visibility first (visible on top), then by elevation
-      positions.sort((a, b) => {
-        if (a.visible !== b.visible) return b.visible - a.visible;
-        return b.elevation - a.elevation;
-      });
-      // Show all satellites (no limit for ham sats)
+      // Don't sort - keep satellites in original TLE order for stable display
+      // Sorting by visibility caused constant reordering in Settings panel
       setData(positions);
       setLoading(false);
     } catch (err) {

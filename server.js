@@ -3958,30 +3958,61 @@ app.get('/api/satellites/tle', async (req, res) => {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
-    // This list tells the server to look in all three CelesTrak folders
+    // Fetch from multiple CelesTrak groups for broader satellite coverage
     const groups = ['amateur', 'weather', 'goes']; 
 
     for (const group of groups) {
       try {
         const response = await fetch(
           `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`,
-          { headers: { 'User-Agent': 'OpenHamClock/3.3' }, signal: controller.signal }
+          { headers: { 'User-Agent': 'OpenHamClock/3.13.1' }, signal: controller.signal }
         );
 
         if (response.ok) {
           const text = await response.text();
           const lines = text.trim().split('\n');
-          // Parse 3 lines per satellite: Name, Line 1, Line 2
+          
+          // Parse TLE data (3 lines per satellite: name, line1, line2)
           for (let i = 0; i < lines.length - 2; i += 3) {
+            const name = lines[i].trim();
             const line1 = lines[i + 1]?.trim();
             const line2 = lines[i + 2]?.trim();
-            if (line1 && line1.startsWith('1 ')) {
+            
+            if (line1 && line2 && line1.startsWith('1 ') && line2.startsWith('2 ')) {
+              // Extract NORAD ID from line 1
               const noradId = parseInt(line1.substring(2, 7));
-              // Check if the NORAD ID matches your definitions in HAM_SATELLITES
+              
+              // First check if this is a satellite we have metadata for
+              let satInfo = null;
+              let satKey = null;
               for (const [key, sat] of Object.entries(HAM_SATELLITES)) {
                 if (sat.norad === noradId) {
-                  tleData[key] = { ...sat, tle1: line1, tle2: line2 };
+                  satKey = key;
+                  satInfo = sat;
+                  break;
                 }
+              }
+              
+              // If found in our list, use our metadata
+              if (satInfo) {
+                tleData[satKey] = {
+                  ...satInfo,
+                  tle1: line1,
+                  tle2: line2
+                };
+              } else if (group === 'amateur') {
+                // For amateur group, include ALL satellites with basic info
+                // Use the name from TLE as the key (sanitized)
+                const cleanName = name.replace(/[^A-Z0-9\-]/g, '_').substring(0, 30);
+                tleData[cleanName] = {
+                  norad: noradId,
+                  name: name,
+                  color: '#6699ff', // Default blue color
+                  priority: 4,
+                  mode: 'Amateur',
+                  tle1: line1,
+                  tle2: line2
+                };
               }
             }
           }

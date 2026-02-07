@@ -308,6 +308,21 @@ const App = () => {
   const mySpots = useMySpots(config.callsign);
   const satellites = useSatellites(config.location);
   
+  // Create static satellite list for Settings (doesn't reorder with visibility changes)
+  // Only updates when new satellites are added/removed from TLE data
+  const satelliteNameList = useMemo(() => {
+    if (!satellites.data || satellites.data.length === 0) return [];
+    
+    // Create a Set of current names to track what we've seen
+    const currentNames = new Set(satellites.data.map(s => s.name));
+    
+    // Keep existing order if satellites haven't changed
+    // Sort alphabetically by name for stable display
+    return satellites.data
+      .map(s => ({ name: s.name, mode: s.mode, color: s.color }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [satellites.data?.length]); // Only recompute when satellite count changes
+  
   // Filter satellites based on selection
   const filteredSatellites = satelliteFilters.length > 0 
     ? (satellites.data || []).filter(sat => satelliteFilters.includes(sat.name))
@@ -1485,6 +1500,25 @@ const App = () => {
                 <div style={{ flex: 1 }}>
                   <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>{dxGrid}</div>
                   <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°</div>
+                  <div style={{ color: 'var(--accent-cyan)', fontSize: '13px', marginTop: '4px', fontWeight: '600' }}>
+                    {(() => {
+                      // Haversine distance formula
+                      const R = config.units === 'imperial' ? 3963.1 : 6371; // Earth radius in miles or km
+                      const deLat = config.location.lat * Math.PI / 180;
+                      const deLon = config.location.lon * Math.PI / 180;
+                      const dxLat = dxLocation.lat * Math.PI / 180;
+                      const dxLon = dxLocation.lon * Math.PI / 180;
+                      const dLat = dxLat - deLat;
+                      const dLon = dxLon - deLon;
+                      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                                Math.cos(deLat) * Math.cos(dxLat) *
+                                Math.sin(dLon/2) * Math.sin(dLon/2);
+                      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                      const distance = R * c;
+                      const unit = config.units === 'imperial' ? 'mi' : 'km';
+                      return `📏 ${Math.round(distance).toLocaleString()} ${unit}`;
+                    })()}
+                  </div>
                   <div style={{ marginTop: '8px', fontSize: '13px' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
                     <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{dxSunTimes.sunrise}</span>
@@ -1528,7 +1562,7 @@ const App = () => {
                   <div style={{ fontSize: '13px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
                     <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{(() => {
                       // Haversine distance formula
-                      const R = 6371; // Earth radius in km
+                      const R = config.units === 'imperial' ? 3963.1 : 6371; // Earth radius in miles or km
                       const deLat = config.location.lat * Math.PI / 180;
                       const deLon = config.location.lon * Math.PI / 180;
                       const dxLat = dxLocation.lat * Math.PI / 180;
@@ -1539,8 +1573,9 @@ const App = () => {
                                 Math.cos(deLat) * Math.cos(dxLat) *
                                 Math.sin(dLon/2) * Math.sin(dLon/2);
                       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-                      const km = R * c;
-                      return `📏 ${Math.round(km).toLocaleString()} km`;
+                      const distance = R * c;
+                      const unit = config.units === 'imperial' ? 'mi' : 'km';
+                      return `📏 ${Math.round(distance).toLocaleString()} ${unit}`;
                     })()}</span>
                   </div>
                 </div>
@@ -1603,6 +1638,7 @@ const App = () => {
             hoveredSpot={hoveredSpot}
             callsign={config.callsign}
             lowMemoryMode={config.lowMemoryMode}
+            units={config.units}
           />
           <div style={{ 
             position: 'absolute', 
@@ -1707,7 +1743,7 @@ const App = () => {
         config={config}
         onSave={handleSaveConfig}
         onResetLayout={handleResetLayout}
-        satellites={satellites.data}
+        satellites={satelliteNameList}
         satelliteFilters={satelliteFilters}
         onSatelliteFiltersChange={setSatelliteFilters}
       />

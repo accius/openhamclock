@@ -1,0 +1,27 @@
+{
+  "today": "2026-02-07",
+  "uniqueIPsToday": [
+    "10.64.3.40"
+  ],
+  "totalRequestsToday": 4,
+  "allTimeVisitors": 5,
+  "allTimeRequests": 106,
+  "allTimeUniqueIPs": [
+    "10.64.53.228",
+    "10.64.141.92",
+    "127.0.0.1",
+    "10.64.77.254",
+    "10.64.3.40"
+  ],
+  "serverFirstStarted": "2026-02-06T16:40:58.665Z",
+  "lastDeployment": "2026-02-06T21:20:40.502Z",
+  "deploymentCount": 13,
+  "history": [
+    {
+      "date": "2026-02-06",
+      "uniqueVisitors": 4,
+      "totalRequests": 102
+    }
+  ],
+  "lastSaved": "2026-02-07T19:08:56.315Z"
+}
