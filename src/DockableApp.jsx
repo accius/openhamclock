@@ -22,6 +22,8 @@ import {
 
 import { loadLayout, saveLayout, DEFAULT_LAYOUT } from './store/layoutStore.js';
 import { DockableLayoutProvider } from './contexts';
+import DELocationPanel from './renders/renderDELocation.jsx';
+import DXLocationPanel from './renders/renderDXLocation.jsx';
 import './styles/flexlayout-openhamclock.css';
 
 // Icons
@@ -148,19 +150,10 @@ export const DockableApp = ({
   // Render DE Location panel content
   const renderDELocation = (nodeId) => (
     <div style={{ padding: '14px', height: '100%', overflowY: 'auto' }}>
-      <div style={{ fontSize: '14px', color: 'var(--accent-cyan)', fontWeight: '700', marginBottom: '10px' }}>📍 DE - YOUR LOCATION</div>
-      <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
-        <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}>{deGrid}</div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{config.location.lat.toFixed(4)}°, {config.location.lon.toFixed(4)}°</div>
-        <div style={{ marginTop: '8px', fontSize: '13px' }}>
-          <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{deSunTimes.sunrise}</span>
-          <span style={{ color: 'var(--text-secondary)' }}> → </span>
-          <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{deSunTimes.sunset}</span>
-        </div>
-      </div>
-      <WeatherPanel
+      <DELocationPanel
         location={config.location}
+        grid={deGrid}
+        sunTimes={deSunTimes}
         tempUnit={tempUnit}
         onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch {} }}
         nodeId={nodeId}
@@ -171,48 +164,18 @@ export const DockableApp = ({
   // Render DX Location panel
   const renderDXLocation = (nodeId) => (
     <div style={{ padding: '14px', height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <div style={{ fontSize: '14px', color: 'var(--accent-green)', fontWeight: '700' }}>🎯 DX - TARGET</div>
-        {handleToggleDxLock && (
-          <button
-            onClick={handleToggleDxLock}
-            title={dxLocked ? 'Unlock DX position (allow map clicks)' : 'Lock DX position (prevent map clicks)'}
-            style={{
-              background: dxLocked ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
-              color: dxLocked ? '#000' : 'var(--text-secondary)',
-              border: '1px solid ' + (dxLocked ? 'var(--accent-amber)' : 'var(--border-color)'),
-              borderRadius: '4px',
-              padding: '2px 6px',
-              fontSize: '10px',
-              fontFamily: 'JetBrains Mono, monospace',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '3px'
-            }}
-          >
-            {dxLocked ? '🔒' : '🔓'}
-          </button>
-        )}
-      </div>
-      <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
-        <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}>{dxGrid}</div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°</div>
-        <div style={{ marginTop: '8px', fontSize: '13px' }}>
-          <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{dxSunTimes.sunrise}</span>
-          <span style={{ color: 'var(--text-secondary)' }}> → </span>
-          <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
-        </div>
-      </div>
-      {showDxWeather && (
-        <WeatherPanel
-          location={dxLocation}
-          tempUnit={tempUnit}
-          onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch {} }}
-          nodeId={nodeId}
-        />
-      )}
+      <DXLocationPanel
+        deLocation={config.location}
+        dxLocation={dxLocation}
+        grid={dxGrid}
+        sunTimes={dxSunTimes}
+        dxLocked={dxLocked}
+        onToggleDxLock={handleToggleDxLock}
+        showWeather={showDxWeather}
+        tempUnit={tempUnit}
+        onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch {} }}
+        nodeId={nodeId}
+      />
     </div>
   );
 
