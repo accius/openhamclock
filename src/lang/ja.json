@@ -187,5 +187,9 @@
   "dxClusterPanel.mapToggleOff": "OFF",
   "dxClusterPanel.quickSearch": "クイック検索...",
   "dxClusterPanel.noSpotsFiltered": "条件に一致するスポットはありません",
-  "dxClusterPanel.noSpots": "スポットがありません"
+  "dxClusterPanel.noSpots": "スポットがありません",
+  "dxClusterPanel.relativeTime.now": "now",
+  "dxClusterPanel.relativeTime.minutes": "{{count}}m ago",
+  "dxClusterPanel.relativeTime.hours": "{{count}}h ago",
+  "dxClusterPanel.relativeTime.days": "{{count}}d ago"
 }

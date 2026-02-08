@@ -1741,7 +1741,7 @@ app.get('/api/dxnews', async (req, res) => {
 
     const response = await fetch('https://dxnews.com/', {
       headers: {
-        'User-Agent': 'OpenHamClock/3.13.1 (amateur radio dashboard)',
+        'User-Agent': `OpenHamClock/${APP_VERSION}`,
       },
     });
     const html = await response.text();
@@ -2022,6 +2022,7 @@ function tryDXSpiderNode(node, userCallsign = null) {
               const freqMhz = (freqKhz / 1000).toFixed(3);
               const time =
                 timeStr.substring(0, 2) + ':' + timeStr.substring(2, 4) + 'z';
+              const timestamp = deriveTimestampFromHHMMZ(timeStr);
 
               // Avoid duplicates
               if (!spots.find((s) => s.call === dxCall && s.freq === freqMhz)) {
@@ -2031,6 +2032,7 @@ function tryDXSpiderNode(node, userCallsign = null) {
                   comment: comment,
                   time: time,
                   spotter: spotter,
+                  timestamp,
                   source: 'DX Spider',
                 });
               }
@@ -2105,6 +2107,56 @@ function tryDXSpiderNode(node, userCallsign = null) {
   });
 }
 
+function deriveTimestampFromHHMMZ(timeHHMM) {
+  if (!timeHHMM || timeHHMM.length < 4) return Date.now();
+  const hh = parseInt(timeHHMM.substring(0, 2), 10);
+  const mm = parseInt(timeHHMM.substring(2, 4), 10);
+  if (Number.isNaN(hh) || Number.isNaN(mm)) return Date.now();
+
+  const now = new Date();
+  const candidate = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate(),
+    hh,
+    mm,
+    0,
+  );
+
+  // If the time is ahead of now by more than 2 minutes, assume it was yesterday UTC.
+  if (candidate - now.getTime() > 2 * 60 * 1000) {
+    return candidate - 24 * 60 * 60 * 1000;
+  }
+  return candidate;
+}
+
+function deriveTimestampFromTimeDate(timeDate) {
+  // HamQTH format: "HHMM YYYY-MM-DD"
+  if (!timeDate || timeDate.length < 4) return Date.now();
+  const timeStr = timeDate.substring(0, 4);
+  const dateStr = timeDate.substring(5, 15);
+  if (dateStr.length !== 10) return deriveTimestampFromHHMMZ(timeStr);
+
+  const hh = parseInt(timeStr.substring(0, 2), 10);
+  const mm = parseInt(timeStr.substring(2, 4), 10);
+  const [yyyy, mmStr, ddStr] = dateStr.split('-');
+  const year = parseInt(yyyy, 10);
+  const month = parseInt(mmStr, 10);
+  const day = parseInt(ddStr, 10);
+
+  if (
+    [hh, mm, year, month, day].some((n) => Number.isNaN(n)) ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31
+  ) {
+    return deriveTimestampFromHHMMZ(timeStr);
+  }
+
+  return Date.UTC(year, month - 1, day, hh, mm, 0);
+}
+
 app.get('/api/dxcluster/spots', async (req, res) => {
   const source = (
     req.query.source ||
@@ -2119,9 +2171,9 @@ app.get('/api/dxcluster/spots', async (req, res) => {
 
     try {
       const response = await fetch(
-        'https://www.hamqth.com/dxc_csv.php?limit=25',
+        'https://www.hamqth.com/dxc_csv.php?limit=100',
         {
-          headers: { 'User-Agent': 'OpenHamClock/3.13.1' },
+          headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
           signal: controller.signal,
         },
       );
@@ -2156,6 +2208,7 @@ app.get('/api/dxcluster/spots', async (req, res) => {
               time =
                 timeStr.substring(0, 2) + ':' + timeStr.substring(2, 4) + 'z';
             }
+            const timestamp = deriveTimestampFromTimeDate(timeDate);
 
             return {
               freq: freqMhz,
@@ -2163,6 +2216,7 @@ app.get('/api/dxcluster/spots', async (req, res) => {
               comment: comment,
               time: time,
               spotter: spotter,
+              timestamp,
               source: 'HamQTH',
             };
           });
@@ -2186,9 +2240,9 @@ app.get('/api/dxcluster/spots', async (req, res) => {
 
     try {
       const response = await fetch(
-        `${DXSPIDER_PROXY_URL}/api/dxcluster/spots?limit=50`,
+        `${DXSPIDER_PROXY_URL}/api/dxcluster/spots?limit=100`,
         {
-          headers: { 'User-Agent': 'OpenHamClock/3.13.1' },
+          headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
           signal: controller.signal,
         },
       );
@@ -2372,7 +2426,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
         const proxyResponse = await fetch(
           `${DXSPIDER_PROXY_URL}/api/spots?limit=100`,
           {
-            headers: { 'User-Agent': 'OpenHamClock/3.14.11' },
+            headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
             signal: controller.signal,
           },
         );
@@ -2389,6 +2443,8 @@ app.get('/api/dxcluster/paths', async (req, res) => {
               freq: s.freq,
               comment: s.comment || '',
               time: s.time || '',
+              timestamp:
+                s.timestamp || s.timeUtc || s.timeUTC || s.timeUtcMs || null,
               id: `${s.call}-${s.freqKhz || s.freq}-${s.spotter}`,
             }));
             logDebug('[DX Paths] Got', newSpots.length, 'spots from proxy');
@@ -2403,9 +2459,9 @@ app.get('/api/dxcluster/paths', async (req, res) => {
     if (newSpots.length === 0) {
       try {
         const response = await fetch(
-          'https://www.hamqth.com/dxc_csv.php?limit=50',
+          'https://www.hamqth.com/dxc_csv.php?limit=100',
           {
-            headers: { 'User-Agent': 'OpenHamClock/3.13.1' },
+            headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
             signal: controller.signal,
           },
         );
@@ -2447,6 +2503,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
                     timeDate.substring(2, 4) +
                     'z'
                   : '',
+              timestamp: deriveTimestampFromTimeDate(timeDate),
               id: `${dxCall}-${freqKhz}-${spotter}`,
             });
           }
@@ -2581,6 +2638,14 @@ app.get('/api/dxcluster/paths', async (req, res) => {
         }
 
         if (spotterLoc && dxLoc) {
+          const spotTimestamp =
+            spot.timestamp ||
+            (spot.time
+              ? deriveTimestampFromHHMMZ(
+                  spot.time.replace('z', '').replace(':', ''),
+                )
+              : null) ||
+            now;
           return {
             spotter: spot.spotter,
             spotterLat: spotterLoc.lat,
@@ -2598,7 +2663,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
             comment: spot.comment,
             time: spot.time,
             id: spot.id,
-            timestamp: now,
+            timestamp: spotTimestamp,
           };
         }
         return null;
@@ -4097,7 +4162,7 @@ app.get('/api/myspots/:callsign', async (req, res) => {
     const response = await fetch(
       `https://www.hamqth.com/dxc_csv.php?limit=100`,
       {
-        headers: { 'User-Agent': 'OpenHamClock/3.13.1' },
+        headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
         signal: controller.signal,
       },
     );
@@ -4342,7 +4407,7 @@ app.get('/api/pskreporter/http/:callsign', async (req, res) => {
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'OpenHamClock/3.13.1 (Amateur Radio Dashboard)',
+        'User-Agent': `OpenHamClock/${APP_VERSION}`,
         'Accept': '*/*',
       },
       signal: controller.signal,
@@ -5016,7 +5081,7 @@ app.get('/api/wspr/heatmap', async (req, res) => {
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'OpenHamClock/3.14.24 (Amateur Radio Dashboard)',
+        'User-Agent': `OpenHamClock/${APP_VERSION}`,
         'Accept': '*/*',
       },
       signal: controller.signal,
@@ -5489,7 +5554,7 @@ app.get('/api/satellites/tle', async (req, res) => {
         const response = await fetch(
           `https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`,
           {
-            headers: { 'User-Agent': 'OpenHamClock/3.3' },
+            headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
             signal: controller.signal,
           },
         );
@@ -5573,7 +5638,7 @@ async function fetchIonosondeData() {
 
   try {
     const response = await fetch('https://prop.kc2g.com/api/stations.json', {
-      headers: { 'User-Agent': 'OpenHamClock/3.13.1' },
+      headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
       timeout: 15000,
     });
 
@@ -6547,7 +6612,7 @@ app.get('/api/contests', async (req, res) => {
       'https://www.contestcalendar.com/calendar.rss',
       {
         headers: {
-          'User-Agent': 'OpenHamClock/3.13.1',
+          'User-Agent': `OpenHamClock/${APP_VERSION}`,
           'Accept': 'application/rss+xml, application/xml, text/xml',
         },
         signal: controller.signal,
@@ -9139,10 +9204,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log('║  ╚██████╔╝██║     ███████╗██║ ╚████║                  ║');
   console.log('║   ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝                  ║');
   console.log('║                                                       ║');
-  console.log('║  ██╗  ██╗ █████╗ ███╗   ███╗ ██████╗██╗      ██╗  ██╗ ║');
-  console.log('║  ██║  ██║██╔══██╗████╗ ████║██╔════╝██║      ██║ ██╔╝ ║');
-  console.log('║  ███████║███████║██╔████╔██║██║     ██║      █████╔╝  ║');
-  console.log('║  ██╔══██║██╔══██║██║╚██╔╝██║██║     ██║      ██╔═██╗  ║');
+  console.log('║  ██╗  ██╗ █████╗ ███╗   ███╗ ██████╗██╗     ██╗  ██╗  ║');
+  console.log('║  ██║  ██║██╔══██╗████╗ ████║██╔════╝██║     ██║ ██╔╝  ║');
+  console.log('║  ███████║███████║██╔████╔██║██║     ██║     █████╔╝   ║');
+  console.log('║  ██╔══██║██╔══██║██║╚██╔╝██║██║     ██║     ██╔═██╗   ║');
   console.log('║  ██║  ██║██║  ██║██║ ╚═╝ ██║╚██████╗███████╗██║  ██╗  ║');
   console.log('║  ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝ ╚═════╝╚══════╝╚═╝  ╚═╝  ║');
   console.log('║                                                       ║');
