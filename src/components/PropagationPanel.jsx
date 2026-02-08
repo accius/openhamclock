@@ -47,11 +47,11 @@ export const PropagationPanel = ({ propagation, loading, bandConditions }) => {
   
   // Heat map colors (VOACAP style - red=good, green=poor)
   const getHeatColor = (rel) => {
-    if (rel >= 80) return '#ff0000';
-    if (rel >= 60) return '#ff6600';
+    if (rel >= 80) return '#00aa00';
+    if (rel >= 60) return '#88cc00';
     if (rel >= 40) return '#ffcc00';
-    if (rel >= 20) return '#88cc00';
-    if (rel >= 10) return '#00aa00';
+    if (rel >= 20) return '#ff6600';
+    if (rel >= 10) return '#ff0000';
     return '#004400';
   };
 
@@ -74,7 +74,7 @@ export const PropagationPanel = ({ propagation, loading, bandConditions }) => {
     }
   };
 
-  const bands = ['80m', '40m', '30m', '20m', '17m', '15m', '12m', '11m', '10m'];
+  const bands = ['10m', '11m', '12m', '15m', '17m', '20m', '30m', '40m', '80m'];
   const viewModeLabels = { chart: '▤ chart', bars: '▦ bars', bands: '◫ bands' };
 
   return (
@@ -236,7 +236,7 @@ export const PropagationPanel = ({ propagation, loading, bandConditions }) => {
               }}>
                 <div style={{ display: 'flex', gap: '2px', alignItems: 'center' }}>
                   <span style={{ color: 'var(--text-muted)' }}>REL:</span>
-                  {['#004400', '#00aa00', '#88cc00', '#ffcc00', '#ff6600', '#ff0000'].map((c, i) => (
+                  {['#004400', '#ff0000', '#ff6600', '#ffcc00', '#88cc00', '#00aa00'].map((c, i) => (
                     <div key={i} style={{ width: '8px', height: '8px', background: c, borderRadius: '1px' }} />
                   ))}
                 </div>
