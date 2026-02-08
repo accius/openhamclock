@@ -87,6 +87,7 @@ export const DockableApp = ({
   toggleWSJTX,
   hoveredSpot,
   setHoveredSpot,
+  onDxSpotClick,
 
   // Time & UI
   utcTime,
@@ -240,6 +241,7 @@ export const DockableApp = ({
         showWSJTX={mapLayers.showWSJTX}
         onToggleSatellites={toggleSatellites}
         hoveredSpot={hoveredSpot}
+        onDxSpotClick={onDxSpotClick}
         leftSidebarVisible={true}
         rightSidebarVisible={true}
         lowMemoryMode={config.lowMemoryMode}
@@ -284,6 +286,7 @@ export const DockableApp = ({
             hoveredSpot={hoveredSpot}
             showOnMap={mapLayers.showDXPaths}
             onToggleMap={toggleDXPaths}
+            onSpotClick={onDxSpotClick}
           />
         );
 

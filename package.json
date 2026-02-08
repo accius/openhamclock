@@ -45,5 +45,11 @@
     "pskreporter"
   ],
   "author": "K0CJH",
+  "contributors": [
+    {
+      "name": "HB3XCO",
+      "email": "qsl@hb3xco.ch"
+    }
+  ],
   "license": "MIT"
 }

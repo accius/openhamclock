@@ -368,6 +368,46 @@ const App = () => {
     setDxLocation({ lat: coords.lat, lon: coords.lon });
   }, []);
 
+  const parseSpotFrequencyMHz = useCallback((spot) => {
+    if (!spot) return null;
+    const raw = spot.freq ?? spot.freqKhz ?? spot.frequency;
+    const freqVal = typeof raw === 'string' ? parseFloat(raw) : raw;
+    if (!Number.isFinite(freqVal)) return null;
+    return freqVal > 1000 ? freqVal / 1000 : freqVal;
+  }, []);
+
+  const handleDxSpotClick = useCallback(async (spot) => {
+    const freqMHz = parseSpotFrequencyMHz(spot);
+    if (!freqMHz) {
+      console.warn('[Rig] Spot has no valid frequency', spot);
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/rig/tune', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          freqMHz,
+          mode: spot.mode,
+          call: spot.call,
+          spotter: spot.spotter
+        })
+      });
+
+      if (!res.ok) {
+        let details = res.statusText;
+        try {
+          const body = await res.json();
+          details = body.error || details;
+        } catch (e) {}
+        console.warn('[Rig] Tune failed:', details);
+      }
+    } catch (err) {
+      console.warn('[Rig] Tune request failed:', err.message);
+    }
+  }, [parseSpotFrequencyMHz]);
+
   // Format times — use explicit timezone if configured (fixes privacy browsers like Librewolf
   // that spoof timezone to UTC via privacy.resistFingerprinting)
   const utcTime = currentTime.toISOString().substr(11, 8);
@@ -479,6 +519,7 @@ const App = () => {
           toggleWSJTX={toggleWSJTX}
           hoveredSpot={hoveredSpot}
           setHoveredSpot={setHoveredSpot}
+          onDxSpotClick={handleDxSpotClick}
           utcTime={utcTime}
           utcDate={utcDate}
           localTime={localTime}
@@ -685,6 +726,7 @@ const App = () => {
                     }}
                     onMouseEnter={() => setHoveredSpot(spot)}
                     onMouseLeave={() => setHoveredSpot(null)}
+                    onClick={() => handleDxSpotClick(spot)}
                   >
                     <span style={{ color: '#ffff00' }}>{parseFloat(spot.freq).toFixed(1)}</span>
                     <span style={{ color: '#00ffff' }}>{spot.call}</span>
@@ -717,6 +759,7 @@ const App = () => {
                 showWSJTX={mapLayers.showWSJTX}
                 onToggleSatellites={toggleSatellites}
                 hoveredSpot={hoveredSpot}
+                onDxSpotClick={handleDxSpotClick}
                 callsign={config.callsign}
                 lowMemoryMode={config.lowMemoryMode}
               />
@@ -930,6 +973,7 @@ const App = () => {
                 showWSJTX={mapLayers.showWSJTX}
                 onToggleSatellites={toggleSatellites}
                 hoveredSpot={hoveredSpot}
+                onDxSpotClick={handleDxSpotClick}
                 hideOverlays={true}
                 lowMemoryMode={config.lowMemoryMode}
               />
@@ -1059,6 +1103,7 @@ const App = () => {
                       }}
                       onMouseEnter={() => setHoveredSpot(spot)}
                       onMouseLeave={() => setHoveredSpot(null)}
+                      onClick={() => handleDxSpotClick(spot)}
                     >
                       <span style={{ color: getBandColor(spot.freq), fontWeight: '700' }}>{parseFloat(spot.freq).toFixed(1)}</span>
                       <span style={{ color: 'var(--accent-cyan)', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{spot.call}</span>
@@ -1272,6 +1317,7 @@ const App = () => {
                 showWSJTX={mapLayers.showWSJTX}
                 onToggleSatellites={toggleSatellites}
                 hoveredSpot={hoveredSpot}
+                onDxSpotClick={handleDxSpotClick}
                 hideOverlays={true}
                 lowMemoryMode={config.lowMemoryMode}
               />
@@ -1372,6 +1418,7 @@ const App = () => {
                     }}
                     onMouseEnter={() => setHoveredSpot(spot)}
                     onMouseLeave={() => setHoveredSpot(null)}
+                    onClick={() => handleDxSpotClick(spot)}
                   >
                     <span style={{ color: getBandColor(spot.freq), fontWeight: '700' }}>{parseFloat(spot.freq).toFixed(1)}</span>
                     <span style={{ color: 'var(--accent-cyan)', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{spot.call}</span>
@@ -1601,6 +1648,7 @@ const App = () => {
             showWSJTX={mapLayers.showWSJTX}
             onToggleSatellites={toggleSatellites}
             hoveredSpot={hoveredSpot}
+            onDxSpotClick={handleDxSpotClick}
             callsign={config.callsign}
             lowMemoryMode={config.lowMemoryMode}
           />
@@ -1636,6 +1684,7 @@ const App = () => {
                 hoveredSpot={hoveredSpot}
                 showOnMap={mapLayers.showDXPaths}
                 onToggleMap={toggleDXPaths}
+                onSpotClick={handleDxSpotClick}
               />
             </div>
             )}

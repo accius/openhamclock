@@ -39,6 +39,7 @@ export const WorldMap = ({
   showWSJTX,
   onToggleSatellites, 
   hoveredSpot,
+  onDxSpotClick,
   callsign = 'N0CALL',
   hideOverlays,
   lowMemoryMode = false
@@ -434,8 +435,30 @@ export const WorldMap = ({
             opacity: 1,
             fillOpacity: isHovered ? 1 : 0.9
           })
-            .bindPopup(`<b style="color: ${color}">${path.dxCall}</b><br>${path.freq} MHz<br>by ${path.spotter}`)
+            .bindPopup(
+              `<b style="color: ${color}">${path.dxCall}</b><br>${path.freq} MHz<br>by ${path.spotter}` +
+              (onDxSpotClick ? `<br><a href="#" class="rig-tune-link" style="color:#88ccff;text-decoration:underline;">Tune Rig</a>` : '')
+            )
             .addTo(map);
+          
+          if (onDxSpotClick) {
+            dxCircle.on('popupopen', (evt) => {
+              const popupEl = evt.popup?.getElement();
+              const link = popupEl?.querySelector('.rig-tune-link');
+              if (link && !link.dataset.bound) {
+                link.dataset.bound = '1';
+                link.addEventListener('click', (ev) => {
+                  ev.preventDefault();
+                  onDxSpotClick({
+                    freq: path.freq,
+                    call: path.dxCall,
+                    spotter: path.spotter,
+                    mode: path.mode || null
+                  });
+                });
+              }
+            });
+          }
           if (isHovered) dxCircle.bringToFront();
           dxPathsMarkersRef.current.push(dxCircle);
           

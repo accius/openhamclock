@@ -73,6 +73,7 @@ npm run dev
 - [Map Layers and Plugins](#map-layers-and-plugins)
 - [Languages](#languages)
 - [Configuration Reference](#configuration-reference)
+  - [Rig Control (FLRIG / rigctl)](#rig-control-flrig--rigctl)
 - [Deployment](#deployment)
   - [Local / Desktop](#local--desktop)
   - [Raspberry Pi](#raspberry-pi)
@@ -626,6 +627,23 @@ All configuration is done through the `.env` file. On first run, this file is au
 | `WSJTX_UDP_PORT` | `2237` | UDP port for receiving WSJT-X decoded messages. Must match the port configured in WSJT-X Settings → Reporting → UDP Server. |
 | `WSJTX_RELAY_KEY` | *(none)* | Shared secret key for the WSJT-X relay agent. Required only for cloud deployments where WSJT-X can't reach the server directly over UDP. Pick any strong random string. |
 
+### Rig Control (FLRIG / rigctl)
+
+OpenHamClock can tune your rig to a selected DX spot via FLRIG (XML-RPC) or any rigctld-compatible TCP server. When enabled, the server exposes `POST /api/rig/tune` (see API list below). The request expects a frequency in Hz and an optional mode. If `FLRIG_SET_MODE=true`, the mode is forced by band edge (below 10 MHz = LSB, above = USB).
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FLRIG_ENABLED` | `false` | Enable rig control API. Requires FLRIG or rigctld running. |
+| `FLRIG_HOST` | `127.0.0.1` | Host for the rig control daemon. |
+| `FLRIG_PORT` | `12345` | Port for the rig control daemon (rigctl or XML-RPC). |
+| `FLRIG_PROTOCOL` | `rigctl` | `rigctl` or `xmlrpc`. |
+| `FLRIG_XMLRPC_PATH` | `/` | XML-RPC endpoint path (common: `/` or `/RPC2`). |
+| `FLRIG_SET_MODE` | `false` | If `true`, force LSB/USB by band edge instead of mapping spot mode. |
+| `FLRIG_TUNE_ENABLED` | `false` | If `true`, call a tuner method after a successful set. |
+| `FLRIG_TUNE_METHOD` | `rig.tune` | XML-RPC method name to trigger tuning (FLRIG). |
+| `FLRIG_TUNE_PARAMS` | `[]` | Optional JSON array of parameters passed to the tune method. |
+| `FLRIG_TIMEOUT_MS` | `2000` | Socket/XML-RPC timeout in milliseconds. |
+
 ### DX Cluster
 
 | Variable | Default | Description |
@@ -971,7 +989,7 @@ PSKReporter MQTT ──────────────► React ──► P
 
 ## API Endpoints
 
-The backend exposes these REST endpoints. All data endpoints return JSON. Cache durations shown are server-side; the frontend may poll at different intervals.
+The backend exposes these REST endpoints. Most endpoints return JSON; a few serve relay scripts or downloads. Cache durations shown are server-side; the frontend may poll at different intervals.
 
 | Endpoint | Description | Cache |
 |----------|-------------|-------|
@@ -999,9 +1017,23 @@ The backend exposes these REST endpoints. All data endpoints return JSON. Cache 
 | `GET /api/ionosonde` | Ionospheric sounding data from prop.kc2g.com | 5 min |
 | `GET /api/pskreporter/config` | PSKReporter MQTT connection configuration | — |
 | `GET /api/pskreporter/http/:call` | PSKReporter HTTP API fallback | 2 min |
+| `GET /api/pskreporter/:callsign` | Combined PSKReporter TX/RX (HTTP fallback) | 2 min |
+| `GET /api/rbn/spots` | Reverse Beacon Network spots (enriched) | 30 sec |
+| `GET /api/rbn/location/:callsign` | RBN skimmer location lookup | — |
+| `GET /api/rbn` | Legacy RBN endpoint (deprecated) | — |
+| `GET /api/wspr/heatmap` | WSPR propagation heatmap (aggregated or raw) | 10 min |
 | `GET /api/wsjtx` | WSJT-X connection status and active client list | — |
 | `GET /api/wsjtx/decodes` | WSJT-X decoded messages (latest batch) | — |
 | `POST /api/wsjtx/relay` | WSJT-X relay agent data ingest endpoint | — |
+| `GET /api/wsjtx/relay/agent.js` | Raw WSJT-X relay agent script | — |
+| `GET /api/wsjtx/relay/download/:platform` | Preconfigured relay launcher download | — |
+| `POST /api/rig/tune` | Tune rig to a frequency (FLRIG/rigctl) | — |
+| `POST /api/update` | Trigger manual update (git pull + rebuild) | — |
+| `GET /api/update/status` | Auto-update status | — |
+| `POST /api/n3fjp/qso` | Ingest a logged QSO from N3FJP bridge | — |
+| `GET /api/n3fjp/qsos` | Recent N3FJP QSOs (in-memory) | — |
+| `GET /api/contest/qsos` | Recent contest QSOs (N1MM or HTTP ingest) | — |
+| `POST /api/contest/qsos` | Ingest contest QSOs (JSON) | — |
 | `GET /api/qrz/lookup/:callsign` | QRZ.com callsign lookup | — |
 
 ---
@@ -1047,6 +1079,8 @@ A: Set `LAYOUT=classic` in `.env` (or select it in Settings). The Classic layout
 3. Make changes in the appropriate file
 4. Test with all four themes and both layouts
 5. Submit a PR
+
+Formatting: This repo uses Prettier for code formatting and `.editorconfig` for editor defaults. Please format changes with Prettier (or enable format-on-save) before submitting.
 
 The codebase uses functional React components with hooks, CSS-in-JS for component-specific styles, and CSS custom properties for theming. Each data source has its own hook in `src/hooks/`, and each UI section has its own component in `src/components/`.
 

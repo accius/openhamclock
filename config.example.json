@@ -32,6 +32,19 @@
     "spotRetentionMinutes": 30,
     "source": "auto"
   },
+
+  "flrig": {
+    "enabled": false,
+    "host": "127.0.0.1",
+    "port": 12345,
+    "timeoutMs": 2000,
+    "setMode": false,
+    "protocol": "rigctl",
+    "xmlrpcPath": "/",
+    "tuneEnabled": false,
+    "tuneMethod": "rig.tune",
+    "tuneParams": []
+  },
   
   "refreshIntervals": {
     "spaceWeather": 300000,
