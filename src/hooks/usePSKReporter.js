@@ -103,6 +103,12 @@ export const usePSKReporter = (callsign, options = {}) => {
     return spots.filter(s => s.timestamp > cutoff).slice(0, maxSpots);
   }, [maxSpots]);
 
+  // Handle minutes changing: re-clean existing spots immediately
+  useEffect(() => {
+    setTxReports(prev => cleanOldSpots(prev, minutes));
+    setRxReports(prev => cleanOldSpots(prev, minutes));
+  }, [minutes, cleanOldSpots]);
+
   // Fetch historical spots via HTTP API on initial connect
   const fetchHistorical = useCallback(async (upperCallsign) => {
     if (!mountedRef.current) return;

@@ -699,7 +699,8 @@ export const WorldMap = ({
         let spotLon = parseFloat(spot.lon);
         
         if (!isNaN(spotLat) && !isNaN(spotLon)) {
-          const displayCall = spot.receiver || spot.sender;
+          const isRX = spot.receiver?.toUpperCase() === callsign?.toUpperCase();
+          const displayCall = isRX ? spot.sender : spot.receiver;
           const freqMHz = spot.freqMHz || (spot.freq ? (spot.freq / 1000000).toFixed(3) : '?');
           const bandColor = getBandColor(parseFloat(freqMHz));
           
@@ -737,7 +738,7 @@ export const WorldMap = ({
               opacity: 0.9,
               fillOpacity: 0.8
             }).bindPopup(`
-              <b>${displayCall}</b><br>
+              <b>${isRX ? `From ${spot.sender}` : `From ${callsign?.toUpperCase()} by ${spot.receiver}`}</b><br>
               ${spot.mode} @ ${freqMHz} MHz<br>
               ${spot.snr !== null ? `SNR: ${spot.snr > 0 ? '+' : ''}${spot.snr} dB` : ''}
             `).addTo(map);

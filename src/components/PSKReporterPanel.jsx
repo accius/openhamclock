@@ -43,17 +43,21 @@ const PSKReporterPanel = ({
   });
   const [wsjtxTab, setWsjtxTab] = useState('decodes');
   const [wsjtxFilter, setWsjtxFilter] = useState('all'); // 'all' | 'cq' | band name
+  const [pskMinutes, setPskMinutes] = useState(() => {
+    try { const s = localStorage.getItem('openhamclock_pskMinutes'); return s ? parseInt(s) : 30; } catch { return 30; }
+  });
   
-  // Persist panel mode and active tab
+  // Persist panel mode, active tab, and minutes
   const setPanelModePersist = (v) => { setPanelMode(v); try { localStorage.setItem('openhamclock_pskPanelMode', v); } catch {} };
   const setActiveTabPersist = (v) => { setActiveTab(v); try { localStorage.setItem('openhamclock_pskActiveTab', v); } catch {} };
+  const setPskMinutesPersist = (v) => { setPskMinutes(v); try { localStorage.setItem('openhamclock_pskMinutes', v); } catch {} };
   
   // PSKReporter hook
   const { 
     txReports, txCount, rxReports, rxCount, 
     loading, error, connected, source, refresh 
   } = usePSKReporter(callsign, { 
-    minutes: 30,
+    minutes: pskMinutes,
     enabled: callsign && callsign !== 'N0CALL'
   });
 
@@ -207,6 +211,27 @@ const PSKReporterPanel = ({
               {statusDot && (
                 <span style={{ color: statusDot.color, fontSize: '10px', lineHeight: 1 }}>{statusDot.char}</span>
               )}
+
+              {/* Time window selector */}
+              <select
+                value={pskMinutes}
+                onChange={(e) => setPskMinutesPersist(parseInt(e.target.value))}
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  padding: '1px 2px',
+                  cursor: 'pointer',
+                }}
+                title="Time window for spots"
+              >
+                <option value={15}>15m</option>
+                <option value={30}>30m</option>
+                <option value={60}>60m</option>
+              </select>
+
               <button onClick={onOpenFilters} style={iconBtn(pskFilterCount > 0, '#ffaa00')} title={t('pskReporterPanel.psk.filterTooltip')}>
                 <IconSearch size={11} style={{ verticalAlign: 'middle' }} />{pskFilterCount > 0 ? pskFilterCount : ''}
               </button>
