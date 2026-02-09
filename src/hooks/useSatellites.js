@@ -122,11 +122,8 @@ export const useSatellites = (observerLocation) => {
         }
       });
 
-      // Sort by visibility first (visible on top), then by elevation
-      positions.sort((a, b) => {
-        if (a.visible !== b.visible) return b.visible - a.visible;
-        return b.elevation - a.elevation;
-      });
+      // Sort alphabetically by name for a consistent, static list
+      positions.sort((a, b) => a.name.localeCompare(b.name));
       // Show all satellites (no limit for ham sats)
       setData(positions);
       setLoading(false);

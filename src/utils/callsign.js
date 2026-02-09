@@ -1,6 +1,6 @@
 /**
  * Callsign and Band Utilities
- * Band detection, mode detection, callsign parsing, DX filtering
+ * Band detection, mode detection, callsign parsing
  */
 
 /**
@@ -219,158 +219,6 @@ export const getCallsignInfo = (call) => {
   return { cqZone: null, ituZone: null, continent: null };
 };
 
-/**
- * Apply DX filters to a single spot/path item
- * This is the SINGLE SOURCE OF TRUTH for all DX filtering logic.
- * Used by: useDXCluster.js, useDXClusterData.js, filterDXPaths()
- * 
- * @param {Object} item - The spot or path to filter
- * @param {string} item.dxCall - DX station callsign (or item.call for legacy format)
- * @param {string} item.spotter - Spotter/DE callsign
- * @param {number|string} item.freq - Frequency in MHz
- * @param {string} item.comment - Spot comment (for mode detection)
- * @param {Object} filters - Filter configuration
- * @returns {boolean} - true if item passes filters, false if filtered out
- */
-export const applyDXFilters = (item, filters) => {
-  if (!filters || Object.keys(filters).length === 0) return true;
-  
-  // Normalize field names (support both spot.call and spot.dxCall formats)
-  const dxCall = item.dxCall || item.call;
-  const spotter = item.spotter;
-  
-  // Get DE (spotter) info for origin-based filtering
-  const spotterInfo = getCallsignInfo(spotter);
-  // Get DX station info for destination-based filtering
-  const dxInfo = getCallsignInfo(dxCall);
-  
-  // Watchlist only mode - must match watchlist (filters DX)
-  if (filters.watchlistOnly && filters.watchlist?.length > 0) {
-    const matchesWatchlist = filters.watchlist.some(w => 
-      dxCall?.toUpperCase().includes(w.toUpperCase())
-    );
-    if (!matchesWatchlist) return false;
-  }
-
-  /**
-   * DE (spotter) INCLUDE filters (from the 'Zones' tab)
-   */
-  // DE Continent 'include' filter - filter by SPOTTER's continent
-  // Also excludes domestic spots (DX in same continent as spotter)
-  if (filters.continents?.length > 0) {
-    // Spotter must be FROM one of the selected continents
-    if (!spotterInfo.continent || !filters.continents.includes(spotterInfo.continent)) {
-      return false;
-    }
-    // DX must be OUTSIDE the selected continents (exclude domestic spots)
-    if (dxInfo.continent && filters.continents.includes(dxInfo.continent)) {
-      return false;
-    }
-  }
-
-  // DE CQ Zone 'include' filter - filter by SPOTTER's zone
-  if (filters.cqZones?.length > 0) {
-    if (!spotterInfo.cqZone || !filters.cqZones.includes(spotterInfo.cqZone)) {
-      return false;
-    }
-  }
-  
-  // DE ITU Zone 'include' filter - filter by SPOTTER's zone
-  if (filters.ituZones?.length > 0) {
-    if (!spotterInfo.ituZone || !filters.ituZones.includes(spotterInfo.ituZone)) {
-      return false;
-    }
-  }
-
-  /**
-   * EXCLUDE filters (from the 'Exclude' tab)
-   */
-  // DX (spot) Continent 'exclude' filter
-  if (filters.excludeContinents?.length > 0) {
-    if (dxInfo.continent && filters.excludeContinents.includes(dxInfo.continent)) {
-      return false;
-    }
-  }
-
-  // DX (spot) CQ Zone 'exclude' filter
-  if (filters.excludeCqZones?.length > 0) {
-    if (dxInfo.cqZone && filters.excludeCqZones.includes(dxInfo.cqZone)) {
-      return false;
-    }
-  }
-
-  // DX (spot) ITU Zone 'exclude' filter
-  if (filters.excludeItuZones?.length > 0) {
-    if (dxInfo.ituZone && !filters.excludeItuZones.includes(dxInfo.ituZone)) {
-      return false;
-    }
-  }
-
-  // DX (spot) Callsign 'exclude' filter - hide matching calls (prefix match)
-  if (filters.excludeDXCallList?.length > 0) {
-    const isExcluded = filters.excludeDXCallList.some(exc =>
-      dxCall?.toUpperCase().startsWith(exc.toUpperCase())
-    );
-    if (isExcluded) return false;
-  }
-
-  // DE (spotter) Callsign 'exclude' filter - hide matching calls (prefix match)
-  if (filters.excludeDECallList?.length > 0) {
-    const isExcluded = filters.excludeDECallList.some(exc =>
-      spotter?.toUpperCase().startsWith(exc.toUpperCase())
-    );
-    if (isExcluded) return false;
-  }
-
-  // Legacy excludeList support (for backwards compatibility)
-  if (filters.excludeList?.length > 0) {
-    const isExcluded = filters.excludeList.some(exc =>
-      dxCall?.toUpperCase().startsWith(exc.toUpperCase())
-    );
-    if (isExcluded) return false;
-  }
-
-  /**
-   * Band filter (from the 'Bands' tab)
-   */
-  if (filters.bands?.length > 0) {
-    const band = getBandFromFreq(parseFloat(item.freq) * 1000);
-    if (!filters.bands.includes(band)) return false;
-  }
-
-  /**
-   * Mode filter (from the 'Modes' tab)
-   */
-  if (filters.modes?.length > 0) {
-    const mode = detectMode(item.comment);
-    if (!mode || !filters.modes.includes(mode)) return false;
-  }
-
-  /**
-   * Callsign search filter (from the cluster list "Quick Search")
-   * Include if either the DE (spotter) callsign or the DX (spot) callsign matches
-   */
-  if (filters.callsign && filters.callsign.trim()) {
-    const search = filters.callsign.trim().toUpperCase();
-    const matchesCall = dxCall?.toUpperCase().includes(search);
-    const matchesSpotter = spotter?.toUpperCase().includes(search);
-    if (!matchesCall && !matchesSpotter) return false;
-  }
-
-  return true;
-};
-
-/**
- * Filter an array of DX spots/paths
- * Wrapper around applyDXFilters for filtering arrays
- */
-export const filterDXPaths = (paths, filters) => {
-  if (!paths || !filters) return paths;
-  if (Object.keys(filters).length === 0) return paths;
-  
-  return paths.filter(item => applyDXFilters(item, filters));
-};
-
 export default {
   HF_BANDS,
   CONTINENTS,
@@ -379,7 +227,5 @@ export default {
   getBandColor,
   detectMode,
   PREFIX_MAP,
-  getCallsignInfo,
-  applyDXFilters,
-  filterDXPaths
+  getCallsignInfo
 };

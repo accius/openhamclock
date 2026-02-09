@@ -25,6 +25,7 @@ const net = require('net');
 const dgram = require('dgram');
 const fs = require('fs');
 const { execFile, spawn } = require('child_process');
+const mqttLib = require('mqtt');
 
 // Read version from package.json as single source of truth
 const APP_VERSION = (() => {
@@ -63,6 +64,96 @@ if (fs.existsSync(envPath)) {
 const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+
+// ============================================
+// UPSTREAM REQUEST MANAGER
+// Prevents request stampedes on external APIs:
+// 1. In-flight deduplication — only 1 fetch per cache key at a time
+// 2. Stale-while-revalidate — serve stale data instantly, refresh in background
+// 3. Exponential backoff with jitter per service
+// ============================================
+class UpstreamManager {
+  constructor() {
+    this.inFlight = new Map();  // cacheKey -> Promise
+    this.backoffs = new Map();  // serviceName -> { until, consecutive }
+  }
+
+  /**
+   * Check if a service is in backoff period
+   * @returns {boolean}
+   */
+  isBackedOff(service) {
+    const b = this.backoffs.get(service);
+    return b && Date.now() < b.until;
+  }
+
+  /**
+   * Get remaining backoff seconds for logging
+   */
+  backoffRemaining(service) {
+    const b = this.backoffs.get(service);
+    if (!b || Date.now() >= b.until) return 0;
+    return Math.round((b.until - Date.now()) / 1000);
+  }
+
+  /**
+   * Record a failure — applies exponential backoff with jitter
+   * @param {string} service - Service name (e.g. 'pskreporter', 'wspr', 'weather')
+   * @param {number} statusCode - HTTP status that caused the failure
+   */
+  recordFailure(service, statusCode) {
+    const prev = this.backoffs.get(service) || { consecutive: 0 };
+    const consecutive = prev.consecutive + 1;
+    
+    // Base delays by status: 429=aggressive, 503=moderate, other=short
+    const baseDelay = statusCode === 429 ? 60000 : statusCode === 503 ? 30000 : 15000;
+    
+    // Exponential: 30s, 60s, 120s, 240s... capped at 30 minutes
+    const delay = Math.min(30 * 60 * 1000, baseDelay * Math.pow(2, consecutive - 1));
+    
+    // Add 0-15s jitter to prevent synchronized retries across instances
+    const jitter = Math.random() * 15000;
+    
+    this.backoffs.set(service, { 
+      until: Date.now() + delay + jitter, 
+      consecutive 
+    });
+    
+    return Math.round((delay + jitter) / 1000);
+  }
+
+  /**
+   * Record a success — resets backoff for the service
+   */
+  recordSuccess(service) {
+    this.backoffs.delete(service);
+  }
+
+  /**
+   * Deduplicated fetch — if an identical request is already in-flight,
+   * all callers share the same Promise instead of each hitting upstream.
+   * 
+   * @param {string} cacheKey - Unique key for this request
+   * @param {Function} fetchFn - async function that performs the actual upstream fetch
+   * @returns {Promise} - Resolves with fetch result, or rejects on error
+   */
+  async fetch(cacheKey, fetchFn) {
+    // If this exact request is already in-flight, piggyback on it
+    if (this.inFlight.has(cacheKey)) {
+      return this.inFlight.get(cacheKey);
+    }
+
+    // Create the promise and store it so concurrent callers can share it
+    const promise = fetchFn().finally(() => {
+      this.inFlight.delete(cacheKey);
+    });
+
+    this.inFlight.set(cacheKey, promise);
+    return promise;
+  }
+}
+
+const upstream = new UpstreamManager();
 
 // ============================================
 // CONFIGURATION FROM ENVIRONMENT
@@ -215,18 +306,20 @@ if (configMissing) {
   console.log('[Config] Settings popup will appear in browser');
 }
 
-// ITURHFProp service URL (optional - enables hybrid mode)
-// Must be a full URL like https://iturhfprop.example.com
+// ITURHFProp service URL (enables ITU-R P.533-14 propagation predictions)
+// Defaults to the public OpenHamClock prediction service; override in .env if self-hosting
+const ITURHFPROP_DEFAULT = 'https://proppy-production.up.railway.app';
 const ITURHFPROP_URL = process.env.ITURHFPROP_URL && process.env.ITURHFPROP_URL.trim().startsWith('http') 
   ? process.env.ITURHFPROP_URL.trim() 
-  : null;
+  : ITURHFPROP_DEFAULT;
 
 // Log configuration
 console.log(`[Config] Station: ${CONFIG.callsign} @ ${CONFIG.gridSquare || 'No grid'}`);
 console.log(`[Config] Location: ${CONFIG.latitude.toFixed(4)}, ${CONFIG.longitude.toFixed(4)}`);
 console.log(`[Config] Units: ${CONFIG.units}, Time: ${CONFIG.timeFormat}h`);
 if (ITURHFPROP_URL) {
-  console.log(`[Propagation] Hybrid mode enabled - ITURHFProp service: ${ITURHFPROP_URL}`);
+  const isDefault = ITURHFPROP_URL === ITURHFPROP_DEFAULT;
+  console.log(`[Propagation] ITU-R P.533-14 enabled via ${isDefault ? 'public service' : 'custom service'}: ${ITURHFPROP_URL}`);
 } else {
   console.log('[Propagation] Standalone mode - using built-in calculations');
 }
@@ -263,6 +356,8 @@ app.use('/api', (req, res, next) => {
     cacheDuration = 300; // 5 minutes (space weather updates every 5 min)
   } else if (path.includes('/propagation')) {
     cacheDuration = 600; // 10 minutes
+  } else if (path.includes('/n0nbh') || path.includes('/hamqsl')) {
+    cacheDuration = 3600; // 1 hour (N0NBH updates every 3 hours)
   } else if (path.includes('/pota') || path.includes('/sota')) {
     cacheDuration = 120; // 2 minutes
   } else if (path.includes('/pskreporter')) {
@@ -389,8 +484,8 @@ const endpointStats = {
 
 // Middleware to track endpoint usage
 app.use('/api', (req, res, next) => {
-  // Skip health endpoint to avoid recursive tracking
-  if (req.path === '/health') return next();
+  // Skip health and version endpoints to avoid recursive/noisy tracking
+  if (req.path === '/health' || req.path === '/version') return next();
   
   const startTime = Date.now();
   let responseSize = 0;
@@ -572,6 +667,136 @@ const visitorStats = loadVisitorStats();
 const todayIPSet = new Set(visitorStats.uniqueIPsToday);
 const allTimeIPSet = new Set(visitorStats.allTimeUniqueIPs);
 
+// ============================================
+// GEO-IP COUNTRY RESOLUTION
+// ============================================
+// Resolves visitor IPs to country codes using ip-api.com batch endpoint.
+// Free tier: 15 batch requests/minute, 100 IPs per batch. No API key needed.
+// Results cached persistently in visitorStats.geoIPCache.
+
+// Initialize country tracking in visitorStats if not present
+if (!visitorStats.countryStats) visitorStats.countryStats = {};           // { US: 42, DE: 7, ... }
+if (!visitorStats.countryStatsToday) visitorStats.countryStatsToday = {}; // Reset daily
+if (!visitorStats.geoIPCache) visitorStats.geoIPCache = {};              // { "1.2.3.4": "US", ... }
+
+const geoIPCache = new Map(Object.entries(visitorStats.geoIPCache));      // ip -> countryCode
+const geoIPQueue = new Set();                                             // IPs pending lookup
+let geoIPLastBatch = 0;
+const GEOIP_BATCH_INTERVAL = 30 * 1000;  // Resolve every 30 seconds
+const GEOIP_BATCH_SIZE = 100;             // ip-api.com batch limit
+
+// Queue any existing IPs that haven't been resolved yet
+for (const ip of allTimeIPSet) {
+  if (!geoIPCache.has(ip) && ip !== 'unknown' && !ip.startsWith('127.') && !ip.startsWith('::')) {
+    geoIPQueue.add(ip);
+  }
+}
+if (geoIPQueue.size > 0) {
+  logInfo(`[GeoIP] Queued ${geoIPQueue.size} unresolved IPs from history for batch lookup`);
+}
+
+/**
+ * Queue an IP for GeoIP resolution
+ */
+function queueGeoIPLookup(ip) {
+  if (!ip || ip === 'unknown' || ip.startsWith('127.') || ip.startsWith('::1') || ip === '0.0.0.0') return;
+  if (geoIPCache.has(ip)) return;
+  geoIPQueue.add(ip);
+}
+
+/**
+ * Record a resolved country for an IP
+ */
+function recordCountry(ip, countryCode) {
+  if (!countryCode || countryCode === 'Unknown') return;
+  geoIPCache.set(ip, countryCode);
+  visitorStats.geoIPCache[ip] = countryCode;
+  
+  // All-time stats
+  visitorStats.countryStats[countryCode] = (visitorStats.countryStats[countryCode] || 0) + 1;
+  
+  // Today stats (only if IP is in today's set)
+  if (todayIPSet.has(ip)) {
+    visitorStats.countryStatsToday[countryCode] = (visitorStats.countryStatsToday[countryCode] || 0) + 1;
+  }
+}
+
+/**
+ * Batch resolve queued IPs via ip-api.com
+ * Uses the batch endpoint: POST http://ip-api.com/batch
+ * Free tier: 15 requests/minute, 100 IPs per request
+ */
+async function resolveGeoIPBatch() {
+  if (geoIPQueue.size === 0) return;
+  
+  const now = Date.now();
+  if (now - geoIPLastBatch < GEOIP_BATCH_INTERVAL) return;
+  geoIPLastBatch = now;
+  
+  // Take up to GEOIP_BATCH_SIZE IPs from queue
+  const batch = [];
+  for (const ip of geoIPQueue) {
+    batch.push(ip);
+    if (batch.length >= GEOIP_BATCH_SIZE) break;
+  }
+  
+  // Remove from queue before fetching (will re-queue on failure)
+  batch.forEach(ip => geoIPQueue.delete(ip));
+  
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    
+    const response = await fetch('http://ip-api.com/batch?fields=query,countryCode,status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(batch.map(ip => ({ query: ip, fields: 'query,countryCode,status' }))),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    
+    if (response.status === 429) {
+      // Rate limited — re-queue and back off
+      batch.forEach(ip => geoIPQueue.add(ip));
+      logWarn('[GeoIP] Rate limited by ip-api.com, will retry later');
+      geoIPLastBatch = now + 60000; // Extra 60s backoff
+      return;
+    }
+    
+    if (!response.ok) {
+      batch.forEach(ip => geoIPQueue.add(ip));
+      logWarn(`[GeoIP] Batch lookup failed: HTTP ${response.status}`);
+      return;
+    }
+    
+    const results = await response.json();
+    let resolved = 0;
+    
+    for (const entry of results) {
+      if (entry.status === 'success' && entry.countryCode) {
+        recordCountry(entry.query, entry.countryCode);
+        resolved++;
+      }
+      // Don't re-queue failures (private IPs, invalid IPs) — they'll never resolve
+    }
+    
+    if (resolved > 0) {
+      logDebug(`[GeoIP] Resolved ${resolved}/${batch.length} IPs (${geoIPQueue.size} remaining)`);
+    }
+  } catch (err) {
+    // Re-queue on network errors
+    batch.forEach(ip => geoIPQueue.add(ip));
+    if (err.name !== 'AbortError') {
+      logErrorOnce('GeoIP', `Batch lookup error: ${err.message}`);
+    }
+  }
+}
+
+// Run GeoIP batch resolver every 30 seconds
+setInterval(resolveGeoIPBatch, GEOIP_BATCH_INTERVAL);
+// Initial batch (with 5s delay to let startup complete)
+setTimeout(resolveGeoIPBatch, 5000);
+
 // Save immediately on startup to confirm persistence is working
 if (STATS_FILE) {
   saveVisitorStats();
@@ -598,7 +823,8 @@ function rolloverVisitorStats() {
       visitorStats.history.push({
         date: visitorStats.today,
         uniqueVisitors: visitorStats.uniqueIPsToday.length,
-        totalRequests: visitorStats.totalRequestsToday
+        totalRequests: visitorStats.totalRequestsToday,
+        countries: { ...visitorStats.countryStatsToday }
       });
     }
     // Keep only last 90 days
@@ -614,6 +840,7 @@ function rolloverVisitorStats() {
     visitorStats.today = now;
     visitorStats.uniqueIPsToday = [];
     visitorStats.totalRequestsToday = 0;
+    visitorStats.countryStatsToday = {};
     todayIPSet.clear();
     
     // Save after rollover
@@ -621,9 +848,183 @@ function rolloverVisitorStats() {
   }
 }
 
+// ============================================
+// CONCURRENT USER & SESSION TRACKING
+// ============================================
+// Track active sessions by IP for concurrent user count and session duration trends
+const SESSION_TIMEOUT = 5 * 60 * 1000; // 5 minutes of inactivity = session ended
+const SESSION_CLEANUP_INTERVAL = 60 * 1000; // Check for stale sessions every minute
+
+const sessionTracker = {
+  activeSessions: new Map(), // ip -> { firstSeen, lastSeen, requests, userAgent }
+  completedSessions: [],     // [{ duration, endedAt, requests }] — last 1000
+  peakConcurrent: 0,
+  peakConcurrentTime: null,
+  
+  // Record activity for an IP
+  touch(ip, userAgent) {
+    const now = Date.now();
+    if (this.activeSessions.has(ip)) {
+      const session = this.activeSessions.get(ip);
+      session.lastSeen = now;
+      session.requests++;
+    } else {
+      this.activeSessions.set(ip, {
+        firstSeen: now,
+        lastSeen: now,
+        requests: 1,
+        userAgent: (userAgent || '').slice(0, 100)
+      });
+    }
+    // Update peak
+    const current = this.activeSessions.size;
+    if (current > this.peakConcurrent) {
+      this.peakConcurrent = current;
+      this.peakConcurrentTime = new Date().toISOString();
+    }
+  },
+  
+  // Expire stale sessions and record their durations
+  cleanup() {
+    const now = Date.now();
+    const expired = [];
+    for (const [ip, session] of this.activeSessions) {
+      if (now - session.lastSeen > SESSION_TIMEOUT) {
+        expired.push(ip);
+        const duration = session.lastSeen - session.firstSeen;
+        // Only record sessions that lasted at least 10 seconds (filter out bots/crawlers)
+        if (duration > 10000) {
+          this.completedSessions.push({
+            duration,
+            endedAt: new Date(session.lastSeen).toISOString(),
+            requests: session.requests
+          });
+        }
+      }
+    }
+    expired.forEach(ip => this.activeSessions.delete(ip));
+    // Keep only last 1000 completed sessions
+    if (this.completedSessions.length > 1000) {
+      this.completedSessions = this.completedSessions.slice(-1000);
+    }
+  },
+  
+  // Get current concurrent count
+  getConcurrent() {
+    this.cleanup();
+    return this.activeSessions.size;
+  },
+  
+  // Get session duration stats
+  getStats() {
+    this.cleanup();
+    const sessions = this.completedSessions;
+    if (sessions.length === 0) {
+      return {
+        concurrent: this.activeSessions.size,
+        peakConcurrent: this.peakConcurrent,
+        peakConcurrentTime: this.peakConcurrentTime,
+        completedSessions: 0,
+        avgDuration: 0,
+        medianDuration: 0,
+        p90Duration: 0,
+        maxDuration: 0,
+        durationBuckets: { under1m: 0, '1to5m': 0, '5to15m': 0, '15to30m': 0, '30to60m': 0, over1h: 0 },
+        recentTrend: [],
+        activeSessions: []
+      };
+    }
+    
+    const durations = sessions.map(s => s.duration).sort((a, b) => a - b);
+    const avg = Math.round(durations.reduce((s, d) => s + d, 0) / durations.length);
+    const median = durations[Math.floor(durations.length / 2)];
+    const p90 = durations[Math.floor(durations.length * 0.9)];
+    const max = durations[durations.length - 1];
+    
+    // Duration distribution buckets
+    const buckets = { under1m: 0, '1to5m': 0, '5to15m': 0, '15to30m': 0, '30to60m': 0, over1h: 0 };
+    for (const d of durations) {
+      if (d < 60000) buckets.under1m++;
+      else if (d < 300000) buckets['1to5m']++;
+      else if (d < 900000) buckets['5to15m']++;
+      else if (d < 1800000) buckets['15to30m']++;
+      else if (d < 3600000) buckets['30to60m']++;
+      else buckets.over1h++;
+    }
+    
+    // Hourly trend (last 24 hours) — avg session duration and concurrent users per hour
+    const recentTrend = [];
+    const now = Date.now();
+    for (let h = 23; h >= 0; h--) {
+      const hourStart = now - (h + 1) * 3600000;
+      const hourEnd = now - h * 3600000;
+      const hourSessions = sessions.filter(s => {
+        const t = new Date(s.endedAt).getTime();
+        return t >= hourStart && t < hourEnd;
+      });
+      const hourLabel = new Date(hourStart).toISOString().slice(11, 16);
+      recentTrend.push({
+        hour: hourLabel,
+        sessions: hourSessions.length,
+        avgDuration: hourSessions.length > 0 
+          ? Math.round(hourSessions.reduce((s, x) => s + x.duration, 0) / hourSessions.length)
+          : 0,
+        avgDurationFormatted: hourSessions.length > 0
+          ? formatDuration(Math.round(hourSessions.reduce((s, x) => s + x.duration, 0) / hourSessions.length))
+          : '--'
+      });
+    }
+    
+    // Active session durations (current users)
+    const activeList = [];
+    for (const [ip, session] of this.activeSessions) {
+      activeList.push({
+        duration: now - session.firstSeen,
+        durationFormatted: formatDuration(now - session.firstSeen),
+        requests: session.requests,
+        ip: ip.replace(/\d+$/, 'x') // Anonymize last octet
+      });
+    }
+    activeList.sort((a, b) => b.duration - a.duration);
+    
+    return {
+      concurrent: this.activeSessions.size,
+      peakConcurrent: this.peakConcurrent,
+      peakConcurrentTime: this.peakConcurrentTime,
+      completedSessions: sessions.length,
+      avgDuration: avg,
+      avgDurationFormatted: formatDuration(avg),
+      medianDuration: median,
+      medianDurationFormatted: formatDuration(median),
+      p90Duration: p90,
+      p90DurationFormatted: formatDuration(p90),
+      maxDuration: max,
+      maxDurationFormatted: formatDuration(max),
+      durationBuckets: buckets,
+      recentTrend,
+      activeSessions: activeList.slice(0, 20) // Top 20 longest active
+    };
+  }
+};
+
+function formatDuration(ms) {
+  if (ms < 60000) return `${Math.round(ms / 1000)}s`;
+  if (ms < 3600000) return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
+  return `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
+}
+
+// Periodic cleanup of stale sessions
+setInterval(() => sessionTracker.cleanup(), SESSION_CLEANUP_INTERVAL);
+
 // Visitor tracking middleware
 app.use((req, res, next) => {
   rolloverVisitorStats();
+  
+  // Track concurrent sessions for ALL requests (not just countable routes)
+  const sessionIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || 'unknown';
+  if (req.path !== '/api/health' && !req.path.startsWith('/assets/')) {
+    sessionTracker.touch(sessionIp, req.headers['user-agent']);
+  }
   
   // Only count meaningful "visits" — initial page load or config fetch
   const countableRoutes = ['/', '/index.html', '/api/config'];
@@ -645,7 +1046,11 @@ app.use((req, res, next) => {
       allTimeIPSet.add(ip);
       visitorStats.allTimeUniqueIPs.push(ip);
       visitorStats.allTimeVisitors++;
+      queueGeoIPLookup(ip);
       logInfo(`[Stats] New visitor (#${visitorStats.uniqueIPsToday.length} today, #${visitorStats.allTimeVisitors} all-time) from ${ip.replace(/\d+$/, 'x')}`);
+    } else if (isNewToday) {
+      // Existing all-time visitor but new today — queue GeoIP in case cache was lost
+      queueGeoIPLookup(ip);
     }
   }
   
@@ -690,16 +1095,32 @@ function execFilePromise(cmd, args, options = {}) {
   });
 }
 
+// Detect default branch (main or master) — cached after first call
+let _defaultBranch = null;
+async function getDefaultBranch() {
+  if (_defaultBranch) return _defaultBranch;
+  try {
+    await execFilePromise('git', ['rev-parse', '--verify', 'origin/main'], { cwd: __dirname });
+    _defaultBranch = 'main';
+  } catch {
+    _defaultBranch = 'master';
+  }
+  return _defaultBranch;
+}
+
 async function hasGitUpdates() {
   await execFilePromise('git', ['fetch', 'origin'], { cwd: __dirname });
+  const branch = await getDefaultBranch();
   const local = (await execFilePromise('git', ['rev-parse', 'HEAD'], { cwd: __dirname })).stdout.trim();
-  let remote = '';
-  try {
-    remote = (await execFilePromise('git', ['rev-parse', 'origin/main'], { cwd: __dirname })).stdout.trim();
-  } catch {
-    remote = (await execFilePromise('git', ['rev-parse', 'origin/master'], { cwd: __dirname })).stdout.trim();
-  }
+  const remote = (await execFilePromise('git', ['rev-parse', `origin/${branch}`], { cwd: __dirname })).stdout.trim();
   return { updateAvailable: local !== remote, local, remote };
+}
+
+// Prevent chmod changes from showing as dirty (common on Pi, Mac, Windows/WSL)
+if (fs.existsSync(path.join(__dirname, '.git'))) {
+  try {
+    execFile('git', ['config', 'core.fileMode', 'false'], { cwd: __dirname }, () => {});
+  } catch {}
 }
 
 async function hasDirtyWorkingTree() {
@@ -741,10 +1162,16 @@ async function autoUpdateTick(trigger = 'interval', force = false) {
       return;
     }
 
+    // Stash any local changes (permission changes, config edits, etc.) before pulling
     if (await hasDirtyWorkingTree()) {
-      autoUpdateState.lastResult = 'dirty';
-      logWarn('[Auto Update] Skipped - local changes detected');
-      return;
+      logInfo('[Auto Update] Stashing local changes before update');
+      try {
+        await execFilePromise('git', ['stash', '--include-untracked'], { cwd: __dirname });
+      } catch (stashErr) {
+        // If stash fails, try a hard reset of tracked files only
+        logWarn('[Auto Update] Stash failed, resetting tracked files');
+        await execFilePromise('git', ['checkout', '.'], { cwd: __dirname });
+      }
     }
 
     const { updateAvailable } = await hasGitUpdates();
@@ -801,7 +1228,16 @@ const distExists = fs.existsSync(path.join(distDir, 'index.html'));
 const staticOptions = {
   maxAge: '1d', // Cache static files for 1 day
   etag: true,
-  lastModified: true
+  lastModified: true,
+  setHeaders: (res, filePath) => {
+    // Never cache index.html - it references hashed assets, so stale copies
+    // cause browsers to load old JS bundles after an update
+    if (filePath.endsWith('index.html') || filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
 };
 
 // Long-term caching for hashed assets (Vite adds hash to filenames)
@@ -1388,33 +1824,106 @@ app.get('/api/sota/spots', async (req, res) => {
   }
 });
 
-// HamQSL cache (5 minutes)
-let hamqslCache = { data: null, timestamp: 0 };
-const HAMQSL_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+// N0NBH / HamQSL cache (1 hour - N0NBH data updates every 3 hours, they ask for no more than 15-min refreshes)
+let n0nbhCache = { data: null, timestamp: 0 };
+const N0NBH_CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
-// HamQSL Band Conditions
-app.get('/api/hamqsl/conditions', async (req, res) => {
+// Parse N0NBH solarxml.php XML into clean JSON
+function parseN0NBHxml(xml) {
+  const get = (tag) => {
+    const m = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
+    return m ? m[1].trim() : null;
+  };
+  
+  // Parse HF band conditions
+  const bandConditions = [];
+  const bandRegex = /<band name="([^"]+)" time="([^"]+)">([^<]+)<\/band>/g;
+  let match;
+  while ((match = bandRegex.exec(xml)) !== null) {
+    // Only grab from calculatedconditions (not VHF)
+    if (match[1].includes('m-') || match[1].includes('m ')) {
+      bandConditions.push({
+        name: match[1],
+        time: match[2],
+        condition: match[3]
+      });
+    }
+  }
+  
+  // Parse VHF conditions
+  const vhfConditions = [];
+  const vhfRegex = /<phenomenon name="([^"]+)" location="([^"]+)">([^<]+)<\/phenomenon>/g;
+  while ((match = vhfRegex.exec(xml)) !== null) {
+    vhfConditions.push({
+      name: match[1],
+      location: match[2],
+      condition: match[3]
+    });
+  }
+  
+  return {
+    source: 'N0NBH',
+    updated: get('updated'),
+    solarData: {
+      solarFlux: get('solarflux'),
+      aIndex: get('aindex'),
+      kIndex: get('kindex'),
+      kIndexNt: get('kindexnt'),
+      xray: get('xray'),
+      sunspots: get('sunspots'),
+      heliumLine: get('heliumline'),
+      protonFlux: get('protonflux'),
+      electronFlux: get('electonflux'), // N0NBH has the typo in their XML
+      aurora: get('aurora'),
+      normalization: get('normalization'),
+      latDegree: get('latdegree'),
+      solarWind: get('solarwind'),
+      magneticField: get('magneticfield'),
+      fof2: get('fof2'),
+      mufFactor: get('muffactor'),
+      muf: get('muf')
+    },
+    geomagField: get('geomagfield'),
+    signalNoise: get('signalnoise'),
+    bandConditions,
+    vhfConditions
+  };
+}
+
+// N0NBH Parsed Band Conditions + Solar Data
+app.get('/api/n0nbh', async (req, res) => {
   try {
-    // Return cached data if fresh
-    if (hamqslCache.data && (Date.now() - hamqslCache.timestamp) < HAMQSL_CACHE_TTL) {
-      res.set('Content-Type', 'application/xml');
-      return res.send(hamqslCache.data);
+    if (n0nbhCache.data && (Date.now() - n0nbhCache.timestamp) < N0NBH_CACHE_TTL) {
+      return res.json(n0nbhCache.data);
     }
     
     const response = await fetch('https://www.hamqsl.com/solarxml.php');
+    const xml = await response.text();
+    const parsed = parseN0NBHxml(xml);
+    
+    n0nbhCache = { data: parsed, timestamp: Date.now() };
+    res.json(parsed);
+  } catch (error) {
+    logErrorOnce('N0NBH', error.message);
+    if (n0nbhCache.data) return res.json(n0nbhCache.data);
+    res.status(500).json({ error: 'Failed to fetch N0NBH data' });
+  }
+});
+
+// Legacy raw XML endpoint (kept for backward compat)
+app.get('/api/hamqsl/conditions', async (req, res) => {
+  try {
+    // Use N0NBH cache if fresh, otherwise fetch
+    if (n0nbhCache.data && (Date.now() - n0nbhCache.timestamp) < N0NBH_CACHE_TTL) {
+      // Re-fetch raw XML from cache won't work since we only store parsed,
+      // so just fetch fresh if needed
+    }
+    const response = await fetch('https://www.hamqsl.com/solarxml.php');
     const text = await response.text();
-    
-    // Cache the response
-    hamqslCache = { data: text, timestamp: Date.now() };
-    
     res.set('Content-Type', 'application/xml');
     res.send(text);
   } catch (error) {
     logErrorOnce('HamQSL', error.message);
-    if (hamqslCache.data) {
-      res.set('Content-Type', 'application/xml');
-      return res.send(hamqslCache.data);
-    }
     res.status(500).json({ error: 'Failed to fetch band conditions' });
   }
 });
@@ -3043,21 +3552,22 @@ function getBandFromHz(freqHz) {
   return 'Unknown';
 }
 
-// PSKReporter endpoint - returns MQTT connection info for frontend
-// The frontend connects directly to MQTT via WebSocket for real-time updates
+// PSKReporter endpoint - returns connection info for frontend
+// The server now proxies MQTT and exposes it via SSE
 app.get('/api/pskreporter/config', (req, res) => {
   res.json({
-    mqtt: {
-      host: 'mqtt.pskreporter.info',
-      wsPort: 1885,      // WebSocket
-      wssPort: 1886,     // WebSocket + TLS (recommended)
-      topicPrefix: 'pskr/filter/v2'
+    stream: {
+      endpoint: '/api/pskreporter/stream/{callsign}',
+      type: 'text/event-stream',
+      batchInterval: '10s',
+      note: 'Server maintains single MQTT connection to PSKReporter, relays via SSE'
     },
-    // Topic format: pskr/filter/v2/{band}/{mode}/{sendercall}/{receivercall}/{senderlocator}/{receiverlocator}/{sendercountry}/{receivercountry}
-    // Use + for single-level wildcard, # for multi-level
-    // Example for TX (being heard): pskr/filter/v2/+/+/{CALLSIGN}/#
-    // Example for RX (hearing): Subscribe and filter client-side
-    info: 'Connect via WebSocket to mqtt.pskreporter.info:1886 (wss) for real-time spots'
+    mqtt: {
+      status: pskMqtt.connected ? 'connected' : 'disconnected',
+      activeCallsigns: pskMqtt.subscribedCalls.size,
+      sseClients: [...pskMqtt.subscribers.values()].reduce((n, s) => n + s.size, 0)
+    },
+    info: 'Connect to /api/pskreporter/stream/:callsign for real-time spots via Server-Sent Events'
   });
 });
 
@@ -3065,40 +3575,36 @@ app.get('/api/pskreporter/config', (req, res) => {
 // Uses the traditional retrieve API with caching
 let pskHttpCache = {};
 const PSK_HTTP_CACHE_TTL = 10 * 60 * 1000; // 10 minutes - PSKReporter rate limits aggressively
-let psk503Backoff = 0; // Timestamp when we can try again after 503
+const PSK_HTTP_STALE_TTL = 60 * 60 * 1000; // Serve stale data up to 1 hour
 
 app.get('/api/pskreporter/http/:callsign', async (req, res) => {
   const callsign = req.params.callsign.toUpperCase();
-  const minutes = parseInt(req.query.minutes) || 15;
+  const minutes = parseInt(req.query.minutes) || 30;
   const direction = req.query.direction || 'tx'; // tx or rx
-  // flowStartSeconds must be NEGATIVE for "last N seconds"
   const flowStartSeconds = -Math.abs(minutes * 60);
   
-  const cacheKey = `${direction}:${callsign}:${minutes}`;
+  const cacheKey = `psk:${direction}:${callsign}:${minutes}`;
   const now = Date.now();
   
-  // Check cache first
+  // 1. Fresh cache hit — serve immediately
   if (pskHttpCache[cacheKey] && (now - pskHttpCache[cacheKey].timestamp) < PSK_HTTP_CACHE_TTL) {
     return res.json({ ...pskHttpCache[cacheKey].data, cached: true });
   }
   
-  // If we're in 503 backoff period, return cached data or empty result
-  if (psk503Backoff > now) {
+  // 2. Backoff active — serve stale or empty
+  if (upstream.isBackedOff('pskreporter')) {
     if (pskHttpCache[cacheKey]) {
       return res.json({ ...pskHttpCache[cacheKey].data, cached: true, stale: true });
     }
-    return res.json({ 
-      callsign, 
-      direction, 
-      count: 0, 
-      reports: [],
-      backoff: true
-    });
+    return res.json({ callsign, direction, count: 0, reports: [], backoff: true });
   }
   
-  try {
+  // 3. Stale cache exists — serve it immediately, refresh in background (stale-while-revalidate)
+  const hasStale = pskHttpCache[cacheKey] && (now - pskHttpCache[cacheKey].timestamp) < PSK_HTTP_STALE_TTL;
+  
+  // 4. Deduplicated upstream fetch — only 1 in-flight request per cache key
+  const doFetch = () => upstream.fetch(cacheKey, async () => {
     const param = direction === 'tx' ? 'senderCallsign' : 'receiverCallsign';
-    // Add appcontact parameter as requested by PSKReporter developer docs
     const url = `https://retrieve.pskreporter.info/query?${param}=${encodeURIComponent(callsign)}&flowStartSeconds=${flowStartSeconds}&rronly=1&appcontact=openhamclock`;
     
     const controller = new AbortController();
@@ -3106,7 +3612,7 @@ app.get('/api/pskreporter/http/:callsign', async (req, res) => {
     
     const response = await fetch(url, {
       headers: { 
-        'User-Agent': 'OpenHamClock/3.13.1 (Amateur Radio Dashboard)',
+        'User-Agent': 'OpenHamClock/15.1.4 (Amateur Radio Dashboard)',
         'Accept': '*/*'
       },
       signal: controller.signal
@@ -3114,21 +3620,14 @@ app.get('/api/pskreporter/http/:callsign', async (req, res) => {
     clearTimeout(timeout);
     
     if (!response.ok) {
-      // Back off on rate-limit or access errors to avoid hammering
-      if (response.status === 503) {
-        psk503Backoff = Date.now() + (15 * 60 * 1000);
-        logErrorOnce('PSKReporter HTTP', '503 - backing off for 15 minutes');
-      } else if (response.status === 403 || response.status === 429) {
-        psk503Backoff = Date.now() + (30 * 60 * 1000);
-        logErrorOnce('PSKReporter HTTP', `${response.status} - backing off for 30 minutes (server-side HTTP proxy blocked; users unaffected via MQTT)`);
-      }
+      const backoffSecs = upstream.recordFailure('pskreporter', response.status);
+      logErrorOnce('PSKReporter HTTP', `${response.status} — backing off for ${backoffSecs}s`);
       throw new Error(`HTTP ${response.status}`);
     }
     
     const xml = await response.text();
     const reports = [];
     
-    // Parse XML response
     const reportRegex = /<receptionReport[^>]*>/g;
     let match;
     while ((match = reportRegex.exec(xml)) !== null) {
@@ -3169,55 +3668,51 @@ app.get('/api/pskreporter/http/:callsign', async (req, res) => {
       }
     }
     
-    // Sort by timestamp (newest first)
     reports.sort((a, b) => b.timestamp - a.timestamp);
-    
-    // Clear backoff on success
-    psk503Backoff = 0;
+    upstream.recordSuccess('pskreporter');
     
     const result = {
       callsign,
       direction,
       count: reports.length,
-      reports: reports.slice(0, 100),
+      reports: reports.slice(0, 500),
       timestamp: new Date().toISOString(),
       source: 'http'
     };
     
-    // Cache it
-    pskHttpCache[cacheKey] = { data: result, timestamp: now };
-    
+    pskHttpCache[cacheKey] = { data: result, timestamp: Date.now() };
     logDebug(`[PSKReporter HTTP] Found ${reports.length} ${direction} reports for ${callsign}`);
+    return result;
+  });
+  
+  if (hasStale) {
+    // Stale-while-revalidate: respond with stale data now, refresh in background
+    doFetch().catch(() => {}); // fire-and-forget background refresh
+    return res.json({ ...pskHttpCache[cacheKey].data, cached: true, stale: true });
+  }
+  
+  // No stale data — must wait for upstream
+  try {
+    const result = await doFetch();
     res.json(result);
-    
   } catch (error) {
-    // Don't re-log 403/503 errors - already logged above with backoff info
     if (!error.message?.includes('HTTP 403') && !error.message?.includes('HTTP 503')) {
       logErrorOnce('PSKReporter HTTP', error.message);
     }
-    
-    // Return cached data if available (without error flag)
     if (pskHttpCache[cacheKey]) {
       return res.json({ ...pskHttpCache[cacheKey].data, cached: true, stale: true });
     }
-    
-    // Return empty result without error flag for rate limiting
-    res.json({ 
-      callsign, 
-      direction, 
-      count: 0, 
-      reports: []
-    });
+    res.json({ callsign, direction, count: 0, reports: [] });
   }
 });
 
-// Combined endpoint that tries MQTT cache first, falls back to HTTP
+// Combined endpoint that returns HTTP-fetched data + stream info
 app.get('/api/pskreporter/:callsign', async (req, res) => {
   const callsign = req.params.callsign.toUpperCase();
-  const minutes = parseInt(req.query.minutes) || 15;
+  const minutes = parseInt(req.query.minutes) || 30;
   
-  // For now, redirect to HTTP endpoint since MQTT requires client-side connection
-  // The frontend should connect directly to MQTT for real-time updates
+  // For now, redirect to HTTP endpoint for historical data
+  // Live spots come via /api/pskreporter/stream/:callsign (SSE)
   try {
     const [txRes, rxRes] = await Promise.allSettled([
       fetch(`http://localhost:${PORT}/api/pskreporter/http/${callsign}?minutes=${minutes}&direction=tx`),
@@ -3239,10 +3734,10 @@ app.get('/api/pskreporter/:callsign', async (req, res) => {
       tx: txData,
       rx: rxData,
       timestamp: new Date().toISOString(),
-      mqtt: {
-        available: true,
-        host: 'wss://mqtt.pskreporter.info:1886',
-        hint: 'Connect via WebSocket for real-time updates'
+      stream: {
+        endpoint: `/api/pskreporter/stream/${callsign}`,
+        type: 'text/event-stream',
+        hint: 'Connect to SSE stream for real-time spots'
       }
     });
     
@@ -3255,6 +3750,308 @@ app.get('/api/pskreporter/:callsign', async (req, res) => {
       error: error.message 
     });
   }
+});
+
+// ============================================
+// PSKREPORTER SERVER-SIDE MQTT PROXY
+// ============================================
+// Single MQTT connection to mqtt.pskreporter.info, shared across all users.
+// Dynamically subscribes per-callsign topics based on active SSE clients.
+// Buffers incoming spots and pushes to clients every 10 seconds.
+
+const pskMqtt = {
+  client: null,
+  connected: false,
+  // Map<callsign, Set<response>> — active SSE clients per callsign
+  subscribers: new Map(),
+  // Map<callsign, Array<spot>> — buffered spots waiting for next flush
+  spotBuffer: new Map(),
+  // Map<callsign, Array<spot>> — recent spots (last 60 min) for late-joiners
+  recentSpots: new Map(),
+  // Track subscribed topics to avoid double-subscribe
+  subscribedCalls: new Set(),
+  reconnectAttempts: 0,
+  maxReconnectDelay: 120000, // 2 min max
+  flushInterval: null,
+  cleanupInterval: null,
+  stats: { spotsReceived: 0, spotsRelayed: 0, messagesDropped: 0, lastSpotTime: null }
+};
+
+function pskMqttConnect() {
+  if (pskMqtt.client) {
+    try { pskMqtt.client.end(true); } catch {}
+  }
+
+  const clientId = `ohc_svr_${Math.random().toString(16).substr(2, 8)}`;
+  console.log(`[PSK-MQTT] Connecting to mqtt.pskreporter.info as ${clientId}...`);
+
+  const client = mqttLib.connect('wss://mqtt.pskreporter.info:1886/mqtt', {
+    clientId,
+    clean: true,
+    connectTimeout: 30000,
+    reconnectPeriod: 0,  // We handle reconnect ourselves with backoff
+    keepalive: 60,
+    protocolVersion: 4
+  });
+
+  pskMqtt.client = client;
+
+  client.on('connect', () => {
+    console.log(`[PSK-MQTT] Connected! Re-subscribing ${pskMqtt.subscribedCalls.size} callsigns...`);
+    pskMqtt.connected = true;
+    pskMqtt.reconnectAttempts = 0;
+
+    // Re-subscribe all active callsigns after reconnect
+    for (const call of pskMqtt.subscribedCalls) {
+      subscribeCallsign(call);
+    }
+  });
+
+  client.on('message', (topic, message) => {
+    try {
+      const data = JSON.parse(message.toString());
+      const { sc, rc, sl, rl, f, md, rp, t, b } = data;
+      if (!sc || !rc) return;
+
+      const freq = parseInt(f) || 0;
+      const now = Date.now();
+      const spot = {
+        sender: sc,
+        senderGrid: sl,
+        receiver: rc,
+        receiverGrid: rl,
+        freq,
+        freqMHz: freq ? (freq / 1000000).toFixed(3) : '?',
+        band: b || getBandFromHz(freq),
+        mode: md || 'Unknown',
+        snr: rp !== undefined ? parseInt(rp) : null,
+        timestamp: t ? t * 1000 : now,
+        age: 0
+      };
+
+      // Add lat/lon based on grid for both directions
+      const senderLoc = gridToLatLonSimple(sl);
+      const receiverLoc = gridToLatLonSimple(rl);
+
+      pskMqtt.stats.spotsReceived++;
+      pskMqtt.stats.lastSpotTime = now;
+
+      // Buffer for TX subscribers (sc is the callsign being tracked)
+      const scUpper = sc.toUpperCase();
+      if (pskMqtt.subscribers.has(scUpper)) {
+        const txSpot = { ...spot, lat: receiverLoc?.lat, lon: receiverLoc?.lon, direction: 'tx' };
+        if (!pskMqtt.spotBuffer.has(scUpper)) pskMqtt.spotBuffer.set(scUpper, []);
+        pskMqtt.spotBuffer.get(scUpper).push(txSpot);
+        // Also add to recent spots
+        if (!pskMqtt.recentSpots.has(scUpper)) pskMqtt.recentSpots.set(scUpper, []);
+        pskMqtt.recentSpots.get(scUpper).push(txSpot);
+      }
+
+      // Buffer for RX subscribers (rc is the callsign being tracked)
+      const rcUpper = rc.toUpperCase();
+      if (pskMqtt.subscribers.has(rcUpper)) {
+        const rxSpot = { ...spot, lat: senderLoc?.lat, lon: senderLoc?.lon, direction: 'rx' };
+        if (!pskMqtt.spotBuffer.has(rcUpper)) pskMqtt.spotBuffer.set(rcUpper, []);
+        pskMqtt.spotBuffer.get(rcUpper).push(rxSpot);
+        if (!pskMqtt.recentSpots.has(rcUpper)) pskMqtt.recentSpots.set(rcUpper, []);
+        pskMqtt.recentSpots.get(rcUpper).push(rxSpot);
+      }
+    } catch {
+      pskMqtt.stats.messagesDropped++;
+    }
+  });
+
+  client.on('error', (err) => {
+    console.error(`[PSK-MQTT] Error: ${err.message}`);
+  });
+
+  client.on('close', () => {
+    pskMqtt.connected = false;
+    console.log('[PSK-MQTT] Disconnected');
+    scheduleMqttReconnect();
+  });
+
+  client.on('offline', () => {
+    pskMqtt.connected = false;
+  });
+}
+
+function scheduleMqttReconnect() {
+  pskMqtt.reconnectAttempts++;
+  const delay = Math.min(
+    (Math.pow(2, pskMqtt.reconnectAttempts) * 1000) + (Math.random() * 5000),
+    pskMqtt.maxReconnectDelay
+  );
+  console.log(`[PSK-MQTT] Reconnecting in ${(delay / 1000).toFixed(1)}s (attempt ${pskMqtt.reconnectAttempts})...`);
+  setTimeout(() => {
+    if (pskMqtt.subscribers.size > 0) {
+      pskMqttConnect();
+    } else {
+      console.log('[PSK-MQTT] No active subscribers, skipping reconnect');
+    }
+  }, delay);
+}
+
+function subscribeCallsign(call) {
+  if (!pskMqtt.client || !pskMqtt.connected) return;
+  const txTopic = `pskr/filter/v2/+/+/${call}/#`;
+  const rxTopic = `pskr/filter/v2/+/+/+/${call}/#`;
+  pskMqtt.client.subscribe([txTopic, rxTopic], { qos: 0 }, (err) => {
+    if (err) {
+      console.error(`[PSK-MQTT] Subscribe error for ${call}:`, err.message);
+    } else {
+      console.log(`[PSK-MQTT] Subscribed: ${call} (TX + RX)`);
+    }
+  });
+}
+
+function unsubscribeCallsign(call) {
+  if (!pskMqtt.client || !pskMqtt.connected) return;
+  const txTopic = `pskr/filter/v2/+/+/${call}/#`;
+  const rxTopic = `pskr/filter/v2/+/+/+/${call}/#`;
+  pskMqtt.client.unsubscribe([txTopic, rxTopic], (err) => {
+    if (err) {
+      console.error(`[PSK-MQTT] Unsubscribe error for ${call}:`, err.message);
+    } else {
+      console.log(`[PSK-MQTT] Unsubscribed: ${call}`);
+    }
+  });
+}
+
+// Flush buffered spots to SSE clients every 10 seconds
+pskMqtt.flushInterval = setInterval(() => {
+  for (const [call, clients] of pskMqtt.subscribers) {
+    const buffer = pskMqtt.spotBuffer.get(call);
+    if (!buffer || buffer.length === 0) continue;
+
+    // Send buffered spots as SSE event
+    const payload = JSON.stringify(buffer);
+    const message = `data: ${payload}\n\n`;
+
+    for (const res of clients) {
+      try {
+        res.write(message);
+        pskMqtt.stats.spotsRelayed += buffer.length;
+      } catch {
+        // Client disconnected — will be cleaned up
+        clients.delete(res);
+      }
+    }
+
+    // Clear the buffer after flushing
+    pskMqtt.spotBuffer.set(call, []);
+  }
+}, 10000); // 10-second batch interval
+
+// Clean old recent spots every 5 minutes
+pskMqtt.cleanupInterval = setInterval(() => {
+  const cutoff = Date.now() - 60 * 60 * 1000; // 1 hour
+  for (const [call, spots] of pskMqtt.recentSpots) {
+    const filtered = spots.filter(s => s.timestamp > cutoff);
+    if (filtered.length === 0) {
+      pskMqtt.recentSpots.delete(call);
+    } else {
+      // Keep max 500 per callsign
+      pskMqtt.recentSpots.set(call, filtered.slice(-500));
+    }
+  }
+
+  // Also clean subscriber entries with no clients
+  for (const [call, clients] of pskMqtt.subscribers) {
+    if (clients.size === 0) {
+      pskMqtt.subscribers.delete(call);
+      pskMqtt.subscribedCalls.delete(call);
+      unsubscribeCallsign(call);
+      console.log(`[PSK-MQTT] Cleaned up empty subscriber set for ${call}`);
+    }
+  }
+}, 5 * 60 * 1000);
+
+// SSE endpoint — clients connect here for real-time spots
+app.get('/api/pskreporter/stream/:callsign', (req, res) => {
+  const callsign = req.params.callsign.toUpperCase();
+  if (!callsign || callsign === 'N0CALL') {
+    return res.status(400).json({ error: 'Valid callsign required' });
+  }
+
+  // Set up SSE
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
+  res.flushHeaders();
+
+  // Send initial connection event with any recent spots we already have
+  const recentSpots = pskMqtt.recentSpots.get(callsign) || [];
+  res.write(`event: connected\ndata: ${JSON.stringify({
+    callsign,
+    mqttConnected: pskMqtt.connected,
+    recentSpots: recentSpots.slice(-200),
+    subscriberCount: (pskMqtt.subscribers.get(callsign)?.size || 0) + 1
+  })}\n\n`);
+
+  // Register this client
+  if (!pskMqtt.subscribers.has(callsign)) {
+    pskMqtt.subscribers.set(callsign, new Set());
+  }
+  pskMqtt.subscribers.get(callsign).add(res);
+
+  // Subscribe on MQTT if this is a new callsign
+  if (!pskMqtt.subscribedCalls.has(callsign)) {
+    pskMqtt.subscribedCalls.add(callsign);
+    if (pskMqtt.connected) {
+      subscribeCallsign(callsign);
+    }
+    // Start MQTT connection if not already connected
+    if (!pskMqtt.client || (!pskMqtt.connected && pskMqtt.reconnectAttempts === 0)) {
+      pskMqttConnect();
+    }
+  }
+
+  console.log(`[PSK-MQTT] SSE client connected for ${callsign} (${pskMqtt.subscribers.get(callsign).size} clients, ${pskMqtt.subscribedCalls.size} callsigns total)`);
+
+  // Keepalive ping every 30 seconds
+  const keepalive = setInterval(() => {
+    try {
+      res.write(`: keepalive ${Date.now()}\n\n`);
+    } catch {
+      clearInterval(keepalive);
+    }
+  }, 30000);
+
+  // Cleanup on disconnect
+  req.on('close', () => {
+    clearInterval(keepalive);
+    const clients = pskMqtt.subscribers.get(callsign);
+    if (clients) {
+      clients.delete(res);
+      console.log(`[PSK-MQTT] SSE client disconnected for ${callsign} (${clients.size} remaining)`);
+
+      // If no more clients for this callsign, unsubscribe after a grace period
+      if (clients.size === 0) {
+        setTimeout(() => {
+          const stillEmpty = pskMqtt.subscribers.get(callsign);
+          if (stillEmpty && stillEmpty.size === 0) {
+            pskMqtt.subscribers.delete(callsign);
+            pskMqtt.subscribedCalls.delete(callsign);
+            unsubscribeCallsign(callsign);
+            console.log(`[PSK-MQTT] Unsubscribed ${callsign} (no more clients after grace period)`);
+
+            // If no subscribers at all, disconnect MQTT entirely
+            if (pskMqtt.subscribedCalls.size === 0 && pskMqtt.client) {
+              console.log('[PSK-MQTT] No more subscribers, disconnecting from broker');
+              pskMqtt.client.end(true);
+              pskMqtt.client = null;
+              pskMqtt.connected = false;
+              pskMqtt.reconnectAttempts = 0;
+            }
+          }
+        }, 30000); // 30s grace period before unsubscribing
+      }
+    }
+  });
 });
 
 // ============================================
@@ -3570,7 +4367,8 @@ app.get('/api/rbn', async (req, res) => {
 // WSPR heatmap endpoint - gets global propagation data
 // Uses PSK Reporter to fetch WSPR mode spots from the last N minutes
 let wsprCache = { data: null, timestamp: 0 };
-const WSPR_CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache - be kind to PSKReporter
+const WSPR_CACHE_TTL = 10 * 60 * 1000;  // 10 minutes cache - be kind to PSKReporter
+const WSPR_STALE_TTL = 60 * 60 * 1000;  // Serve stale data up to 1 hour
 
 // Aggregate WSPR spots by 4-character grid square for bandwidth efficiency
 // Reduces payload from ~2MB to ~50KB while preserving heatmap visualization
@@ -3707,23 +4505,35 @@ function aggregateWSPRByGrid(spots) {
 }
 
 app.get('/api/wspr/heatmap', async (req, res) => {
-  const minutes = parseInt(req.query.minutes) || 30; // Default 30 minutes
-  const band = req.query.band || 'all'; // all, 20m, 40m, etc.
-  const raw = req.query.raw === 'true'; // Return raw spots instead of aggregated
+  const minutes = parseInt(req.query.minutes) || 30;
+  const band = req.query.band || 'all';
+  const raw = req.query.raw === 'true';
   const now = Date.now();
   
-  // Return cached data if fresh
-  const cacheKey = `${minutes}:${band}:${raw ? 'raw' : 'agg'}`;
+  // Cache key for this exact query
+  const cacheKey = `wspr:${minutes}:${band}:${raw ? 'raw' : 'agg'}`;
+  
+  // 1. Fresh cache hit — serve immediately
   if (wsprCache.data && 
       wsprCache.data.cacheKey === cacheKey && 
       (now - wsprCache.timestamp) < WSPR_CACHE_TTL) {
     return res.json({ ...wsprCache.data.result, cached: true });
   }
   
-  try {
+  // 2. Backoff active (WSPR uses PSKReporter upstream, shares its backoff)
+  if (upstream.isBackedOff('pskreporter')) {
+    if (wsprCache.data && wsprCache.data.cacheKey === cacheKey) {
+      return res.json({ ...wsprCache.data.result, cached: true, stale: true });
+    }
+    return res.json({ grids: [], paths: [], totalSpots: 0, minutes, band, format: 'aggregated', backoff: true });
+  }
+  
+  // 3. Stale-while-revalidate: if stale data exists, serve it and refresh in background
+  const hasStale = wsprCache.data && wsprCache.data.cacheKey === cacheKey && (now - wsprCache.timestamp) < WSPR_STALE_TTL;
+  
+  // 4. Deduplicated upstream fetch — WSPR is global data, so all users share ONE in-flight request
+  const doFetch = () => upstream.fetch(cacheKey, async () => {
     const flowStartSeconds = -Math.abs(minutes * 60);
-    // Query PSK Reporter for WSPR mode spots (no specific callsign filter)
-    // Get data from multiple popular WSPR frequencies to build heatmap
     const url = `https://retrieve.pskreporter.info/query?mode=WSPR&flowStartSeconds=${flowStartSeconds}&rronly=1&nolocator=0&appcontact=openhamclock&rptlimit=2000`;
     
     const controller = new AbortController();
@@ -3731,7 +4541,7 @@ app.get('/api/wspr/heatmap', async (req, res) => {
     
     const response = await fetch(url, {
       headers: { 
-        'User-Agent': 'OpenHamClock/3.14.24 (Amateur Radio Dashboard)',
+        'User-Agent': 'OpenHamClock/15.1.4 (Amateur Radio Dashboard)',
         'Accept': '*/*'
       },
       signal: controller.signal
@@ -3739,13 +4549,14 @@ app.get('/api/wspr/heatmap', async (req, res) => {
     clearTimeout(timeout);
     
     if (!response.ok) {
+      const backoffSecs = upstream.recordFailure('pskreporter', response.status);
+      logErrorOnce('WSPR Heatmap', `HTTP ${response.status} — backing off for ${backoffSecs}s`);
       throw new Error(`HTTP ${response.status}`);
     }
     
     const xml = await response.text();
     const spots = [];
     
-    // Parse XML response
     const reportRegex = /<receptionReport[^>]*>/g;
     let match;
     while ((match = reportRegex.exec(xml)) !== null) {
@@ -3773,7 +4584,6 @@ app.get('/api/wspr/heatmap', async (req, res) => {
         const freq = frequency ? parseInt(frequency) : null;
         const spotBand = freq ? getBandFromHz(freq) : 'Unknown';
         
-        // Filter by band if specified
         if (band !== 'all' && spotBand !== band) continue;
         
         const senderLoc = gridToLatLonSimple(senderLocator);
@@ -3812,63 +4622,45 @@ app.get('/api/wspr/heatmap', async (req, res) => {
       }
     }
     
-    // Sort by timestamp (newest first)
     spots.sort((a, b) => b.timestamp - a.timestamp);
+    upstream.recordSuccess('pskreporter');
     
     let result;
-    
     if (raw) {
-      // Return raw spots (legacy format, higher bandwidth)
       result = {
-        count: spots.length,
-        spots: spots,
-        minutes: minutes,
-        band: band,
-        timestamp: new Date().toISOString(),
-        source: 'pskreporter',
-        format: 'raw'
+        count: spots.length, spots, minutes, band,
+        timestamp: new Date().toISOString(), source: 'pskreporter', format: 'raw'
       };
       console.log(`[WSPR Heatmap] Returning ${spots.length} raw spots (${minutes}min, band: ${band})`);
     } else {
-      // Return aggregated data (default, ~97% smaller)
       const aggregated = aggregateWSPRByGrid(spots);
       result = {
-        ...aggregated,
-        minutes: minutes,
-        band: band,
-        timestamp: new Date().toISOString(),
-        source: 'pskreporter',
-        format: 'aggregated'
+        ...aggregated, minutes, band,
+        timestamp: new Date().toISOString(), source: 'pskreporter', format: 'aggregated'
       };
       console.log(`[WSPR Heatmap] Aggregated ${spots.length} spots → ${aggregated.uniqueGrids} grids, ${aggregated.paths.length} paths (${minutes}min, band: ${band})`);
     }
     
-    // Cache it
-    wsprCache = { 
-      data: { result, cacheKey }, 
-      timestamp: now 
-    };
-    
+    wsprCache = { data: { result, cacheKey }, timestamp: Date.now() };
+    return result;
+  });
+  
+  if (hasStale) {
+    // Stale-while-revalidate: respond with stale data now, refresh in background
+    doFetch().catch(() => {});
+    return res.json({ ...wsprCache.data.result, cached: true, stale: true });
+  }
+  
+  // No stale data — must wait for upstream
+  try {
+    const result = await doFetch();
     res.json(result);
-    
   } catch (error) {
     logErrorOnce('WSPR Heatmap', error.message);
-    
-    // Return cached data if available
     if (wsprCache.data && wsprCache.data.cacheKey === cacheKey) {
       return res.json({ ...wsprCache.data.result, cached: true, stale: true });
     }
-    
-    // Return empty result
-    res.json({ 
-      grids: [],
-      paths: [],
-      totalSpots: 0,
-      minutes,
-      band,
-      format: 'aggregated',
-      error: error.message 
-    });
+    res.json({ grids: [], paths: [], totalSpots: 0, minutes, band, format: 'aggregated', error: error.message });
   }
 });
 
@@ -3878,7 +4670,7 @@ app.get('/api/wspr/heatmap', async (req, res) => {
 // ============================================
 
 // Comprehensive ham radio satellites - NORAD IDs
-// Updated list of active amateur radio satellites
+// Updated list of active amateur radio satellites and selected weather satellites
 const HAM_SATELLITES = {
   // High Priority - Popular FM satellites
   'ISS': { norad: 25544, name: 'ISS (ZARYA)', color: '#00ffff', priority: 1, mode: 'FM/APRS/SSTV' },
@@ -3886,6 +4678,15 @@ const HAM_SATELLITES = {
   'AO-91': { norad: 43017, name: 'AO-91 (Fox-1B)', color: '#ff6600', priority: 1, mode: 'FM' },
   'AO-92': { norad: 43137, name: 'AO-92 (Fox-1D)', color: '#ff9900', priority: 1, mode: 'FM/L-band' },
   'PO-101': { norad: 43678, name: 'PO-101 (Diwata-2)', color: '#ff3399', priority: 1, mode: 'FM' },
+  
+  // Weather Satellites - GOES & METEOR
+  //'GOES-18': { norad: 51850, name: 'GOES-18', color: '#66ff66', priority: 1, mode: 'GRB/HRIT/LRIT' },
+  //'GOES-19': { norad: 60133, name: 'GOES-19', color: '#33cc33', priority: 1, mode: 'GRB/HRIT/LRIT' },
+  'METEOR-M2-3': { norad: 57166, name: 'METEOR M2-3', color: '#FF0000', priority: 1, mode: 'HRPT/LRPT' },
+  'METEOR-M2-4': { norad: 59051, name: 'METEOR M2-4', color: '#FF0000', priority: 1, mode: 'HRPT/LRPT' },
+  'SUOMI-NPP': { norad: 37849, name: 'SUOMI NPP', color: '#0000FF', priority: 2, mode: 'HRD/SMD' },
+  'NOAA-20': { norad: 43013, name: 'NOAA-20 (JPSS-1)', color: '#0000FF', priority: 2, mode: 'HRD/SMD' },
+  'NOAA-21': { norad: 54234, name: 'NOAA-21 (JPSS-2)', color: '#0000FF', priority: 2, mode: 'HRD/SMD' },
   
   // Linear Transponder Satellites
   'RS-44': { norad: 44909, name: 'RS-44 (DOSAAF)', color: '#ff0066', priority: 1, mode: 'Linear' },
@@ -3973,15 +4774,36 @@ app.get('/api/satellites/tle', async (req, res) => {
           const lines = text.trim().split('\n');
           // Parse 3 lines per satellite: Name, Line 1, Line 2
           for (let i = 0; i < lines.length - 2; i += 3) {
+            const name = lines[i]?.trim();
             const line1 = lines[i + 1]?.trim();
             const line2 = lines[i + 2]?.trim();
-            if (line1 && line1.startsWith('1 ')) {
+            if (name && line1 && line1.startsWith('1 ')) {
               const noradId = parseInt(line1.substring(2, 7));
-              // Check if the NORAD ID matches your definitions in HAM_SATELLITES
-              for (const [key, sat] of Object.entries(HAM_SATELLITES)) {
-                if (sat.norad === noradId) {
-                  tleData[key] = { ...sat, tle1: line1, tle2: line2 };
-                }
+              
+              // Skip if this NORAD ID already exists (prevent duplicates)
+              const alreadyExists = Object.values(tleData).some(sat => sat.norad === noradId);
+              if (alreadyExists) continue;
+              
+              // Create a sanitized key from the satellite name
+              const key = name.replace(/[^A-Z0-9\-]/g, '_').toUpperCase();
+              
+              // Check if we have metadata in HAM_SATELLITES
+              const hamSat = Object.values(HAM_SATELLITES).find(s => s.norad === noradId);
+              
+              if (hamSat) {
+                // Use defined metadata from HAM_SATELLITES
+                tleData[key] = { ...hamSat, tle1: line1, tle2: line2 };
+              } else {
+                // Include all satellites with default metadata
+                tleData[key] = {
+                  norad: noradId,
+                  name: name,
+                  color: '#cccccc',
+                  priority: group === 'amateur' ? 3 : 4,
+                  mode: 'Unknown',
+                  tle1: line1,
+                  tle2: line2
+                };
               }
             }
           }
@@ -3992,8 +4814,11 @@ app.get('/api/satellites/tle', async (req, res) => {
     }
     clearTimeout(timeout);
 
+    // Check if ISS (NORAD 25544) was already added with any key
+    const issExists = Object.values(tleData).some(sat => sat.norad === 25544);
+    
     // Fallback for ISS if it wasn't found in the groups above
-    if (!tleData['ISS']) {
+    if (!issExists) {
       try {
         const issRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=tle');
         if (issRes.ok) {
@@ -4379,10 +5204,15 @@ function estimateExpectedFoF2(ssn, lat, hour) {
 // ============================================
 
 app.get('/api/propagation', async (req, res) => {
-  const { deLat, deLon, dxLat, dxLon } = req.query;
+  const { deLat, deLon, dxLat, dxLon, mode, power } = req.query;
+  
+  // Calculate signal margin from mode + power
+  const txMode = (mode || 'SSB').toUpperCase();
+  const txPower = parseFloat(power) || 100;
+  const signalMarginDb = calculateSignalMargin(txMode, txPower);
   
   const useHybrid = ITURHFPROP_URL !== null;
-  logDebug(`[Propagation] ${useHybrid ? 'Hybrid' : 'Standalone'} calculation for DE:`, deLat, deLon, 'to DX:', dxLat, dxLon);
+  logDebug(`[Propagation] ${useHybrid ? 'Hybrid' : 'Standalone'} calculation for DE:`, deLat, deLon, 'to DX:', dxLat, dxLon, `[${txMode} @ ${txPower}W, margin: ${signalMarginDb.toFixed(1)}dB]`);
   
   try {
     // Get current space weather data
@@ -4485,7 +5315,7 @@ app.get('/api/propagation', async (req, res) => {
         }
         // Fallback for bands not in hybrid result
         const reliability = calculateEnhancedReliability(
-          bandFreqs[idx], distance, midLat, midLon, currentHour, sfi, ssn, kIndex, de, dx, effectiveIonoData, currentHour
+          bandFreqs[idx], distance, midLat, midLon, currentHour, sfi, ssn, kIndex, de, dx, effectiveIonoData, currentHour, signalMarginDb
         );
         return {
           band,
@@ -4504,7 +5334,7 @@ app.get('/api/propagation', async (req, res) => {
         
         // Calculate built-in reliability for current hour
         const builtInCurrentReliability = calculateEnhancedReliability(
-          freq, distance, midLat, midLon, currentHour, sfi, ssn, kIndex, de, dx, effectiveIonoData, currentHour
+          freq, distance, midLat, midLon, currentHour, sfi, ssn, kIndex, de, dx, effectiveIonoData, currentHour, signalMarginDb
         );
         
         // Get hybrid reliability for this band (the accurate one)
@@ -4525,7 +5355,7 @@ app.get('/api/propagation', async (req, res) => {
         
         for (let hour = 0; hour < 24; hour++) {
           const baseReliability = calculateEnhancedReliability(
-            freq, distance, midLat, midLon, hour, sfi, ssn, kIndex, de, dx, effectiveIonoData, currentHour
+            freq, distance, midLat, midLon, hour, sfi, ssn, kIndex, de, dx, effectiveIonoData, currentHour, signalMarginDb
           );
           // Apply correction ratio and clamp to valid range
           const correctedReliability = Math.min(99, Math.max(0, Math.round(baseReliability * correctionRatio)));
@@ -4546,7 +5376,7 @@ app.get('/api/propagation', async (req, res) => {
         predictions[band] = [];
         for (let hour = 0; hour < 24; hour++) {
           const reliability = calculateEnhancedReliability(
-            freq, distance, midLat, midLon, hour, sfi, ssn, kIndex, de, dx, effectiveIonoData, currentHour
+            freq, distance, midLat, midLon, hour, sfi, ssn, kIndex, de, dx, effectiveIonoData, currentHour, signalMarginDb
           );
           predictions[band].push({
             hour,
@@ -4615,6 +5445,9 @@ app.get('/api/propagation', async (req, res) => {
       currentHour,
       currentBands,
       hourlyPredictions: predictions,
+      mode: txMode,
+      power: txPower,
+      signalMargin: Math.round(signalMarginDb * 10) / 10,
       hybrid: {
         enabled: useHybrid,
         iturhfpropAvailable: hybridResult !== null,
@@ -4632,6 +5465,103 @@ app.get('/api/propagation', async (req, res) => {
 });
 
 // Legacy endpoint removed - merged into /api/propagation above
+
+// ===== PROPAGATION HEATMAP =====
+// Computes reliability grid from DE location to world grid for a selected band
+// Used by VOACAP Heatmap map layer plugin
+const PROP_HEATMAP_CACHE = {};
+const PROP_HEATMAP_TTL = 5 * 60 * 1000; // 5 minutes
+
+app.get('/api/propagation/heatmap', async (req, res) => {
+  const deLat = parseFloat(req.query.deLat) || 0;
+  const deLon = parseFloat(req.query.deLon) || 0;
+  const freq = parseFloat(req.query.freq) || 14; // MHz, default 20m
+  const gridSize = Math.max(5, Math.min(20, parseInt(req.query.grid) || 10)); // 5-20° grid
+  const txMode = (req.query.mode || 'SSB').toUpperCase();
+  const txPower = parseFloat(req.query.power) || 100;
+  const signalMarginDb = calculateSignalMargin(txMode, txPower);
+  
+  const cacheKey = `${deLat.toFixed(0)}:${deLon.toFixed(0)}:${freq}:${gridSize}:${txMode}:${txPower}`;
+  const now = Date.now();
+  
+  if (PROP_HEATMAP_CACHE[cacheKey] && (now - PROP_HEATMAP_CACHE[cacheKey].ts) < PROP_HEATMAP_TTL) {
+    return res.json(PROP_HEATMAP_CACHE[cacheKey].data);
+  }
+  
+  try {
+    // Fetch current solar conditions (same as main propagation endpoint)
+    let sfi = 150, ssn = 100, kIndex = 2;
+    try {
+      const [fluxRes, kRes] = await Promise.allSettled([
+        fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json'),
+        fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json')
+      ]);
+      if (fluxRes.status === 'fulfilled' && fluxRes.value.ok) {
+        const data = await fluxRes.value.json();
+        if (data?.length) sfi = Math.round(data[data.length - 1].flux || 150);
+      }
+      if (kRes.status === 'fulfilled' && kRes.value.ok) {
+        const data = await kRes.value.json();
+        if (data?.length > 1) kIndex = parseInt(data[data.length - 1][1]) || 2;
+      }
+      ssn = Math.max(0, Math.round((sfi - 67) / 0.97));
+    } catch (e) {
+      logDebug('[PropHeatmap] Using default solar values');
+    }
+    
+    const currentHour = new Date().getUTCHours();
+    const de = { lat: deLat, lon: deLon };
+    const halfGrid = gridSize / 2;
+    const cells = [];
+    
+    // Compute reliability grid
+    for (let lat = -85 + halfGrid; lat <= 85 - halfGrid; lat += gridSize) {
+      for (let lon = -180 + halfGrid; lon <= 180 - halfGrid; lon += gridSize) {
+        const dx = { lat, lon };
+        const distance = haversineDistance(de.lat, de.lon, lat, lon);
+        
+        // Skip very short distances (< 200km) - not meaningful for HF skip
+        if (distance < 200) continue;
+        
+        const midLat = (de.lat + lat) / 2;
+        let midLon = (de.lon + lon) / 2;
+        if (Math.abs(de.lon - lon) > 180) {
+          midLon = (de.lon + lon + 360) / 2;
+          if (midLon > 180) midLon -= 360;
+        }
+        
+        const reliability = calculateEnhancedReliability(
+          freq, distance, midLat, midLon, currentHour,
+          sfi, ssn, kIndex, de, dx, null, currentHour, signalMarginDb
+        );
+        
+        cells.push({
+          lat,
+          lon,
+          r: Math.round(reliability) // reliability 0-99
+        });
+      }
+    }
+    
+    const result = {
+      deLat, deLon, freq, gridSize,
+      mode: txMode, power: txPower, signalMargin: Math.round(signalMarginDb * 10) / 10,
+      solarData: { sfi, ssn, kIndex },
+      hour: currentHour,
+      cells,
+      timestamp: new Date().toISOString()
+    };
+    
+    PROP_HEATMAP_CACHE[cacheKey] = { data: result, ts: now };
+    
+    logDebug(`[PropHeatmap] Computed ${cells.length} cells for ${freq} MHz [${txMode} @ ${txPower}W] from ${deLat.toFixed(1)},${deLon.toFixed(1)}`);
+    res.json(result);
+    
+  } catch (error) {
+    logErrorOnce('PropHeatmap', error.message);
+    res.status(500).json({ error: 'Failed to compute propagation heatmap' });
+  }
+});
 
 // Calculate MUF using real ionosonde data or model
 function calculateMUF(distance, midLat, midLon, hour, sfi, ssn, ionoData) {
@@ -4713,8 +5643,38 @@ function calculateLUF(distance, midLat, hour, sfi, kIndex) {
   return baseLuf * dayFactor * sfiFactor * distFactor * latFactor * kFactor;
 }
 
+// Mode decode advantage in dB relative to SSB (higher = can decode weaker signals)
+// Based on typical required SNR thresholds for each mode
+const MODE_ADVANTAGE_DB = {
+  'SSB':   0,    // Baseline: requires ~13dB SNR
+  'AM':   -6,    // Worse than SSB: requires ~19dB SNR
+  'CW':   10,    // Narrow bandwidth: requires ~3dB SNR
+  'RTTY':  8,    // Digital FSK: requires ~5dB SNR
+  'PSK31':10,    // Phase-shift keying: requires ~3dB SNR
+  'FT8':  34,    // Deep decode: requires ~-21dB SNR
+  'FT4':  30,    // Slightly less sensitive: requires ~-17dB SNR
+  'WSPR': 41,    // Ultra-weak signal: requires ~-28dB SNR
+  'JS8':  37,    // Conversational weak-signal: requires ~-24dB SNR
+  'OLIVIA': 20,  // Error-correcting: requires ~-7dB SNR
+  'JT65': 38     // Deep decode: requires ~-25dB SNR
+};
+
+/**
+ * Calculate signal margin in dB from mode and power
+ * Used to adjust propagation reliability predictions
+ * @param {string} mode - Operating mode (SSB, CW, FT8, etc.)
+ * @param {number} powerWatts - TX power in watts
+ * @returns {number} Signal margin in dB relative to SSB at 100W
+ */
+function calculateSignalMargin(mode, powerWatts) {
+  const modeAdv = MODE_ADVANTAGE_DB[mode] || 0;
+  const power = Math.max(0.01, powerWatts || 100);
+  const powerOffset = 10 * Math.log10(power / 100); // dB relative to 100W
+  return modeAdv + powerOffset;
+}
+
 // Enhanced reliability calculation using real ionosonde data
-function calculateEnhancedReliability(freq, distance, midLat, midLon, hour, sfi, ssn, kIndex, de, dx, ionoData, currentHour) {
+function calculateEnhancedReliability(freq, distance, midLat, midLon, hour, sfi, ssn, kIndex, de, dx, ionoData, currentHour, signalMarginDb = 0) {
   // Calculate MUF and LUF for this hour
   // For non-current hours, we need to estimate how foF2 changes
   let hourIonoData = ionoData;
@@ -4736,32 +5696,40 @@ function calculateEnhancedReliability(freq, distance, midLat, midLon, hour, sfi,
   const muf = calculateMUF(distance, midLat, midLon, hour, sfi, ssn, hourIonoData);
   const luf = calculateLUF(distance, midLat, hour, sfi, kIndex);
   
-  // Calculate reliability based on frequency position relative to MUF/LUF
+  // Apply signal margin from mode + power
+  // Positive margin (e.g. FT8 or high power) effectively widens the usable window:
+  //   - Extends effective MUF (weak-signal modes can decode signals near/above MUF)
+  //   - Reduces effective LUF (more power overcomes D-layer absorption)
+  // Each dB of margin extends MUF by ~1.2% and reduces LUF by ~0.8%
+  const effectiveMuf = muf * (1 + signalMarginDb * 0.012);
+  const effectiveLuf = luf * Math.max(0.1, 1 - signalMarginDb * 0.008);
+  
+  // Calculate reliability based on frequency position relative to effective MUF/LUF
   let reliability = 0;
   
-  if (freq > muf * 1.1) {
+  if (freq > effectiveMuf * 1.1) {
     // Well above MUF - very poor
-    reliability = Math.max(0, 30 - (freq - muf) * 5);
-  } else if (freq > muf) {
+    reliability = Math.max(0, 30 - (freq - effectiveMuf) * 5);
+  } else if (freq > effectiveMuf) {
     // Slightly above MUF - marginal (sometimes works due to scatter)
-    reliability = 30 + (muf * 1.1 - freq) / (muf * 0.1) * 20;
-  } else if (freq < luf * 0.8) {
+    reliability = 30 + (effectiveMuf * 1.1 - freq) / (effectiveMuf * 0.1) * 20;
+  } else if (freq < effectiveLuf * 0.8) {
     // Well below LUF - absorbed
-    reliability = Math.max(0, 20 - (luf - freq) * 10);
-  } else if (freq < luf) {
+    reliability = Math.max(0, 20 - (effectiveLuf - freq) * 10);
+  } else if (freq < effectiveLuf) {
     // Near LUF - marginal
-    reliability = 20 + (freq - luf * 0.8) / (luf * 0.2) * 30;
+    reliability = 20 + (freq - effectiveLuf * 0.8) / (effectiveLuf * 0.2) * 30;
   } else {
     // In usable range - calculate optimum
     // Optimum Working Frequency (OWF) is typically 80-85% of MUF
-    const owf = muf * 0.85;
-    const range = muf - luf;
+    const owf = effectiveMuf * 0.85;
+    const range = effectiveMuf - effectiveLuf;
     
     if (range <= 0) {
       reliability = 30; // Very narrow window
     } else {
       // Higher reliability near OWF, tapering toward MUF and LUF
-      const position = (freq - luf) / range; // 0 at LUF, 1 at MUF
+      const position = (freq - effectiveLuf) / range; // 0 at LUF, 1 at MUF
       const optimalPosition = 0.75; // 75% up from LUF = OWF
       
       if (position < optimalPosition) {
@@ -5215,6 +6183,9 @@ function generateStatusDashboard() {
     ? ((apiStats.totalBytes / parseFloat(apiStats.uptimeHours)) * 24 * 30 / (1024 * 1024 * 1024)).toFixed(2)
     : '0.00';
   
+  // Get session stats
+  const sessionStats = sessionTracker.getStats();
+  
   // Generate API traffic table rows (top 15 by bandwidth)
   const apiTableRows = apiStats.endpoints.slice(0, 15).map((ep, i) => {
     const bytesFormatted = formatBytes(ep.totalBytes);
@@ -5243,6 +6214,7 @@ function generateStatusDashboard() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="refresh" content="30">
   <title>OpenHamClock Status</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
@@ -5536,6 +6508,11 @@ function generateStatusDashboard() {
     
     <div class="stats-grid">
       <div class="stat-card">
+        <div class="stat-icon">🟢</div>
+        <div class="stat-value green">${sessionStats.concurrent}</div>
+        <div class="stat-label">Online Now</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-icon">👥</div>
         <div class="stat-value">${visitorStats.uniqueIPsToday.length}</div>
         <div class="stat-label">Visitors Today</div>
@@ -5551,11 +6528,103 @@ function generateStatusDashboard() {
         <div class="stat-label">Daily Average</div>
       </div>
       <div class="stat-card">
+        <div class="stat-icon">🏔️</div>
+        <div class="stat-value purple">${sessionStats.peakConcurrent}</div>
+        <div class="stat-label">Peak Concurrent</div>
+      </div>
+      <div class="stat-card">
         <div class="stat-icon">⏱️</div>
         <div class="stat-value purple">${uptimeStr}</div>
         <div class="stat-label">Uptime</div>
       </div>
     </div>
+    
+    <!-- Session Duration Analytics -->
+    <div class="chart-section">
+      <div class="chart-title">
+        <span>⏱️ Session Duration Analytics</span>
+        <span style="color: #888; font-size: 0.75rem">${sessionStats.completedSessions} completed sessions</span>
+      </div>
+      
+      <div class="api-summary" style="margin-bottom: 20px">
+        <div class="api-stat">
+          <div class="api-stat-value" style="color: #00ccff">${sessionStats.avgDurationFormatted || '--'}</div>
+          <div class="api-stat-label">Avg Duration</div>
+        </div>
+        <div class="api-stat">
+          <div class="api-stat-value" style="color: #a78bfa">${sessionStats.medianDurationFormatted || '--'}</div>
+          <div class="api-stat-label">Median</div>
+        </div>
+        <div class="api-stat">
+          <div class="api-stat-value" style="color: #ffb347">${sessionStats.p90DurationFormatted || '--'}</div>
+          <div class="api-stat-label">90th Percentile</div>
+        </div>
+        <div class="api-stat">
+          <div class="api-stat-value" style="color: #00ff88">${sessionStats.maxDurationFormatted || '--'}</div>
+          <div class="api-stat-label">Longest</div>
+        </div>
+      </div>
+      
+      <!-- Duration Distribution Bars -->
+      ${sessionStats.completedSessions > 0 ? (() => {
+        const b = sessionStats.durationBuckets;
+        const total = Object.values(b).reduce((s, v) => s + v, 0) || 1;
+        const bucketLabels = [
+          { key: 'under1m', label: '<1m', color: '#ff4466' },
+          { key: '1to5m', label: '1-5m', color: '#ffb347' },
+          { key: '5to15m', label: '5-15m', color: '#ffdd00' },
+          { key: '15to30m', label: '15-30m', color: '#88cc00' },
+          { key: '30to60m', label: '30m-1h', color: '#00ff88' },
+          { key: 'over1h', label: '1h+', color: '#00ccff' }
+        ];
+        return `
+          <div style="margin-bottom: 8px; font-size: 0.75rem; color: #888">Session Length Distribution</div>
+          <div style="display: flex; gap: 6px; align-items: flex-end; height: 80px; margin-bottom: 4px">
+            ${bucketLabels.map(({ key, label, color }) => {
+              const count = b[key] || 0;
+              const pct = Math.max((count / total) * 100, 2);
+              return `
+                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%" title="${label}: ${count} sessions (${Math.round(count/total*100)}%)">
+                  <div style="font-size: 0.65rem; color: #888; margin-bottom: 4px">${count}</div>
+                  <div style="width: 100%; max-width: 50px; background: ${color}; border-radius: 4px 4px 0 0; height: ${pct}%; min-height: 3px; opacity: 0.85"></div>
+                  <div style="font-size: 0.6rem; color: #666; margin-top: 4px">${label}</div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      })() : '<div style="color: #666; text-align: center; padding: 16px">No completed sessions yet — data will appear as users visit and leave</div>'}
+    </div>
+    
+    <!-- Active Users Table -->
+    ${sessionStats.activeSessions.length > 0 ? `
+    <div class="api-section">
+      <div class="api-title">
+        <span>🟢 Active Users (${sessionStats.concurrent})</span>
+        <span style="color: #888; font-size: 0.75rem">${sessionStats.peakConcurrentTime ? 'Peak: ' + sessionStats.peakConcurrent + ' at ' + new Date(sessionStats.peakConcurrentTime).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+      </div>
+      <table class="api-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>IP</th>
+            <th style="text-align: right">Session Duration</th>
+            <th style="text-align: right">Requests</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${sessionStats.activeSessions.map((s, i) => `
+            <tr>
+              <td style="color: #888">${i + 1}</td>
+              <td><code style="color: #00ccff">${s.ip}</code></td>
+              <td style="text-align: right; color: #00ff88; font-weight: 600">${s.durationFormatted}</td>
+              <td style="text-align: right">${s.requests}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    ` : ''}
     
     <div class="chart-section">
       <div class="chart-title">
@@ -5601,6 +6670,61 @@ function generateStatusDashboard() {
         <span class="info-value">${visitorStats.lastSaved ? new Date(visitorStats.lastSaved).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not yet'}</span>
       </div>
     </div>
+    
+    ${(() => {
+      // Country statistics section
+      const allTimeCountries = Object.entries(visitorStats.countryStats || {}).sort((a, b) => b[1] - a[1]);
+      const todayCountries = Object.entries(visitorStats.countryStatsToday || {}).sort((a, b) => b[1] - a[1]);
+      const totalResolved = allTimeCountries.reduce((s, [, v]) => s + v, 0);
+      
+      if (allTimeCountries.length === 0 && geoIPQueue.size === 0) return '';
+      
+      // Country code to flag emoji
+      const flag = (cc) => {
+        try { return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1E5 + c.charCodeAt(0) - 64)); } 
+        catch { return '🏳'; }
+      };
+      
+      const maxCount = allTimeCountries[0]?.[1] || 1;
+      
+      return `
+    <div class="api-section">
+      <div class="api-title">
+        <span>🌍 Visitor Countries</span>
+        <span style="color: #888; font-size: 0.75rem">${geoIPCache.size} resolved, ${geoIPQueue.size} pending</span>
+      </div>
+      
+      ${todayCountries.length > 0 ? `
+      <div style="margin-bottom: 16px">
+        <div style="color: #888; font-size: 0.75rem; margin-bottom: 6px">Today</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px">
+          ${todayCountries.map(([cc, count]) => `
+            <span style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; font-size: 0.8rem">
+              ${flag(cc)} ${cc} <span style="color: #00ff88; font-weight: 600">${count}</span>
+            </span>
+          `).join('')}
+        </div>
+      </div>` : ''}
+      
+      <div style="color: #888; font-size: 0.75rem; margin-bottom: 6px">All-Time (${allTimeCountries.length} countries, ${totalResolved} visitors resolved)</div>
+      <div style="max-height: 300px; overflow-y: auto">
+        ${allTimeCountries.slice(0, 40).map(([cc, count]) => {
+          const pct = Math.round(count / totalResolved * 100);
+          const barWidth = Math.max(2, (count / maxCount) * 100);
+          return `
+          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px; font-size: 0.8rem">
+            <span style="width: 28px; text-align: center">${flag(cc)}</span>
+            <span style="width: 28px; color: #888; font-family: monospace">${cc}</span>
+            <div style="flex: 1; background: rgba(255,255,255,0.05); border-radius: 2px; height: 16px; overflow: hidden">
+              <div style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, rgba(0,100,255,0.6), rgba(0,200,100,0.6)); border-radius: 2px"></div>
+            </div>
+            <span style="width: 60px; text-align: right; font-family: monospace; color: #ccc">${count}</span>
+            <span style="width: 40px; text-align: right; font-size: 0.7rem; color: #888">${pct}%</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+    })()}
     
     <div class="api-section">
       <div class="api-title">
@@ -5648,6 +6772,59 @@ function generateStatusDashboard() {
       ` : '<div style="color: #666; text-align: center; padding: 20px">No API requests recorded yet</div>'}
     </div>
     
+    <div class="api-section">
+      <h2>🔗 Upstream Services</h2>
+      <table>
+        <thead><tr><th>Service</th><th>Status</th><th>Backoff</th><th>Consecutive Failures</th><th>In-Flight</th></tr></thead>
+        <tbody>
+          ${['pskreporter', 'openmeteo'].map(svc => {
+            const backedOff = upstream.isBackedOff(svc);
+            const remaining = upstream.backoffRemaining(svc);
+            const consecutive = upstream.backoffs.get(svc)?.consecutive || 0;
+            const prefix = svc === 'pskreporter' ? ['psk:', 'wspr:'] : ['weather:'];
+            const inFlight = [...upstream.inFlight.keys()].filter(k => prefix.some(p => k.startsWith(p))).length;
+            const label = svc === 'pskreporter' ? 'PSKReporter (PSK + WSPR)' : 'Open-Meteo (Intl Weather)';
+            return `<tr>
+              <td>${label}</td>
+              <td style="color: ${backedOff ? '#ff4444' : '#00ff88'}">${backedOff ? '⛔ Backoff' : '✅ OK'}</td>
+              <td>${backedOff ? remaining + 's' : '—'}</td>
+              <td>${consecutive || '—'}</td>
+              <td>${inFlight}</td>
+            </tr>`;
+          }).join('')}
+          <tr>
+            <td>NWS api.weather.gov (US Weather)</td>
+            <td style="color: #00ff88">✅ No limit</td>
+            <td>—</td>
+            <td>—</td>
+            <td>${[...upstream.inFlight.keys()].filter(k => k.startsWith('weather:')).length}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p style="font-size: 11px; color: #888; margin-top: 8px">
+        Weather cache: ${weatherCache.size} entries (2h TTL) · NWS grid cache: ${nwsPointsCache.size} grids (permanent) ·
+        Total in-flight deduped: ${upstream.inFlight.size} ·
+        Open-Meteo queue: ${openMeteoQueue.queue.length} pending / ${openMeteoQueue.processed} processed / ${openMeteoQueue.dropped} dropped
+      </p>
+
+      <h2>📡 PSKReporter MQTT Proxy</h2>
+      <table>
+        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+        <tbody>
+          <tr><td>Broker Connection</td><td style="color: ${pskMqtt.connected ? '#00ff88' : '#ff4444'}">${pskMqtt.connected ? '✅ Connected' : '⛔ Disconnected'}</td></tr>
+          <tr><td>Active Callsigns</td><td>${pskMqtt.subscribedCalls.size}</td></tr>
+          <tr><td>SSE Clients</td><td>${[...pskMqtt.subscribers.values()].reduce((n, s) => n + s.size, 0)}</td></tr>
+          <tr><td>Spots Received</td><td>${pskMqtt.stats.spotsReceived.toLocaleString()}</td></tr>
+          <tr><td>Spots Relayed</td><td>${pskMqtt.stats.spotsRelayed.toLocaleString()}</td></tr>
+          <tr><td>Messages Dropped</td><td>${pskMqtt.stats.messagesDropped}</td></tr>
+          <tr><td>Buffered Spots</td><td>${[...pskMqtt.spotBuffer.values()].reduce((n, b) => n + b.length, 0)}</td></tr>
+          <tr><td>Recent Spots Cache</td><td>${[...pskMqtt.recentSpots.values()].reduce((n, s) => n + s.length, 0)}</td></tr>
+          <tr><td>Last Spot</td><td>${pskMqtt.stats.lastSpotTime ? new Date(pskMqtt.stats.lastSpotTime).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—'}</td></tr>
+        </tbody>
+      </table>
+      ${pskMqtt.subscribedCalls.size > 0 ? `<p style="font-size: 11px; color: #888; margin-top: 8px">Subscribed: ${[...pskMqtt.subscribedCalls].join(', ')}</p>` : ''}
+    </div>
+    
     <div class="footer">
       <div>🔧 Built with ❤️ for Amateur Radio</div>
       <div style="margin-top: 8px">
@@ -5689,17 +6866,31 @@ app.get('/api/health', (req, res) => {
         file: STATS_FILE || null,
         lastSaved: visitorStats.lastSaved
       },
+      sessions: sessionTracker.getStats(),
       visitors: {
         today: {
           date: visitorStats.today,
           uniqueVisitors: visitorStats.uniqueIPsToday.length,
-          totalRequests: visitorStats.totalRequestsToday
+          totalRequests: visitorStats.totalRequestsToday,
+          countries: Object.entries(visitorStats.countryStatsToday || {})
+            .sort((a, b) => b[1] - a[1])
+            .reduce((o, [k, v]) => { o[k] = v; return o; }, {})
         },
         allTime: {
           since: visitorStats.serverFirstStarted,
           uniqueVisitors: visitorStats.allTimeVisitors,
           totalRequests: visitorStats.allTimeRequests,
-          deployments: visitorStats.deploymentCount
+          deployments: visitorStats.deploymentCount,
+          countries: Object.entries(visitorStats.countryStats || {})
+            .sort((a, b) => b[1] - a[1])
+            .reduce((o, [k, v]) => { o[k] = v; return o; }, {})
+        },
+        geoIP: {
+          resolved: geoIPCache.size,
+          pending: geoIPQueue.size,
+          coverage: visitorStats.allTimeVisitors > 0 
+            ? `${Math.round(geoIPCache.size / visitorStats.allTimeVisitors * 100)}%` 
+            : '0%'
         },
         dailyAverage: avg,
         history: visitorStats.history.slice(-30) // Last 30 days
@@ -5712,6 +6903,49 @@ app.get('/api/health', (req, res) => {
         totalBytesFormatted: formatBytes(apiStats.totalBytes),
         estimatedMonthlyGB: ((apiStats.totalBytes / parseFloat(apiStats.uptimeHours)) * 24 * 30 / (1024 * 1024 * 1024)).toFixed(2),
         endpoints: apiStats.endpoints.slice(0, 20) // Top 20 by bandwidth
+      },
+      upstream: {
+        pskreporter: {
+          status: upstream.isBackedOff('pskreporter') ? 'backoff' : 'ok',
+          backoffRemaining: upstream.backoffRemaining('pskreporter'),
+          consecutive: upstream.backoffs.get('pskreporter')?.consecutive || 0,
+          inFlightRequests: [...upstream.inFlight.keys()].filter(k => k.startsWith('psk:') || k.startsWith('wspr:')).length
+        },
+        openmeteo: {
+          status: upstream.isBackedOff('openmeteo') ? 'backoff' : 'ok',
+          backoffRemaining: upstream.backoffRemaining('openmeteo'),
+          consecutive: upstream.backoffs.get('openmeteo')?.consecutive || 0,
+          inFlightRequests: [...upstream.inFlight.keys()].filter(k => k.startsWith('weather:')).length
+        },
+        nws: {
+          status: 'ok',
+          note: 'US locations only, no rate limit',
+          gridsCached: nwsPointsCache.size
+        },
+        weatherCache: {
+          entries: weatherCache.size,
+          ttlMinutes: Math.round(WEATHER_CACHE_TTL / 60000),
+          staleTtlHours: Math.round(WEATHER_STALE_TTL / 3600000)
+        },
+        openMeteoQueue: {
+          pending: openMeteoQueue.queue.length,
+          processing: openMeteoQueue.processing,
+          processed: openMeteoQueue.processed,
+          dropped: openMeteoQueue.dropped,
+          maxPerSecond: openMeteoQueue.maxPerSecond
+        },
+        totalInFlight: upstream.inFlight.size,
+        pskMqttProxy: {
+          connected: pskMqtt.connected,
+          activeCallsigns: [...pskMqtt.subscribedCalls],
+          sseClients: [...pskMqtt.subscribers.values()].reduce((n, s) => n + s.size, 0),
+          spotsReceived: pskMqtt.stats.spotsReceived,
+          spotsRelayed: pskMqtt.stats.spotsRelayed,
+          messagesDropped: pskMqtt.stats.messagesDropped,
+          bufferedSpots: [...pskMqtt.spotBuffer.values()].reduce((n, b) => n + b.length, 0),
+          recentSpotsCache: [...pskMqtt.recentSpots.values()].reduce((n, s) => n + s.length, 0),
+          lastSpotTime: pskMqtt.stats.lastSpotTime ? new Date(pskMqtt.stats.lastSpotTime).toISOString() : null
+        }
       }
     });
   } else {
@@ -5724,6 +6958,12 @@ app.get('/api/health', (req, res) => {
 // ============================================
 // CONFIGURATION ENDPOINT
 // ============================================
+
+// Lightweight version check (for auto-refresh polling)
+app.get('/api/version', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store');
+  res.json({ version: APP_VERSION });
+});
 
 // Serve station configuration to frontend
 // This allows the frontend to get config from .env/config.json without exposing secrets
@@ -5788,6 +7028,509 @@ app.get('/api/config', (req, res) => {
 });
 
 // ============================================
+// WEATHER PROXY (NWS + Open-Meteo hybrid)
+// ============================================
+// US coordinates: NWS api.weather.gov (free, unlimited, no API key)
+// International: Open-Meteo (free, 10K/day limit)
+// All responses normalized to Open-Meteo format for the client.
+// Coordinates rounded to whole degrees (~111km grid) to maximize cache hits.
+// Weather doesn't vary meaningfully within 111km — this is the key to surviving 2000+ users.
+const weatherCache = new Map();          // key: "weather:lat,lon" → { data, timestamp, source }
+const nwsPointsCache = new Map();        // key: "lat,lon" → { gridId, gridX, gridY, stationUrl } (never expires)
+const WEATHER_CACHE_TTL = 2 * 60 * 60 * 1000;  // 2 hours
+const WEATHER_STALE_TTL = 6 * 60 * 60 * 1000;  // Serve stale data up to 6 hours if upstream is down
+const NWS_USER_AGENT = 'OpenHamClock/15.1.4 (https://openhamclock.com, Amateur Radio Dashboard)';
+
+// Rough bounding box for US coverage (CONUS + Alaska + Hawaii + territories)
+function isUSCoordinates(lat, lon) {
+  // CONUS
+  if (lat >= 24 && lat <= 50 && lon >= -125 && lon <= -66) return true;
+  // Alaska
+  if (lat >= 51 && lat <= 72 && lon >= -180 && lon <= -129) return true;
+  // Hawaii
+  if (lat >= 18 && lat <= 23 && lon >= -161 && lon <= -154) return true;
+  // Puerto Rico / US Virgin Islands
+  if (lat >= 17 && lat <= 19 && lon >= -68 && lon <= -64) return true;
+  // Guam
+  if (lat >= 13 && lat <= 14 && lon >= 144 && lon <= 145) return true;
+  return false;
+}
+
+// Map NWS text descriptions to WMO weather codes (used by client's WEATHER_CODES map)
+function nwsDescToWeatherCode(desc, isDay) {
+  if (!desc) return 0;
+  const d = desc.toLowerCase();
+  if (d.includes('thunder'))       return d.includes('hail') ? 99 : 95;
+  if (d.includes('heavy snow'))    return 75;
+  if (d.includes('snow shower'))   return d.includes('heavy') ? 86 : 85;
+  if (d.includes('snow') || d.includes('blizzard')) return d.includes('light') ? 71 : 73;
+  if (d.includes('sleet') || d.includes('freezing rain')) return 67;
+  if (d.includes('freezing drizzle')) return 57;
+  if (d.includes('heavy rain') || d.includes('violent')) return 65;
+  if (d.includes('rain shower'))   return d.includes('heavy') ? 82 : 80;
+  if (d.includes('rain'))          return d.includes('light') ? 61 : 63;
+  if (d.includes('drizzle'))       return d.includes('light') ? 51 : 53;
+  if (d.includes('fog'))           return 45;
+  if (d.includes('overcast'))      return 3;
+  if (d.includes('mostly cloudy') || d.includes('cloudy')) return 3;
+  if (d.includes('partly'))        return 2;
+  if (d.includes('mostly clear') || d.includes('mostly sunny')) return 1;
+  if (d.includes('clear') || d.includes('sunny') || d.includes('fair')) return 0;
+  return 2; // default: partly cloudy
+}
+
+// Resolve NWS grid info for a lat/lon (cached forever — grid doesn't move)
+async function resolveNWSGrid(lat, lon) {
+  const key = `${lat},${lon}`;
+  if (nwsPointsCache.has(key)) return nwsPointsCache.get(key);
+
+  const resp = await fetch(`https://api.weather.gov/points/${lat},${lon}`, {
+    headers: { 'User-Agent': NWS_USER_AGENT, Accept: 'application/geo+json' },
+    timeout: 8000,
+  });
+  if (!resp.ok) throw new Error(`NWS /points ${resp.status}`);
+  const data = await resp.json();
+  const p = data.properties;
+  if (!p?.gridId || p?.gridX == null || p?.gridY == null) {
+    throw new Error('NWS /points: missing grid data');
+  }
+
+  const gridInfo = {
+    gridId: p.gridId,
+    gridX: p.gridX,
+    gridY: p.gridY,
+    forecastUrl: p.forecast,
+    forecastHourlyUrl: p.forecastHourly,
+    stationsUrl: p.observationStations,
+    timezone: p.timeZone || 'America/New_York',
+    stationId: null, // resolved lazily below
+  };
+
+  // Resolve nearest observation station
+  try {
+    const stResp = await fetch(p.observationStations, {
+      headers: { 'User-Agent': NWS_USER_AGENT, Accept: 'application/geo+json' },
+      timeout: 8000,
+    });
+    if (stResp.ok) {
+      const stData = await stResp.json();
+      const features = stData.features || stData.observationStations;
+      if (features && features.length > 0) {
+        // features[0].properties.stationIdentifier or parse from URL
+        const stId = features[0]?.properties?.stationIdentifier
+          || features[0]?.id?.split('/stations/')[1]
+          || (typeof features[0] === 'string' ? features[0].split('/stations/')[1] : null);
+        gridInfo.stationId = stId;
+      }
+    }
+  } catch { /* non-critical — forecast still works without observations */ }
+
+  nwsPointsCache.set(key, gridInfo);
+  return gridInfo;
+}
+
+// Fetch weather from NWS and normalize to Open-Meteo format
+async function fetchNWSWeather(lat, lon) {
+  const grid = await resolveNWSGrid(lat, lon);
+
+  // Fetch observation + forecast in parallel
+  const [obsResult, forecastResult, hourlyResult] = await Promise.allSettled([
+    // Current observation from nearest station
+    grid.stationId
+      ? fetch(`https://api.weather.gov/stations/${grid.stationId}/observations/latest`, {
+          headers: { 'User-Agent': NWS_USER_AGENT, Accept: 'application/geo+json' },
+          timeout: 8000,
+        }).then(r => r.ok ? r.json() : null)
+      : Promise.resolve(null),
+    // Daily forecast (12h periods)
+    fetch(grid.forecastUrl, {
+      headers: { 'User-Agent': NWS_USER_AGENT, Accept: 'application/geo+json' },
+      timeout: 8000,
+    }).then(r => { if (!r.ok) throw new Error(`NWS forecast ${r.status}`); return r.json(); }),
+    // Hourly forecast
+    fetch(grid.forecastHourlyUrl, {
+      headers: { 'User-Agent': NWS_USER_AGENT, Accept: 'application/geo+json' },
+      timeout: 8000,
+    }).then(r => r.ok ? r.json() : null),
+  ]);
+
+  // Forecast is required
+  if (forecastResult.status === 'rejected') throw forecastResult.reason;
+  const forecast = forecastResult.value;
+  const obs = obsResult.status === 'fulfilled' ? obsResult.value : null;
+  const hourly = hourlyResult.status === 'fulfilled' ? hourlyResult.value : null;
+
+  // --- Build normalized Open-Meteo-compatible response ---
+  const o = obs?.properties || {};
+  const periods = forecast?.properties?.periods || [];
+  const hPeriods = hourly?.properties?.periods || [];
+  const nowHour = new Date().getUTCHours();
+  const isDayNow = nowHour >= 11 && nowHour < 23; // rough UTC estimate
+
+  // Current conditions from observation (values in SI: °C, m/s, Pa, m)
+  const tempC = o.temperature?.value;
+  const dewC = o.dewpoint?.value;
+  const humidity = o.relativeHumidity?.value;
+  const windSpeedMs = o.windSpeed?.value;  // m/s or km/h depending on station
+  const windDir = o.windDirection?.value;
+  const windGustMs = o.windGust?.value;
+  const pressurePa = o.barometricPressure?.value;
+  const visibilityM = o.visibility?.value;
+  const textDesc = o.textDescription || periods[0]?.shortForecast || '';
+  const weatherCode = nwsDescToWeatherCode(textDesc, periods[0]?.isDaytime ?? isDayNow);
+
+  // NWS wind is in km/h (unit: wmoUnit:km_h-1) — already correct for our format
+  // But observation windSpeed can be m/s (unitCode: wmoUnit:m_s-1) — need to check
+  let windKmh = null;
+  if (windSpeedMs != null) {
+    const windUnit = o.windSpeed?.unitCode || '';
+    windKmh = windUnit.includes('m_s') ? windSpeedMs * 3.6 : windSpeedMs;
+  }
+  let gustKmh = null;
+  if (windGustMs != null) {
+    const gustUnit = o.windGust?.unitCode || '';
+    gustKmh = gustUnit.includes('m_s') ? windGustMs * 3.6 : windGustMs;
+  }
+
+  // Apparent temperature: use heat index or wind chill from observation, or estimate
+  let apparentC = tempC;
+  if (o.heatIndex?.value != null) apparentC = o.heatIndex.value;
+  else if (o.windChill?.value != null) apparentC = o.windChill.value;
+
+  // Build daily forecast from periods (NWS gives day/night period pairs)
+  // Group periods into days and extract hi/lo
+  const dailyMap = new Map();
+  for (const p of periods) {
+    const dateStr = p.startTime?.slice(0, 10);
+    if (!dateStr) continue;
+    if (!dailyMap.has(dateStr)) {
+      dailyMap.set(dateStr, { high: null, low: null, code: null, desc: '', precipProb: 0, windMax: null });
+    }
+    const day = dailyMap.get(dateStr);
+    const pTempC = p.temperature != null
+      ? (p.temperatureUnit === 'F' ? (p.temperature - 32) * 5 / 9 : p.temperature)
+      : null;
+    if (p.isDaytime && pTempC != null) day.high = pTempC;
+    if (!p.isDaytime && pTempC != null) day.low = pTempC;
+    if (p.isDaytime && p.shortForecast) {
+      day.desc = p.shortForecast;
+      day.code = nwsDescToWeatherCode(p.shortForecast, true);
+    }
+    // Extract precip probability from detailedForecast or probabilityOfPrecipitation
+    const pop = p.probabilityOfPrecipitation?.value;
+    if (pop != null && pop > day.precipProb) day.precipProb = pop;
+    // Wind: parse "10 to 15 mph" → take max, convert to km/h
+    if (p.windSpeed) {
+      const nums = p.windSpeed.match(/\d+/g);
+      if (nums) {
+        const maxWind = Math.max(...nums.map(Number));
+        const wKmh = p.windSpeed.toLowerCase().includes('km') ? maxWind : maxWind * 1.60934;
+        if (day.windMax == null || wKmh > day.windMax) day.windMax = wKmh;
+      }
+    }
+  }
+
+  const dailyEntries = [...dailyMap.entries()].slice(0, 3);
+  const dailyTimes = dailyEntries.map(([d]) => d);
+  const dailyData = dailyEntries.map(([, v]) => v);
+
+  // Build hourly forecast (next 24h in 3h intervals)
+  const hourlyTimes = [];
+  const hourlyTemps = [];
+  const hourlyPrecipProb = [];
+  const hourlyCodes = [];
+  for (let i = 0; i < Math.min(24, hPeriods.length); i++) {
+    const hp = hPeriods[i];
+    hourlyTimes.push(hp.startTime);
+    const htC = hp.temperature != null
+      ? (hp.temperatureUnit === 'F' ? (hp.temperature - 32) * 5 / 9 : hp.temperature)
+      : null;
+    hourlyTemps.push(htC);
+    hourlyPrecipProb.push(hp.probabilityOfPrecipitation?.value || 0);
+    hourlyCodes.push(nwsDescToWeatherCode(hp.shortForecast, hp.isDaytime));
+  }
+
+  // Assemble in Open-Meteo format (all values in metric: °C, km/h, mm, hPa)
+  return {
+    _source: 'nws',
+    timezone: grid.timezone,
+    current: {
+      temperature_2m: tempC,
+      relative_humidity_2m: humidity,
+      apparent_temperature: apparentC,
+      weather_code: weatherCode,
+      cloud_cover: o.cloudLayers?.[0]?.amount ? 
+        ({ SKC: 0, FEW: 20, SCT: 40, BKN: 70, OVC: 100 }[o.cloudLayers[0].amount] || 50) : null,
+      pressure_msl: pressurePa != null ? pressurePa / 100 : null, // Pa → hPa
+      wind_speed_10m: windKmh,
+      wind_direction_10m: windDir,
+      wind_gusts_10m: gustKmh,
+      precipitation: o.precipitationLastHour?.value || 0,
+      uv_index: null, // NWS doesn't provide UV
+      visibility: visibilityM,
+      dew_point_2m: dewC,
+      is_day: periods[0]?.isDaytime ? 1 : 0,
+    },
+    daily: {
+      time: dailyTimes,
+      temperature_2m_max: dailyData.map(d => d.high),
+      temperature_2m_min: dailyData.map(d => d.low),
+      precipitation_sum: dailyData.map(() => null), // NWS forecast doesn't give precip amounts
+      precipitation_probability_max: dailyData.map(d => d.precipProb),
+      weather_code: dailyData.map(d => d.code),
+      uv_index_max: dailyData.map(() => null),
+      wind_speed_10m_max: dailyData.map(d => d.windMax),
+    },
+    hourly: {
+      time: hourlyTimes,
+      temperature_2m: hourlyTemps,
+      precipitation_probability: hourlyPrecipProb,
+      weather_code: hourlyCodes,
+    },
+  };
+}
+
+// Fetch weather from Open-Meteo (international fallback)
+// ---- Open-Meteo Throttled Queue ----
+// With 2000+ users, cache misses for different DX targets can burst hundreds of
+// unique requests at once. Open-Meteo free tier allows 600/min, 10K/day.
+// This queue processes requests at a steady drip rate to avoid hitting limits.
+const openMeteoQueue = {
+  queue: [],            // Array of { lat, lon, resolve, reject, enqueuedAt }
+  processing: false,
+  maxPerSecond: 4,      // 4 req/s = 240/min — safe margin under 600/min
+  maxQueueSize: 200,    // Drop requests if queue backs up too far
+  processed: 0,
+  dropped: 0,
+  lastProcessedAt: 0
+};
+
+function enqueueOpenMeteoRequest(lat, lon) {
+  return new Promise((resolve, reject) => {
+    if (openMeteoQueue.queue.length >= openMeteoQueue.maxQueueSize) {
+      openMeteoQueue.dropped++;
+      reject(new Error('Weather queue full — too many pending requests'));
+      return;
+    }
+    openMeteoQueue.queue.push({ lat, lon, resolve, reject, enqueuedAt: Date.now() });
+    processOpenMeteoQueue();
+  });
+}
+
+async function processOpenMeteoQueue() {
+  if (openMeteoQueue.processing || openMeteoQueue.queue.length === 0) return;
+  openMeteoQueue.processing = true;
+
+  while (openMeteoQueue.queue.length > 0) {
+    // Rate limit: wait until enough time has passed since last request
+    const now = Date.now();
+    const minInterval = 1000 / openMeteoQueue.maxPerSecond;
+    const elapsed = now - openMeteoQueue.lastProcessedAt;
+    if (elapsed < minInterval) {
+      await new Promise(r => setTimeout(r, minInterval - elapsed));
+    }
+
+    const item = openMeteoQueue.queue.shift();
+    if (!item) break;
+
+    // Drop items that have been waiting too long (60s)
+    if (Date.now() - item.enqueuedAt > 60000) {
+      openMeteoQueue.dropped++;
+      item.reject(new Error('Weather request expired in queue'));
+      continue;
+    }
+
+    openMeteoQueue.lastProcessedAt = Date.now();
+    try {
+      const result = await fetchOpenMeteoWeatherDirect(item.lat, item.lon);
+      openMeteoQueue.processed++;
+      item.resolve(result);
+    } catch (err) {
+      item.reject(err);
+      // If rate limited, pause the queue for backoff duration
+      if (err.message === 'Rate limited') {
+        const backoffMs = (upstream.backoffRemaining('openmeteo') || 30) * 1000;
+        console.log(`[Weather Queue] Open-Meteo rate limited, pausing queue for ${backoffMs / 1000}s`);
+        await new Promise(r => setTimeout(r, backoffMs));
+      }
+    }
+  }
+
+  openMeteoQueue.processing = false;
+}
+
+// The actual Open-Meteo fetch (called only from queue)
+async function fetchOpenMeteoWeatherDirect(lat, lon) {
+  const params = [
+    `latitude=${lat}`,
+    `longitude=${lon}`,
+    'current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation,uv_index,visibility,dew_point_2m,is_day',
+    'daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,sunrise,sunset,uv_index_max,wind_speed_10m_max',
+    'hourly=temperature_2m,precipitation_probability,weather_code',
+    'temperature_unit=celsius',
+    'wind_speed_unit=kmh',
+    'precipitation_unit=mm',
+    'timezone=auto',
+    'forecast_days=3',
+    'forecast_hours=24',
+  ].join('&');
+
+  const url = `https://api.open-meteo.com/v1/forecast?${params}`;
+  const response = await fetch(url, { timeout: 10000 });
+
+  if (response.status === 429) {
+    const backoffSecs = upstream.recordFailure('openmeteo', 429);
+    logErrorOnce('Weather', `Open-Meteo rate limited (429) — backing off for ${backoffSecs}s`);
+    throw new Error('Rate limited');
+  }
+
+  if (!response.ok) {
+    const backoffSecs = upstream.recordFailure('openmeteo', response.status);
+    logErrorOnce('Weather', `Open-Meteo returned ${response.status} — backing off for ${backoffSecs}s`);
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+  data._source = 'openmeteo';
+  upstream.recordSuccess('openmeteo');
+  return data;
+}
+
+// Public wrapper — routes through throttle queue
+async function fetchOpenMeteoWeather(lat, lon) {
+  if (upstream.isBackedOff('openmeteo')) {
+    throw new Error('Open-Meteo is in backoff');
+  }
+  return enqueueOpenMeteoRequest(lat, lon);
+}
+
+// Per-IP weather request throttle: max 1 request per 30 seconds per client
+// Cache hits bypass this — only triggers on actual upstream fetches
+const weatherClientThrottle = new Map(); // ip → lastRequestTime
+const WEATHER_CLIENT_MIN_INTERVAL = 30 * 1000; // 30 seconds
+
+app.get('/api/weather', async (req, res) => {
+  const lat = parseFloat(req.query.lat);
+  const lon = parseFloat(req.query.lon);
+
+  if (isNaN(lat) || isNaN(lon)) {
+    return res.status(400).json({ error: 'lat and lon required' });
+  }
+
+  // Round to whole degrees (~111km grid) — weather doesn't vary within this range
+  // With 2000+ users, this is critical: reduces unique cache keys from thousands to ~hundreds
+  const roundedLat = Math.round(lat);
+  const roundedLon = Math.round(lon);
+  const cacheKey = `weather:${roundedLat},${roundedLon}`;
+
+  const cached = weatherCache.get(cacheKey);
+  const now = Date.now();
+
+  // 1. Fresh cache hit — serve immediately (no throttle needed)
+  if (cached && (now - cached.timestamp) < WEATHER_CACHE_TTL) {
+    return res.json(cached.data);
+  }
+
+  // 2. Per-IP throttle — prevent individual clients from hammering
+  const clientIP = req.ip || req.connection?.remoteAddress || 'unknown';
+  const lastReq = weatherClientThrottle.get(clientIP);
+  if (lastReq && (now - lastReq) < WEATHER_CLIENT_MIN_INTERVAL) {
+    // Throttled — serve stale if available, otherwise 429
+    if (cached) return res.json(cached.data);
+    return res.status(429).json({ error: 'Weather: too many requests, try again shortly' });
+  }
+  weatherClientThrottle.set(clientIP, now);
+
+  // Prune throttle map periodically
+  if (weatherClientThrottle.size > 5000) {
+    const cutoff = now - WEATHER_CLIENT_MIN_INTERVAL * 2;
+    for (const [ip, t] of weatherClientThrottle) {
+      if (t < cutoff) weatherClientThrottle.delete(ip);
+    }
+  }
+
+  // 2. Stale-while-revalidate check
+  const hasStale = cached && (now - cached.timestamp) < WEATHER_STALE_TTL;
+  const isUS = isUSCoordinates(roundedLat, roundedLon);
+
+  // 3. Deduplicated upstream fetch
+  const doFetch = () => upstream.fetch(cacheKey, async () => {
+    let data = null;
+
+    // Try NWS first for US coordinates (free, generous limits)
+    if (isUS) {
+      try {
+        data = await fetchNWSWeather(roundedLat, roundedLon);
+        console.log(`[Weather] NWS success for ${roundedLat},${roundedLon}`);
+      } catch (nwsErr) {
+        console.warn(`[Weather] NWS failed for ${roundedLat},${roundedLon}: ${nwsErr.message} — falling back to Open-Meteo`);
+      }
+    }
+
+    // Fall back to Open-Meteo for international or NWS failure
+    if (!data) {
+      if (upstream.isBackedOff('openmeteo')) {
+        throw new Error('Open-Meteo backed off');
+      }
+      data = await fetchOpenMeteoWeather(roundedLat, roundedLon);
+    }
+
+    weatherCache.set(cacheKey, { data, timestamp: Date.now() });
+
+    // Prune old cache entries (keep under 500)
+    if (weatherCache.size > 500) {
+      const cutoff = Date.now() - WEATHER_STALE_TTL;
+      for (const [key, entry] of weatherCache) {
+        if (entry.timestamp < cutoff) weatherCache.delete(key);
+      }
+    }
+
+    return data;
+  });
+
+  if (hasStale) {
+    // Stale-while-revalidate: respond with stale data now, refresh in background
+    doFetch().catch(() => {});
+    return res.json(cached.data);
+  }
+
+  // No stale data — if queue is backed up, return 202 and let background fill cache
+  // Client retry logic will pick up the data once queue processes and caches it
+  if (openMeteoQueue.queue.length > 10 && !isUS) {
+    // Fire-and-forget the fetch (it'll cache on completion)
+    doFetch().catch(() => {});
+    return res.status(202).json({
+      _pending: true,
+      _source: 'queued',
+      _queueDepth: openMeteoQueue.queue.length,
+      error: 'Weather data loading — will be available shortly'
+    });
+  }
+
+  // Queue is small or it's a US/NWS request — wait for result
+  try {
+    // Add a 15-second timeout so clients don't hang forever
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('Weather fetch timeout')), 15000)
+    );
+    const data = await Promise.race([doFetch(), timeoutPromise]);
+    res.json(data);
+  } catch (err) {
+    logErrorOnce('Weather', `Proxy error: ${err.message}`);
+    if (cached && (now - cached.timestamp) < WEATHER_STALE_TTL) {
+      return res.json(cached.data);
+    }
+    // Still enqueue for background cache fill
+    doFetch().catch(() => {});
+    res.status(202).json({
+      _pending: true,
+      _source: 'timeout',
+      error: 'Weather data loading — will be available shortly'
+    });
+  }
+});
+
+// ============================================
 // MANUAL UPDATE ENDPOINT
 // ============================================
 app.post('/api/update', async (req, res) => {
@@ -5800,9 +7543,6 @@ app.post('/api/update', async (req, res) => {
       return res.status(503).json({ error: 'Not a git repository' });
     }
     await execFilePromise('git', ['--version']);
-    if (await hasDirtyWorkingTree()) {
-      return res.status(409).json({ error: 'Local changes detected' });
-    }
   } catch (err) {
     return res.status(500).json({ error: 'Update preflight failed' });
   }
@@ -7061,6 +8801,10 @@ app.get('*', (req, res) => {
   const publicIndex = path.join(__dirname, 'public', 'index.html');
   
   const indexPath = fs.existsSync(distIndex) ? distIndex : publicIndex;
+  // Never cache index.html - stale copies cause browsers to load old JS after updates
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(indexPath);
 });
 

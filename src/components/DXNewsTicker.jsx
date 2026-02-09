@@ -1,18 +1,46 @@
 /**
  * DXNewsTicker Component
  * Scrolling news banner showing latest DX news headlines from dxnews.com
+ * Respects showDXNews setting from mapLayers (reads from localStorage directly as fallback)
  */
 import React, { useState, useEffect, useRef } from 'react';
+
+// Check if DX News is enabled (reads directly from localStorage as belt-and-suspenders)
+function isDXNewsEnabled() {
+  try {
+    const stored = localStorage.getItem('openhamclock_mapLayers');
+    if (stored) {
+      const layers = JSON.parse(stored);
+      return layers.showDXNews !== false;
+    }
+  } catch {}
+  return true; // default on
+}
 
 export const DXNewsTicker = ({ sidebar = false }) => {
   const [news, setNews] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [visible, setVisible] = useState(isDXNewsEnabled);
   const tickerRef = useRef(null);
   const contentRef = useRef(null);
   const [animDuration, setAnimDuration] = useState(120);
 
+  // Listen for mapLayers changes (custom event for same-tab, storage for cross-tab)
+  useEffect(() => {
+    const checkVisibility = () => setVisible(isDXNewsEnabled());
+    
+    window.addEventListener('mapLayersChanged', checkVisibility);
+    window.addEventListener('storage', checkVisibility);
+    return () => {
+      window.removeEventListener('mapLayersChanged', checkVisibility);
+      window.removeEventListener('storage', checkVisibility);
+    };
+  }, []);
+
   // Fetch news
   useEffect(() => {
+    if (!visible) return;
+    
     const fetchNews = async () => {
       try {
         const res = await fetch('/api/dxnews');
@@ -33,7 +61,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
     // Refresh every 30 minutes
     const interval = setInterval(fetchNews, 30 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [visible]);
 
   // Calculate animation duration based on content width
   useEffect(() => {
@@ -46,7 +74,16 @@ export const DXNewsTicker = ({ sidebar = false }) => {
     }
   }, [news]);
 
-  if (loading || news.length === 0) return null;
+  // Inject keyframes animation style once
+  useEffect(() => {
+    if (document.getElementById('dxnews-scroll-keyframes')) return;
+    const style = document.createElement('style');
+    style.id = 'dxnews-scroll-keyframes';
+    style.textContent = `@keyframes dxnews-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }`;
+    document.head.appendChild(style);
+  }, []);
+
+  if (!visible || loading || news.length === 0) return null;
 
   // Build ticker text: "TITLE — description  ★  TITLE — description  ★  ..."
   const tickerItems = news.map(item => ({

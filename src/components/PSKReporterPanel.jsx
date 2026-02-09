@@ -53,7 +53,7 @@ const PSKReporterPanel = ({
     txReports, txCount, rxReports, rxCount, 
     loading, error, connected, source, refresh 
   } = usePSKReporter(callsign, { 
-    minutes: 15,
+    minutes: 30,
     enabled: callsign && callsign !== 'N0CALL'
   });
 

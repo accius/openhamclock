@@ -10,12 +10,15 @@ import {
   getMoonPosition, 
   getGreatCirclePoints 
 } from '../utils/geo.js';
-import { filterDXPaths, getBandColor } from '../utils/callsign.js';
+import { getBandColor } from '../utils/callsign.js';
+import { createTerminator } from '../utils/terminator.js';
 
 import { getAllLayers } from '../plugins/layerRegistry.js';
+import useLocalInstall from '../hooks/app/useLocalInstall.js';
 import { IconSatellite, IconTag, IconSun, IconMoon } from './Icons.jsx';
 import PluginLayer from './PluginLayer.jsx';
 import { DXNewsTicker } from './DXNewsTicker.jsx';
+import {filterDXPaths} from "../utils";
 
 
 export const WorldMap = ({ 
@@ -40,8 +43,10 @@ export const WorldMap = ({
   onToggleSatellites, 
   hoveredSpot,
   callsign = 'N0CALL',
+  showDXNews = true,
   hideOverlays,
-  lowMemoryMode = false
+  lowMemoryMode = false,
+  units = 'imperial'
 }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -77,6 +82,10 @@ export const WorldMap = ({
   // Plugin system refs and state
   const pluginLayersRef = useRef({});
   const [pluginLayerStates, setPluginLayerStates] = useState({});
+  const isLocalInstall = useLocalInstall();
+  
+  // Filter out localOnly layers on hosted version
+  const getAvailableLayers = () => getAllLayers().filter(l => !l.localOnly || isLocalInstall);
   
   // Load map style from localStorage
   const getStoredMapSettings = () => {
@@ -143,12 +152,11 @@ export const WorldMap = ({
     tileLayerRef.current = L.tileLayer(MAP_STYLES[mapStyle].url, {
       attribution: MAP_STYLES[mapStyle].attribution,
       noWrap: false,
-      crossOrigin: 'anonymous',
-      bounds: [[-85, -180], [85, 180]]
+      crossOrigin: 'anonymous'
     }).addTo(map);
 
-    // Day/night terminator
-    terminatorRef.current = L.terminator({
+    // Day/night terminator (custom implementation spans multiple world copies)
+    terminatorRef.current = createTerminator({
       resolution: 2,
       fillOpacity: 0.35,
       fillColor: '#000020',
@@ -183,14 +191,13 @@ export const WorldMap = ({
     });
     
     // Save map view when user pans or zooms
+    // IMPORTANT: Do NOT normalize longitude here. Leaflet tracks center beyond ±180 
+    // for smooth panning across the antimeridian (worldCopyJump). Normalizing causes
+    // the map to jump for users near the date line (Australia, NZ, Pacific).
     map.on('moveend', () => {
       const center = map.getCenter();
       const zoom = map.getZoom();
-      // Normalize longitude to -180 to 180 range
-      let lng = center.lng;
-      while (lng > 180) lng -= 360;
-      while (lng < -180) lng += 360;
-      setMapView({ center: [center.lat, lng], zoom });
+      setMapView({ center: [center.lat, center.lng], zoom });
     });
 
     mapInstanceRef.current = map;
@@ -226,8 +233,8 @@ export const WorldMap = ({
       attribution: MAP_STYLES[mapStyle].attribution,
       noWrap: false,
       crossOrigin: 'anonymous',
-      // NASA GIBS tiles are best displayed within these bounds due to cropping of diseminated imagery
-      bounds: [[-85, -180], [85, 180]]
+      // NASA GIBS tiles only cover -180..180; other tile providers wrap naturally
+      ...(mapStyle === 'MODIS' ? { bounds: [[-85, -180], [85, 180]] } : {})
     }).addTo(mapInstanceRef.current);
 
     // Ensure terminator and other overlays stay on top of the new tile layer
@@ -318,7 +325,7 @@ export const WorldMap = ({
       });
   }, [mapStyle]);
 
-  // Update DE/DX markers and celestial bodies
+  // Update DE/DX markers
   useEffect(() => {
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
@@ -326,8 +333,6 @@ export const WorldMap = ({
     // Remove old markers
     if (deMarkerRef.current) map.removeLayer(deMarkerRef.current);
     if (dxMarkerRef.current) map.removeLayer(dxMarkerRef.current);
-    if (sunMarkerRef.current) map.removeLayer(sunMarkerRef.current);
-    if (moonMarkerRef.current) map.removeLayer(moonMarkerRef.current);
 
     // DE Marker
     const deIcon = L.divIcon({
@@ -350,31 +355,55 @@ export const WorldMap = ({
     dxMarkerRef.current = L.marker([dxLocation.lat, dxLocation.lon], { icon: dxIcon })
       .bindPopup(`<b>DX - Target</b><br>${calculateGridSquare(dxLocation.lat, dxLocation.lon)}<br>${dxLocation.lat.toFixed(4)}°, ${dxLocation.lon.toFixed(4)}°`)
       .addTo(map);
-
-    // Sun marker
-    const sunPos = getSunPosition(new Date());
-    const sunIcon = L.divIcon({
-      className: 'custom-marker sun-marker',
-      html: '☼',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
-    });
-    sunMarkerRef.current = L.marker([sunPos.lat, sunPos.lon], { icon: sunIcon })
-      .bindPopup(`<b>☼ Subsolar Point</b><br>${sunPos.lat.toFixed(2)}°, ${sunPos.lon.toFixed(2)}°`)
-      .addTo(map);
-
-    // Moon marker
-    const moonPos = getMoonPosition(new Date());
-    const moonIcon = L.divIcon({
-      className: 'custom-marker moon-marker',
-      html: '☽',
-      iconSize: [24, 24],
-      iconAnchor: [12, 12]
-    });
-    moonMarkerRef.current = L.marker([moonPos.lat, moonPos.lon], { icon: moonIcon })
-      .bindPopup(`<b>☽ Sublunar Point</b><br>${moonPos.lat.toFixed(2)}°, ${moonPos.lon.toFixed(2)}°`)
-      .addTo(map);
   }, [deLocation, dxLocation]);
+
+  // Update sun/moon markers every 60 seconds (matches terminator refresh)
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    const updateCelestial = () => {
+      if (sunMarkerRef.current) map.removeLayer(sunMarkerRef.current);
+      if (moonMarkerRef.current) map.removeLayer(moonMarkerRef.current);
+
+      const now = new Date();
+
+      // Sun marker
+      const sunPos = getSunPosition(now);
+      const sunIcon = L.divIcon({
+        className: 'custom-marker sun-marker',
+        html: '☼',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+      sunMarkerRef.current = L.marker([sunPos.lat, sunPos.lon], { icon: sunIcon })
+        .bindPopup(`<b>☼ Subsolar Point</b><br>${sunPos.lat.toFixed(2)}°, ${sunPos.lon.toFixed(2)}°`)
+        .addTo(map);
+
+      // Moon marker
+      const moonPos = getMoonPosition(now);
+      const moonIcon = L.divIcon({
+        className: 'custom-marker moon-marker',
+        html: '☽',
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+      moonMarkerRef.current = L.marker([moonPos.lat, moonPos.lon], { icon: moonIcon })
+        .bindPopup(`<b>☽ Sublunar Point</b><br>${moonPos.lat.toFixed(2)}°, ${moonPos.lon.toFixed(2)}°`)
+        .addTo(map);
+    };
+
+    // Initial render
+    updateCelestial();
+
+    // Update every 60 seconds to match terminator
+    const interval = setInterval(updateCelestial, 60000);
+    return () => {
+      clearInterval(interval);
+      if (sunMarkerRef.current) map.removeLayer(sunMarkerRef.current);
+      if (moonMarkerRef.current) map.removeLayer(moonMarkerRef.current);
+    };
+  }, []);
 
   // Update DX paths
   useEffect(() => {
@@ -559,10 +588,10 @@ export const WorldMap = ({
             <b>⛊ ${sat.name}</b><br>
             <table style="font-size: 11px;">
               <tr><td>Mode:</td><td><b>${sat.mode || 'Unknown'}</b></td></tr>
-              <tr><td>Alt:</td><td>${sat.alt} km</td></tr>
+              <tr><td>Alt:</td><td>${units === 'imperial' ? Math.round(sat.alt * 0.621371).toLocaleString() + ' mi' : Math.round(sat.alt).toLocaleString() + ' km'}</td></tr>
               <tr><td>Az:</td><td>${sat.azimuth}°</td></tr>
               <tr><td>El:</td><td>${sat.elevation}°</td></tr>
-              <tr><td>Range:</td><td>${sat.range} km</td></tr>
+              <tr><td>Range:</td><td>${units === 'imperial' ? Math.round(sat.range * 0.621371).toLocaleString() + ' mi' : Math.round(sat.range).toLocaleString() + ' km'}</td></tr>
               <tr><td>Status:</td><td>${sat.visible ? '<span style="color:green">✓ Visible</span>' : '<span style="color:gray">Below horizon</span>'}</td></tr>
             </table>
           `)
@@ -577,7 +606,7 @@ export const WorldMap = ({
     if (!mapInstanceRef.current) return;
 
     try {
-      const availableLayers = getAllLayers();
+      const availableLayers = getAvailableLayers();
       const settings = getStoredMapSettings();
       const savedLayers = settings.layers || {};
 
@@ -805,20 +834,21 @@ export const WorldMap = ({
   return (
     <div style={{ position: 'relative', height: '100%', minHeight: '200px' }}>
       <div ref={mapRef} style={{ height: '100%', width: '100%', borderRadius: '8px', background: mapStyle === 'countries' ? '#4a90d9' : undefined }} />
-      
-      {/* Render all plugin layers */}
-      {mapInstanceRef.current && getAllLayers().map(layerDef => (
-        <PluginLayer
-          key={layerDef.id}
-          plugin={layerDef}
-          enabled={pluginLayerStates[layerDef.id]?.enabled || false}
-          opacity={pluginLayerStates[layerDef.id]?.opacity || layerDef.defaultOpacity}
-          map={mapInstanceRef.current}
-          callsign={callsign}
-          locator={deLocator}
-          lowMemoryMode={lowMemoryMode}
-        />
-      ))}
+
+		{/* Render all plugin layers */}
+		{mapInstanceRef.current && getAvailableLayers().map(layerDef => (
+		  <PluginLayer
+		    key={layerDef.id}
+		    plugin={layerDef}
+		    // Use the exact metadata names as fallbacks
+		    enabled={pluginLayerStates[layerDef.id]?.enabled ?? layerDef.defaultEnabled}
+		    opacity={pluginLayerStates[layerDef.id]?.opacity ?? layerDef.defaultOpacity}
+		    map={mapInstanceRef.current}
+		    callsign={callsign}
+		    locator={deLocator}
+		    lowMemoryMode={lowMemoryMode}
+		  />
+		))}
       //  MODIS SLIDER CODE HERE 
       {mapStyle === 'MODIS' && (
         <div style={{
@@ -923,7 +953,7 @@ export const WorldMap = ({
       )}
       
       {/* DX News Ticker - left side of bottom bar */}
-      {!hideOverlays && <DXNewsTicker />}
+      {!hideOverlays && showDXNews && <DXNewsTicker />}
 
       {/* Legend - centered above news ticker */}
       {!hideOverlays && (

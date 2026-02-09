@@ -1,66 +1,42 @@
 /**
  * usePSKReporter Hook
- * Fetches PSKReporter data via MQTT WebSocket (MQTT only - no HTTP fallback)
- * 
- * MQTT message format (from mqtt.pskreporter.info):
- *   sc = sender call, rc = receiver call
- *   sl = sender locator, rl = receiver locator
- *   sa = sender ADIF country code, ra = receiver ADIF country code
- *   f = frequency, md = mode, rp = report (SNR), t = timestamp
- *   b = band, sq = sequence number
- * 
- * Topic format: pskr/filter/v2/{band}/{mode}/{sendercall}/{receivercall}/{senderlocator}/{receiverlocator}/{sendercountry}/{receivercountry}
+ * Fetches PSKReporter data via HTTP backfill + Server-Sent Events (SSE) for real-time updates.
+ *
+ * The server maintains a single MQTT connection to mqtt.pskreporter.info and
+ * relays spots to clients via SSE, batched every 10 seconds. This avoids each
+ * browser opening its own MQTT connection to PSKReporter's broker.
+ *
+ * On connect:
+ *   1. Opens SSE stream to /api/pskreporter/stream/:callsign (receives recent spots + live feed)
+ *   2. Fetches historical spots via /api/pskreporter/http/:callsign for backfill
+ *
+ * Spot format (from server):
+ *   sender, senderGrid, receiver, receiverGrid
+ *   freq, freqMHz, band, mode, snr, timestamp, age
+ *   lat, lon, direction ('tx' | 'rx')
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import mqtt from 'mqtt';
 
-// Convert grid square to lat/lon
-function gridToLatLon(grid) {
-  if (!grid || grid.length < 4) return null;
-  
-  const g = grid.toUpperCase();
-  const lon = (g.charCodeAt(0) - 65) * 20 - 180;
-  const lat = (g.charCodeAt(1) - 65) * 10 - 90;
-  const lonMin = parseInt(g[2]) * 2;
-  const latMin = parseInt(g[3]) * 1;
-  
-  let finalLon = lon + lonMin + 1;
-  let finalLat = lat + latMin + 0.5;
-  
-  if (grid.length >= 6) {
-    const lonSec = (g.charCodeAt(4) - 65) * (2/24);
-    const latSec = (g.charCodeAt(5) - 65) * (1/24);
-    finalLon = lon + lonMin + lonSec + (1/24);
-    finalLat = lat + latMin + latSec + (0.5/24);
+// Deduplicate spots: keep the most recent report per unique callsign + band combination
+function deduplicateSpots(spots, maxSpots) {
+  const seen = new Map();
+  for (const spot of spots) {
+    const key = `${spot.sender}|${spot.receiver}|${spot.band}`;
+    const existing = seen.get(key);
+    if (!existing || spot.timestamp > existing.timestamp) {
+      seen.set(key, spot);
+    }
   }
-  
-  return { lat: finalLat, lon: finalLon };
-}
-
-// Get band name from frequency in Hz
-function getBandFromHz(freqHz) {
-  const freqMHz = freqHz / 1000000;
-  if (freqMHz >= 1.8 && freqMHz <= 2) return '160m';
-  if (freqMHz >= 3.5 && freqMHz <= 4) return '80m';
-  if (freqMHz >= 5.3 && freqMHz <= 5.4) return '60m';
-  if (freqMHz >= 7 && freqMHz <= 7.3) return '40m';
-  if (freqMHz >= 10.1 && freqMHz <= 10.15) return '30m';
-  if (freqMHz >= 14 && freqMHz <= 14.35) return '20m';
-  if (freqMHz >= 18.068 && freqMHz <= 18.168) return '17m';
-  if (freqMHz >= 21 && freqMHz <= 21.45) return '15m';
-  if (freqMHz >= 24.89 && freqMHz <= 24.99) return '12m';
-  if (freqMHz >= 28 && freqMHz <= 29.7) return '10m';
-  if (freqMHz >= 50 && freqMHz <= 54) return '6m';
-  if (freqMHz >= 144 && freqMHz <= 148) return '2m';
-  if (freqMHz >= 420 && freqMHz <= 450) return '70cm';
-  return 'Unknown';
+  return Array.from(seen.values())
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, maxSpots);
 }
 
 export const usePSKReporter = (callsign, options = {}) => {
   const {
-    minutes = 15,           // Time window to keep spots
-    enabled = true,         // Enable/disable fetching
-    maxSpots = 100          // Max spots to keep
+    minutes = 30,
+    enabled = true,
+    maxSpots = 500
   } = options;
 
   const [txReports, setTxReports] = useState([]);
@@ -71,102 +47,116 @@ export const usePSKReporter = (callsign, options = {}) => {
   const [lastUpdate, setLastUpdate] = useState(null);
   const [source, setSource] = useState('connecting');
   const [reconnectKey, setReconnectKey] = useState(0);
-  
-  const clientRef = useRef(null);
+
   const txReportsRef = useRef([]);
   const rxReportsRef = useRef([]);
   const mountedRef = useRef(true);
+  const httpLoadedRef = useRef(false);
+  const eventSourceRef = useRef(null);
 
-  // Clean old spots (older than specified minutes)
+  // Clean old spots
   const cleanOldSpots = useCallback((spots, maxAgeMinutes) => {
     const cutoff = Date.now() - (maxAgeMinutes * 60 * 1000);
     return spots.filter(s => s.timestamp > cutoff).slice(0, maxSpots);
   }, [maxSpots]);
 
-  // Process incoming MQTT message
-  const processMessage = useCallback((topic, message) => {
-    if (!mountedRef.current) return;
-    
-    try {
-      const data = JSON.parse(message.toString());
-      
-      const {
-        sc: senderCallsign,
-        sl: senderLocator,
-        rc: receiverCallsign,
-        rl: receiverLocator,
-        f: frequency,
-        md: mode,
-        rp: snr,
-        t: timestamp,
-        b: band
-      } = data;
+  // Process an array of spots (from SSE batch or initial payload)
+  const processSpots = useCallback((spots) => {
+    if (!mountedRef.current || !spots || spots.length === 0) return;
 
-      if (!senderCallsign || !receiverCallsign) return;
+    const upperCallsign = callsign?.toUpperCase();
+    if (!upperCallsign) return;
 
-      const senderLoc = gridToLatLon(senderLocator);
-      const receiverLoc = gridToLatLon(receiverLocator);
-      const freq = parseInt(frequency) || 0;
+    let txChanged = false;
+    let rxChanged = false;
+
+    for (const spot of spots) {
       const now = Date.now();
-      
-      const report = {
-        sender: senderCallsign,
-        senderGrid: senderLocator,
-        receiver: receiverCallsign,
-        receiverGrid: receiverLocator,
-        freq,
-        freqMHz: freq ? (freq / 1000000).toFixed(3) : '?',
-        band: band || getBandFromHz(freq),
-        mode: mode || 'Unknown',
-        snr: snr !== undefined ? parseInt(snr) : null,
-        timestamp: timestamp ? timestamp * 1000 : now,
-        age: 0,
-        lat: null,
-        lon: null
-      };
+      spot.age = spot.timestamp ? Math.floor((now - spot.timestamp) / 60000) : 0;
 
-      const upperCallsign = callsign?.toUpperCase();
-      if (!upperCallsign) return;
-      
-      // If I'm the sender, this is a TX report (someone heard me)
-      if (senderCallsign.toUpperCase() === upperCallsign) {
-        report.lat = receiverLoc?.lat;
-        report.lon = receiverLoc?.lon;
-        
-        txReportsRef.current = [report, ...txReportsRef.current]
-          .filter((r, i, arr) => 
-            i === arr.findIndex(x => x.receiver === r.receiver && Math.abs(x.freq - r.freq) < 1000)
-          )
-          .slice(0, maxSpots);
-        
-        setTxReports(cleanOldSpots([...txReportsRef.current], minutes));
-        setLastUpdate(new Date());
+      if (spot.direction === 'tx') {
+        txReportsRef.current = deduplicateSpots(
+          [spot, ...txReportsRef.current], maxSpots
+        );
+        txChanged = true;
+      } else if (spot.direction === 'rx') {
+        rxReportsRef.current = deduplicateSpots(
+          [spot, ...rxReportsRef.current], maxSpots
+        );
+        rxChanged = true;
       }
-      
-      // If I'm the receiver, this is an RX report (I heard someone)
-      if (receiverCallsign.toUpperCase() === upperCallsign) {
-        report.lat = senderLoc?.lat;
-        report.lon = senderLoc?.lon;
-        
-        rxReportsRef.current = [report, ...rxReportsRef.current]
-          .filter((r, i, arr) => 
-            i === arr.findIndex(x => x.sender === r.sender && Math.abs(x.freq - r.freq) < 1000)
-          )
-          .slice(0, maxSpots);
-        
-        setRxReports(cleanOldSpots([...rxReportsRef.current], minutes));
-        setLastUpdate(new Date());
-      }
-      
-    } catch (err) {
-      // Silently ignore parse errors
+    }
+
+    if (txChanged) {
+      setTxReports(cleanOldSpots([...txReportsRef.current], minutes));
+    }
+    if (rxChanged) {
+      setRxReports(cleanOldSpots([...rxReportsRef.current], minutes));
+    }
+    if (txChanged || rxChanged) {
+      setLastUpdate(new Date());
     }
   }, [callsign, minutes, maxSpots, cleanOldSpots]);
 
-  // Connect to MQTT
+  // Fetch historical spots via HTTP API
+  const fetchHistorical = useCallback(async (upperCallsign) => {
+    if (!mountedRef.current || httpLoadedRef.current) return;
+
+    try {
+      console.log(`[PSKReporter HTTP] Fetching historical spots for ${upperCallsign}...`);
+
+      const [txRes, rxRes] = await Promise.allSettled([
+        fetch(`/api/pskreporter/http/${encodeURIComponent(upperCallsign)}?minutes=${minutes}&direction=tx`),
+        fetch(`/api/pskreporter/http/${encodeURIComponent(upperCallsign)}?minutes=${minutes}&direction=rx`)
+      ]);
+
+      let txCount = 0, rxCount = 0;
+
+      if (txRes.status === 'fulfilled' && txRes.value.ok) {
+        const data = await txRes.value.json();
+        if (data.reports?.length > 0 && mountedRef.current) {
+          const now = Date.now();
+          const reports = data.reports.map(r => ({
+            ...r,
+            direction: 'tx',
+            age: r.timestamp ? Math.floor((now - r.timestamp) / 60000) : 0
+          }));
+          txReportsRef.current = deduplicateSpots([...reports, ...txReportsRef.current], maxSpots);
+          setTxReports(cleanOldSpots([...txReportsRef.current], minutes));
+          txCount = reports.length;
+        }
+      }
+
+      if (rxRes.status === 'fulfilled' && rxRes.value.ok) {
+        const data = await rxRes.value.json();
+        if (data.reports?.length > 0 && mountedRef.current) {
+          const now = Date.now();
+          const reports = data.reports.map(r => ({
+            ...r,
+            direction: 'rx',
+            age: r.timestamp ? Math.floor((now - r.timestamp) / 60000) : 0
+          }));
+          rxReportsRef.current = deduplicateSpots([...reports, ...rxReportsRef.current], maxSpots);
+          setRxReports(cleanOldSpots([...rxReportsRef.current], minutes));
+          rxCount = reports.length;
+        }
+      }
+
+      if (txCount > 0 || rxCount > 0) {
+        console.log(`[PSKReporter HTTP] Loaded ${txCount} TX + ${rxCount} RX historical spots`);
+        setLastUpdate(new Date());
+      }
+
+      httpLoadedRef.current = true;
+    } catch (err) {
+      console.warn('[PSKReporter HTTP] Historical fetch failed:', err.message);
+    }
+  }, [minutes, maxSpots, cleanOldSpots]);
+
+  // Connect to SSE stream
   useEffect(() => {
     mountedRef.current = true;
-    
+
     if (!callsign || callsign === 'N0CALL' || !enabled) {
       setTxReports([]);
       setRxReports([]);
@@ -177,127 +167,112 @@ export const usePSKReporter = (callsign, options = {}) => {
     }
 
     const upperCallsign = callsign.toUpperCase();
-    
+
     // Clear old data on reconnect
     txReportsRef.current = [];
     rxReportsRef.current = [];
+    httpLoadedRef.current = false;
     setTxReports([]);
     setRxReports([]);
     setLoading(true);
     setError(null);
     setSource('connecting');
 
-    console.log(`[PSKReporter MQTT] Connecting for ${upperCallsign}...`);
+    console.log(`[PSKReporter SSE] Connecting for ${upperCallsign}...`);
 
-    const client = mqtt.connect('wss://mqtt.pskreporter.info:1886/mqtt', {
-      clientId: `ohc_${upperCallsign}_${Math.random().toString(16).substr(2, 8)}`,
-      clean: true,
-      connectTimeout: 30000,
-      reconnectPeriod: 5000,  // Retry every 5 seconds
-      keepalive: 60
-    });
+    const url = `/api/pskreporter/stream/${encodeURIComponent(upperCallsign)}`;
+    const es = new EventSource(url);
+    eventSourceRef.current = es;
 
-    clientRef.current = client;
-
-    client.on('connect', () => {
+    // Initial connection event with recent spots from server buffer
+    es.addEventListener('connected', (e) => {
       if (!mountedRef.current) return;
-      
-      console.log('[PSKReporter MQTT] Connected!');
-      setConnected(true);
-      setLoading(false);
-      setSource('mqtt');
-      setError(null);
+      try {
+        const data = JSON.parse(e.data);
+        console.log(`[PSKReporter SSE] Connected! MQTT ${data.mqttConnected ? 'up' : 'pending'}, ${data.recentSpots?.length || 0} recent spots`);
+        setConnected(true);
+        setLoading(false);
+        setSource('sse');
+        setError(null);
 
-      // TX: Subscribe where we are the sender (being heard by others)
-      const txTopic = `pskr/filter/v2/+/+/${upperCallsign}/#`;
-      client.subscribe(txTopic, { qos: 0 }, (err) => {
-        if (err) {
-          console.error('[PSKReporter MQTT] TX subscribe error:', err);
-        } else {
-          console.log(`[PSKReporter MQTT] Subscribed TX: ${txTopic}`);
+        // Process any recent spots the server already had buffered
+        if (data.recentSpots?.length > 0) {
+          processSpots(data.recentSpots);
         }
-      });
 
-      // RX: Subscribe where we are the receiver (hearing others)
-      const rxTopic = `pskr/filter/v2/+/+/+/${upperCallsign}/#`;
-      client.subscribe(rxTopic, { qos: 0 }, (err) => {
-        if (err) {
-          console.error('[PSKReporter MQTT] RX subscribe error:', err);
-        } else {
-          console.log(`[PSKReporter MQTT] Subscribed RX: ${rxTopic}`);
+        // Fetch historical backfill
+        fetchHistorical(upperCallsign);
+      } catch (err) {
+        console.warn('[PSKReporter SSE] Error parsing connected event:', err.message);
+      }
+    });
+
+    // Batched spots arrive as default 'message' events every 10 seconds
+    es.onmessage = (e) => {
+      if (!mountedRef.current) return;
+      try {
+        const spots = JSON.parse(e.data);
+        if (Array.isArray(spots) && spots.length > 0) {
+          processSpots(spots);
         }
-      });
-    });
+      } catch {
+        // Ignore parse errors
+      }
+    };
 
-    client.on('message', processMessage);
-
-    client.on('error', (err) => {
+    es.onerror = () => {
       if (!mountedRef.current) return;
-      console.error('[PSKReporter MQTT] Error:', err.message);
-      setError(err.message);
-    });
-
-    client.on('close', () => {
-      if (!mountedRef.current) return;
-      console.log('[PSKReporter MQTT] Disconnected');
-      setConnected(false);
-      setSource('disconnected');
-    });
-
-    client.on('offline', () => {
-      if (!mountedRef.current) return;
-      console.log('[PSKReporter MQTT] Offline');
-      setConnected(false);
-      setSource('offline');
-    });
-
-    client.on('reconnect', () => {
-      if (!mountedRef.current) return;
-      console.log('[PSKReporter MQTT] Reconnecting...');
-      setSource('reconnecting');
-      setError(null);
-    });
+      if (es.readyState === EventSource.CLOSED) {
+        console.log('[PSKReporter SSE] Connection closed');
+        setConnected(false);
+        setSource('disconnected');
+        setError('Stream closed');
+      } else if (es.readyState === EventSource.CONNECTING) {
+        setSource('reconnecting');
+      }
+    };
 
     return () => {
       mountedRef.current = false;
-      if (client) {
-        console.log('[PSKReporter MQTT] Cleaning up...');
-        client.end(true);
+      if (es) {
+        console.log('[PSKReporter SSE] Cleaning up...');
+        es.close();
       }
     };
-  }, [callsign, enabled, reconnectKey, processMessage]);
+  }, [callsign, enabled, reconnectKey, processSpots, fetchHistorical]);
 
   // Periodically clean old spots and update ages
   useEffect(() => {
     if (!enabled) return;
-    
+
     const interval = setInterval(() => {
       const now = Date.now();
-      
+
       setTxReports(prev => prev.map(r => ({
         ...r,
         age: Math.floor((now - r.timestamp) / 60000)
       })).filter(r => r.age <= minutes));
-      
+
       setRxReports(prev => prev.map(r => ({
         ...r,
         age: Math.floor((now - r.timestamp) / 60000)
       })).filter(r => r.age <= minutes));
-      
+
     }, 30000);
-    
+
     return () => clearInterval(interval);
   }, [enabled, minutes]);
 
-  // Manual refresh - force full reconnect
+  // Manual refresh
   const refresh = useCallback(() => {
     console.log('[PSKReporter] Manual refresh requested');
-    
-    if (clientRef.current) {
-      clientRef.current.end(true);
-      clientRef.current = null;
+
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
     }
-    
+
+    httpLoadedRef.current = false;
     setConnected(false);
     setLoading(true);
     setSource('reconnecting');

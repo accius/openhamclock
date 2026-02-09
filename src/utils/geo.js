@@ -44,6 +44,20 @@ export const calculateDistance = (lat1, lon1, lat2, lon2) => {
 };
 
 /**
+ * Format a distance value based on unit preference
+ * @param {number} km - Distance in kilometers
+ * @param {string} units - 'metric' or 'imperial'
+ * @returns {string} Formatted distance with unit label (e.g. "1,234 km" or "767 mi")
+ */
+export const formatDistance = (km, units) => {
+  if (units === 'imperial') {
+    const mi = km * 0.621371;
+    return `${Math.round(mi).toLocaleString()} mi`;
+  }
+  return `${Math.round(km).toLocaleString()} km`;
+};
+
+/**
  * Get subsolar point (position where sun is directly overhead)
  */
 export const getSunPosition = (date) => {

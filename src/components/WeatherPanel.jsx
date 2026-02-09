@@ -1,14 +1,27 @@
 /**
  * WeatherPanel Component
- * Displays current weather conditions with expandable forecast details
- * for a given location. Uses Open-Meteo API via the useWeather hook.
+ * Displays current weather conditions with expandable forecast details.
+ * 
+ * Can receive pre-fetched weather data via `weatherData` prop (from App-level
+ * useWeather hook), or fetch its own data via `location` prop. Pre-fetched
+ * data eliminates duplicate API calls when multiple components need the same
+ * weather (e.g., DE panel + header both showing home station weather).
+ * 
+ * Shows loading skeleton and error/retry states instead of disappearing
+ * when weather API is rate-limited.
  */
 import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWeather } from '../hooks';
 import { usePanelResize } from '../contexts';
 
-export const WeatherPanel = ({ location, tempUnit, onTempUnitChange, nodeId }) => {
+export const WeatherPanel = ({ 
+  location, 
+  tempUnit, 
+  onTempUnitChange, 
+  nodeId,
+  weatherData   // Optional: pre-fetched { data, loading, error } from useWeather
+}) => {
   const { t } = useTranslation();
   const [weatherExpanded, setWeatherExpanded] = useState(() => {
     try { return localStorage.getItem('openhamclock_weatherExpanded') === 'true'; } catch { return false; }
@@ -25,43 +38,68 @@ export const WeatherPanel = ({ location, tempUnit, onTempUnitChange, nodeId }) =
     const isExpanded = weatherExpanded;
     prevExpandedRef.current = isExpanded;
 
-    // Only act on actual state transitions
     if (isExpanded && !wasExpanded) {
-      // Just expanded - measure and resize after DOM updates
       const timer = setTimeout(() => {
         const el = contentRef.current;
         if (el) {
-          // The panel structure is: flexlayout container > div (padding/overflow) > content > WeatherPanel
-          // We need to measure the div with padding that contains all content
-          // Go up to find the scrollable parent (the one with overflowY: auto)
           let container = el.parentElement;
           while (container) {
             const style = window.getComputedStyle(container);
-            if (style.overflowY === 'auto' || style.overflowY === 'scroll') {
-              break;
-            }
+            if (style.overflowY === 'auto' || style.overflowY === 'scroll') break;
             container = container.parentElement;
           }
-
-          // Measure the full scrollable height of the entire panel content
           const height = container ? container.scrollHeight : el.scrollHeight;
-          if (height > 0) {
-            requestResize(height);
-          }
+          if (height > 0) requestResize(height);
         }
       }, 100);
       return () => clearTimeout(timer);
     } else if (!isExpanded && wasExpanded) {
-      // Just collapsed - reset size
       resetSize();
     }
   }, [weatherExpanded, nodeId, requestResize, resetSize]);
 
-  const localWeather = useWeather(location, tempUnit);
+  // Use pre-fetched data if provided, otherwise fetch our own
+  const ownWeather = useWeather(weatherData ? null : location, tempUnit);
+  const weather = weatherData || ownWeather;
+  
+  const { data: w, loading, error } = weather;
 
-  if (!localWeather.data) return null;
+  // --- Loading state ---
+  if (loading && !w) {
+    return (
+      <div ref={contentRef} style={{ marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '20px', lineHeight: 1, opacity: 0.4 }}>🌡️</span>
+          <span style={{ 
+            fontSize: '14px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace',
+            animation: 'pulse 1.5s ease-in-out infinite'
+          }}>
+            Loading weather…
+          </span>
+          <style>{`@keyframes pulse { 0%, 100% { opacity: 0.4 } 50% { opacity: 1 } }`}</style>
+        </div>
+      </div>
+    );
+  }
 
-  const w = localWeather.data;
+  // --- Error state (no data at all) ---
+  if (!w && error) {
+    return (
+      <div ref={contentRef} style={{ marginTop: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '16px', lineHeight: 1 }}>⚠️</span>
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontFamily: 'JetBrains Mono, monospace' }}>
+            {error.message}
+            {error.retryIn ? ` · retrying in ${error.retryIn}s` : ''}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // No data, no error, no loading — location probably not set
+  if (!w) return null;
+
   const deg = `°${w.tempUnit || tempUnit}`;
   const wind = w.windUnit || 'mph';
   const vis = w.visUnit || 'mi';
@@ -116,6 +154,16 @@ export const WeatherPanel = ({ location, tempUnit, onTempUnitChange, nodeId }) =
           </button>
         )}
       </div>
+
+      {/* Error badge — show when data is stale but we have cached data */}
+      {error && w && (
+        <div style={{ 
+          fontSize: '9px', color: 'var(--accent-amber)', fontFamily: 'JetBrains Mono, monospace', 
+          marginTop: '4px', opacity: 0.7 
+        }}>
+          ⚠ {error.message}{error.retryIn ? ` · retry in ${error.retryIn}s` : ''}
+        </div>
+      )}
 
       {/* Expanded details */}
       {weatherExpanded && (

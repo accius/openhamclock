@@ -144,6 +144,9 @@ setup_repository() {
         cd "$INSTALL_DIR"
     fi
     
+    # Prevent file permission changes from blocking future updates
+    git config core.fileMode false 2>/dev/null
+    
     # Install npm dependencies
     npm install
     
@@ -225,6 +228,13 @@ else
     CHROME_CMD="chromium-browser"
 fi
 
+# Clean up any crash lock files from unclean shutdown
+# Prevents "Chromium didn't shut down correctly" bar in kiosk mode
+KIOSK_PROFILE="$HOME/.config/openhamclock-kiosk"
+mkdir -p "$KIOSK_PROFILE"
+sed -i 's/"exited_cleanly":false/"exited_cleanly":true/' "$KIOSK_PROFILE/Default/Preferences" 2>/dev/null || true
+sed -i 's/"exit_type":"Crashed"/"exit_type":"Normal"/' "$KIOSK_PROFILE/Default/Preferences" 2>/dev/null || true
+
 # Trap Ctrl+Q to exit kiosk cleanly
 trap 'pkill -f "chromium.*kiosk"; exit 0' SIGTERM SIGINT
 
@@ -239,7 +249,7 @@ $CHROME_CMD \
     --disable-component-update \
     --overscroll-history-navigation=0 \
     --disable-pinch \
-    --incognito \
+    --user-data-dir=$HOME/.config/openhamclock-kiosk \
     http://localhost:3000 &
 
 CHROME_PID=$!

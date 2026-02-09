@@ -36,6 +36,6 @@ export {
   getBandColor,
   detectMode,
   PREFIX_MAP,
-  getCallsignInfo,
-  filterDXPaths
+  getCallsignInfo
 } from './callsign.js';
+export {filterDXPaths} from "./dxClusterFilters";

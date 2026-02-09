@@ -14,9 +14,11 @@ import {
   ContestPanel,
   SolarPanel,
   PropagationPanel,
+  BandHealthPanel,
   DXpeditionPanel,
   PSKReporterPanel,
   WeatherPanel,
+  AmbientPanel,
   AnalogClockPanel
 } from './components';
 
@@ -48,6 +50,7 @@ export const DockableApp = ({
 
   // Weather
   localWeather,
+  dxWeather,
   tempUnit,
   setTempUnit,
   showDxWeather,
@@ -98,12 +101,51 @@ export const DockableApp = ({
   setShowSettings,
   handleFullscreenToggle,
   isFullscreen,
+
+  // Update
+  handleUpdateClick,
+  updateInProgress,
+  isLocalInstall,
 }) => {
   const layoutRef = useRef(null);
   const [model, setModel] = useState(() => Model.fromJson(loadLayout()));
   const [showPanelPicker, setShowPanelPicker] = useState(false);
   const [targetTabSetId, setTargetTabSetId] = useState(null);
   const saveTimeoutRef = useRef(null);
+
+  // Per-panel zoom levels (persisted)
+  const [panelZoom, setPanelZoom] = useState(() => {
+    try {
+      const stored = localStorage.getItem('openhamclock_panelZoom');
+      return stored ? JSON.parse(stored) : {};
+    } catch { return {}; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem('openhamclock_panelZoom', JSON.stringify(panelZoom)); } catch {}
+  }, [panelZoom]);
+
+  const ZOOM_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.5, 1.75, 2.0];
+  const adjustZoom = useCallback((component, delta) => {
+    setPanelZoom(prev => {
+      const current = prev[component] || 1.0;
+      const currentIdx = ZOOM_STEPS.findIndex(s => s >= current - 0.01);
+      const newIdx = Math.max(0, Math.min(ZOOM_STEPS.length - 1, (currentIdx >= 0 ? currentIdx : 3) + delta));
+      const newZoom = ZOOM_STEPS[newIdx];
+      if (newZoom === 1.0) {
+        const { [component]: _, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [component]: newZoom };
+    });
+  }, []);
+
+  const resetZoom = useCallback((component) => {
+    setPanelZoom(prev => {
+      const { [component]: _, ...rest } = prev;
+      return rest;
+    });
+  }, []);
 
   // Handle model changes with debounced save
   const handleModelChange = useCallback((newModel) => {
@@ -126,13 +168,22 @@ export const DockableApp = ({
     'de-location': { name: 'DE Location', icon: '📍' },
     'dx-location': { name: 'DX Target', icon: '🎯' },
     'analog-clock': { name: 'Analog Clock', icon: '🕐' },
-    'solar': { name: 'Solar', icon: '☀️' },
-    'propagation': { name: 'Propagation', icon: '📡' },
+    'solar': { name: 'Solar (all views)', icon: '☀️' },
+    'solar-image': { name: 'Solar Image', icon: '☀️', group: 'Solar' },
+    'solar-indices': { name: 'Solar Indices', icon: '📊', group: 'Solar' },
+    'solar-xray': { name: 'X-Ray Flux', icon: '⚡', group: 'Solar' },
+    'lunar': { name: 'Lunar Phase', icon: '🌙', group: 'Solar' },
+    'propagation': { name: 'Propagation (all views)', icon: '📡' },
+    'propagation-chart': { name: 'VOACAP Chart', icon: '📈', group: 'Propagation' },
+    'propagation-bars': { name: 'VOACAP Bars', icon: '📊', group: 'Propagation' },
+    'band-conditions': { name: 'Band Conditions', icon: '📶', group: 'Propagation' },
+    'band-health': { name: 'Band Health', icon: '📶' },
     'dx-cluster': { name: 'DX Cluster', icon: '📻' },
     'psk-reporter': { name: 'PSK Reporter', icon: '📡' },
     'dxpeditions': { name: 'DXpeditions', icon: '🏝️' },
     'pota': { name: 'POTA', icon: '🏕️' },
     'contests': { name: 'Contests', icon: '🏆' },
+    'ambient': { name: 'Ambient Weather', icon: '🌦️' },
   }), []);
 
   // Add panel
@@ -159,8 +210,9 @@ export const DockableApp = ({
           <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{deSunTimes.sunset}</span>
         </div>
       </div>
+
       <WeatherPanel
-        location={config.location}
+        weatherData={localWeather}
         tempUnit={tempUnit}
         onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch {} }}
         nodeId={nodeId}
@@ -207,7 +259,7 @@ export const DockableApp = ({
       </div>
       {showDxWeather && (
         <WeatherPanel
-          location={dxLocation}
+          weatherData={dxWeather}
           tempUnit={tempUnit}
           onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch {} }}
           nodeId={nodeId}
@@ -238,11 +290,14 @@ export const DockableApp = ({
         showPSKReporter={mapLayers.showPSKReporter}
         wsjtxSpots={wsjtxMapSpots}
         showWSJTX={mapLayers.showWSJTX}
+        showDXNews={mapLayers.showDXNews}
         onToggleSatellites={toggleSatellites}
         hoveredSpot={hoveredSpot}
         leftSidebarVisible={true}
         rightSidebarVisible={true}
+        callsign={config.callsign}
         lowMemoryMode={config.lowMemoryMode}
+        units={config.units}
       />
     </div>
   );
@@ -252,27 +307,69 @@ export const DockableApp = ({
     const component = node.getComponent();
     const nodeId = node.getId();
 
+    let content;
     switch (component) {
       case 'world-map':
-        return renderWorldMap();
+        return renderWorldMap(); // Map has its own zoom — skip panel zoom
 
       case 'de-location':
-        return renderDELocation(nodeId);
+        content = renderDELocation(nodeId);
+        break;
 
       case 'dx-location':
-        return renderDXLocation(nodeId);
+        content = renderDXLocation(nodeId);
+        break;
 
       case 'analog-clock':
-        return <AnalogClockPanel currentTime={currentTime} sunTimes={deSunTimes} />;
+        content = <AnalogClockPanel currentTime={currentTime} sunTimes={deSunTimes} />;
+        break;
 
       case 'solar':
-        return <SolarPanel solarIndices={solarIndices} />;
+        content = <SolarPanel solarIndices={solarIndices} />;
+        break;
+
+      case 'solar-image':
+        content = <SolarPanel solarIndices={solarIndices} forcedMode="image" />;
+        break;
+
+      case 'solar-indices':
+        content = <SolarPanel solarIndices={solarIndices} forcedMode="indices" />;
+        break;
+
+      case 'solar-xray':
+        content = <SolarPanel solarIndices={solarIndices} forcedMode="xray" />;
+        break;
+
+      case 'lunar':
+        content = <SolarPanel solarIndices={solarIndices} forcedMode="lunar" />;
+        break;
 
       case 'propagation':
-        return <PropagationPanel propagation={propagation.data} loading={propagation.loading} bandConditions={bandConditions} />;
+        content = <PropagationPanel propagation={propagation.data} loading={propagation.loading} bandConditions={bandConditions} units={config.units} propConfig={config.propagation} />;
+        break;
+
+      case 'propagation-chart':
+        content = <PropagationPanel propagation={propagation.data} loading={propagation.loading} bandConditions={bandConditions} units={config.units} propConfig={config.propagation} forcedMode="chart" />;
+        break;
+
+      case 'propagation-bars':
+        content = <PropagationPanel propagation={propagation.data} loading={propagation.loading} bandConditions={bandConditions} units={config.units} propConfig={config.propagation} forcedMode="bars" />;
+        break;
+
+      case 'band-conditions':
+        content = <PropagationPanel propagation={propagation.data} loading={propagation.loading} bandConditions={bandConditions} units={config.units} propConfig={config.propagation} forcedMode="bands" />;
+        break;
+
+      case 'band-health':
+        return (
+          <BandHealthPanel
+            dxSpots={dxClusterData.spots}
+            clusterFilters={dxFilters}
+          />
+        );
 
       case 'dx-cluster':
-        return (
+        content = (
           <DXClusterPanel
             data={dxClusterData.spots}
             loading={dxClusterData.loading}
@@ -281,21 +378,32 @@ export const DockableApp = ({
             onFilterChange={setDxFilters}
             onOpenFilters={() => setShowDXFilters(true)}
             onHoverSpot={setHoveredSpot}
+            onSpotClick={(spot) => {
+              const path = (dxClusterData.paths || []).find(p => p.dxCall === spot.call);
+              if (path && path.dxLat != null && path.dxLon != null) {
+                handleDXChange({ lat: path.dxLat, lon: path.dxLon });
+              }
+            }}
             hoveredSpot={hoveredSpot}
             showOnMap={mapLayers.showDXPaths}
             onToggleMap={toggleDXPaths}
           />
         );
+        break;
 
       case 'psk-reporter':
-        return (
+        content = (
           <PSKReporterPanel
             callsign={config.callsign}
             showOnMap={mapLayers.showPSKReporter}
             onToggleMap={togglePSKReporter}
             filters={pskFilters}
             onOpenFilters={() => setShowPSKFilters(true)}
-            onShowOnMap={() => {}}
+            onShowOnMap={(report) => {
+              if (report.lat && report.lon) {
+                handleDXChange({ lat: report.lat, lon: report.lon });
+              }
+            }}
             wsjtxDecodes={wsjtx.decodes}
             wsjtxClients={wsjtx.clients}
             wsjtxQsos={wsjtx.qsos}
@@ -310,36 +418,108 @@ export const DockableApp = ({
             onToggleWSJTXMap={toggleWSJTX}
           />
         );
+        break;
 
       case 'dxpeditions':
-        return <DXpeditionPanel data={dxpeditions.data} loading={dxpeditions.loading} />;
+        content = <DXpeditionPanel data={dxpeditions.data} loading={dxpeditions.loading} />;
+        break;
 
       case 'pota':
-        return <POTAPanel data={potaSpots.data} loading={potaSpots.loading} showOnMap={mapLayers.showPOTA} onToggleMap={togglePOTA} />;
+        content = <POTAPanel data={potaSpots.data} loading={potaSpots.loading} showOnMap={mapLayers.showPOTA} onToggleMap={togglePOTA} />;
+        break;
 
       case 'contests':
-        return <ContestPanel data={contests.data} loading={contests.loading} />;
+        content = <ContestPanel data={contests.data} loading={contests.loading} />;
+        break;
 
+      case 'ambient':
+        content = (
+          <AmbientPanel
+            tempUnit={tempUnit}
+            onTempUnitChange={(unit) => {
+              setTempUnit(unit);
+              try { localStorage.setItem('openhamclock_tempUnit', unit); } catch {}
+            }}
+            nodeId={nodeId}
+          />
+        );
+        break;
       default:
-        // Handle legacy layout components - prompt user to reset
-        return (
+        content = (
           <div style={{ padding: '20px', color: '#ff6b6b', textAlign: 'center' }}>
             <div style={{ fontSize: '14px', marginBottom: '8px' }}>Outdated panel: {component}</div>
             <div style={{ fontSize: '12px', color: '#888' }}>Click "Reset" button below to update layout</div>
           </div>
         );
     }
+
+    // Apply per-panel zoom
+    const zoom = panelZoom[component] || 1.0;
+    if (zoom !== 1.0) {
+      return (
+        <div style={{ zoom, width: '100%', height: '100%', transformOrigin: 'top left' }}>
+          {content}
+        </div>
+      );
+    }
+    return content;
   }, [
-    config, deGrid, dxGrid, dxLocation, deSunTimes, dxSunTimes, showDxWeather, tempUnit, solarIndices,
+    config, deGrid, dxGrid, dxLocation, deSunTimes, dxSunTimes, showDxWeather, tempUnit, localWeather, dxWeather, solarIndices,
     propagation, bandConditions, dxClusterData, dxFilters, hoveredSpot, mapLayers, potaSpots,
     mySpots, satellites, filteredPskSpots, wsjtxMapSpots, dxpeditions, contests,
     pskFilters, wsjtx, handleDXChange, setDxFilters, setShowDXFilters, setShowPSKFilters,
     setHoveredSpot, toggleDXPaths, toggleDXLabels, togglePOTA, toggleSatellites, togglePSKReporter, toggleWSJTX,
-    dxLocked, handleToggleDxLock
+    dxLocked, handleToggleDxLock, panelZoom
   ]);
 
-  // Add + button to tabsets
+  // Add + and font size buttons to tabsets
   const onRenderTabSet = useCallback((node, renderValues) => {
+    // Get the active tab's component name for zoom controls
+    const selectedNode = node.getSelectedNode?.();
+    const selectedComponent = selectedNode?.getComponent?.();
+
+    // Skip zoom controls for world-map
+    if (selectedComponent && selectedComponent !== 'world-map') {
+      const currentZoom = panelZoom[selectedComponent] || 1.0;
+      const zoomPct = Math.round(currentZoom * 100);
+
+      renderValues.stickyButtons.push(
+        <button
+          key="zoom-out"
+          title="Decrease font size"
+          className="flexlayout__tab_toolbar_button"
+          onClick={(e) => { e.stopPropagation(); adjustZoom(selectedComponent, -1); }}
+          style={{ fontSize: '11px', fontWeight: '700', fontFamily: 'JetBrains Mono, monospace', padding: '0 3px', opacity: currentZoom <= 0.7 ? 0.3 : 1 }}
+        >
+          A−
+        </button>
+      );
+      if (currentZoom !== 1.0) {
+        renderValues.stickyButtons.push(
+          <button
+            key="zoom-reset"
+            title="Reset font size"
+            className="flexlayout__tab_toolbar_button"
+            onClick={(e) => { e.stopPropagation(); resetZoom(selectedComponent); }}
+            style={{ fontSize: '9px', fontFamily: 'JetBrains Mono, monospace', padding: '0 2px', color: 'var(--accent-amber)' }}
+          >
+            {zoomPct}%
+          </button>
+        );
+      }
+      renderValues.stickyButtons.push(
+        <button
+          key="zoom-in"
+          title="Increase font size"
+          className="flexlayout__tab_toolbar_button"
+          onClick={(e) => { e.stopPropagation(); adjustZoom(selectedComponent, 1); }}
+          style={{ fontSize: '11px', fontWeight: '700', fontFamily: 'JetBrains Mono, monospace', padding: '0 3px', opacity: currentZoom >= 2.0 ? 0.3 : 1 }}
+        >
+          A+
+        </button>
+      );
+    }
+
     renderValues.stickyButtons.push(
       <button
         key="add"
@@ -350,7 +530,7 @@ export const DockableApp = ({
         <PlusIcon />
       </button>
     );
-  }, []);
+  }, [panelZoom, adjustZoom, resetZoom]);
 
   // Get unused panels
   const getAvailablePanels = useCallback(() => {
@@ -380,6 +560,9 @@ export const DockableApp = ({
           onSettingsClick={() => setShowSettings(true)}
           onFullscreenToggle={handleFullscreenToggle}
           isFullscreen={isFullscreen}
+          onUpdateClick={handleUpdateClick}
+          updateInProgress={updateInProgress}
+          showUpdateButton={isLocalInstall}
         />
       </div>
 
@@ -408,21 +591,56 @@ export const DockableApp = ({
           >
             <h3 style={{ margin: '0 0 16px', color: '#00ffcc', fontFamily: 'JetBrains Mono', fontSize: '14px' }}>Add Panel</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              {getAvailablePanels().map(p => (
-                <button
-                  key={p.id}
-                  onClick={() => handleAddPanel(p.id)}
-                  style={{
-                    background: 'rgba(0,0,0,0.3)', border: '1px solid #2d3748', borderRadius: '6px',
-                    padding: '10px', cursor: 'pointer', textAlign: 'left'
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#00ffcc'; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#2d3748'; }}
-                >
-                  <span style={{ fontSize: '16px', marginRight: '8px' }}>{p.icon}</span>
-                  <span style={{ color: '#e2e8f0', fontFamily: 'JetBrains Mono', fontSize: '12px' }}>{p.name}</span>
-                </button>
-              ))}
+              {(() => {
+                const panels = getAvailablePanels();
+                const ungrouped = panels.filter(p => !p.group);
+                const groups = {};
+                panels.filter(p => p.group).forEach(p => {
+                  if (!groups[p.group]) groups[p.group] = [];
+                  groups[p.group].push(p);
+                });
+                return (
+                  <>
+                    {ungrouped.map(p => (
+                      <button
+                        key={p.id}
+                        onClick={() => handleAddPanel(p.id)}
+                        style={{
+                          background: 'rgba(0,0,0,0.3)', border: '1px solid #2d3748', borderRadius: '6px',
+                          padding: '10px', cursor: 'pointer', textAlign: 'left'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = '#00ffcc'; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = '#2d3748'; }}
+                      >
+                        <span style={{ fontSize: '16px', marginRight: '8px' }}>{p.icon}</span>
+                        <span style={{ color: '#e2e8f0', fontFamily: 'JetBrains Mono', fontSize: '12px' }}>{p.name}</span>
+                      </button>
+                    ))}
+                    {Object.entries(groups).map(([group, items]) => (
+                      <React.Fragment key={group}>
+                        <div style={{ gridColumn: '1 / -1', fontSize: '10px', color: '#718096', fontFamily: 'JetBrains Mono', marginTop: '6px', borderTop: '1px solid #2d3748', paddingTop: '8px' }}>
+                          {group} Sub-panels
+                        </div>
+                        {items.map(p => (
+                          <button
+                            key={p.id}
+                            onClick={() => handleAddPanel(p.id)}
+                            style={{
+                              background: 'rgba(0,0,0,0.2)', border: '1px solid #2d3748', borderRadius: '6px',
+                              padding: '8px 10px', cursor: 'pointer', textAlign: 'left'
+                            }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = '#00ffcc'; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = '#2d3748'; }}
+                          >
+                            <span style={{ fontSize: '14px', marginRight: '6px' }}>{p.icon}</span>
+                            <span style={{ color: '#cbd5e0', fontFamily: 'JetBrains Mono', fontSize: '11px' }}>{p.name}</span>
+                          </button>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </>
+                );
+              })()}
             </div>
             {getAvailablePanels().length === 0 && (
               <div style={{ color: '#718096', textAlign: 'center', padding: '20px' }}>All panels visible</div>

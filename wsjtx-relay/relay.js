@@ -84,6 +84,8 @@ Example:
 
 const config = parseArgs();
 
+const RELAY_VERSION = '1.1.0';
+
 // Validate
 if (!config.url) {
   console.error('❌ Error: --url is required (e.g. --url https://openhamclock.com)');
@@ -315,7 +317,8 @@ function sendBatch() {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(body),
       'Authorization': `Bearer ${config.key}`,
-      'X-Relay-Version': '1.0.0',
+      'X-Relay-Version': RELAY_VERSION,
+      'Connection': 'close',
     },
     timeout: 10000,
   };
@@ -354,6 +357,13 @@ function sendBatch() {
     
     if (consecutiveErrors <= 3 || consecutiveErrors % 10 === 0) {
       console.error(`\n  ⚠️  Connection error (attempt ${consecutiveErrors}): ${err.message}`);
+      if (consecutiveErrors === 1 && err.message.includes('ECONNRESET')) {
+        console.error('     The server or a proxy reset the connection. This can happen if:');
+        console.error('     • The server is restarting or deploying');
+        console.error('     • A firewall/proxy is blocking POST requests');
+        console.error('     • The relay key is not configured on the server');
+        console.error('     Will keep retrying with backoff...');
+      }
     }
   });
   
@@ -420,9 +430,9 @@ socket.on('listening', () => {
   const addr = socket.address();
   
   console.log('');
-  console.log('╔══════════════════════════════════════════════╗');
-  console.log('║  OpenHamClock WSJT-X Relay Agent v1.0.0     ║');
-  console.log('╚══════════════════════════════════════════════╝');
+  console.log('╔══════════════════════════════════════════════════╗');
+  console.log(`║  OpenHamClock WSJT-X Relay Agent v${RELAY_VERSION}         ║`);
+  console.log('╚══════════════════════════════════════════════════╝');
   console.log('');
   console.log(`  🎧 Listening for WSJT-X on UDP ${addr.address}:${addr.port}`);
   console.log(`  🌐 Relaying to ${serverUrl}`);
@@ -441,8 +451,9 @@ socket.on('listening', () => {
   
   // Send relay heartbeat immediately, then every 30s
   // This tells the server the relay is alive even before WSJT-X sends any packets
+  let heartbeatOk = false;
   function sendHeartbeat() {
-    const body = JSON.stringify({ relay: true, version: '1.0.0', port: config.port, session: config.session });
+    const body = JSON.stringify({ relay: true, version: RELAY_VERSION, port: config.port, session: config.session });
     const parsed = new URL(relayEndpoint);
     const transport = parsed.protocol === 'https:' ? https : http;
     
@@ -456,31 +467,93 @@ socket.on('listening', () => {
         'Content-Length': Buffer.byteLength(body),
         'Authorization': `Bearer ${config.key}`,
         'X-Relay-Heartbeat': 'true',
+        'Connection': 'close',
       },
       timeout: 10000,
     };
     
     const req = transport.request(reqOpts, (res) => {
-      res.resume();
-      if (res.statusCode === 200 && consecutiveErrors > 0) {
-        console.log('\n  ✅ Server connection restored');
-        consecutiveErrors = 0;
+      let data = '';
+      res.on('data', (chunk) => data += chunk);
+      res.on('end', () => {
+        if (res.statusCode === 200) {
+          if (!heartbeatOk) {
+            console.log('  ✅ Connected to server — relay active');
+            console.log('');
+            heartbeatOk = true;
+          }
+          if (consecutiveErrors > 0) {
+            console.log('\n  ✅ Server connection restored');
+            consecutiveErrors = 0;
+          }
+        } else if (res.statusCode === 503) {
+          console.error(`\n  ❌ Relay not configured on server — WSJTX_RELAY_KEY not set in server .env`);
+          console.error(`     Ask the server admin to set WSJTX_RELAY_KEY in the .env file`);
+        } else if (res.statusCode === 401 || res.statusCode === 403) {
+          console.error(`\n  ❌ Authentication failed (${res.statusCode}) — relay key doesn't match server`);
+        } else if (!heartbeatOk) {
+          console.error(`\n  ⚠️  Server returned ${res.statusCode}: ${data.substring(0, 100)}`);
+        }
+      });
+    });
+    req.on('error', (err) => {
+      if (!heartbeatOk) {
+        console.error(`\n  ⚠️  Cannot reach server: ${err.message}`);
+        if (err.message.includes('ECONNRESET')) {
+          console.error('     This usually means a proxy or firewall is dropping the connection.');
+          console.error('     Check that the server URL is correct and the server is running.');
+        } else if (err.message.includes('ECONNREFUSED')) {
+          console.error('     The server is not accepting connections. Is it running?');
+        } else if (err.message.includes('ENOTFOUND') || err.message.includes('getaddrinfo')) {
+          console.error('     DNS lookup failed. Check the server URL.');
+        }
+        console.error(`     Server: ${serverUrl}`);
       }
     });
-    req.on('error', () => {});
     req.on('timeout', () => req.destroy());
     req.write(body);
     req.end();
   }
   
-  sendHeartbeat();
+  // Pre-flight check: verify server is reachable with a simple GET before starting relay
+  const healthUrl = new URL(`${serverUrl}/api/health`);
+  const healthTransport = healthUrl.protocol === 'https:' ? https : http;
+  const healthReq = healthTransport.get(healthUrl.href, { timeout: 10000, headers: { 'Connection': 'close' } }, (res) => {
+    res.resume();
+    if (res.statusCode === 200) {
+      console.log(`  ✅ Server reachable (${serverUrl})`);
+      sendHeartbeat();
+    } else {
+      console.error(`  ⚠️  Server returned ${res.statusCode} on health check`);
+      console.error(`     Will retry heartbeat anyway...`);
+      sendHeartbeat();
+    }
+  });
+  healthReq.on('error', (err) => {
+    console.error(`  ⚠️  Cannot reach server: ${err.message}`);
+    if (err.message.includes('ECONNRESET')) {
+      console.error('     Connection was reset — a proxy or firewall may be blocking requests.');
+    } else if (err.message.includes('ENOTFOUND')) {
+      console.error(`     DNS lookup failed for ${healthUrl.hostname}`);
+    }
+    console.error(`     Will retry heartbeat anyway...`);
+    console.error('');
+    sendHeartbeat();
+  });
+  healthReq.on('timeout', () => {
+    healthReq.destroy();
+    console.error('  ⚠️  Server health check timed out');
+    console.error('     Will retry heartbeat anyway...');
+    sendHeartbeat();
+  });
+  
   setInterval(sendHeartbeat, 30000);
   
   // Periodic health check — verify server is reachable
   setInterval(() => {
     const parsed = new URL(`${serverUrl}/api/wsjtx`);
     const transport = parsed.protocol === 'https:' ? https : http;
-    const req = transport.get(parsed.href, { timeout: 5000 }, (res) => {
+    const req = transport.get(parsed.href, { timeout: 5000, headers: { 'Connection': 'close' } }, (res) => {
       if (res.statusCode === 200 && consecutiveErrors > 0) {
         console.log('\n  ✅ Server connection restored');
         consecutiveErrors = 0;

@@ -15,6 +15,7 @@ export const DXClusterPanel = ({
   onFilterChange,
   onOpenFilters,
   onHoverSpot,
+  onSpotClick,
   hoveredSpot,
   showOnMap,
   onToggleMap
@@ -164,6 +165,7 @@ export const DXClusterPanel = ({
                 key={`${spot.call}-${spot.freq}-${i}`}
                 onMouseEnter={() => onHoverSpot?.(spot)}
                 onMouseLeave={() => onHoverSpot?.(null)}
+                onClick={() => onSpotClick?.(spot)}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '55px 1fr 1fr auto',

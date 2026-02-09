@@ -1,15 +1,18 @@
 /**
  * PluginLayer Component
- * Renders a single plugin layer using its hook
+ * Renders a single plugin layer using its hook.
+ * All plugin hooks use the standard object-based signature: ({ map, enabled, opacity, ... })
  */
 import React from 'react';
 
 export const PluginLayer = ({ plugin, enabled, opacity, map, callsign, locator, lowMemoryMode }) => {
-  // Call the plugin's hook (this is allowed because it's in a component)
-  const result = plugin.hook({ enabled, opacity, map, callsign, locator, lowMemoryMode });
   
-  // Plugin hook handles its own rendering to the map
-  // This component doesn't render anything to the DOM
+  const layerFunc = plugin.useLayer || plugin.hook;
+
+  if (typeof layerFunc === 'function') {
+    layerFunc({ map, enabled, opacity, callsign, locator, lowMemoryMode });
+  }
+
   return null;
 };
 

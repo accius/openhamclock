@@ -23,6 +23,10 @@
   location: { lat: 40.0150, lon: -105.2705 }, // Boulder, CO (default)
   defaultDX: { lat: 35.6762, lon: 139.6503 }, // Tokyo
   units: 'imperial', // 'imperial' or 'metric'
+  propagation: {
+    mode: 'SSB',    // SSB, CW, FT8, FT4, WSPR, JS8, RTTY, PSK31
+    power: 100      // TX power in watts
+  },
   theme: 'dark', // 'dark', 'light', 'legacy', or 'retro'
   layout: 'modern', // 'modern' or 'classic'
   timezone: '', // IANA timezone (e.g. 'America/Regina') — empty = browser default

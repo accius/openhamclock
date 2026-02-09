@@ -66,6 +66,15 @@ function gridToLatLon(grid) {
   return { lat: latitude, lon: longitude };
 }
 
+// Format distance using global units preference
+function fmtDist(km) {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
+    if (cfg.units === 'metric') return `${Math.round(km).toLocaleString()} km`;
+  } catch (e) {}
+  return `${Math.round(km * 0.621371).toLocaleString()} mi`;
+}
+
 // Get color based on SNR (darker colors for better visibility)
 function getSNRColor(snr) {
   if (snr === null || snr === undefined) return '#666666';
@@ -539,7 +548,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
     };
 
     fetchWSPR();
-    const interval = setInterval(fetchWSPR, 120000); // Poll every 2 minutes - be kind to PSKReporter
+    const interval = setInterval(fetchWSPR, 300000); // Poll every 5 minutes (server caches for 10)
 
     return () => clearInterval(interval);
   }, [enabled, bandFilter, timeWindow, callsign, filterByGrid]);
@@ -1045,7 +1054,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       const ageStr = spot.age < 60 ? `${spot.age} min ago` : `${Math.floor(spot.age / 60)}h ago`;
       const powerStr = spot.power ? `${spot.power}W` : 'N/A';
       const powerDbmStr = spot.powerDbm ? `${spot.powerDbm} dBm` : '';
-      const distanceStr = spot.distance ? `${spot.distance} km` : 'N/A';
+      const distanceStr = spot.distance ? fmtDist(spot.distance) : 'N/A';
       const kPerWStr = spot.kPerW ? `${spot.kPerW.toLocaleString()} k/W` : 'N/A';
       const txAzStr = spot.senderAz !== null ? `${spot.senderAz}°` : 'N/A';
       const rxAzStr = spot.receiverAz !== null ? `${spot.receiverAz}°` : 'N/A';
@@ -1127,9 +1136,9 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
         
         // Add distance and efficiency
         if (spot.distance) {
-          txDetails += `<div>Distance: <b>${Math.round(spot.distance)} km</b></div>`;
+          txDetails += `<div>Distance: <b>${fmtDist(spot.distance)}</b></div>`;
           if (spot.kPerW) {
-            txDetails += `<div>Efficiency: <b>${Math.round(spot.kPerW)} km/W</b></div>`;
+            txDetails += `<div>Efficiency: <b>${fmtDist(spot.kPerW)}/W</b></div>`;
           }
         }
         
@@ -1194,9 +1203,9 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
         
         // Add distance and efficiency
         if (spot.distance) {
-          rxDetails += `<div>Distance: <b>${Math.round(spot.distance)} km</b></div>`;
+          rxDetails += `<div>Distance: <b>${fmtDist(spot.distance)}</b></div>`;
           if (spot.kPerW) {
-            rxDetails += `<div>Efficiency: <b>${Math.round(spot.kPerW)} km/W</b></div>`;
+            rxDetails += `<div>Efficiency: <b>${fmtDist(spot.kPerW)}/W</b></div>`;
           }
         }
         

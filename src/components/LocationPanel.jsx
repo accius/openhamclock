@@ -3,7 +3,7 @@
  * Displays DE and DX location info with grid squares and sun times
  */
 import React from 'react';
-import { calculateGridSquare, calculateBearing, calculateDistance, getMoonPhase, getMoonPhaseEmoji } from '../utils/geo.js';
+import { calculateGridSquare, calculateBearing, calculateDistance, formatDistance, getMoonPhase, getMoonPhaseEmoji } from '../utils/geo.js';
 
 export const LocationPanel = ({
   config,
@@ -158,7 +158,7 @@ export const LocationPanel = ({
               color: 'var(--accent-cyan)',
               fontFamily: 'Orbitron, monospace'
             }}>
-              {distance.toFixed(0)} km
+              {formatDistance(distance, config.units)}
             </div>
           </div>
         </div>

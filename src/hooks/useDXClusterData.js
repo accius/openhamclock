@@ -4,7 +4,8 @@
  * Replaces separate useDXCluster and useDXPaths hooks
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { applyDXFilters } from '../utils/callsign.js';
+
+import {applyDXFilters} from "../utils/dxClusterFilters";
 
 export const useDXClusterData = (filters = {}, config = {}) => {
   const [allData, setAllData] = useState([]);

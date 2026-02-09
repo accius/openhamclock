@@ -31,16 +31,18 @@ const formatFlux = (flux) => {
   return `${cls.letter}${base.toFixed(1)}`;
 };
 
-export const SolarPanel = ({ solarIndices }) => {
-  const [mode, setMode] = useState(() => {
+export const SolarPanel = ({ solarIndices, forcedMode }) => {
+  const [internalMode, setMode] = useState(() => {
     try {
       const saved = localStorage.getItem('openhamclock_solarPanelMode');
       if (MODES.includes(saved)) return saved;
-      // Migrate old boolean format
       if (saved === 'indices') return 'indices';
       return 'image';
     } catch (e) { return 'image'; }
   });
+
+  // When forcedMode is set, lock to that mode (used by dockable sub-panels)
+  const mode = forcedMode && MODES.includes(forcedMode) ? forcedMode : internalMode;
   const [imageType, setImageType] = useState(() => {
     try { return localStorage.getItem('openhamclock_solarImageType') || '0193'; } catch { return '0193'; }
   });
@@ -443,6 +445,7 @@ export const SolarPanel = ({ solarIndices }) => {
               ))}
             </select>
           )}
+          {!forcedMode && (
           <button
             onClick={cycleMode}
             style={{
@@ -458,6 +461,7 @@ export const SolarPanel = ({ solarIndices }) => {
           >
             {MODE_ICONS[mode]}
           </button>
+          )}
         </div>
       </div>
       
