@@ -1019,3 +1019,31 @@ body::before {
 .wspr-heatmap-cloud:hover {
   filter: blur(15px);
 }
+
+/* ============================================
+  NIGHT VIEW
+   ============================================ */
+
+#night-lights-pane {
+  z-index: 650 !important;
+  pointer-events: none;
+  mix-blend-mode: screen; 
+  /* We remove the hard-coded brightness so the slider feels more responsive */
+  filter: contrast(1.2);
+  transition: opacity 0.2s ease, clip-path 0.5s ease-in-out;
+}
+
+.terminator-path {
+  pointer-events: none;
+  z-index: 400 !important; /* Sit behind the city lights but in front of the map */
+}
+
+.terminator-path {
+  z-index: 400 !important;
+  pointer-events: none;
+}
+
+/* Hide city lights completely in 'Countries' or high-contrast modes */
+[data-theme="retro"] #night-lights-pane {
+  display: none;
+}
