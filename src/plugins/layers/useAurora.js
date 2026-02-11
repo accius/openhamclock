@@ -9,8 +9,8 @@ import { useState, useEffect, useRef } from 'react';
 
 export const metadata = {
   id: 'aurora',
-  name: i18n.t('plugins.layers.aurora.name'),
-  description: i18n.t('plugins.layers.aurora.description'),
+  name: 'plugins.layers.aurora.name',
+  description: 'plugins.layers.aurora.description',
   icon: '🌌',
   category: 'space-weather',
   defaultEnabled: false,
@@ -150,7 +150,7 @@ export function useLayer({ enabled = false, opacity = 0.6, map = null }) {
 
     // Remove existing
     if (overlayLayer) {
-      try { map.removeLayer(overlayLayer); } catch (e) {}
+      try { map.removeLayer(overlayLayer); } catch (e) { }
       setOverlayLayer(null);
     }
 
@@ -229,7 +229,7 @@ export function useLayer({ enabled = false, opacity = 0.6, map = null }) {
 
     return () => {
       if (overlayLayer && map) {
-        try { map.removeLayer(overlayLayer); } catch (e) {}
+        try { map.removeLayer(overlayLayer); } catch (e) { }
       }
     };
   }, [enabled, auroraData, map]);

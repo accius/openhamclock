@@ -7,8 +7,8 @@ import React, { useEffect, useRef } from 'react';
 
 export const metadata = {
   id: 'owm-clouds',
-  name: 'Global Clouds (OWM)',
-  description: 'Real-time global cloud overlay',
+  name: 'plugins.layers.owm_clouds.name',
+  description: 'plugins.layers.owm_clouds.description',
   icon: '☁️',
   category: 'weather',
   defaultEnabled: false,
@@ -26,7 +26,7 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
 
     if (enabled) {
       const apiKey = import.meta.env.VITE_OPENWEATHER_API_KEY || '';
-      
+
       if (!layerRef.current) {
         layerRef.current = L.tileLayer(
           `https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png?appid=${apiKey}`,

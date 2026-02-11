@@ -19,7 +19,7 @@ import { useState, useEffect, useRef } from 'react';
 // Make control panel draggable with CTRL+drag and save position
 function makeDraggable(element, storageKey, skipPositionLoad = false) {
   if (!element) return;
-  
+
   // Load saved position only if not already loaded
   if (!skipPositionLoad) {
     const saved = localStorage.getItem(storageKey);
@@ -27,7 +27,7 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
       try {
         const data = JSON.parse(saved);
         element.style.position = 'fixed';
-        
+
         // Check if saved as percentage (new format) or pixels (old format)
         if (data.topPercent !== undefined && data.leftPercent !== undefined) {
           // Use percentage-based positioning (scales with zoom)
@@ -40,11 +40,11 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
           element.style.top = topPercent + '%';
           element.style.left = leftPercent + '%';
         }
-        
+
         element.style.right = 'auto';
         element.style.bottom = 'auto';
         element.style.transform = 'none';
-      } catch (e) {}
+      } catch (e) { }
     } else {
       // Convert from Leaflet control position to fixed
       const rect = element.getBoundingClientRect();
@@ -55,13 +55,13 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
       element.style.bottom = 'auto';
     }
   }
-  
+
   // Add drag hint
   element.title = 'Hold CTRL and drag to reposition';
-  
+
   let isDragging = false;
   let startX, startY, startLeft, startTop;
-  
+
   // Update cursor based on CTRL key
   const updateCursor = (e) => {
     if (e.ctrlKey) {
@@ -70,7 +70,7 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
       element.style.cursor = 'default';
     }
   };
-  
+
   element.addEventListener('mouseenter', updateCursor);
   element.addEventListener('mousemove', updateCursor);
   document.addEventListener('keydown', (e) => {
@@ -79,47 +79,47 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
   document.addEventListener('keyup', (e) => {
     if (e.key === 'Control') updateCursor(e);
   });
-  
-  element.addEventListener('mousedown', function(e) {
+
+  element.addEventListener('mousedown', function (e) {
     // Only allow dragging with CTRL key
     if (!e.ctrlKey) return;
-    
+
     // Only allow dragging from empty areas (not inputs/selects)
     if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') {
       return;
     }
-    
+
     isDragging = true;
     startX = e.clientX;
     startY = e.clientY;
     startLeft = element.offsetLeft;
     startTop = element.offsetTop;
-    
+
     element.style.cursor = 'grabbing';
     element.style.opacity = '0.8';
     e.preventDefault();
   });
-  
-  document.addEventListener('mousemove', function(e) {
+
+  document.addEventListener('mousemove', function (e) {
     if (!isDragging) return;
-    
+
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-    
+
     element.style.left = (startLeft + dx) + 'px';
     element.style.top = (startTop + dy) + 'px';
   });
-  
-  document.addEventListener('mouseup', function(e) {
+
+  document.addEventListener('mouseup', function (e) {
     if (isDragging) {
       isDragging = false;
       element.style.opacity = '1';
       updateCursor(e);
-      
+
       // Save position as percentage of viewport for zoom compatibility
       const topPercent = (element.offsetTop / window.innerHeight) * 100;
       const leftPercent = (element.offsetLeft / window.innerWidth) * 100;
-      
+
       const position = {
         topPercent,
         leftPercent,
@@ -135,20 +135,20 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
 // Add minimize/maximize functionality to control panels
 function addMinimizeToggle(element, storageKey) {
   if (!element) return;
-  
+
   const minimizeKey = storageKey + '-minimized';
-  
+
   // Create minimize button
   const header = element.querySelector('div:first-child');
   if (!header) return;
-  
+
   // Wrap content (everything except header)
   const content = Array.from(element.children).slice(1);
   const contentWrapper = document.createElement('div');
   contentWrapper.className = 'rbn-panel-content';
   content.forEach(child => contentWrapper.appendChild(child));
   element.appendChild(contentWrapper);
-  
+
   // Add minimize button to header
   const minimizeBtn = document.createElement('span');
   minimizeBtn.className = 'rbn-minimize-btn';
@@ -164,19 +164,19 @@ function addMinimizeToggle(element, storageKey) {
     transition: opacity 0.2s;
   `;
   minimizeBtn.title = 'Minimize/Maximize';
-  
+
   minimizeBtn.addEventListener('mouseenter', () => {
     minimizeBtn.style.opacity = '1';
   });
   minimizeBtn.addEventListener('mouseleave', () => {
     minimizeBtn.style.opacity = '0.7';
   });
-  
+
   header.style.display = 'flex';
   header.style.justifyContent = 'space-between';
   header.style.alignItems = 'center';
   header.appendChild(minimizeBtn);
-  
+
   // Load saved state
   const isMinimized = localStorage.getItem(minimizeKey) === 'true';
   if (isMinimized) {
@@ -184,14 +184,14 @@ function addMinimizeToggle(element, storageKey) {
     minimizeBtn.innerHTML = '▶';
     element.style.cursor = 'pointer';
   }
-  
+
   // Toggle function
   const toggle = (e) => {
     // Don't toggle if CTRL is held (for dragging)
     if (e && e.ctrlKey) return;
-    
+
     const isCurrentlyMinimized = contentWrapper.style.display === 'none';
-    
+
     if (isCurrentlyMinimized) {
       // Expand
       contentWrapper.style.display = 'block';
@@ -206,14 +206,14 @@ function addMinimizeToggle(element, storageKey) {
       localStorage.setItem(minimizeKey, 'true');
     }
   };
-  
+
   // Click header to toggle (except on button itself)
   header.addEventListener('click', (e) => {
     if (e.target === header || e.target.tagName === 'DIV') {
       toggle(e);
     }
   });
-  
+
   // Click button to toggle
   minimizeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -235,23 +235,23 @@ export const metadata = {
 // Convert grid square to lat/lon
 function gridToLatLon(grid) {
   if (!grid || grid.length < 4) return null;
-  
+
   grid = grid.toUpperCase();
   const lon = (grid.charCodeAt(0) - 65) * 20 - 180;
   const lat = (grid.charCodeAt(1) - 65) * 10 - 90;
   const lon2 = parseInt(grid[2]) * 2;
   const lat2 = parseInt(grid[3]);
-  
+
   let longitude = lon + lon2 + 1;
   let latitude = lat + lat2 + 0.5;
-  
+
   if (grid.length >= 6) {
-    const lon3 = (grid.charCodeAt(4) - 65) * (2/24);
-    const lat3 = (grid.charCodeAt(5) - 65) * (1/24);
-    longitude = lon + lon2 + lon3 + (1/24);
-    latitude = lat + lat2 + lat3 + (0.5/24);
+    const lon3 = (grid.charCodeAt(4) - 65) * (2 / 24);
+    const lat3 = (grid.charCodeAt(5) - 65) * (1 / 24);
+    longitude = lon + lon2 + lon3 + (1 / 24);
+    latitude = lat + lat2 + lat3 + (0.5 / 24);
   }
-  
+
   return { lat: latitude, lon: longitude };
 }
 
@@ -280,18 +280,18 @@ function getGreatCirclePath(lat1, lon1, lat2, lon2, numPoints = 30) {
   if (!isFinite(lat1) || !isFinite(lon1) || !isFinite(lat2) || !isFinite(lon2)) {
     return [[[lat1, lon1], [lat2, lon2]]];
   }
-  
+
   const deltaLat = Math.abs(lat2 - lat1);
   const deltaLon = Math.abs(lon2 - lon1);
   if (deltaLat < 0.5 && deltaLon < 0.5) {
     return [[[lat1, lon1], [lat2, lon2]]];
   }
-  
+
   // Normalize longitudes to handle dateline crossing
   let lon1Norm = lon1;
   let lon2Norm = lon2;
   const crossesDateline = Math.abs(lon2 - lon1) > 180;
-  
+
   if (crossesDateline) {
     // Adjust longitudes to take shorter path
     if (lon2 > lon1) {
@@ -300,57 +300,57 @@ function getGreatCirclePath(lat1, lon1, lat2, lon2, numPoints = 30) {
       lon2Norm = lon2 + 360;
     }
   }
-  
+
   const path = [];
-  
+
   // Convert to radians
   const lat1Rad = lat1 * Math.PI / 180;
   const lon1Rad = lon1Norm * Math.PI / 180;
   const lat2Rad = lat2 * Math.PI / 180;
   const lon2Rad = lon2Norm * Math.PI / 180;
-  
+
   // Calculate distance
   const d = Math.acos(
     Math.sin(lat1Rad) * Math.sin(lat2Rad) +
     Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.cos(lon2Rad - lon1Rad)
   );
-  
+
   // Handle very small distances
   if (isNaN(d) || d < 0.0001) {
     return [[[lat1, lon1], [lat2, lon2]]];
   }
-  
+
   // Generate points along the path
   for (let i = 0; i <= numPoints; i++) {
     const f = i / numPoints;
     const A = Math.sin((1 - f) * d) / Math.sin(d);
     const B = Math.sin(f * d) / Math.sin(d);
-    
+
     const x = A * Math.cos(lat1Rad) * Math.cos(lon1Rad) +
-              B * Math.cos(lat2Rad) * Math.cos(lon2Rad);
+      B * Math.cos(lat2Rad) * Math.cos(lon2Rad);
     const y = A * Math.cos(lat1Rad) * Math.sin(lon1Rad) +
-              B * Math.cos(lat2Rad) * Math.sin(lon2Rad);
+      B * Math.cos(lat2Rad) * Math.sin(lon2Rad);
     const z = A * Math.sin(lat1Rad) + B * Math.sin(lat2Rad);
-    
+
     const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * 180 / Math.PI;
     let lon = Math.atan2(y, x) * 180 / Math.PI;
-    
+
     // Normalize longitude back to -180 to 180 range
     while (lon > 180) lon -= 360;
     while (lon < -180) lon += 360;
-    
+
     path.push([lat, lon]);
   }
-  
+
   // If path crosses dateline, split into segments
   if (crossesDateline) {
     const segments = [];
     let currentSegment = [path[0]];
-    
+
     for (let i = 1; i < path.length; i++) {
       const prevLon = path[i - 1][1];
       const currLon = path[i][1];
-      
+
       // Check if this segment crosses dateline (jump > 180°)
       if (Math.abs(currLon - prevLon) > 180) {
         // Finish current segment
@@ -361,15 +361,15 @@ function getGreatCirclePath(lat1, lon1, lat2, lon2, numPoints = 30) {
         currentSegment.push(path[i]);
       }
     }
-    
+
     // Add final segment
     if (currentSegment.length > 0) {
       segments.push(currentSegment);
     }
-    
+
     return segments;
   }
-  
+
   // Return single segment
   return [path];
 }
@@ -398,11 +398,11 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
   const [minSNR, setMinSNR] = useState(-10);
   const [showPaths, setShowPaths] = useState(true);
   const [stats, setStats] = useState({ total: 0, skimmers: 0, avgSNR: 0 });
-  
+
   // Low memory mode limits
   const MAX_SPOTS = lowMemoryMode ? 25 : 200;
   const UPDATE_INTERVAL = lowMemoryMode ? 60000 : 60000; // 60s for all - be kind to servers and bandwidth
-  
+
   const layersRef = useRef([]);
   const controlRef = useRef(null);
   const updateIntervalRef = useRef(null);
@@ -417,28 +417,28 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
 
     try {
       console.log(`[RBN] Fetching real-time spots for ${callsign}...`);
-      
+
       // New streaming API - get ALL recent spots
       const response = await fetch(
         `/api/rbn/spots?minutes=${timeWindow}`,
         { headers: { 'Accept': 'application/json' } }
       );
-      
+
       if (!response.ok) {
         throw new Error(`RBN API error: ${response.status}`);
       }
-      
+
       const data = await response.json();
       console.log(`[RBN] Received ${data.count} total spots`);
-      
+
       if (data && data.spots && Array.isArray(data.spots)) {
         // Filter for spots where DX (spotted station) matches OUR callsign
-        const mySpots = data.spots.filter(spot => 
+        const mySpots = data.spots.filter(spot =>
           spot.dx && spot.dx.toUpperCase() === callsign.toUpperCase()
         );
-        
+
         console.log(`[RBN] Found ${mySpots.length} spots for ${callsign}`);
-        
+
         // Strip callsign suffixes (e.g., DL8LAS-1 → DL8LAS, K1TXT/B → K1TXT)
         mySpots.forEach(spot => {
           if (spot.callsign) {
@@ -450,11 +450,11 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
             }
           }
         });
-        
+
         // Add new spots to history
         const now = Date.now();
         const maxHistoryMs = 15 * 60 * 1000; // 15 minutes max history
-        
+
         // Merge new spots with history, avoiding duplicates
         const existingSpotKeys = new Set(
           spotsHistoryRef.current.map(s => `${s.callsign}-${s.frequency}-${s.timestamp}`)
@@ -463,22 +463,22 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
           const key = `${spot.callsign}-${spot.frequency}-${spot.timestamp}`;
           return !existingSpotKeys.has(key);
         });
-        
+
         console.log(`[RBN] Adding ${newUniqueSpots.length} new unique spots to history`);
         spotsHistoryRef.current = [...spotsHistoryRef.current, ...newUniqueSpots];
-        
+
         // Remove spots older than 15 minutes from history
         spotsHistoryRef.current = spotsHistoryRef.current.filter(spot => {
           const spotTimestamp = new Date(spot.timestamp).getTime();
           const ageMs = now - spotTimestamp;
           return ageMs <= maxHistoryMs;
         });
-        
+
         console.log(`[RBN] History now contains ${spotsHistoryRef.current.length} spots (max 15min)`);
-        
+
         // Use history for display
         const allSpots = spotsHistoryRef.current;
-        
+
         // Log details of found spots
         if (mySpots.length > 0) {
           console.log(`[RBN] Spot details for ${callsign}:`);
@@ -486,16 +486,16 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
             console.log(`  ${idx + 1}. Skimmer: ${spot.callsign}, Freq: ${spot.freqMHz} MHz, SNR: ${spot.snr} dB, Band: ${spot.band}, Grid: ${spot.grid || 'MISSING'}, HasLat: ${!!spot.skimmerLat}, HasLon: ${!!spot.skimmerLon}`);
           });
         }
-        
+
         // Apply band and SNR filters
         const filteredSpots = allSpots.filter(spot => {
           const meetsFilter = selectedBand === 'all' || spot.band === selectedBand;
           const meetsSNR = (spot.snr || 0) >= minSNR;
           return meetsFilter && meetsSNR;
         });
-        
+
         console.log(`[RBN] After filters (band: ${selectedBand}, minSNR: ${minSNR}): ${filteredSpots.length} spots`);
-        
+
         // Lookup locations for spots that don't have them yet
         const spotsWithLocations = await Promise.all(
           filteredSpots.map(async (spot) => {
@@ -525,21 +525,21 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
             return spot;
           })
         );
-        
+
         const spotsWithGrid = spotsWithLocations.filter(s => s.grid);
         console.log(`[RBN] Spots with locations: ${spotsWithGrid.length} out of ${spotsWithLocations.length}`);
-        
+
         // Log which spots are missing locations
         const spotsWithoutGrid = spotsWithLocations.filter(s => !s.grid);
         if (spotsWithoutGrid.length > 0) {
-          console.warn(`[RBN] Spots MISSING locations (${spotsWithoutGrid.length}):`, 
+          console.warn(`[RBN] Spots MISSING locations (${spotsWithoutGrid.length}):`,
             spotsWithoutGrid.map(s => s.callsign).join(', '));
         }
-        
+
         // Update history with location data
         spotsWithLocations.forEach(spot => {
           if (spot.grid && spot.skimmerLat && spot.skimmerLon) {
-            const idx = spotsHistoryRef.current.findIndex(s => 
+            const idx = spotsHistoryRef.current.findIndex(s =>
               s.callsign === spot.callsign && s.frequency === spot.frequency && s.timestamp === spot.timestamp
             );
             if (idx >= 0) {
@@ -547,20 +547,20 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
             }
           }
         });
-        
+
         setSpots(spotsWithLocations);
-        
+
         // Calculate statistics
         const validSNRs = spotsWithLocations
           .map(s => s.snr)
           .filter(snr => snr !== null && snr !== undefined);
-        
+
         const uniqueSkimmers = new Set(spotsWithLocations.map(s => s.callsign));
-        
+
         setStats({
           total: spotsWithLocations.length,
           skimmers: uniqueSkimmers.size,
-          avgSNR: validSNRs.length > 0 
+          avgSNR: validSNRs.length > 0
             ? (validSNRs.reduce((a, b) => a + b, 0) / validSNRs.length).toFixed(1)
             : 0
         });
@@ -576,7 +576,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       fetchRBNSpots();
       updateIntervalRef.current = setInterval(fetchRBNSpots, UPDATE_INTERVAL);
     }
-    
+
     return () => {
       if (updateIntervalRef.current) {
         clearInterval(updateIntervalRef.current);
@@ -592,7 +592,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
     layersRef.current.forEach(layer => {
       try {
         map.removeLayer(layer);
-      } catch (e) {}
+      } catch (e) { }
     });
     layersRef.current = [];
 
@@ -604,24 +604,24 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
     // Filter spots by band, SNR, and AGE
     const now = Date.now();
     const timeWindowMs = timeWindow * 60 * 1000; // Convert minutes to milliseconds
-    
+
     const filteredSpots = spots.filter(spot => {
       const band = freqToBand(spot.frequency || spot.freq || 0);
       const snr = spot.snr || spot.db || 0;
-      
+
       // Band filter
       if (selectedBand !== 'all' && selectedBand !== 'All' && band !== selectedBand) return false;
-      
+
       // SNR filter
       if (snr < minSNR) return false;
-      
+
       // AGE filter - only show spots within the time window
       const spotTimestamp = new Date(spot.timestamp).getTime();
       const ageMs = now - spotTimestamp;
       if (ageMs > timeWindowMs) {
         return false; // Spot is too old, don't show it
       }
-      
+
       return true;
     });
 
@@ -631,7 +631,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
     filteredSpots.forEach(spot => {
       // spot contains: { callsign (skimmer), dx (you), freq, band, mode, snr, grid, skimmerLat, skimmerLon }
       const skimmerGrid = spot.grid;
-      
+
       if (!skimmerGrid) {
         console.warn(`[RBN] No grid square for skimmer ${spot.callsign}`);
         return;
@@ -644,7 +644,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       } else {
         skimmerLoc = gridToLatLon(skimmerGrid);
       }
-      
+
       if (!skimmerLoc) return;
 
       const snr = spot.snr || 0;
@@ -693,7 +693,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
           Heard: <b>${callsign}</b><br>
           SNR: <b>${snr} dB</b><br>
           Band: <b>${band}</b><br>
-          Freq: <b>${(freq/1000).toFixed(1)} kHz</b><br>
+          Freq: <b>${(freq / 1000).toFixed(1)} kHz</b><br>
           Grid: ${skimmerGrid}<br>
           Time: ${timestamp.toLocaleTimeString()}
         </div>
@@ -712,7 +712,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
     // Create control panel
     const control = L.control({ position: 'topright' });
 
-    control.onAdd = function() {
+    control.onAdd = function () {
       const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control rbn-control');
       div.style.background = 'var(--bg-panel)';
       div.style.padding = '10px';
@@ -788,7 +788,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
           } else {
             timeValue.textContent = timeWindow.toFixed(1) + 'min';
           }
-          
+
           timeSlider.addEventListener('input', (e) => {
             const val = parseFloat(e.target.value);
             // Display as seconds if < 1 minute, otherwise minutes
@@ -841,9 +841,9 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
             controlElement.style.left = left + 'px';
             controlElement.style.right = 'auto';
             controlElement.style.bottom = 'auto';
-          } catch (e) {}
+          } catch (e) { }
         }
-        
+
         makeDraggable(controlElement, 'rbn-panel-position');
         addMinimizeToggle(controlElement, 'rbn-panel');
       }
@@ -860,14 +860,14 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
   // Separate effect to update stats display without recreating the entire control
   useEffect(() => {
     if (!enabled || !controlRef.current) return;
-    
+
     const container = controlRef.current.getContainer();
     if (!container) return;
-    
+
     // Find stats display (before minimize toggle wraps content)
-    const statsDisplay = container.querySelector('#rbn-stats-display') || 
-                        container.querySelector('.rbn-panel-content #rbn-stats-display');
-    
+    const statsDisplay = container.querySelector('#rbn-stats-display') ||
+      container.querySelector('.rbn-panel-content #rbn-stats-display');
+
     if (statsDisplay) {
       statsDisplay.innerHTML = `
         Spots: <b>${stats.total}</b> | Skimmers: <b>${stats.skimmers}</b><br>
@@ -882,7 +882,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       layersRef.current.forEach(layer => {
         try {
           map.removeLayer(layer);
-        } catch (e) {}
+        } catch (e) { }
       });
       layersRef.current = [];
 

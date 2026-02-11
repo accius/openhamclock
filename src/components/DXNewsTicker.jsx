@@ -4,6 +4,7 @@
  * Respects showDXNews setting from mapLayers (reads from localStorage directly as fallback)
  */
 import React, { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 
 // Check if DX News is enabled (reads directly from localStorage as belt-and-suspenders)
 function isDXNewsEnabled() {
@@ -13,7 +14,7 @@ function isDXNewsEnabled() {
       const layers = JSON.parse(stored);
       return layers.showDXNews !== false;
     }
-  } catch {}
+  } catch { }
   return true; // default on
 }
 
@@ -24,11 +25,12 @@ export const DXNewsTicker = ({ sidebar = false }) => {
   const tickerRef = useRef(null);
   const contentRef = useRef(null);
   const [animDuration, setAnimDuration] = useState(120);
+  const { t } = useTranslation();
 
   // Listen for mapLayers changes (custom event for same-tab, storage for cross-tab)
   useEffect(() => {
     const checkVisibility = () => setVisible(isDXNewsEnabled());
-    
+
     window.addEventListener('mapLayersChanged', checkVisibility);
     window.addEventListener('storage', checkVisibility);
     return () => {
@@ -40,7 +42,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
   // Fetch news
   useEffect(() => {
     if (!visible) return;
-    
+
     const fetchNews = async () => {
       try {
         const res = await fetch('/api/dxnews');
@@ -131,7 +133,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
         borderRight: '1px solid #444',
         letterSpacing: '0.5px'
       }}>
-        📰 DX NEWS
+        📰 {t('news.title')}
       </div>
 
       {/* Scrolling content */}

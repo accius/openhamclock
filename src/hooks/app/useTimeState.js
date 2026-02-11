@@ -2,11 +2,13 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { calculateGridSquare, calculateSunTimes } from '../../utils';
+import { useTranslation } from 'react-i18next';
 
 export default function useTimeState(configLocation, dxLocation, timezone) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startTime] = useState(Date.now());
   const [uptime, setUptime] = useState('0d 0h 0m');
+  const { i18n } = useTranslation();
 
   const [use12Hour, setUse12Hour] = useState(() => {
     try {
@@ -17,7 +19,7 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
   useEffect(() => {
     try {
       localStorage.setItem('openhamclock_use12Hour', use12Hour.toString());
-    } catch (e) {}
+    } catch (e) { }
   }, [use12Hour]);
 
   const handleTimeFormatToggle = useCallback(() => setUse12Hour(prev => !prev), []);
@@ -48,7 +50,7 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
     localDateOpts.timeZone = timezone;
   }
   const localTime = currentTime.toLocaleTimeString('en-US', localTimeOpts);
-  const localDate = currentTime.toLocaleDateString('en-US', localDateOpts);
+  const localDate = currentTime.toLocaleDateString(i18n.language || 'en-US', localDateOpts);
 
   return {
     currentTime,
