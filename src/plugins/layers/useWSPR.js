@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 
 /**
- * WSPR Propagation Heatmap Plugin v1.5.0
+ * WSPR Propagation Heatmap Plugin v1.6.0
  * 
  * Advanced Features:
  * - Great circle curved path lines between transmitters and receivers
@@ -23,6 +23,10 @@ import { useState, useEffect, useRef } from 'react';
  * - Minimize/maximize toggle for all panels (v1.5.0)
  * - Statistics display (total stations, spots)
  * - Signal strength legend
+ * - AGGREGATED DATA SUPPORT (v1.6.0) - 97% bandwidth reduction
+ *   - Grid-level aggregation for heatmap
+ *   - Aggregated path rendering between grid squares
+ *   - Backward compatible with raw spot data
  * 
  * Data source: PSK Reporter API (WSPR mode spots)
  * Update interval: 5 minutes
@@ -30,13 +34,13 @@ import { useState, useEffect, useRef } from 'react';
 
 export const metadata = {
   id: 'wspr',
-  name: 'WSPR Propagation',
-  description: 'Advanced WSPR propagation visualization with filters, analytics, and heatmaps',
+  name: 'plugins.layers.wspr.name',
+  description: 'plugins.layers.wspr.description',
   icon: '📡',
   category: 'propagation',
-  defaultEnabled: false,
+  defaultEnabled: false, // Opt-in only - uses PSKReporter HTTP API
   defaultOpacity: 0.7,
-  version: '1.5.0'
+  version: '1.6.1'
 };
 
 // Convert grid square to lat/lon
@@ -62,24 +66,33 @@ function gridToLatLon(grid) {
   return { lat: latitude, lon: longitude };
 }
 
-// Get color based on SNR
-function getSNRColor(snr) {
-  if (snr === null || snr === undefined) return '#888888';
-  if (snr < -20) return '#ff0000';
-  if (snr < -10) return '#ff6600';
-  if (snr < 0) return '#ffaa00';
-  if (snr < 5) return '#ffff00';
-  return '#00ff00';
+// Format distance using global units preference
+function fmtDist(km) {
+  try {
+    const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
+    if (cfg.units === 'metric') return `${Math.round(km).toLocaleString()} km`;
+  } catch (e) {}
+  return `${Math.round(km * 0.621371).toLocaleString()} mi`;
 }
 
-// Get line weight based on SNR
+// Get color based on SNR (darker colors for better visibility)
+function getSNRColor(snr) {
+  if (snr === null || snr === undefined) return '#666666';
+  if (snr < -20) return '#cc0000';      // Dark red
+  if (snr < -10) return '#dd4400';      // Dark orange
+  if (snr < 0) return '#ee8800';        // Orange
+  if (snr < 5) return '#dddd00';        // Dark yellow
+  return '#00cc00';                     // Dark green
+}
+
+// Get line weight based on SNR (doubled for better visibility)
 function getLineWeight(snr) {
-  if (snr === null || snr === undefined) return 1;
-  if (snr < -20) return 1;
-  if (snr < -10) return 1.5;
-  if (snr < 0) return 2;
-  if (snr < 5) return 2.5;
-  return 3;
+  if (snr === null || snr === undefined) return 4;
+  if (snr < -20) return 4;
+  if (snr < -10) return 5;
+  if (snr < 0) return 6;
+  if (snr < 5) return 7;
+  return 8;
 }
 
 // Calculate great circle path between two points
@@ -159,28 +172,43 @@ function calculatePropagationScore(spots) {
 }
 
 // Make control panel draggable with CTRL+drag and save position
-function makeDraggable(element, storageKey) {
+function makeDraggable(element, storageKey, skipPositionLoad = false) {
   if (!element) return;
   
-  // Load saved position
-  const saved = localStorage.getItem(storageKey);
-  if (saved) {
-    try {
-      const { top, left } = JSON.parse(saved);
+  // Load saved position only if not already loaded
+  if (!skipPositionLoad) {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        element.style.position = 'fixed';
+        
+        // Check if saved as percentage (new format) or pixels (old format)
+        if (data.topPercent !== undefined && data.leftPercent !== undefined) {
+          // Use percentage-based positioning (scales with zoom)
+          element.style.top = data.topPercent + '%';
+          element.style.left = data.leftPercent + '%';
+        } else {
+          // Legacy pixel format - convert to percentage
+          const topPercent = (data.top / window.innerHeight) * 100;
+          const leftPercent = (data.left / window.innerWidth) * 100;
+          element.style.top = topPercent + '%';
+          element.style.left = leftPercent + '%';
+        }
+        
+        element.style.right = 'auto';
+        element.style.bottom = 'auto';
+        element.style.transform = 'none';
+      } catch (e) {}
+    } else {
+      // Convert from Leaflet control position to fixed
+      const rect = element.getBoundingClientRect();
       element.style.position = 'fixed';
-      element.style.top = top + 'px';
-      element.style.left = left + 'px';
+      element.style.top = rect.top + 'px';
+      element.style.left = rect.left + 'px';
       element.style.right = 'auto';
       element.style.bottom = 'auto';
-    } catch (e) {}
-  } else {
-    // Convert from Leaflet control position to fixed
-    const rect = element.getBoundingClientRect();
-    element.style.position = 'fixed';
-    element.style.top = rect.top + 'px';
-    element.style.left = rect.left + 'px';
-    element.style.right = 'auto';
-    element.style.bottom = 'auto';
+    }
   }
   
   // Add drag hint
@@ -243,8 +271,14 @@ function makeDraggable(element, storageKey) {
       element.style.opacity = '1';
       updateCursor(e);
       
-      // Save position
+      // Save position as percentage of viewport for zoom compatibility
+      const topPercent = (element.offsetTop / window.innerHeight) * 100;
+      const leftPercent = (element.offsetLeft / window.innerWidth) * 100;
+      
       const position = {
+        topPercent,
+        leftPercent,
+        // Keep pixel values for backward compatibility
         top: element.offsetTop,
         left: element.offsetLeft
       };
@@ -351,18 +385,24 @@ function addMinimizeToggle(element, storageKey) {
   });
 }
 
-export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
+export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign, locator, lowMemoryMode = false }) {
   const [pathLayers, setPathLayers] = useState([]);
   const [markerLayers, setMarkerLayers] = useState([]);
   const [heatmapLayer, setHeatmapLayer] = useState(null);
   const [wsprData, setWsprData] = useState([]);
+  const [filterByGrid, setFilterByGrid] = useState(true);  // Default ON - shows activity in your grid area
+  const [gridFilter, setGridFilter] = useState('');
   
   // v1.2.0 - Advanced Filters
   const [bandFilter, setBandFilter] = useState('all');
-  const [timeWindow, setTimeWindow] = useState(30); // minutes
+  const [timeWindow, setTimeWindow] = useState(lowMemoryMode ? 15 : 30); // minutes - shorter in low memory
   const [snrThreshold, setSNRThreshold] = useState(-30); // dB
-  const [showAnimation, setShowAnimation] = useState(true);
+  const [showAnimation, setShowAnimation] = useState(!lowMemoryMode); // Disable animations in low memory mode
   const [showHeatmap, setShowHeatmap] = useState(false);
+  
+  // Low memory mode limits
+  const MAX_PATHS = lowMemoryMode ? 100 : 10000;
+  const MAX_HEATMAP_POINTS = lowMemoryMode ? 50 : 500;
   
   // v1.4.3 - Separate opacity controls
   const [pathOpacity, setPathOpacity] = useState(0.7);
@@ -382,16 +422,146 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
   const animationFrameRef = useRef(null);
 
   // Fetch WSPR data with dynamic time window and band filter
+  
+  const stripCallsign = (call) => {
+    if (!call) return '';
+    return call.split(/[\/\-]/)[0].toUpperCase();
+  };
+
+  // Set grid filter from locator when enabled
+  useEffect(() => {
+    if (locator && locator.length >= 4) {
+      setGridFilter(locator.substring(0, 4).toUpperCase());
+    }
+  }, [locator]);
+
   useEffect(() => {
     if (!enabled) return;
 
     const fetchWSPR = async () => {
       try {
+        const timestamp = new Date().toLocaleTimeString();
+        console.log(`[WSPR] Fetching data at ${timestamp}...`);
         const response = await fetch(`/api/wspr/heatmap?minutes=${timeWindow}&band=${bandFilter}`);
         if (response.ok) {
           const data = await response.json();
-          setWsprData(data.spots || []);
-          console.log(`[WSPR Plugin] Loaded ${data.spots?.length || 0} spots (${timeWindow}min, band: ${bandFilter})`);
+          
+          // Handle new aggregated format
+          if (data.format === 'aggregated' && data.grids) {
+            console.log(`[WSPR Plugin] Loaded aggregated data: ${data.uniqueGrids} grids, ${data.paths?.length || 0} paths from ${data.totalSpots} spots`);
+            
+            // Convert aggregated grids to spot-like format for backward compatibility with rendering
+            // Each grid becomes a "virtual spot" with combined TX/RX activity
+            const virtualSpots = [];
+            
+            // Create spots from grids (for heatmap rendering)
+            for (const grid of data.grids) {
+              // Create a virtual spot for each active grid
+              virtualSpots.push({
+                sender: `${grid.grid} (${grid.stationCount} stations)`,
+                senderGrid: grid.grid,
+                senderLat: grid.lat,
+                senderLon: grid.lon,
+                receiver: '',
+                receiverGrid: '',
+                receiverLat: null,
+                receiverLon: null,
+                snr: grid.avgSnr,
+                band: Object.keys(grid.bands).sort((a, b) => grid.bands[b] - grid.bands[a])[0] || 'Unknown',
+                distance: grid.maxDistance,
+                txCount: grid.txCount,
+                rxCount: grid.rxCount,
+                totalActivity: grid.totalActivity,
+                isAggregated: true
+              });
+            }
+            
+            // Add path data for rendering propagation lines
+            if (data.paths && data.paths.length > 0) {
+              for (const path of data.paths) {
+                virtualSpots.push({
+                  sender: path.from,
+                  senderGrid: path.from,
+                  senderLat: path.fromLat,
+                  senderLon: path.fromLon,
+                  receiver: path.to,
+                  receiverGrid: path.to,
+                  receiverLat: path.toLat,
+                  receiverLon: path.toLon,
+                  snr: path.avgSnr,
+                  band: Object.keys(path.bands).sort((a, b) => path.bands[b] - path.bands[a])[0] || 'Unknown',
+                  pathCount: path.count,
+                  isPath: true,
+                  isAggregated: true
+                });
+              }
+            }
+            
+            // Store band activity for chart
+            if (data.bandActivity) {
+              virtualSpots.bandActivity = data.bandActivity;
+            }
+            
+            setWsprData(virtualSpots);
+            return;
+          }
+          
+          // Legacy format handling (raw spots)
+          let spots = data.spots || [];
+          
+          // Strip suffixes from all callsigns
+          spots = spots.map(spot => {
+            return {
+              ...spot,
+              sender: stripCallsign(spot.sender),
+              receiver: stripCallsign(spot.receiver)
+            };
+          });
+          
+          // Filter by callsign ONLY if grid filter is OFF
+          if (!filterByGrid && callsign && callsign !== 'N0CALL') {
+            const baseCall = stripCallsign(callsign);
+            console.log(`[WSPR] Filtering for callsign: ${baseCall} (grid filter OFF)`);
+            
+            spots = spots.filter(spot => {
+              // Show spots where I'm TX or RX
+              const isTX = spot.sender === baseCall;
+              const isRX = spot.receiver === baseCall;
+              return isTX || isRX;
+            });
+            
+            console.log(`[WSPR] Found ${spots.length} spots for ${baseCall} (TX or RX)`);
+          } else if (filterByGrid) {
+            console.log(`[WSPR] Grid filter ON - fetching ALL spots (${spots.length} total)`);
+          }
+          
+          // Convert grid squares to lat/lon if coordinates are missing
+          spots = spots.map(spot => {
+            let updated = { ...spot };
+            
+            // Convert sender grid to lat/lon if missing
+            if ((!spot.senderLat || !spot.senderLon) && spot.senderGrid) {
+              const loc = gridToLatLon(spot.senderGrid);
+              if (loc) {
+                updated.senderLat = loc.lat;
+                updated.senderLon = loc.lon;
+              }
+            }
+            
+            // Convert receiver grid to lat/lon if missing
+            if ((!spot.receiverLat || !spot.receiverLon) && spot.receiverGrid) {
+              const loc = gridToLatLon(spot.receiverGrid);
+              if (loc) {
+                updated.receiverLat = loc.lat;
+                updated.receiverLon = loc.lon;
+              }
+            }
+            
+            return updated;
+          });
+          
+          setWsprData(spots);
+          console.log(`[WSPR Plugin] Loaded ${spots.length} raw spots (${timeWindow}min, band: ${bandFilter})`);
         }
       } catch (err) {
         console.error('WSPR data fetch error:', err);
@@ -399,10 +569,10 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
     };
 
     fetchWSPR();
-    const interval = setInterval(fetchWSPR, 300000);
+    const interval = setInterval(fetchWSPR, 300000); // Poll every 5 minutes (server caches for 10)
 
     return () => clearInterval(interval);
-  }, [enabled, bandFilter, timeWindow]);
+  }, [enabled, bandFilter, timeWindow, callsign, filterByGrid]);
 
   // Create UI controls once (v1.2.0+)
   useEffect(() => {
@@ -414,12 +584,13 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
       onAdd: function() {
         const container = L.DomUtil.create('div', 'wspr-filter-control');
         container.style.cssText = `
-          background: rgba(0, 0, 0, 0.9);
+          background: var(--bg-panel);
           padding: 12px;
           border-radius: 5px;
           font-family: 'JetBrains Mono', monospace;
           font-size: 11px;
-          color: white;
+          color: var(--text-primary);
+          border: 1px solid var(--border-color);
           box-shadow: 0 2px 8px rgba(0,0,0,0.3);
           min-width: 180px;
         `;
@@ -429,7 +600,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
           
           <div style="margin-bottom: 8px;">
             <label style="display: block; margin-bottom: 3px;">Band:</label>
-            <select id="wspr-band-filter" style="width: 100%; padding: 4px; background: #333; color: white; border: 1px solid #555; border-radius: 3px;">
+            <select id="wspr-band-filter" style="width: 100%; padding: 4px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px;">
               <option value="all">All Bands</option>
               <option value="160m">160m</option>
               <option value="80m">80m</option>
@@ -447,7 +618,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
           
           <div style="margin-bottom: 8px;">
             <label style="display: block; margin-bottom: 3px;">Time Window:</label>
-            <select id="wspr-time-filter" style="width: 100%; padding: 4px; background: #333; color: white; border: 1px solid #555; border-radius: 3px;">
+            <select id="wspr-time-filter" style="width: 100%; padding: 4px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px;">
               <option value="15">15 minutes</option>
               <option value="30" selected>30 minutes</option>
               <option value="60">1 hour</option>
@@ -481,11 +652,26 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
             </label>
           </div>
           
-          <div>
+          <div style="margin-bottom: 8px;">
             <label style="display: flex; align-items: center; cursor: pointer;">
               <input type="checkbox" id="wspr-heatmap" style="margin-right: 5px;" />
               <span>Show Heatmap</span>
             </label>
+          </div>
+          
+          <div style="margin-bottom: 8px; padding-top: 8px; border-top: 1px solid #555;">
+            <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 5px;">
+              <input type="checkbox" id="wspr-grid-filter" style="margin-right: 5px;" />
+              <span>Filter by Grid Square</span>
+            </label>
+            <input type="text" id="wspr-grid-input" 
+              placeholder="${gridFilter || 'e.g. FN03'}" 
+              value="${gridFilter || ''}"
+              maxlength="6"
+              style="width: 100%; padding: 4px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;" />
+            <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">
+              Prefix match: FN matches FN03, FN21, etc.
+            </div>
           </div>
         `;
         
@@ -536,6 +722,8 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
       const heatmapOpacityValue = document.getElementById('heatmap-opacity-value');
       const animCheck = document.getElementById('wspr-animation');
       const heatCheck = document.getElementById('wspr-heatmap');
+      const gridFilterCheck = document.getElementById('wspr-grid-filter');
+      const gridInput = document.getElementById('wspr-grid-input');
       
       if (bandSelect) bandSelect.addEventListener('change', (e) => setBandFilter(e.target.value));
       if (timeSelect) timeSelect.addEventListener('change', (e) => setTimeWindow(parseInt(e.target.value)));
@@ -564,6 +752,18 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
         console.log('[WSPR] Heatmap toggle:', e.target.checked);
         setShowHeatmap(e.target.checked);
       });
+      if (gridFilterCheck) gridFilterCheck.addEventListener('change', (e) => {
+        setFilterByGrid(e.target.checked);
+        console.log('[WSPR] Grid filter toggle:', e.target.checked);
+      });
+      if (gridInput) {
+        gridInput.addEventListener('input', (e) => {
+          const value = e.target.value.toUpperCase().substring(0, 6);
+          e.target.value = value;
+          setGridFilter(value);
+          console.log('[WSPR] Grid filter value:', value);
+        });
+      }
     }, 100);
     
     // Create stats control
@@ -572,25 +772,26 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
       onAdd: function() {
         const div = L.DomUtil.create('div', 'wspr-stats');
         div.style.cssText = `
-          background: rgba(0, 0, 0, 0.9);
+          background: var(--bg-panel);
           padding: 12px;
           border-radius: 5px;
           font-family: 'JetBrains Mono', monospace;
           font-size: 11px;
-          color: white;
+          color: var(--text-primary);
+          border: 1px solid var(--border-color);
           box-shadow: 0 2px 8px rgba(0,0,0,0.3);
           min-width: 160px;
         `;
         div.innerHTML = `
           <div style="font-weight: bold; margin-bottom: 6px; font-size: 13px;">📊 WSPR Activity</div>
-          <div style="margin-bottom: 8px; padding: 6px; background: rgba(255,255,255,0.1); border-radius: 3px;">
+          <div style="margin-bottom: 8px; padding: 6px; background: var(--bg-tertiary); border-radius: 3px;">
             <div style="font-size: 10px; opacity: 0.8; margin-bottom: 2px;">Propagation Score</div>
-            <div style="font-size: 18px; font-weight: bold; color: #888;">--/100</div>
+            <div style="font-size: 18px; font-weight: bold; color: var(--text-muted);">--/100</div>
           </div>
-          <div>Paths: <span style="color: #00aaff;">0</span></div>
-          <div>TX Stations: <span style="color: #ff6600;">0</span></div>
-          <div>RX Stations: <span style="color: #0088ff;">0</span></div>
-          <div>Total: <span style="color: #00ff00;">0</span></div>
+          <div>Paths: <span style="color: var(--accent-cyan);">0</span></div>
+          <div>TX Stations: <span style="color: var(--accent-amber);">0</span></div>
+          <div>RX Stations: <span style="color: var(--accent-blue);">0</span></div>
+          <div>Total: <span style="color: var(--accent-green);">0</span></div>
           <div style="margin-top: 6px; font-size: 10px; opacity: 0.7;">Initializing...</div>
         `;
         
@@ -634,23 +835,24 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
       onAdd: function() {
         const div = L.DomUtil.create('div', 'wspr-legend');
         div.style.cssText = `
-          background: rgba(0, 0, 0, 0.9);
+          background: var(--bg-panel);
           padding: 10px;
           border-radius: 5px;
           font-family: 'JetBrains Mono', monospace;
           font-size: 11px;
-          color: white;
+          color: var(--text-primary);
+          border: 1px solid var(--border-color);
           box-shadow: 0 2px 8px rgba(0,0,0,0.3);
         `;
         div.innerHTML = `
           <div style="font-weight: bold; margin-bottom: 5px; font-size: 12px;">📡 Signal Strength</div>
-          <div><span style="color: #00ff00;">●</span> Excellent (&gt; 5 dB)</div>
-          <div><span style="color: #ffff00;">●</span> Good (0 to 5 dB)</div>
-          <div><span style="color: #ffaa00;">●</span> Moderate (-10 to 0 dB)</div>
-          <div><span style="color: #ff6600;">●</span> Weak (-20 to -10 dB)</div>
-          <div><span style="color: #ff0000;">●</span> Very Weak (&lt; -20 dB)</div>
-          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid #555;">
-            <span style="color: #00ffff;">●</span> Best DX Paths
+          <div><span style="color: var(--accent-green);">●</span> Excellent (&gt; 5 dB)</div>
+          <div><span style="color: var(--accent-green-dim);">●</span> Good (0 to 5 dB)</div>
+          <div><span style="color: var(--accent-amber);">●</span> Moderate (-10 to 0 dB)</div>
+          <div><span style="color: var(--accent-amber-dim);">●</span> Weak (-20 to -10 dB)</div>
+          <div><span style="color: var(--accent-red);">●</span> Very Weak (&lt; -20 dB)</div>
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-color);">
+            <span style="color: var(--accent-cyan);">●</span> Best DX Paths
           </div>
         `;
         return div;
@@ -688,12 +890,13 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
       onAdd: function() {
         const div = L.DomUtil.create('div', 'wspr-chart');
         div.style.cssText = `
-          background: rgba(0, 0, 0, 0.9);
+          background: var(--bg-panel);
           padding: 10px;
           border-radius: 5px;
           font-family: 'JetBrains Mono', monospace;
           font-size: 10px;
-          color: white;
+          color: var(--text-primary);
+          border: 1px solid var(--border-color);
           box-shadow: 0 2px 8px rgba(0,0,0,0.3);
           min-width: 160px;
         `;
@@ -758,9 +961,67 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
     const txStations = new Set();
     const rxStations = new Set();
     
-    // Filter by SNR threshold
-    const filteredData = wsprData.filter(spot => (spot.snr || -30) >= snrThreshold);
-    const limitedData = filteredData.slice(0, 500);
+    // Filter by SNR threshold and grid square OR callsign
+    let filteredData = wsprData.filter(spot => {
+      // SNR filter
+      if ((spot.snr || -30) < snrThreshold) return false;
+      
+      // Grid square filter (if enabled AND grid is set) - show spots in/around that grid
+      if (filterByGrid && gridFilter && gridFilter.length >= 2) {
+        const gridUpper = gridFilter.toUpperCase();
+        const senderGrid = spot.senderGrid ? spot.senderGrid.toUpperCase() : '';
+        const receiverGrid = spot.receiverGrid ? spot.receiverGrid.toUpperCase() : '';
+        
+        // Match prefix: FN matches FN03, FN02, FN21, etc.
+        const senderMatch = senderGrid.startsWith(gridUpper);
+        const receiverMatch = receiverGrid.startsWith(gridUpper);
+        
+        // Show if either TX or RX matches the grid prefix
+        return senderMatch || receiverMatch;
+      }
+      
+      // If grid filter is ON but no grid set, show ALL spots (don't filter)
+      if (filterByGrid && (!gridFilter || gridFilter.length < 2)) {
+        return true;
+      }
+      
+      // If grid filter is OFF, filter by callsign (TX/RX involving your station)
+      if (!filterByGrid && callsign && callsign !== 'N0CALL') {
+        const baseCallsign = callsign.split(/[\/\-]/)[0].toUpperCase();
+        const senderBase = (spot.sender || '').split(/[\/\-]/)[0].toUpperCase();
+        const receiverBase = (spot.receiver || '').split(/[\/\-]/)[0].toUpperCase();
+        
+        // Show only if your callsign is TX or RX
+        return senderBase === baseCallsign || receiverBase === baseCallsign;
+      }
+      
+      // If no callsign and no grid filter, show all
+      return true;
+    });
+    
+    console.log(`[WSPR Paths] Filtering: filterByGrid=${filterByGrid}, gridFilter="${gridFilter}", callsign="${callsign}", input=${wsprData.length}, output=${filteredData.length}`);
+    
+    // For aggregated data, only render actual paths (items with both sender and receiver coords)
+    const pathData = filteredData.filter(spot => spot.isPath || (!spot.isAggregated && spot.receiverLat && spot.receiverLon));
+    
+    // Debug: Log grid squares when filter is enabled
+    if (filterByGrid && gridFilter && filteredData.length > 0) {
+      const grids = new Set();
+      filteredData.slice(0, 5).forEach(spot => {
+        if (spot.senderGrid) grids.add(spot.senderGrid.substring(0, 4));
+        if (spot.receiverGrid) grids.add(spot.receiverGrid.substring(0, 4));
+      });
+      console.log(`[WSPR Grid] Filtering for ${gridFilter}, found ${filteredData.length} spots with grids:`, Array.from(grids).join(', '));
+    } else if (filterByGrid && gridFilter && filteredData.length === 0) {
+      // Log what grids ARE available
+      const availableGrids = new Set();
+      wsprData.slice(0, 10).forEach(spot => {
+        if (spot.senderGrid) availableGrids.add(spot.senderGrid.substring(0, 4));
+        if (spot.receiverGrid) availableGrids.add(spot.receiverGrid.substring(0, 4));
+      });
+      console.log(`[WSPR Grid] No matches for ${gridFilter}. Available grids in data:`, Array.from(availableGrids).join(', '));
+    }
+    const limitedData = pathData.slice(0, MAX_PATHS); // Limit paths based on memory mode
     
     // Find best DX paths (longest distance, good SNR)
     const bestPaths = limitedData
@@ -812,38 +1073,115 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
 
       const snrStr = spot.snr !== null ? `${spot.snr} dB` : 'N/A';
       const ageStr = spot.age < 60 ? `${spot.age} min ago` : `${Math.floor(spot.age / 60)}h ago`;
+      const powerStr = spot.power ? `${spot.power}W` : 'N/A';
+      const powerDbmStr = spot.powerDbm ? `${spot.powerDbm} dBm` : '';
+      const distanceStr = spot.distance ? fmtDist(spot.distance) : 'N/A';
+      const kPerWStr = spot.kPerW ? `${spot.kPerW.toLocaleString()} k/W` : 'N/A';
+      const txAzStr = spot.senderAz !== null ? `${spot.senderAz}°` : 'N/A';
+      const rxAzStr = spot.receiverAz !== null ? `${spot.receiverAz}°` : 'N/A';
+      const spotQStr = spot.snr && spot.distance ? Math.round(spot.distance / Math.pow(10, spot.snr / 10)) : null;
       
       path.bindPopup(`
-        <div style="font-family: 'JetBrains Mono', monospace; min-width: 220px;">
-          <div style="font-size: 14px; font-weight: bold; color: ${getSNRColor(spot.snr)}; margin-bottom: 6px;">
-            ${isBestPath ? '⭐ Best DX Path' : '📡 WSPR Spot'}
+        <div style="font-family: 'JetBrains Mono', monospace; min-width: 240px;">
+          <div style="font-size: 13px; font-weight: bold; color: ${getSNRColor(spot.snr)}; margin-bottom: 8px; text-align: center;">
+            ${spot.sender} ⇢ ${spot.receiver}
           </div>
-          <table style="font-size: 11px; width: 100%;">
-            <tr><td><b>TX:</b></td><td>${spot.sender} (${spot.senderGrid})</td></tr>
-            <tr><td><b>RX:</b></td><td>${spot.receiver} (${spot.receiverGrid})</td></tr>
-            <tr><td><b>Freq:</b></td><td>${spot.freqMHz} MHz (${spot.band})</td></tr>
-            <tr><td><b>SNR:</b></td><td style="color: ${getSNRColor(spot.snr)}; font-weight: bold;">${snrStr}</td></tr>
-            <tr><td><b>Time:</b></td><td>${ageStr}</td></tr>
+          ${spot.isAggregated ? `
+          <div style="font-size: 11px; text-align: center; margin-bottom: 8px; color: #00ccff;">
+            ${spot.pathCount || 1} propagation paths
+          </div>
+          <table style="font-size: 11px; width: 100%; line-height: 1.6;">
+            <tr><td style="opacity: 0.7;">Band:</td><td><b>${spot.band || 'Multi'}</b></td></tr>
+            <tr><td style="opacity: 0.7;">Avg SNR:</td><td style="color: ${getSNRColor(spot.snr)}; font-weight: bold;">${spot.snr !== null ? spot.snr + ' dB' : 'N/A'}</td></tr>
+            <tr><td style="opacity: 0.7;">Path Count:</td><td><b>${spot.pathCount || 1}</b></td></tr>
           </table>
+          ` : `
+          <div style="font-size: 10px; opacity: 0.7; text-align: center; margin-bottom: 8px;">
+            ${ageStr}
+          </div>
+          <table style="font-size: 11px; width: 100%; line-height: 1.6;">
+            <tr><td style="opacity: 0.7;">Freq:</td><td><b>${spot.freqMHz} MHz</b></td></tr>
+            <tr><td style="opacity: 0.7;">Power:</td><td><b>${powerStr}</b> ${powerDbmStr}</td></tr>
+            <tr><td style="opacity: 0.7;">SNR:</td><td style="color: ${getSNRColor(spot.snr)}; font-weight: bold;">${snrStr}</td></tr>
+            ${spotQStr ? `<tr><td style="opacity: 0.7;">Quality:</td><td><b>${spotQStr} Q</b></td></tr>` : ''}
+            <tr><td colspan="2" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);"></td></tr>
+            <tr><td style="opacity: 0.7;">Distance:</td><td><b>${distanceStr}</b></td></tr>
+            <tr><td style="opacity: 0.7;">Efficiency:</td><td><b>${kPerWStr}</b></td></tr>
+            <tr><td colspan="2" style="padding-top: 6px; border-top: 1px solid rgba(255,255,255,0.1);"></td></tr>
+            <tr><td style="opacity: 0.7;">Az TX:</td><td><b>${txAzStr}</b></td></tr>
+            <tr><td style="opacity: 0.7;">Az RX:</td><td><b>${rxAzStr}</b></td></tr>
+          </table>
+          `}
         </div>
       `);
 
       path.addTo(map);
       newPaths.push(path);
 
-      // Add markers
+      // Add markers with detailed tooltips
       const txKey = `${spot.sender}-${spot.senderGrid}`;
       if (!txStations.has(txKey)) {
         txStations.add(txKey);
         const txMarker = L.circleMarker([sLat, sLon], {
-          radius: 4,
+          radius: 5,
           fillColor: '#ff6600',
           color: '#ffffff',
-          weight: 1,
-          fillOpacity: pathOpacity * 0.8,
+          weight: 1.5,
+          fillOpacity: pathOpacity * 0.9,
           opacity: pathOpacity
         });
-        txMarker.bindTooltip(`TX: ${spot.sender}`, { permanent: false, direction: 'top' });
+        // Build detailed tooltip for TX
+        let txDetails = `
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; min-width: 220px;">
+            <div style="font-weight: bold; color: #ff6600; margin-bottom: 6px; font-size: 12px;">📡 TX Station</div>
+            <div style="margin-bottom: 6px;"><b style="font-size: 13px;">${spot.sender}</b> ⇢ <b style="font-size: 13px;">${spot.receiver}</b></div>
+            <div style="opacity: 0.7; margin-bottom: 8px;">Grid: ${spot.senderGrid}</div>
+        `;
+        
+        // Add frequency and band
+        if (spot.freqMHz) {
+          txDetails += `<div><b>${spot.freqMHz} MHz</b> (${spot.band || 'Unknown'})</div>`;
+        }
+        
+        // Add power if available
+        if (spot.power !== null && spot.power !== undefined) {
+          const powerDbm = spot.powerDbm !== null ? ` (${spot.powerDbm.toFixed(1)} dBm)` : '';
+          txDetails += `<div>Power: <b>${spot.power} W</b>${powerDbm}</div>`;
+        }
+        
+        // Add SNR
+        if (spot.snr !== null && spot.snr !== undefined) {
+          const snrColor = spot.snr > 0 ? '#00cc00' : spot.snr > -10 ? '#ffaa00' : '#ff6600';
+          txDetails += `<div>SNR: <b style="color: ${snrColor};">${spot.snr} dB</b></div>`;
+        }
+        
+        // Add distance and efficiency
+        if (spot.distance) {
+          txDetails += `<div>Distance: <b>${fmtDist(spot.distance)}</b></div>`;
+          if (spot.kPerW) {
+            txDetails += `<div>Efficiency: <b>${fmtDist(spot.kPerW)}/W</b></div>`;
+          }
+        }
+        
+        // Add azimuth
+        if (spot.senderAz !== null) {
+          txDetails += `<div>Azimuth: <b>${spot.senderAz}°</b></div>`;
+        }
+        
+        // Add drift if available
+        if (spot.drift !== null && spot.drift !== undefined) {
+          txDetails += `<div>Drift: ${spot.drift} Hz</div>`;
+        }
+        
+        // Add timestamp
+        if (spot.timestamp) {
+          const date = new Date(spot.timestamp);
+          const timeStr = date.toLocaleString();
+          txDetails += `<div style="margin-top: 6px; font-size: 10px; opacity: 0.6;">${timeStr}</div>`;
+        }
+        
+        txDetails += `</div>`;
+        txMarker.bindPopup(txDetails);
         txMarker.addTo(map);
         newMarkers.push(txMarker);
       }
@@ -852,14 +1190,65 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
       if (!rxStations.has(rxKey)) {
         rxStations.add(rxKey);
         const rxMarker = L.circleMarker([rLat, rLon], {
-          radius: 4,
+          radius: 5,
           fillColor: '#0088ff',
           color: '#ffffff',
-          weight: 1,
-          fillOpacity: pathOpacity * 0.8,
+          weight: 1.5,
+          fillOpacity: pathOpacity * 0.9,
           opacity: pathOpacity
         });
-        rxMarker.bindTooltip(`RX: ${spot.receiver}`, { permanent: false, direction: 'top' });
+        // Build detailed tooltip for RX
+        let rxDetails = `
+          <div style="font-family: 'JetBrains Mono', monospace; font-size: 11px; min-width: 220px;">
+            <div style="font-weight: bold; color: #0088ff; margin-bottom: 6px; font-size: 12px;">📻 RX Station</div>
+            <div style="margin-bottom: 6px;"><b style="font-size: 13px;">${spot.sender}</b> ⇢ <b style="font-size: 13px;">${spot.receiver}</b></div>
+            <div style="opacity: 0.7; margin-bottom: 8px;">Grid: ${spot.receiverGrid}</div>
+        `;
+        
+        // Add frequency and band
+        if (spot.freqMHz) {
+          rxDetails += `<div><b>${spot.freqMHz} MHz</b> (${spot.band || 'Unknown'})</div>`;
+        }
+        
+        // Add power if available
+        if (spot.power !== null && spot.power !== undefined) {
+          const powerDbm = spot.powerDbm !== null ? ` (${spot.powerDbm.toFixed(1)} dBm)` : '';
+          rxDetails += `<div>Power: <b>${spot.power} W</b>${powerDbm}</div>`;
+        }
+        
+        // Add SNR
+        if (spot.snr !== null && spot.snr !== undefined) {
+          const snrColor = spot.snr > 0 ? '#00cc00' : spot.snr > -10 ? '#ffaa00' : '#ff6600';
+          rxDetails += `<div>SNR: <b style="color: ${snrColor};">${spot.snr} dB</b></div>`;
+        }
+        
+        // Add distance and efficiency
+        if (spot.distance) {
+          rxDetails += `<div>Distance: <b>${fmtDist(spot.distance)}</b></div>`;
+          if (spot.kPerW) {
+            rxDetails += `<div>Efficiency: <b>${fmtDist(spot.kPerW)}/W</b></div>`;
+          }
+        }
+        
+        // Add azimuth
+        if (spot.receiverAz !== null) {
+          rxDetails += `<div>Azimuth: <b>${spot.receiverAz}°</b></div>`;
+        }
+        
+        // Add drift if available
+        if (spot.drift !== null && spot.drift !== undefined) {
+          rxDetails += `<div>Drift: ${spot.drift} Hz</div>`;
+        }
+        
+        // Add timestamp
+        if (spot.timestamp) {
+          const date = new Date(spot.timestamp);
+          const timeStr = date.toLocaleString();
+          rxDetails += `<div style="margin-top: 6px; font-size: 10px; opacity: 0.6;">${timeStr}</div>`;
+        }
+        
+        rxDetails += `</div>`;
+        rxMarker.bindPopup(rxDetails);
         rxMarker.addTo(map);
         newMarkers.push(rxMarker);
       }
@@ -878,14 +1267,14 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
       const statsContainer = document.querySelector('.wspr-stats');
       if (statsContainer && enabled) {
         const contentHTML = `
-          <div style="margin-bottom: 8px; padding: 6px; background: rgba(255,255,255,0.1); border-radius: 3px;">
+          <div style="margin-bottom: 8px; padding: 6px; background: var(--bg-tertiary); border-radius: 3px;">
             <div style="font-size: 10px; opacity: 0.8; margin-bottom: 2px;">Propagation Score</div>
             <div style="font-size: 18px; font-weight: bold; color: ${scoreColor};">${propScore}/100</div>
           </div>
-          <div>Paths: <span style="color: #00aaff;">${newPaths.length}</span></div>
-          <div>TX Stations: <span style="color: #ff6600;">${txStations.size}</span></div>
-          <div>RX Stations: <span style="color: #0088ff;">${rxStations.size}</span></div>
-          <div>Total: <span style="color: #00ff00;">${totalStations}</span></div>
+          <div>Paths: <span style="color: var(--accent-cyan);">${newPaths.length}</span></div>
+          <div>TX Stations: <span style="color: var(--accent-amber);">${txStations.size}</span></div>
+          <div>RX Stations: <span style="color: var(--accent-blue);">${rxStations.size}</span></div>
+          <div>Total: <span style="color: var(--accent-green);">${totalStations}</span></div>
           <div style="margin-top: 6px; font-size: 10px; opacity: 0.7;">Last ${timeWindow} min</div>
         `;
         
@@ -926,10 +1315,10 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
               <div style="margin-bottom: 4px;">
                 <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
                   <span>${band}</span>
-                  <span style="color: #00aaff;">${count}</span>
+                  <span style="color: var(--accent-cyan);">${count}</span>
                 </div>
-                <div style="background: #333; height: 6px; border-radius: 3px; overflow: hidden;">
-                  <div style="background: linear-gradient(90deg, #ff6600, #00aaff); height: 100%; width: ${barWidth}%;"></div>
+                <div style="background: var(--bg-tertiary); height: 6px; border-radius: 3px; overflow: hidden;">
+                  <div style="background: linear-gradient(90deg, var(--accent-amber), var(--accent-cyan)); height: 100%; width: ${barWidth}%;"></div>
                 </div>
               </div>
             `;
@@ -960,7 +1349,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
         try { map.removeLayer(layer); } catch (e) {}
       });
     };
-  }, [enabled, wsprData, map, pathOpacity, snrThreshold, showAnimation, timeWindow]);
+  }, [enabled, wsprData, map, pathOpacity, snrThreshold, showAnimation, timeWindow, filterByGrid, gridFilter]);
 
   // Render heatmap overlay (v1.4.0)
   useEffect(() => {
@@ -982,29 +1371,96 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
     const heatPoints = [];
     const stationCounts = {};
     
-    // Filter by SNR threshold
-    const filteredData = wsprData.filter(spot => (spot.snr || -30) >= snrThreshold);
-    
-    filteredData.forEach(spot => {
-      if (!spot.senderLat || !spot.senderLon || !spot.receiverLat || !spot.receiverLon) return;
+    // Filter by SNR threshold and grid square OR callsign
+    let filteredData = wsprData.filter(spot => {
+      // SNR filter
+      if ((spot.snr || -30) < snrThreshold) return false;
       
-      const sLat = parseFloat(spot.senderLat);
-      const sLon = parseFloat(spot.senderLon);
-      const rLat = parseFloat(spot.receiverLat);
-      const rLon = parseFloat(spot.receiverLon);
+      // Grid square filter (if enabled AND grid is set) - show spots in/around that grid
+      if (filterByGrid && gridFilter && gridFilter.length >= 2) {
+        const gridUpper = gridFilter.toUpperCase();
+        const senderGrid = spot.senderGrid ? spot.senderGrid.toUpperCase() : '';
+        const receiverGrid = spot.receiverGrid ? spot.receiverGrid.toUpperCase() : '';
+        
+        // Match prefix: FN matches FN03, FN02, FN21, etc.
+        const senderMatch = senderGrid.startsWith(gridUpper);
+        const receiverMatch = receiverGrid.startsWith(gridUpper);
+        
+        // Show if either TX or RX matches the grid prefix
+        return senderMatch || receiverMatch;
+      }
       
-      if (!isFinite(sLat) || !isFinite(sLon) || !isFinite(rLat) || !isFinite(rLon)) return;
+      // If grid filter is ON but no grid set, show ALL spots (don't filter)
+      if (filterByGrid && (!gridFilter || gridFilter.length < 2)) {
+        return true;
+      }
       
-      // Count activity at each location
-      const txKey = `${sLat.toFixed(1)},${sLon.toFixed(1)}`;
-      const rxKey = `${rLat.toFixed(1)},${rLon.toFixed(1)}`;
+      // If grid filter is OFF, filter by callsign (TX/RX involving your station)
+      if (!filterByGrid && callsign && callsign !== 'N0CALL') {
+        const baseCallsign = callsign.split(/[\/\-]/)[0].toUpperCase();
+        const senderBase = (spot.sender || '').split(/[\/\-]/)[0].toUpperCase();
+        const receiverBase = (spot.receiver || '').split(/[\/\-]/)[0].toUpperCase();
+        
+        // Show only if your callsign is TX or RX
+        return senderBase === baseCallsign || receiverBase === baseCallsign;
+      }
       
-      stationCounts[txKey] = (stationCounts[txKey] || 0) + 1;
-      stationCounts[rxKey] = (stationCounts[rxKey] || 0) + 1;
-      
-      heatPoints.push({ lat: sLat, lon: sLon, key: txKey });
-      heatPoints.push({ lat: rLat, lon: rLon, key: rxKey });
+      // If no callsign and no grid filter, show all
+      return true;
     });
+    
+    console.log(`[WSPR Heatmap] Filtering: filterByGrid=${filterByGrid}, gridFilter="${gridFilter}", input=${wsprData.length}, output=${filteredData.length}`);
+    
+    // For aggregated data, grids already have activity counts
+    const hasAggregatedData = filteredData.some(spot => spot.isAggregated && spot.totalActivity);
+    
+    if (hasAggregatedData) {
+      // Use pre-aggregated grid data
+      filteredData.forEach(spot => {
+        // Only process grid spots (not paths)
+        if (!spot.isPath && spot.senderLat && spot.senderLon && spot.totalActivity) {
+          const sLat = parseFloat(spot.senderLat);
+          const sLon = parseFloat(spot.senderLon);
+          
+          if (!isFinite(sLat) || !isFinite(sLon)) return;
+          
+          const key = spot.senderGrid || `${sLat.toFixed(1)},${sLon.toFixed(1)}`;
+          stationCounts[key] = spot.totalActivity;
+          heatPoints.push({ 
+            lat: sLat, 
+            lon: sLon, 
+            key: key, 
+            grid: spot.senderGrid,
+            stationCount: spot.stationCount,
+            txCount: spot.txCount,
+            rxCount: spot.rxCount
+          });
+        }
+      });
+      console.log(`[WSPR Heatmap] Using aggregated data: ${heatPoints.length} grid squares`);
+    } else {
+      // Legacy: count activity from individual spots
+      filteredData.forEach(spot => {
+        if (!spot.senderLat || !spot.senderLon || !spot.receiverLat || !spot.receiverLon) return;
+        
+        const sLat = parseFloat(spot.senderLat);
+        const sLon = parseFloat(spot.senderLon);
+        const rLat = parseFloat(spot.receiverLat);
+        const rLon = parseFloat(spot.receiverLon);
+        
+        if (!isFinite(sLat) || !isFinite(sLon) || !isFinite(rLat) || !isFinite(rLon)) return;
+        
+        // Count activity at each location
+        const txKey = `${sLat.toFixed(1)},${sLon.toFixed(1)}`;
+        const rxKey = `${rLat.toFixed(1)},${rLon.toFixed(1)}`;
+        
+        stationCounts[txKey] = (stationCounts[txKey] || 0) + 1;
+        stationCounts[rxKey] = (stationCounts[rxKey] || 0) + 1;
+        
+        heatPoints.push({ lat: sLat, lon: sLon, key: txKey });
+        heatPoints.push({ lat: rLat, lon: rLon, key: rxKey });
+      });
+    }
     
     // Create gradient circles for heatmap
     const heatCircles = [];
@@ -1012,14 +1468,20 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
     
     heatPoints.forEach(point => {
       if (!uniquePoints[point.key]) {
-        uniquePoints[point.key] = { lat: point.lat, lon: point.lon, count: stationCounts[point.key] };
+        uniquePoints[point.key] = { 
+          lat: point.lat, 
+          lon: point.lon, 
+          count: stationCounts[point.key],
+          grid: point.grid,
+          stationCount: point.stationCount,
+          txCount: point.txCount,
+          rxCount: point.rxCount
+        };
       }
     });
     
     Object.values(uniquePoints).forEach(point => {
       const intensity = Math.min(point.count / 10, 1); // Normalize to 0-1
-      const radius = 20 + (intensity * 30); // 20-50 pixels
-      const fillOpacity = 0.3 + (intensity * 0.4); // 0.3-0.7
       
       // Color based on activity level
       let color;
@@ -1028,26 +1490,53 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
       else if (intensity > 0.3) color = '#ffaa00'; // Yellow - warm
       else color = '#00aaff'; // Blue - cool
       
-      const circle = L.circle([point.lat, point.lon], {
-        radius: radius * 50000, // Convert to meters for Leaflet
-        fillColor: color,
-        fillOpacity: fillOpacity * heatmapOpacity,
-        color: color,
-        weight: 0,
-        opacity: 0
-      });
+      // Create focused heatmap spots (tighter, station-specific)
+      const baseRadius = 8 + (intensity * 15); // 8-23 pixels (even bigger!)
+      const numLayers = 4; // More layers for intense glow
       
-      circle.bindPopup(`
-        <div style="font-family: 'JetBrains Mono', monospace;">
-          <b>🔥 Activity Hot Spot</b><br>
-          Stations: ${point.count}<br>
-          Lat: ${point.lat.toFixed(2)}<br>
-          Lon: ${point.lon.toFixed(2)}
-        </div>
-      `);
-      
-      circle.addTo(map);
-      heatCircles.push(circle);
+      for (let i = 0; i < numLayers; i++) {
+        const layerRadius = baseRadius * (1.6 - i * 0.25); // Even bigger glow
+        // VERY HIGH base opacity: 0.75-1.0 range, less penalty per layer
+        const layerOpacity = (0.75 + intensity * 0.25) * (1 - i * 0.15) * heatmapOpacity;
+        
+        // Small offset for glow effect
+        const offsetLat = point.lat + (Math.random() - 0.5) * 0.01;
+        const offsetLon = point.lon + (Math.random() - 0.5) * 0.01;
+        
+        const circle = L.circle([offsetLat, offsetLon], {
+          radius: layerRadius * 6000, // Much bigger for high visibility!
+          fillColor: color,
+          fillOpacity: layerOpacity,
+          color: color,
+          weight: 0,
+          opacity: 0,
+          className: 'wspr-heatmap-cloud' // For CSS blur
+        });
+        
+        // Only add popup to the first (largest) circle
+        if (i === 0) {
+          const popupContent = point.grid ? `
+            <div style="font-family: 'JetBrains Mono', monospace;">
+              <b>🔥 Grid: ${point.grid}</b><br>
+              Total Activity: ${point.count}<br>
+              ${point.stationCount ? `Stations: ${point.stationCount}<br>` : ''}
+              ${point.txCount ? `TX: ${point.txCount} | RX: ${point.rxCount || 0}<br>` : ''}
+              Lat: ${point.lat.toFixed(2)} | Lon: ${point.lon.toFixed(2)}
+            </div>
+          ` : `
+            <div style="font-family: 'JetBrains Mono', monospace;">
+              <b>🔥 Activity Hot Spot</b><br>
+              Stations: ${point.count}<br>
+              Lat: ${point.lat.toFixed(2)}<br>
+              Lon: ${point.lon.toFixed(2)}
+            </div>
+          `;
+          circle.bindPopup(popupContent);
+        }
+        
+        circle.addTo(map);
+        heatCircles.push(circle);
+      }
     });
     
     // Store as layer group
@@ -1063,7 +1552,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
         } catch (e) {}
       });
     };
-  }, [enabled, showHeatmap, wsprData, map, heatmapOpacity, snrThreshold, heatmapLayer]);
+  }, [enabled, showHeatmap, wsprData, map, heatmapOpacity, snrThreshold, callsign, filterByGrid, gridFilter]);
 
   // Cleanup controls on disable - FIX: properly remove all controls and layers
   useEffect(() => {

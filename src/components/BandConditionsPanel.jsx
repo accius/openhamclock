@@ -2,9 +2,10 @@
  * BandConditionsPanel Component
  * Displays HF band conditions (GOOD/FAIR/POOR)
  */
-import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 export const BandConditionsPanel = ({ data, loading }) => {
+  const { t } = useTranslation();
   const getConditionStyle = (condition) => {
     switch (condition) {
       case 'GOOD':
@@ -20,7 +21,7 @@ export const BandConditionsPanel = ({ data, loading }) => {
 
   return (
     <div className="panel" style={{ padding: '12px' }}>
-      <div className="panel-header">⌇ BAND CONDITIONS</div>
+      <div className="panel-header">{t('band.conditions')}</div>
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
           <div className="loading-spinner" />
@@ -58,7 +59,7 @@ export const BandConditionsPanel = ({ data, loading }) => {
                   color: style.color,
                   marginTop: '2px'
                 }}>
-                  {condition}
+                  {t(`band.conditions.${condition.toLowerCase()}`)}
                 </div>
               </div>
             );

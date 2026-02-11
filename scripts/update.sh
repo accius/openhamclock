@@ -44,18 +44,61 @@ if [ ! -d ".git" ]; then
     exit 1
 fi
 
+# Prevent file permission changes from being detected as modifications
+# (e.g. chmod +x on scripts, different umask on Pi vs desktop)
+git config core.fileMode false 2>/dev/null
+
 echo "📋 Current version:"
 grep '"version"' package.json | head -1
 
 echo ""
 echo "🔍 Checking for updates..."
 
-# Fetch latest changes
-git fetch origin
+# Ensure remote URL is correct (fixes broken clones or renamed repos)
+EXPECTED_URL="https://github.com/accius/openhamclock.git"
+CURRENT_URL=$(git remote get-url origin 2>/dev/null || echo "")
+if [ -z "$CURRENT_URL" ]; then
+    echo "   ⚠️  No origin remote — adding it..."
+    git remote add origin "$EXPECTED_URL"
+elif [ "$CURRENT_URL" != "$EXPECTED_URL" ] && [ "$CURRENT_URL" != "https://github.com/accius/openhamclock" ]; then
+    echo "   ⚠️  Fixing remote URL: $CURRENT_URL → $EXPECTED_URL"
+    git remote set-url origin "$EXPECTED_URL"
+fi
+
+# Fetch latest changes (--prune removes stale remote refs)
+git fetch origin --prune 2>&1 || {
+    echo "❌ Error: git fetch failed. Check your internet connection."
+    exit 1
+}
+
+# Detect the default branch (main or master)
+if git rev-parse --verify origin/main >/dev/null 2>&1; then
+    BRANCH="main"
+elif git rev-parse --verify origin/master >/dev/null 2>&1; then
+    BRANCH="master"
+else
+    echo "❌ Error: Could not find origin/main or origin/master"
+    echo "   Remote URL: $(git remote get-url origin 2>/dev/null || echo 'not set')"
+    echo "   Try: git remote set-url origin $EXPECTED_URL"
+    exit 1
+fi
+
+# Ensure we're on the correct local branch (not detached HEAD)
+CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
+if [ -z "$CURRENT_BRANCH" ]; then
+    echo "   ⚠️  Detached HEAD detected — checking out $BRANCH..."
+    git checkout -B "$BRANCH" "origin/$BRANCH" 2>/dev/null || git checkout "$BRANCH" 2>/dev/null || true
+elif [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
+    echo "   ⚠️  On branch '$CURRENT_BRANCH', switching to '$BRANCH'..."
+    git checkout "$BRANCH" 2>/dev/null || true
+fi
+
+# Set upstream tracking if not configured
+git branch --set-upstream-to="origin/$BRANCH" "$BRANCH" 2>/dev/null || true
 
 # Check if there are updates
 LOCAL=$(git rev-parse HEAD)
-REMOTE=$(git rev-parse origin/main 2>/dev/null || git rev-parse origin/master)
+REMOTE=$(git rev-parse origin/$BRANCH)
 
 if [ "$LOCAL" = "$REMOTE" ]; then
     echo "✅ Already up to date!"
@@ -67,7 +110,7 @@ echo ""
 
 # Show what's new
 echo "📝 Changes since your version:"
-git log --oneline HEAD..origin/main 2>/dev/null || git log --oneline HEAD..origin/master
+git log --oneline HEAD..origin/$BRANCH
 echo ""
 
 # Confirm update
@@ -99,14 +142,30 @@ fi
 
 echo ""
 echo "⬇️  Pulling latest changes..."
-git pull origin main 2>/dev/null || git pull origin master
+
+# Stash any local changes (permission changes, build artifacts, etc.)
+if [ -n "$(git status --porcelain)" ]; then
+    echo "   Stashing local changes..."
+    git stash --include-untracked 2>/dev/null || git checkout . 2>/dev/null
+fi
+
+# Pull latest (with fallback to hard reset if pull fails)
+if ! git pull origin $BRANCH 2>&1; then
+    echo "   ⚠️  git pull failed — falling back to hard reset..."
+    git fetch origin --prune 2>/dev/null
+    git reset --hard "origin/$BRANCH"
+fi
 
 echo ""
 echo "📦 Installing dependencies..."
-npm install
+# --include=dev ensures vite/vitest are installed even if NODE_ENV=production
+npm install --include=dev
 
 echo ""
 echo "🔨 Building frontend..."
+# Remove old dist/ to prevent stale hashed JS chunks from being served
+# (browsers may cache old chunks, causing blank screens after update)
+rm -rf dist/
 npm run build
 
 echo ""
@@ -122,6 +181,33 @@ fi
 if [ -f "config.json.backup" ] && [ ! -f "config.json" ]; then
     cp config.json.backup config.json
     echo "   ✓ config.json restored from backup"
+fi
+
+# Patch kiosk.sh if present — fix --incognito flag that wipes localStorage on reboot
+if [ -f "kiosk.sh" ]; then
+    if grep -q "\-\-incognito" kiosk.sh; then
+        echo ""
+        echo "🔧 Patching kiosk.sh..."
+        # Remove --incognito line and add --user-data-dir for persistent localStorage
+        sed -i '/--incognito/d' kiosk.sh
+        # Add user-data-dir if not already present
+        if ! grep -q "user-data-dir" kiosk.sh; then
+            sed -i 's|--disable-pinch \\|--disable-pinch \\\n    --user-data-dir=$HOME/.config/openhamclock-kiosk \\|' kiosk.sh
+        fi
+        # Add crash lock cleanup if not present
+        if ! grep -q "exited_cleanly" kiosk.sh; then
+            sed -i '/# Trap Ctrl+Q/i \
+# Clean up any crash lock files from unclean shutdown\
+KIOSK_PROFILE="$HOME/.config/openhamclock-kiosk"\
+mkdir -p "$KIOSK_PROFILE"\
+sed -i '"'"'s/"exited_cleanly":false/"exited_cleanly":true/'"'"' "$KIOSK_PROFILE/Default/Preferences" 2>/dev/null || true\
+sed -i '"'"'s/"exit_type":"Crashed"/"exit_type":"Normal"/'"'"' "$KIOSK_PROFILE/Default/Preferences" 2>/dev/null || true\
+' kiosk.sh
+        fi
+        echo "   ✓ Removed --incognito flag (was preventing settings from saving)"
+        echo "   ✓ Added dedicated profile directory for persistent localStorage"
+        echo "   ⚠️  Reboot your Pi for this fix to take effect"
+    fi
 fi
 
 echo ""

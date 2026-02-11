@@ -1007,3 +1007,15 @@ body::before {
     border-radius: 2px;
   }
 }
+
+/* ============================================
+   WSPR HEATMAP CLOUD EFFECT
+   ============================================ */
+.wspr-heatmap-cloud {
+  filter: blur(25px);
+  transition: opacity 0.3s ease;
+}
+
+.wspr-heatmap-cloud:hover {
+  filter: blur(15px);
+}

@@ -36,13 +36,15 @@ export const DEFAULT_LAYOUT = {
               { type: 'tab', name: 'DX Target', component: 'dx-location', id: 'dx-location-tab' }
             ]
           },
-          {
+         {
             type: 'tabset',
             weight: 50,
             id: 'left-bottom-tabset',
             children: [
               { type: 'tab', name: 'Solar', component: 'solar', id: 'solar-tab' },
-              { type: 'tab', name: 'Propagation', component: 'propagation', id: 'propagation-tab' }
+              { type: 'tab', name: 'Propagation', component: 'propagation', id: 'propagation-tab' },
+              { type: 'tab', name: 'Ambient', component: 'ambient', id: 'ambient-tab' },
+              { type: 'tab', name: 'Band Health', component: 'band-health', id: 'band-health-tab' }
             ]
           }
         ]
@@ -75,6 +77,7 @@ export const DEFAULT_LAYOUT = {
             children: [
               { type: 'tab', name: 'DXpeditions', component: 'dxpeditions', id: 'dxpeditions-tab' },
               { type: 'tab', name: 'POTA', component: 'pota', id: 'pota-tab' },
+              { type: 'tab', name: 'SOTA', component: 'sota', id: 'sota-tab' },
               { type: 'tab', name: 'Contests', component: 'contests', id: 'contests-tab' }
             ]
           }
@@ -90,11 +93,15 @@ export const PANEL_DEFINITIONS = {
   'dx-location': { name: 'DX Target', icon: '🎯', description: 'Target location for DXing' },
   'solar': { name: 'Solar', icon: '☀️', description: 'Sunspot numbers and solar flux' },
   'propagation': { name: 'Propagation', icon: '📡', description: 'Band conditions and forecasts' },
+  'ambient': { name: 'Ambient Weather', icon: '🌦️', description: 'AmbientWeather.net station data' },
+  'band-health': { name: 'HF Band Health', icon: '📶', description: 'Observed band usability from DX cluster spots' },
   'dx-cluster': { name: 'DX Cluster', icon: '📻', description: 'Live DX spots from cluster' },
   'psk-reporter': { name: 'PSK Reporter', icon: '📡', description: 'Digital mode spots and WSJT-X' },
   'dxpeditions': { name: 'DXpeditions', icon: '🏝️', description: 'Upcoming DXpeditions' },
   'pota': { name: 'POTA', icon: '🏕️', description: 'Parks on the Air activators' },
+  'sota': { name: 'SOTA', icon: '⛰️', description: 'Summits on the Air activators' },
   'contests': { name: 'Contests', icon: '🏆', description: 'Upcoming and active contests' },
+  'id-timer': { name: 'ID Timer', icon: '📢', description: '10-minute station identification reminder' },
   'world-map': { name: 'World Map', icon: '🗺️', description: 'Interactive world map' },
 };
 
@@ -119,6 +126,8 @@ export const loadLayout = () => {
 export const saveLayout = (layout) => {
   try {
     localStorage.setItem('openhamclock_dockLayout', JSON.stringify(layout));
+    // Lazy import to avoid circular dependency
+    import('../utils/config.js').then(m => m.syncAllSettingsToServer());
   } catch (e) {
     console.error('Failed to save layout:', e);
   }

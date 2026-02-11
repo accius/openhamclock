@@ -2,11 +2,13 @@
  * ContestPanel Component
  * Displays upcoming and active contests with live indicators
  */
-import React from 'react';
+import { useTranslation } from 'react-i18next';
+
 
 export const ContestPanel = ({ data, loading }) => {
+  const { t } = useTranslation();
   const getModeColor = (mode) => {
-    switch(mode) {
+    switch (mode) {
       case 'CW': return 'var(--accent-cyan)';
       case 'SSB': return 'var(--accent-amber)';
       case 'RTTY': return 'var(--accent-purple)';
@@ -49,11 +51,11 @@ export const ContestPanel = ({ data, loading }) => {
   // Get time remaining or time until start
   const getTimeInfo = (contest) => {
     if (!contest.start || !contest.end) return formatDate(contest.start);
-    
+
     const now = new Date();
     const start = new Date(contest.start);
     const end = new Date(contest.end);
-    
+
     if (now >= start && now <= end) {
       // Contest is live - show time remaining
       const hoursLeft = Math.floor((end - now) / (1000 * 60 * 60));
@@ -79,12 +81,12 @@ export const ContestPanel = ({ data, loading }) => {
     const bLive = isContestLive(b);
     const aSoon = isStartingSoon(a);
     const bSoon = isStartingSoon(b);
-    
+
     if (aLive && !bLive) return -1;
     if (!aLive && bLive) return 1;
     if (aSoon && !bSoon) return -1;
     if (!aSoon && bSoon) return 1;
-    
+
     return new Date(a.start) - new Date(b.start);
   }) : [];
 
@@ -93,7 +95,7 @@ export const ContestPanel = ({ data, loading }) => {
 
   return (
     <div className="panel" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={{ 
+      <div style={{
         marginBottom: '6px',
         fontSize: '11px',
         display: 'flex',
@@ -102,22 +104,22 @@ export const ContestPanel = ({ data, loading }) => {
         color: 'var(--accent-primary)',
         fontWeight: '700'
       }}>
-        <span>⊛ CONTESTS</span>
+        <span>{t('contest.panel.title')}</span>
         {liveCount > 0 && (
-          <span style={{ 
-            background: 'rgba(239, 68, 68, 0.3)', 
-            color: '#ef4444', 
-            padding: '2px 6px', 
+          <span style={{
+            background: 'rgba(239, 68, 68, 0.3)',
+            color: '#ef4444',
+            padding: '2px 6px',
             borderRadius: '4px',
             fontSize: '9px',
             fontWeight: '700',
             border: '1px solid #ef4444'
           }}>
-            🔴 {liveCount} LIVE
+            <span>{t('contest.panel.live', { liveCount })}</span>
           </span>
         )}
       </div>
-      
+
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '10px' }}>
@@ -128,11 +130,11 @@ export const ContestPanel = ({ data, loading }) => {
             {sortedContests.slice(0, 4).map((contest, i) => {
               const live = isContestLive(contest);
               const soon = isStartingSoon(contest);
-              
+
               return (
-                <div 
+                <div
                   key={`${contest.name}-${i}`}
-                  style={{ 
+                  style={{
                     padding: '5px 6px',
                     marginBottom: '3px',
                     borderRadius: '4px',
@@ -140,14 +142,14 @@ export const ContestPanel = ({ data, loading }) => {
                     border: live ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid transparent'
                   }}
                 >
-                  <div style={{ 
+                  <div style={{
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px'
                   }}>
                     {live && (
-                      <span style={{ 
-                        color: '#ef4444', 
+                      <span style={{
+                        color: '#ef4444',
                         fontSize: '8px',
                         animation: 'pulse 1.5s infinite'
                       }}>●</span>
@@ -155,8 +157,8 @@ export const ContestPanel = ({ data, loading }) => {
                     {soon && !live && (
                       <span style={{ color: '#fbbf24', fontSize: '8px' }}>◐</span>
                     )}
-                    <span style={{ 
-                      color: live ? '#ef4444' : 'var(--text-primary)', 
+                    <span style={{
+                      color: live ? '#ef4444' : 'var(--text-primary)',
                       fontWeight: '600',
                       flex: 1,
                       whiteSpace: 'nowrap',
@@ -168,7 +170,7 @@ export const ContestPanel = ({ data, loading }) => {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '3px' }}>
                     <span style={{ color: getModeColor(contest.mode) }}>{contest.mode}</span>
-                    <span style={{ 
+                    <span style={{
                       color: live ? '#ef4444' : soon ? '#fbbf24' : 'var(--text-muted)',
                       fontWeight: live ? '600' : '400'
                     }}>
@@ -181,29 +183,29 @@ export const ContestPanel = ({ data, loading }) => {
           </div>
         ) : (
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '10px', fontSize: '11px' }}>
-            No upcoming contests
+            {t('contest.panel.no.contests')}
           </div>
         )}
       </div>
-      
+
       {/* Contest Calendar Credit */}
-      <div style={{ 
-        marginTop: '4px', 
-        paddingTop: '4px', 
+      <div style={{
+        marginTop: '4px',
+        paddingTop: '4px',
         borderTop: '1px solid var(--border-color)',
         textAlign: 'right'
       }}>
-        <a 
-          href="https://www.contestcalendar.com" 
-          target="_blank" 
+        <a
+          href="https://www.contestcalendar.com"
+          target="_blank"
           rel="noopener noreferrer"
-          style={{ 
-            fontSize: '9px', 
-            color: 'var(--text-muted)', 
+          style={{
+            fontSize: '9px',
+            color: 'var(--text-muted)',
             textDecoration: 'none'
           }}
         >
-          WA7BNM Contest Calendar
+          {t('contest.panel.calendar')}
         </a>
       </div>
     </div>

@@ -5,7 +5,16 @@
 import React, { useState } from 'react';
 
 const BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
-const MODES = ['FT8', 'FT4', 'JS8', 'WSPR', 'JT65', 'JT9', 'MSK144', 'Q65', 'FST4', 'FST4W'];
+const MODES = [
+  '-FT8', 'CONTESTI', 'CW', 'CWU', 'DFCW-90', 'DOMINO', 'ECHO', 'FREEDV', 
+  'FSK441', 'FSQ', 'FST4', 'FST4W', 'FST4W-90', 'FT4', 'FT8', 'HELL', 'HFDL', 
+  'JT', 'JT4', 'JT65', 'JT65B', 'JT9', 'JTMS', 'JS8', 'LZ3CB', 'MFSK16', 
+  'MFSK22', 'MFSK32', 'MSK144', 'NULL', 'OLIVIA', 'OLIVIA 1', 'OLIVIA 3', 
+  'OLIVIA 4', 'OLIVIA 8', 'OPERA', 'PI4', 'PKT', 'POCSAG', 'PSK', 'PSK31', 
+  'PSK32', 'PSK63', 'Q65', 'Q65-30A', 'Q65A', 'Q65B', 'Q65D', 'ROS', 'RTTY', 
+  'RTTY 45', 'SIM31', 'SIM63', 'SSB', 'SSTV', 'THOR-M', 'THOR11', 'THOR22', 
+  'THOR32', 'THRB', 'VARAC', 'WSPR'
+];
 
 // Common grid field prefixes by region
 const GRID_REGIONS = [
@@ -67,24 +76,26 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =
 
   const tabStyle = (active) => ({
     padding: '8px 16px',
-    background: active ? 'var(--bg-tertiary)' : 'transparent',
+    background: active ? 'var(--accent-amber)' : 'transparent',
     border: 'none',
-    borderBottom: active ? '2px solid var(--accent-cyan)' : '2px solid transparent',
-    color: active ? 'var(--accent-cyan)' : 'var(--text-muted)',
+    borderBottom: active ? '2px solid var(--accent-amber)' : '2px solid transparent',
+    color: active ? '#000' : 'var(--text-muted)',
     fontSize: '13px',
     cursor: 'pointer',
-    fontFamily: 'inherit'
+    fontFamily: 'inherit',
+    fontWeight: active ? '600' : '400'
   });
 
   const chipStyle = (selected) => ({
     padding: '6px 12px',
-    background: selected ? 'rgba(0, 221, 255, 0.2)' : 'var(--bg-tertiary)',
-    border: `1px solid ${selected ? 'var(--accent-cyan)' : 'var(--border-color)'}`,
+    background: selected ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+    border: `1px solid ${selected ? 'var(--accent-amber)' : 'var(--border-color)'}`,
     borderRadius: '4px',
-    color: selected ? 'var(--accent-cyan)' : 'var(--text-secondary)',
+    color: selected ? '#000' : 'var(--text-secondary)',
     fontSize: '12px',
     cursor: 'pointer',
-    fontFamily: 'JetBrains Mono, monospace'
+    fontFamily: 'JetBrains Mono, monospace',
+    fontWeight: selected ? '600' : '400'
   });
 
   const renderBandsTab = () => (

@@ -73,8 +73,11 @@ setup_repo() {
         cd "$INSTALL_DIR"
     fi
     
+    # Prevent file permission changes from blocking future updates
+    git config core.fileMode false 2>/dev/null
+    
     # Install dependencies
-    npm install
+    npm install --include=dev
     
     echo -e "${GREEN}✓ Installation complete${NC}"
 }

@@ -94,7 +94,7 @@ export const usePOTASpots = () => {
     };
     
     fetchPOTA();
-    const interval = setInterval(fetchPOTA, 60 * 1000); // 1 minute (was 2)
+    const interval = setInterval(fetchPOTA, 120 * 1000); // 2 minutes - reduced from 1 to save bandwidth
     return () => clearInterval(interval);
   }, []);
 

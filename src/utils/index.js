@@ -10,6 +10,9 @@ export {
   saveConfig,
   applyTheme,
   fetchServerConfig,
+  fetchServerSettings,
+  syncAllSettingsToServer,
+  installSettingsSyncInterceptor,
   isConfigIncomplete,
   MAP_STYLES
 } from './config.js';
@@ -24,7 +27,11 @@ export {
   getMoonPhase,
   getMoonPhaseEmoji,
   calculateSunTimes,
-  getGreatCirclePoints
+  getGreatCirclePoints,
+  replicatePath,
+  replicatePoint,
+  normalizeLon,
+  WORLD_COPY_OFFSETS
 } from './geo.js';
 
 // Callsign and band utilities
@@ -36,6 +43,6 @@ export {
   getBandColor,
   detectMode,
   PREFIX_MAP,
-  getCallsignInfo,
-  filterDXPaths
+  getCallsignInfo
 } from './callsign.js';
+export {filterDXPaths} from "./dxClusterFilters";

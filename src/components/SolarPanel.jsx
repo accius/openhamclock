@@ -31,16 +31,18 @@ const formatFlux = (flux) => {
   return `${cls.letter}${base.toFixed(1)}`;
 };
 
-export const SolarPanel = ({ solarIndices }) => {
-  const [mode, setMode] = useState(() => {
+export const SolarPanel = ({ solarIndices, forcedMode }) => {
+  const [internalMode, setMode] = useState(() => {
     try {
       const saved = localStorage.getItem('openhamclock_solarPanelMode');
       if (MODES.includes(saved)) return saved;
-      // Migrate old boolean format
       if (saved === 'indices') return 'indices';
       return 'image';
     } catch (e) { return 'image'; }
   });
+
+  // When forcedMode is set, lock to that mode (used by dockable sub-panels)
+  const mode = forcedMode && MODES.includes(forcedMode) ? forcedMode : internalMode;
   const [imageType, setImageType] = useState(() => {
     try { return localStorage.getItem('openhamclock_solarImageType') || '0193'; } catch { return '0193'; }
   });
@@ -443,6 +445,7 @@ export const SolarPanel = ({ solarIndices }) => {
               ))}
             </select>
           )}
+          {!forcedMode && (
           <button
             onClick={cycleMode}
             style={{
@@ -458,6 +461,7 @@ export const SolarPanel = ({ solarIndices }) => {
           >
             {MODE_ICONS[mode]}
           </button>
+          )}
         </div>
       </div>
       
@@ -473,24 +477,45 @@ export const SolarPanel = ({ solarIndices }) => {
                   <div style={{ fontSize: '22px', fontWeight: '700', color: '#ff8800', fontFamily: 'Orbitron, monospace' }}>
                     {solarIndices.data.sfi?.current || '--'}
                   </div>
+                  <div style={{ fontSize: '8px', color: 'var(--text-muted)', lineHeight: 1.2 }}>
+                    {(() => {
+                      const v = solarIndices.data.sfi?.current;
+                      if (!v) return '';
+                      if (v >= 150) return 'Excellent';
+                      if (v >= 120) return 'Good';
+                      if (v >= 90) return 'Fair';
+                      if (v >= 70) return 'Poor';
+                      return 'Very Poor';
+                    })()}
+                  </div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  {solarIndices.data.sfi?.history?.length > 0 && (
-                    <svg width="100%" height="30" viewBox="0 0 100 30" preserveAspectRatio="none">
-                      {(() => {
-                        const data = solarIndices.data.sfi.history.slice(-20);
-                        const values = data.map(d => d.value);
-                        const max = Math.max(...values, 1);
-                        const min = Math.min(...values);
-                        const range = max - min || 1;
-                        const points = data.map((d, i) => {
-                          const x = (i / (data.length - 1)) * 100;
-                          const y = 30 - ((d.value - min) / range) * 25;
-                          return `${x},${y}`;
-                        }).join(' ');
-                        return <polyline points={points} fill="none" stroke="#ff8800" strokeWidth="1.5" />;
-                      })()}
-                    </svg>
+                  {solarIndices.data.sfi?.history?.length > 0 ? (
+                    <div>
+                      <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '1px', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>10.7cm Solar Flux — 20-day trend</span>
+                        <span>{(() => { const h = solarIndices.data.sfi.history.slice(-20); const vals = h.map(d => d.value); return `${Math.min(...vals)}–${Math.max(...vals)}`; })()}</span>
+                      </div>
+                      <svg width="100%" height="30" viewBox="0 0 100 30" preserveAspectRatio="none">
+                        {(() => {
+                          const data = solarIndices.data.sfi.history.slice(-20);
+                          const values = data.map(d => d.value);
+                          const max = Math.max(...values, 1);
+                          const min = Math.min(...values);
+                          const range = max - min || 1;
+                          const points = data.map((d, i) => {
+                            const x = (i / (data.length - 1)) * 100;
+                            const y = 30 - ((d.value - min) / range) * 25;
+                            return `${x},${y}`;
+                          }).join(' ');
+                          return <polyline points={points} fill="none" stroke="#ff8800" strokeWidth="1.5" />;
+                        })()}
+                      </svg>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '9px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                      10.7cm radio flux from the sun.<br/>Higher = better HF propagation.<br/>70 poor · 120+ good · 150+ excellent
+                    </div>
                   )}
                 </div>
               </div>
@@ -502,40 +527,69 @@ export const SolarPanel = ({ solarIndices }) => {
                   <div style={{ fontSize: '22px', fontWeight: '700', color: getKpColor(kpData?.current), fontFamily: 'Orbitron, monospace' }}>
                     {kpData?.current ?? '--'}
                   </div>
+                  <div style={{ fontSize: '8px', color: 'var(--text-muted)', lineHeight: 1.2 }}>
+                    {(() => {
+                      const v = kpData?.current;
+                      if (v == null) return '';
+                      if (v >= 7) return 'Storm!';
+                      if (v >= 5) return 'Storm';
+                      if (v >= 4) return 'Unsettled';
+                      if (v >= 2) return 'Quiet';
+                      return 'Very Quiet';
+                    })()}
+                  </div>
                 </div>
                 <div style={{ flex: 1 }}>
                   {kpData?.forecast?.length > 0 ? (
-                    <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '30px' }}>
-                      {kpData.forecast.slice(0, 8).map((item, i) => {
-                        const val = typeof item === 'object' ? item.value : item;
-                        return (
-                          <div key={i} style={{
-                            flex: 1,
-                            height: `${Math.max(10, (val / 9) * 100)}%`,
-                            background: getKpColor(val),
-                            borderRadius: '2px',
-                            opacity: 0.8
-                          }} title={`Kp ${val}`} />
-                        );
-                      })}
+                    <div>
+                      <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                        Geomagnetic 3hr forecast — low is better for HF
+                      </div>
+                      <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '30px' }}>
+                        {kpData.forecast.slice(0, 8).map((item, i) => {
+                          const val = typeof item === 'object' ? item.value : item;
+                          return (
+                            <div key={i} style={{
+                              flex: 1,
+                              height: `${Math.max(10, (val / 9) * 100)}%`,
+                              background: getKpColor(val),
+                              borderRadius: '2px',
+                              opacity: 0.8
+                            }} title={`Kp ${val}`} />
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', fontSize: '7px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                        <span>Now</span><span style={{ marginLeft: 'auto' }}>+24h</span>
+                      </div>
                     </div>
                   ) : kpData?.history?.length > 0 ? (
-                    <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '30px' }}>
-                      {kpData.history.slice(-8).map((item, i) => {
-                        const val = typeof item === 'object' ? item.value : item;
-                        return (
-                          <div key={i} style={{
-                            flex: 1,
-                            height: `${Math.max(10, (val / 9) * 100)}%`,
-                            background: getKpColor(val),
-                            borderRadius: '2px',
-                            opacity: 0.8
-                          }} title={`Kp ${val}`} />
-                        );
-                      })}
+                    <div>
+                      <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '2px' }}>
+                        Geomagnetic activity — recent 3hr periods
+                      </div>
+                      <div style={{ display: 'flex', gap: '2px', alignItems: 'flex-end', height: '30px' }}>
+                        {kpData.history.slice(-8).map((item, i) => {
+                          const val = typeof item === 'object' ? item.value : item;
+                          return (
+                            <div key={i} style={{
+                              flex: 1,
+                              height: `${Math.max(10, (val / 9) * 100)}%`,
+                              background: getKpColor(val),
+                              borderRadius: '2px',
+                              opacity: 0.8
+                            }} title={`Kp ${val}`} />
+                          );
+                        })}
+                      </div>
+                      <div style={{ display: 'flex', fontSize: '7px', color: 'var(--text-muted)', marginTop: '1px' }}>
+                        <span>-24h</span><span style={{ marginLeft: 'auto' }}>Now</span>
+                      </div>
                     </div>
                   ) : (
-                    <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>No forecast data</div>
+                    <div style={{ fontSize: '9px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                      Geomagnetic disturbance (0–9).<br/>Low K = stable ionosphere, good HF.<br/>K≥5 = geomagnetic storm, HF disrupted.
+                    </div>
                   )}
                 </div>
               </div>
@@ -547,24 +601,45 @@ export const SolarPanel = ({ solarIndices }) => {
                   <div style={{ fontSize: '22px', fontWeight: '700', color: '#aa88ff', fontFamily: 'Orbitron, monospace' }}>
                     {solarIndices.data.ssn?.current || '--'}
                   </div>
+                  <div style={{ fontSize: '8px', color: 'var(--text-muted)', lineHeight: 1.2 }}>
+                    {(() => {
+                      const v = solarIndices.data.ssn?.current;
+                      if (!v) return '';
+                      if (v >= 150) return 'Very High';
+                      if (v >= 100) return 'High';
+                      if (v >= 50) return 'Moderate';
+                      if (v >= 20) return 'Low';
+                      return 'Very Low';
+                    })()}
+                  </div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  {solarIndices.data.ssn?.history?.length > 0 && (
-                    <svg width="100%" height="30" viewBox="0 0 100 30" preserveAspectRatio="none">
-                      {(() => {
-                        const data = solarIndices.data.ssn.history.slice(-20);
-                        const values = data.map(d => d.value);
-                        const max = Math.max(...values, 1);
-                        const min = Math.min(...values, 0);
-                        const range = max - min || 1;
-                        const points = data.map((d, i) => {
-                          const x = (i / (data.length - 1)) * 100;
-                          const y = 30 - ((d.value - min) / range) * 25;
-                          return `${x},${y}`;
-                        }).join(' ');
-                        return <polyline points={points} fill="none" stroke="#aa88ff" strokeWidth="1.5" />;
-                      })()}
-                    </svg>
+                  {solarIndices.data.ssn?.history?.length > 0 ? (
+                    <div>
+                      <div style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '1px', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Sunspot Number — 20-day trend</span>
+                        <span>{(() => { const h = solarIndices.data.ssn.history.slice(-20); const vals = h.map(d => d.value); return `${Math.min(...vals)}–${Math.max(...vals)}`; })()}</span>
+                      </div>
+                      <svg width="100%" height="30" viewBox="0 0 100 30" preserveAspectRatio="none">
+                        {(() => {
+                          const data = solarIndices.data.ssn.history.slice(-20);
+                          const values = data.map(d => d.value);
+                          const max = Math.max(...values, 1);
+                          const min = Math.min(...values, 0);
+                          const range = max - min || 1;
+                          const points = data.map((d, i) => {
+                            const x = (i / (data.length - 1)) * 100;
+                            const y = 30 - ((d.value - min) / range) * 25;
+                            return `${x},${y}`;
+                          }).join(' ');
+                          return <polyline points={points} fill="none" stroke="#aa88ff" strokeWidth="1.5" />;
+                        })()}
+                      </svg>
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: '9px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                      Daily sunspot count.<br/>More sunspots = more ionization = better HF.<br/>Tracks the 11-year solar cycle.
+                    </div>
                   )}
                 </div>
               </div>

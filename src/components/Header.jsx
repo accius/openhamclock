@@ -13,6 +13,7 @@ export const Header = ({
   localWeather,
   spaceWeather,
   solarIndices,
+  bandConditions,
   use12Hour,
   onTimeFormatToggle,
   onSettingsClick,
@@ -129,56 +130,81 @@ export const Header = ({
           <span style={{ color: 'var(--text-muted)' }}>SSN </span>
           <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{solarIndices?.data?.ssn?.current || spaceWeather?.data?.sunspotNumber || '--'}</span>
         </div>
+        {bandConditions?.extras?.aIndex && (
+          <div>
+            <span style={{ color: 'var(--text-muted)' }}>A </span>
+            <span style={{ color: parseInt(bandConditions.extras.aIndex) >= 20 ? 'var(--accent-red)' : parseInt(bandConditions.extras.aIndex) >= 10 ? 'var(--accent-amber)' : 'var(--accent-green)', fontWeight: '700' }}>
+              {bandConditions.extras.aIndex}
+            </span>
+          </div>
+        )}
+        {bandConditions?.extras?.geomagField && (
+          <div>
+            <span style={{ 
+              fontSize: '10px',
+              color: bandConditions.extras.geomagField === 'QUIET' ? 'var(--accent-green)' : 
+                     bandConditions.extras.geomagField === 'ACTIVE' || bandConditions.extras.geomagField.includes('STORM') ? 'var(--accent-red)' : 
+                     'var(--accent-amber)',
+              fontWeight: '600'
+            }}>
+              {bandConditions.extras.geomagField}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Settings & Fullscreen Buttons */}
       <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-        <a
-          href="https://buymeacoffee.com/k0cjh"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            background: 'linear-gradient(135deg, #ff813f 0%, #ffdd00 100%)',
-            border: 'none',
-            padding: '6px 10px',
-            borderRadius: '4px',
-            color: '#000',
-            fontSize: '12px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            textDecoration: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '3px',
-            whiteSpace: 'nowrap'
-          }}
-          title="Buy me a coffee!"
-        >
-          ☕ Donate
-        </a>
-        <a
-          href="https://www.paypal.com/donate/?hosted_button_id=MMYPQBLA6SW68"
-          target="_blank"
-          rel="noopener noreferrer"
-          style={{
-            background: 'linear-gradient(135deg, #0070ba 0%, #003087 100%)',
-            border: 'none',
-            padding: '6px 10px',
-            borderRadius: '4px',
-            color: '#fff',
-            fontSize: '12px',
-            cursor: 'pointer',
-            fontWeight: '600',
-            textDecoration: 'none',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '3px',
-            whiteSpace: 'nowrap'
-          }}
-          title="Donate via PayPal"
-        >
-          💳 PayPal
-        </a>
+        {!isFullscreen && (
+          <>
+            <a
+              href="https://buymeacoffee.com/k0cjh"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                background: 'linear-gradient(135deg, #ff813f 0%, #ffdd00 100%)',
+                border: 'none',
+                padding: '6px 10px',
+                borderRadius: '4px',
+                color: '#000',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                whiteSpace: 'nowrap'
+              }}
+              title="Buy me a coffee!"
+            >
+              ☕ Donate
+            </a>
+            <a
+              href="https://www.paypal.com/donate/?hosted_button_id=MMYPQBLA6SW68"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                background: 'linear-gradient(135deg, #0070ba 0%, #003087 100%)',
+                border: 'none',
+                padding: '6px 10px',
+                borderRadius: '4px',
+                color: '#fff',
+                fontSize: '12px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                textDecoration: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+                whiteSpace: 'nowrap'
+              }}
+              title="Donate via PayPal"
+            >
+              💳 PayPal
+            </a>
+          </>
+        )}
         {showUpdateButton && (
           <button
             onClick={onUpdateClick}

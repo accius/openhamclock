@@ -18,8 +18,8 @@ import { useState, useEffect, useRef } from 'react';
 
 export const metadata = {
   id: 'grayline',
-  name: 'Gray Line Propagation',
-  description: 'Solar terminator with twilight zones for enhanced DX propagation',
+  name: 'plugins.layers.grayline.name',
+  description: 'plugins.layers.grayline.description',
   icon: '🌅',
   category: 'propagation',
   defaultEnabled: false,
@@ -100,85 +100,54 @@ function calculateSolarAltitude(date, latitude, longitude) {
   return altitude;
 }
 
-// Split polyline at date line to avoid lines cutting across the map
-function splitAtDateLine(points) {
+// Unwrap longitude values to be continuous (no 360° jumps) and create world copies
+// This replaces the old splitAtDateLine approach, which broke when map center was past ±180°
+function unwrapAndCopyLine(points) {
   if (points.length < 2) return [points];
   
-  // Check if line spans the full world (-180 to 180)
-  const lons = points.map(p => p[1]);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-  const span = maxLon - minLon;
-  
-  console.log('🔍 splitAtDateLine debug:', {
-    totalPoints: points.length,
-    lonRange: `${minLon.toFixed(1)} to ${maxLon.toFixed(1)}`,
-    span: span.toFixed(1)
-  });
-  
-  // If the line spans close to 360°, it wraps around the world
-  // We need to split it at the ±180° boundary
-  if (span > 350) {
-    console.log('🔍 Full-world span detected, splitting at ±180°');
-    
-    // Strategy: Create two segments that meet at ±180° longitude
-    // Segment 1: Western hemisphere (-180° to slightly past 0°)
-    // Segment 2: Eastern hemisphere (slightly before 0° to +180°)
-    
-    const westSegment = [];  // Points from -180° to ~0°
-    const eastSegment = [];  // Points from ~0° to +180°
-    
-    // Sort points by longitude to ensure correct ordering
-    const sortedPoints = [...points].sort((a, b) => a[1] - b[1]);
-    
-    // Find the midpoint longitude (should be around 0°)
-    const midIndex = Math.floor(sortedPoints.length / 2);
-    
-    // Split at midpoint, with some overlap
-    westSegment.push(...sortedPoints.slice(0, midIndex + 1));
-    eastSegment.push(...sortedPoints.slice(midIndex));
-    
-    const segments = [];
-    if (westSegment.length >= 2) segments.push(westSegment);
-    if (eastSegment.length >= 2) segments.push(eastSegment);
-    
-    console.log('🔍 Split into segments:', segments.map(s => {
-      const lons = s.map(p => p[1]);
-      return {
-        points: s.length,
-        lonRange: `${Math.min(...lons).toFixed(1)} to ${Math.max(...lons).toFixed(1)}`
-      };
-    }));
-    return segments;
+  // Step 1: Unwrap longitudes so they're continuous
+  const unwrapped = points.map(p => [...p]);
+  for (let i = 1; i < unwrapped.length; i++) {
+    while (unwrapped[i][1] - unwrapped[i-1][1] > 180) unwrapped[i][1] -= 360;
+    while (unwrapped[i][1] - unwrapped[i-1][1] < -180) unwrapped[i][1] += 360;
   }
   
-  // Otherwise, check for sudden longitude jumps (traditional date line crossing)
-  const segments = [];
-  let currentSegment = [points[0]];
-  
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1];
-    const curr = points[i];
-    const prevLon = prev[1];
-    const currLon = curr[1];
-    const lonDiff = Math.abs(currLon - prevLon);
-    
-    // If longitude jumps more than 180°, we've crossed the date line
-    if (lonDiff > 180) {
-      console.log(`🔍 Date line jump detected at index ${i}: ${prevLon.toFixed(1)}° → ${currLon.toFixed(1)}°`);
-      segments.push(currentSegment);
-      currentSegment = [curr];
-    } else {
-      currentSegment.push(curr);
-    }
+  // Step 2: Create 3 world copies so lines render past the dateline
+  const copies = [];
+  for (const offset of [-360, 0, 360]) {
+    copies.push(unwrapped.map(([lat, lon]) => [lat, lon + offset]));
   }
   
-  if (currentSegment.length > 0) {
-    segments.push(currentSegment);
+  return copies;
+}
+
+// Unwrap and copy a polygon (upper + lower bounds creating a closed shape)
+function unwrapAndCopyPolygon(upperPoints, lowerPoints) {
+  if (upperPoints.length < 2 || lowerPoints.length < 2) return [];
+  
+  // Unwrap both lines
+  const upperUnwrapped = upperPoints.map(p => [...p]);
+  for (let i = 1; i < upperUnwrapped.length; i++) {
+    while (upperUnwrapped[i][1] - upperUnwrapped[i-1][1] > 180) upperUnwrapped[i][1] -= 360;
+    while (upperUnwrapped[i][1] - upperUnwrapped[i-1][1] < -180) upperUnwrapped[i][1] += 360;
   }
   
-  console.log('🔍 splitAtDateLine result:', segments.length, 'segments');
-  return segments.filter(seg => seg.length >= 2);
+  const lowerUnwrapped = lowerPoints.map(p => [...p]);
+  for (let i = 1; i < lowerUnwrapped.length; i++) {
+    while (lowerUnwrapped[i][1] - lowerUnwrapped[i-1][1] > 180) lowerUnwrapped[i][1] -= 360;
+    while (lowerUnwrapped[i][1] - lowerUnwrapped[i-1][1] < -180) lowerUnwrapped[i][1] += 360;
+  }
+  
+  // Combine into closed polygon ring
+  const baseRing = [...upperUnwrapped, ...lowerUnwrapped.slice().reverse()];
+  
+  // Create 3 world copies
+  const copies = [];
+  for (const offset of [-360, 0, 360]) {
+    copies.push(baseRing.map(([lat, lon]) => [lat, lon + offset]));
+  }
+  
+  return copies;
 }
 
 // Generate terminator line for a specific solar altitude
@@ -274,26 +243,43 @@ function generateTerminatorLine(date, solarAltitude = 0, numPoints = 360) {
 }
 
 // Make control panel draggable and minimizable
-function makeDraggable(element, storageKey) {
+function makeDraggable(element, storageKey, skipPositionLoad = false) {
   if (!element) return;
   
-  const saved = localStorage.getItem(storageKey);
-  if (saved) {
-    try {
-      const { top, left } = JSON.parse(saved);
+  // Load saved position only if not already loaded
+  if (!skipPositionLoad) {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const data = JSON.parse(saved);
+        element.style.position = 'fixed';
+        
+        // Check if saved as percentage (new format) or pixels (old format)
+        if (data.topPercent !== undefined && data.leftPercent !== undefined) {
+          // Use percentage-based positioning (scales with zoom)
+          element.style.top = data.topPercent + '%';
+          element.style.left = data.leftPercent + '%';
+        } else {
+          // Legacy pixel format - convert to percentage
+          const topPercent = (data.top / window.innerHeight) * 100;
+          const leftPercent = (data.left / window.innerWidth) * 100;
+          element.style.top = topPercent + '%';
+          element.style.left = leftPercent + '%';
+        }
+        
+        element.style.right = 'auto';
+        element.style.bottom = 'auto';
+        element.style.transform = 'none';
+      } catch (e) {}
+    } else {
+      // Convert from Leaflet control position to fixed
+      const rect = element.getBoundingClientRect();
       element.style.position = 'fixed';
-      element.style.top = top + 'px';
-      element.style.left = left + 'px';
+      element.style.top = rect.top + 'px';
+      element.style.left = rect.left + 'px';
       element.style.right = 'auto';
       element.style.bottom = 'auto';
-    } catch (e) {}
-  } else {
-    const rect = element.getBoundingClientRect();
-    element.style.position = 'fixed';
-    element.style.top = rect.top + 'px';
-    element.style.left = rect.left + 'px';
-    element.style.right = 'auto';
-    element.style.bottom = 'auto';
+    }
   }
   
   element.title = 'Hold CTRL and drag to reposition';
@@ -351,10 +337,18 @@ function makeDraggable(element, storageKey) {
       element.style.opacity = '1';
       updateCursor(e);
       
-      localStorage.setItem(storageKey, JSON.stringify({
+      // Save position as percentage of viewport for zoom compatibility
+      const topPercent = (element.offsetTop / window.innerHeight) * 100;
+      const leftPercent = (element.offsetLeft / window.innerWidth) * 100;
+      
+      const position = {
+        topPercent,
+        leftPercent,
+        // Keep pixel values for backward compatibility
         top: element.offsetTop,
         left: element.offsetLeft
-      }));
+      };
+      localStorage.setItem(storageKey, JSON.stringify(position));
     }
   });
 }
@@ -473,12 +467,13 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
       onAdd: function() {
         const container = L.DomUtil.create('div', 'grayline-control');
         container.style.cssText = `
-          background: rgba(0, 0, 0, 0.9);
+          background: var(--bg-panel);
           padding: 12px;
           border-radius: 5px;
           font-family: 'JetBrains Mono', monospace;
           font-size: 11px;
-          color: white;
+          color: var(--text-primary);
+          border: 1px solid var(--border-color);
           box-shadow: 0 2px 8px rgba(0,0,0,0.3);
           min-width: 200px;
         `;
@@ -489,7 +484,7 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
         container.innerHTML = `
           <div style="font-weight: bold; margin-bottom: 8px; font-size: 12px;">🌅 Gray Line</div>
           
-          <div style="margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.1); border-radius: 3px;">
+          <div style="margin-bottom: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 3px;">
             <div style="font-size: 9px; opacity: 0.7; margin-bottom: 2px;">UTC TIME</div>
             <div id="grayline-time" style="font-size: 10px; font-weight: bold;">${timeStr}</div>
           </div>
@@ -596,9 +591,9 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
     
     // Main terminator (solar altitude = 0°)
     const terminator = generateTerminatorLine(currentTime, 0, 360);
-    const terminatorSegments = splitAtDateLine(terminator);
+    const terminatorCopies = unwrapAndCopyLine(terminator);
     
-    terminatorSegments.forEach(segment => {
+    terminatorCopies.forEach(segment => {
       const terminatorLine = L.polyline(segment, {
         color: '#ff6600',
         weight: 3,
@@ -624,60 +619,26 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
       
       // Only create polygon if we have valid points
       if (enhancedUpper.length > 2 && enhancedLower.length > 2) {
-        // Split both upper and lower lines at date line
-        const upperSegments = splitAtDateLine(enhancedUpper);
-        const lowerSegments = splitAtDateLine(enhancedLower);
+        const polygonCopies = unwrapAndCopyPolygon(enhancedUpper, enhancedLower);
         
-        console.log('🔶 Enhanced DX Zone segments:', {
-          upperCount: upperSegments.length,
-          lowerCount: lowerSegments.length,
-          upperSegmentLengths: upperSegments.map(s => s.length),
-          lowerSegmentLengths: lowerSegments.map(s => s.length)
-        });
-        
-        // Create polygon for each corresponding segment pair
-        // Both upper and lower should have same number of segments
-        const numSegments = Math.min(upperSegments.length, lowerSegments.length);
-        
-        for (let i = 0; i < numSegments; i++) {
-          const upperSeg = upperSegments[i];
-          const lowerSeg = lowerSegments[i];
-          
-          if (upperSeg.length > 1 && lowerSeg.length > 1) {
-            // Create polygon from upper segment + reversed lower segment
-            // This creates a closed shape between the two lines
-            const enhancedZone = [...upperSeg, ...lowerSeg.slice().reverse()];
-            
-            // Debug: Show longitude range of this polygon
-            const polyLons = enhancedZone.map(p => p[1]);
-            const polyMinLon = Math.min(...polyLons);
-            const polyMaxLon = Math.max(...polyLons);
-            
-            console.log(`🔶 Creating Enhanced DX polygon segment ${i+1}/${numSegments}:`, {
-              upperPoints: upperSeg.length,
-              lowerPoints: lowerSeg.length,
-              totalPolygonPoints: enhancedZone.length,
-              lonRange: `${polyMinLon.toFixed(1)} to ${polyMaxLon.toFixed(1)}`
-            });
-            
-            const enhancedPoly = L.polygon(enhancedZone, {
-              color: '#ffaa00',
-              fillColor: '#ffaa00',
-              fillOpacity: opacity * 0.15,
-              weight: 1,
-              opacity: opacity * 0.3
-            });
-            enhancedPoly.bindPopup(`
-              <div style="font-family: 'JetBrains Mono', monospace;">
-                <b>⭐ Enhanced DX Zone</b><br>
-                Best HF propagation window<br>
-                ±5° from terminator<br>
-                Ideal for long-distance contacts
-              </div>
-            `);
-            enhancedPoly.addTo(map);
-            newLayers.push(enhancedPoly);
-          }
+        if (polygonCopies.length > 0) {
+          const enhancedPoly = L.polygon(polygonCopies, {
+            color: '#ffaa00',
+            fillColor: '#ffaa00',
+            fillOpacity: opacity * 0.15,
+            weight: 1,
+            opacity: opacity * 0.3
+          });
+          enhancedPoly.bindPopup(`
+            <div style="font-family: 'JetBrains Mono', monospace;">
+              <b>⭐ Enhanced DX Zone</b><br>
+              Best HF propagation window<br>
+              ±5° from terminator<br>
+              Ideal for long-distance contacts
+            </div>
+          `);
+          enhancedPoly.addTo(map);
+          newLayers.push(enhancedPoly);
         }
       }
     }
@@ -686,9 +647,9 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
     if (showTwilight) {
       // Civil twilight (sun altitude -6°)
       const civilTwilight = generateTerminatorLine(currentTime, -6, 360);
-      const civilSegments = splitAtDateLine(civilTwilight);
+      const civilCopies = unwrapAndCopyLine(civilTwilight);
       
-      civilSegments.forEach(segment => {
+      civilCopies.forEach(segment => {
         const civilLine = L.polyline(segment, {
           color: '#4488ff',
           weight: 2,
@@ -708,9 +669,9 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
       
       // Nautical twilight (sun altitude -12°)
       const nauticalTwilight = generateTerminatorLine(currentTime, -12, 360);
-      const nauticalSegments = splitAtDateLine(nauticalTwilight);
+      const nauticalCopies = unwrapAndCopyLine(nauticalTwilight);
       
-      nauticalSegments.forEach(segment => {
+      nauticalCopies.forEach(segment => {
         const nauticalLine = L.polyline(segment, {
           color: '#6666ff',
           weight: 1.5,
@@ -730,9 +691,9 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
       
       // Astronomical twilight (sun altitude -18°)
       const astroTwilight = generateTerminatorLine(currentTime, -18, 360);
-      const astroSegments = splitAtDateLine(astroTwilight);
+      const astroCopies = unwrapAndCopyLine(astroTwilight);
       
-      astroSegments.forEach(segment => {
+      astroCopies.forEach(segment => {
         const astroLine = L.polyline(segment, {
           color: '#8888ff',
           weight: 1,
@@ -753,8 +714,6 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
     
     setLayers(newLayers);
     
-    console.log(`[Gray Line] Rendered terminator and ${showTwilight ? '3 twilight zones' : 'no twilight'} at ${currentTime.toUTCString()}`);
-    
     return () => {
       newLayers.forEach(layer => {
         try {
@@ -769,9 +728,8 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
     if (!enabled && map && controlRef.current) {
       try {
         map.removeControl(controlRef.current);
-        console.log('[Gray Line] Removed control');
       } catch (e) {
-        console.error('[Gray Line] Error removing control:', e);
+        // Silently handle removal errors
       }
       controlRef.current = null;
       

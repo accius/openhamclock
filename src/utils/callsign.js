@@ -1,6 +1,6 @@
 /**
  * Callsign and Band Utilities
- * Band detection, mode detection, callsign parsing, DX filtering
+ * Band detection, mode detection, callsign parsing
  */
 
 /**
@@ -219,80 +219,6 @@ export const getCallsignInfo = (call) => {
   return { cqZone: null, ituZone: null, continent: null };
 };
 
-/**
- * Filter DX paths based on filters (filter by SPOTTER origin)
- */
-export const filterDXPaths = (paths, filters) => {
-  if (!paths || !filters) return paths;
-  if (Object.keys(filters).length === 0) return paths;
-  
-  return paths.filter(path => {
-    // Get info for spotter (origin) - this is what we filter by
-    const spotterInfo = getCallsignInfo(path.spotter);
-    
-    // Watchlist filter - show ONLY watchlist if enabled
-    if (filters.watchlistOnly && filters.watchlist?.length > 0) {
-      const inWatchlist = filters.watchlist.some(w => 
-        path.dxCall?.toUpperCase().includes(w.toUpperCase()) ||
-        path.spotter?.toUpperCase().includes(w.toUpperCase())
-      );
-      if (!inWatchlist) return false;
-    }
-    
-    // Exclude list - hide matching callsigns
-    if (filters.excludeList?.length > 0) {
-      const isExcluded = filters.excludeList.some(e =>
-        path.dxCall?.toUpperCase().startsWith(e.toUpperCase())
-      );
-      if (isExcluded) return false;
-    }
-    
-    // CQ Zone filter - filter by SPOTTER's zone (origin)
-    if (filters.cqZones?.length > 0) {
-      if (!spotterInfo.cqZone || !filters.cqZones.includes(spotterInfo.cqZone)) {
-        return false;
-      }
-    }
-    
-    // ITU Zone filter - filter by SPOTTER's zone (origin)
-    if (filters.ituZones?.length > 0) {
-      if (!spotterInfo.ituZone || !filters.ituZones.includes(spotterInfo.ituZone)) {
-        return false;
-      }
-    }
-    
-    // Continent filter - filter by SPOTTER's continent (origin)
-    if (filters.continents?.length > 0) {
-      if (!spotterInfo.continent || !filters.continents.includes(spotterInfo.continent)) {
-        return false;
-      }
-    }
-    
-    // Band filter
-    if (filters.bands?.length > 0) {
-      const freqKhz = parseFloat(path.freq) * 1000; // Convert MHz to kHz
-      const band = getBandFromFreq(freqKhz);
-      if (!filters.bands.includes(band)) return false;
-    }
-    
-    // Mode filter
-    if (filters.modes?.length > 0) {
-      const mode = detectMode(path.comment);
-      if (!mode || !filters.modes.includes(mode)) return false;
-    }
-    
-    // Callsign search filter
-    if (filters.callsign && filters.callsign.trim()) {
-      const search = filters.callsign.trim().toUpperCase();
-      const matchesDX = path.dxCall?.toUpperCase().includes(search);
-      const matchesSpotter = path.spotter?.toUpperCase().includes(search);
-      if (!matchesDX && !matchesSpotter) return false;
-    }
-    
-    return true;
-  });
-};
-
 export default {
   HF_BANDS,
   CONTINENTS,
@@ -301,6 +227,5 @@ export default {
   getBandColor,
   detectMode,
   PREFIX_MAP,
-  getCallsignInfo,
-  filterDXPaths
+  getCallsignInfo
 };

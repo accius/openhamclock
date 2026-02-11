@@ -8,6 +8,7 @@
  *   Content: Scrolling spot/decode list
  */
 import React, { useState, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { usePSKReporter } from '../hooks/usePSKReporter.js';
 import { getBandColor } from '../utils/callsign.js';
 import { IconSearch, IconRefresh, IconMap } from './Icons.jsx';
@@ -33,6 +34,7 @@ const PSKReporterPanel = ({
   showWSJTXOnMap,
   onToggleWSJTXMap
 }) => {
+  const { t } = useTranslation();
   const [panelMode, setPanelMode] = useState(() => {
     try { const s = localStorage.getItem('openhamclock_pskPanelMode'); return s || 'psk'; } catch { return 'psk'; }
   });
@@ -41,6 +43,9 @@ const PSKReporterPanel = ({
   });
   const [wsjtxTab, setWsjtxTab] = useState('decodes');
   const [wsjtxFilter, setWsjtxFilter] = useState('all'); // 'all' | 'cq' | band name
+  const [wsjtxAge, setWsjtxAge] = useState(() => {
+    try { return parseInt(localStorage.getItem('ohc_wsjtx_age')) || 30; } catch { return 30; }
+  }); // minutes: 5, 15, 30, 60
   
   // Persist panel mode and active tab
   const setPanelModePersist = (v) => { setPanelMode(v); try { localStorage.setItem('openhamclock_pskPanelMode', v); } catch {} };
@@ -51,7 +56,7 @@ const PSKReporterPanel = ({
     txReports, txCount, rxReports, rxCount, 
     loading, error, connected, source, refresh 
   } = usePSKReporter(callsign, { 
-    minutes: 15,
+    minutes: 30,
     enabled: callsign && callsign !== 'N0CALL'
   });
 
@@ -75,7 +80,13 @@ const PSKReporterPanel = ({
   const pskFilterCount = [filters?.bands?.length, filters?.grids?.length, filters?.modes?.length].filter(Boolean).length;
 
   const getFreqColor = (freqMHz) => !freqMHz ? 'var(--text-muted)' : getBandColor(parseFloat(freqMHz));
-  const formatAge = (m) => m < 1 ? 'now' : m < 60 ? `${m}m` : `${Math.floor(m/60)}h`;
+  const formatAge = (m) => (
+    m < 1
+      ? t('pskReporterPanel.time.now')
+      : m < 60
+        ? t('pskReporterPanel.time.minutes', { minutes: m })
+        : t('pskReporterPanel.time.hours', { hours: Math.floor(m / 60) })
+  );
 
   // ── WSJT-X helpers ──
   const activeClients = Object.entries(wsjtxClients);
@@ -86,14 +97,19 @@ const PSKReporterPanel = ({
     const bands = [...new Set(wsjtxDecodes.map(d => d.band).filter(Boolean))]
       .sort((a, b) => (parseInt(b) || 999) - (parseInt(a) || 999));
     return [
-      { value: 'all', label: 'All decodes' },
-      { value: 'cq', label: 'CQ only' },
+      { value: 'all', label: t('pskReporterPanel.wsjtx.filterAll') },
+      { value: 'cq', label: t('pskReporterPanel.wsjtx.filterCq') },
       ...bands.map(b => ({ value: b, label: b }))
     ];
-  }, [wsjtxDecodes]);
+  }, [wsjtxDecodes, t]);
 
   const filteredDecodes = useMemo(() => {
     let filtered = [...wsjtxDecodes];
+    
+    // Time retention filter
+    const ageCutoff = Date.now() - wsjtxAge * 60 * 1000;
+    filtered = filtered.filter(d => d.timestamp >= ageCutoff);
+    
     if (wsjtxFilter === 'cq') {
       filtered = filtered.filter(d => d.type === 'CQ');
     } else if (wsjtxFilter !== 'all') {
@@ -101,7 +117,7 @@ const PSKReporterPanel = ({
       filtered = filtered.filter(d => d.band === wsjtxFilter);
     }
     return filtered.reverse();
-  }, [wsjtxDecodes, wsjtxFilter]);
+  }, [wsjtxDecodes, wsjtxFilter, wsjtxAge]);
 
   const getSnrColor = (snr) => {
     if (snr == null) return 'var(--text-muted)';
@@ -183,10 +199,10 @@ const PSKReporterPanel = ({
       }}>
         {/* Mode toggle */}
         <div style={{ display: 'flex' }}>
-          <button onClick={() => setPanelModePersist('psk')} style={segBtn(panelMode === 'psk', 'var(--accent-primary)')} title="Internet-based reception reports via PSKReporter.info">
+          <button onClick={() => setPanelModePersist('psk')} style={segBtn(panelMode === 'psk', 'var(--accent-primary)')} title={t('pskReporterPanel.mode.pskTooltip')}>
             PSKReporter
           </button>
-          <button onClick={() => setPanelModePersist('wsjtx')} style={segBtn(panelMode === 'wsjtx', '#a78bfa')} title="Local WSJT-X decodes via UDP relay">
+          <button onClick={() => setPanelModePersist('wsjtx')} style={segBtn(panelMode === 'wsjtx', '#a78bfa')} title={t('pskReporterPanel.mode.wsjtxTooltip')}>
             WSJT-X
           </button>
         </div>
@@ -199,18 +215,18 @@ const PSKReporterPanel = ({
               {statusDot && (
                 <span style={{ color: statusDot.color, fontSize: '10px', lineHeight: 1 }}>{statusDot.char}</span>
               )}
-              <button onClick={onOpenFilters} style={iconBtn(pskFilterCount > 0, '#ffaa00')} title="Filter spots by band, mode, or grid">
+              <button onClick={onOpenFilters} style={iconBtn(pskFilterCount > 0, '#ffaa00')} title={t('pskReporterPanel.psk.filterTooltip')}>
                 <IconSearch size={11} style={{ verticalAlign: 'middle' }} />{pskFilterCount > 0 ? pskFilterCount : ''}
               </button>
               <button onClick={refresh} disabled={loading} style={{
                 ...iconBtn(false),
                 opacity: loading ? 0.4 : 1,
                 cursor: loading ? 'not-allowed' : 'pointer',
-              }} title="Reconnect to PSKReporter"><IconRefresh size={11} style={{ verticalAlign: 'middle' }} /></button>
+              }} title={t('pskReporterPanel.psk.refreshTooltip')}><IconRefresh size={11} style={{ verticalAlign: 'middle' }} /></button>
             </>
           )}
 
-          {/* WSJT-X: mode/band info + unified filter */}
+          {/* WSJT-X: mode/band info + unified filter + age */}
           {panelMode === 'wsjtx' && (
             <>
               {primaryClient && (
@@ -237,12 +253,32 @@ const PSKReporterPanel = ({
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
+              <select
+                value={wsjtxAge}
+                onChange={(e) => { const v = parseInt(e.target.value); setWsjtxAge(v); try { localStorage.setItem('ohc_wsjtx_age', v); } catch {} }}
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  padding: '1px 4px',
+                  cursor: 'pointer',
+                  maxWidth: '55px',
+                }}
+                title="Decode retention time"
+              >
+                <option value={5}>5m</option>
+                <option value={15}>15m</option>
+                <option value={30}>30m</option>
+                <option value={60}>60m</option>
+              </select>
             </>
           )}
 
           {/* Map toggle (always visible) */}
           {handleMapToggle && (
-            <button onClick={handleMapToggle} style={iconBtn(isMapOn, panelMode === 'psk' ? '#4488ff' : '#a78bfa')} title={isMapOn ? 'Hide spots on map' : 'Show spots on map'}>
+            <button onClick={handleMapToggle} style={iconBtn(isMapOn, panelMode === 'psk' ? '#4488ff' : '#a78bfa')} title={isMapOn ? t('pskReporterPanel.map.hide') : t('pskReporterPanel.map.show')}>
               <IconMap size={11} style={{ verticalAlign: 'middle' }} />
             </button>
           )}
@@ -253,20 +289,20 @@ const PSKReporterPanel = ({
       <div style={{ display: 'flex', gap: '4px', marginBottom: '5px', flexShrink: 0 }}>
         {panelMode === 'psk' ? (
           <>
-            <button onClick={() => setActiveTabPersist('tx')} style={subTabBtn(activeTab === 'tx', '#4ade80')} title="Stations hearing your signal">
-              ▲ Heard ({pskFilterCount > 0 ? filteredTx.length : txCount})
+            <button onClick={() => setActiveTabPersist('tx')} style={subTabBtn(activeTab === 'tx', '#4ade80')} title={t('pskReporterPanel.tabs.heardTooltip')}>
+              ▲ {t('pskReporterPanel.tabs.heard', { count: pskFilterCount > 0 ? filteredTx.length : txCount })}
             </button>
-            <button onClick={() => setActiveTabPersist('rx')} style={subTabBtn(activeTab === 'rx', '#60a5fa')} title="Stations you are hearing">
-              ▼ Hearing ({pskFilterCount > 0 ? filteredRx.length : rxCount})
+            <button onClick={() => setActiveTabPersist('rx')} style={subTabBtn(activeTab === 'rx', '#60a5fa')} title={t('pskReporterPanel.tabs.hearingTooltip')}>
+              ▼ {t('pskReporterPanel.tabs.hearing', { count: pskFilterCount > 0 ? filteredRx.length : rxCount })}
             </button>
           </>
         ) : (
           <>
-            <button onClick={() => setWsjtxTab('decodes')} style={subTabBtn(wsjtxTab === 'decodes', '#a78bfa')} title="Live WSJT-X decodes">
-              Decodes ({filteredDecodes.length})
+            <button onClick={() => setWsjtxTab('decodes')} style={subTabBtn(wsjtxTab === 'decodes', '#a78bfa')} title={t('pskReporterPanel.wsjtx.decodingTooltip')}>
+              {t('pskReporterPanel.wsjtx.decodes', { count: filteredDecodes.length })}
             </button>
-            <button onClick={() => setWsjtxTab('qsos')} style={subTabBtn(wsjtxTab === 'qsos', '#a78bfa')} title="Logged QSOs from WSJT-X">
-              QSOs ({wsjtxQsos.length})
+            <button onClick={() => setWsjtxTab('qsos')} style={subTabBtn(wsjtxTab === 'qsos', '#a78bfa')} title={t('pskReporterPanel.wsjtx.qsosTooltip')}>
+              {t('pskReporterPanel.wsjtx.qsos', { count: wsjtxQsos.length })}
             </button>
           </>
         )}
@@ -280,24 +316,24 @@ const PSKReporterPanel = ({
           <>
             {(!callsign || callsign === 'N0CALL') ? (
               <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '16px', fontSize: '11px' }}>
-                Set your callsign in Settings to see reports
+                {t('pskReporterPanel.psk.setCallsign')}
               </div>
             ) : error && !connected ? (
               <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)', fontSize: '11px' }}>
-                Connection failed — tap refresh ↻
+                {t('pskReporterPanel.psk.connectionFailed')}
               </div>
             ) : loading && filteredReports.length === 0 && pskFilterCount === 0 ? (
               <div style={{ textAlign: 'center', padding: '16px', color: 'var(--text-muted)', fontSize: '11px' }}>
                 <div className="loading-spinner" style={{ margin: '0 auto 8px' }} />
-                Connecting...
+                {t('pskReporterPanel.psk.connecting')}
               </div>
             ) : filteredReports.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)', fontSize: '11px' }}>
                 {pskFilterCount > 0 
-                  ? 'No spots match filters'
+                  ? t('pskReporterPanel.psk.noSpotsFiltered')
                   : activeTab === 'tx' 
-                    ? 'Waiting for spots... (TX to see reports)' 
-                    : 'No stations heard yet'}
+                    ? t('pskReporterPanel.psk.waitingForSpots')
+                    : t('pskReporterPanel.psk.noStationsHeard')}
               </div>
             ) : (
               filteredReports.slice(0, 25).map((report, i) => {
@@ -356,22 +392,22 @@ const PSKReporterPanel = ({
                 flexDirection: 'column', gap: '8px', color: 'var(--text-muted)',
                 fontSize: '11px', textAlign: 'center', padding: '16px 8px', height: '100%'
               }}>
-                <div style={{ fontSize: '12px' }}>Waiting for WSJT-X...</div>
+                <div style={{ fontSize: '12px' }}>{t('pskReporterPanel.wsjtx.waiting')}</div>
                 {wsjtxRelayEnabled ? (
                   wsjtxRelayConnected ? (
                     <div style={{ fontSize: '10px', opacity: 0.8, lineHeight: 1.6 }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', marginBottom: '4px' }}>
                         <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '50%', background: '#4ade80', boxShadow: '0 0 4px #4ade80' }} />
-                        <span style={{ color: '#4ade80', fontWeight: 600 }}>Relay connected</span>
+                        <span style={{ color: '#4ade80', fontWeight: 600 }}>{t('pskReporterPanel.wsjtx.relayConnected')}</span>
                       </div>
                       <div style={{ fontSize: '9px', opacity: 0.5 }}>
-                        WSJT-X decodes will appear here when the station is active
+                        {t('pskReporterPanel.wsjtx.relayHint')}
                       </div>
                     </div>
                   ) : (
                     <div style={{ fontSize: '10px', opacity: 0.8, lineHeight: 1.6 }}>
                       <div style={{ marginBottom: '8px' }}>
-                        Download the relay agent for your PC:
+                        {t('pskReporterPanel.wsjtx.downloadRelay')}
                       </div>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
                         <a href={`/api/wsjtx/relay/download/linux?session=${wsjtxSessionId || ''}`} 
@@ -379,30 +415,30 @@ const PSKReporterPanel = ({
                             padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600',
                             background: 'rgba(167,139,250,0.2)', border: '1px solid #a78bfa55',
                             color: '#a78bfa', textDecoration: 'none', cursor: 'pointer',
-                          }}>🐧 Linux</a>
+                          }}>{t('pskReporterPanel.wsjtx.platformLinux')}</a>
                         <a href={`/api/wsjtx/relay/download/mac?session=${wsjtxSessionId || ''}`}
                           style={{ 
                             padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600',
                             background: 'rgba(167,139,250,0.2)', border: '1px solid #a78bfa55',
                             color: '#a78bfa', textDecoration: 'none', cursor: 'pointer',
-                          }}>🍎 Mac</a>
+                          }}>{t('pskReporterPanel.wsjtx.platformMac')}</a>
                         <a href={`/api/wsjtx/relay/download/windows?session=${wsjtxSessionId || ''}`}
                           style={{ 
                             padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600',
                             background: 'rgba(167,139,250,0.2)', border: '1px solid #a78bfa55',
                             color: '#a78bfa', textDecoration: 'none', cursor: 'pointer',
-                          }}>🪟 Windows</a>
+                          }}>{t('pskReporterPanel.wsjtx.platformWindows')}</a>
                       </div>
                       <div style={{ fontSize: '9px', opacity: 0.5, marginTop: '6px' }}>
-                        Requires Node.js · Run the script, then start WSJT-X
+                        {t('pskReporterPanel.wsjtx.requiresNode')}
                       </div>
                     </div>
                   )
                 ) : (
                   <div style={{ fontSize: '10px', opacity: 0.6, lineHeight: 1.5 }}>
-                    In WSJT-X: Settings → Reporting → UDP Server
+                    {t('                                                pskReporterPanel.wsjtx.udpPath')}
                     <br />
-                    Address: 127.0.0.1 &nbsp; Port: {wsjtxPort || 2237}
+                    {t('pskReporterPanel.wsjtx.udpAddress', { port: wsjtxPort || 2237 })}
                   </div>
                 )}
               </div>
@@ -410,7 +446,7 @@ const PSKReporterPanel = ({
               <>
                 {filteredDecodes.length === 0 ? (
                   <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '16px', fontSize: '11px' }}>
-                    {wsjtxDecodes.length > 0 ? 'No decodes match filter' : 'Listening...'}
+                    {wsjtxDecodes.length > 0 ? t('pskReporterPanel.wsjtx.noDecodesFiltered') : t('pskReporterPanel.wsjtx.listening')}
                   </div>
                 ) : (
                   filteredDecodes.map((d, i) => (
@@ -445,7 +481,7 @@ const PSKReporterPanel = ({
               <>
                 {wsjtxQsos.length === 0 ? (
                   <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '16px', fontSize: '11px' }}>
-                    No QSOs logged yet
+                    {t('pskReporterPanel.wsjtx.noQsos')}
                   </div>
                 ) : (
                   [...wsjtxQsos].reverse().map((q, i) => (

@@ -29,11 +29,10 @@ FROM node:20-alpine AS production
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S openhamclock -u 1001
-
 WORKDIR /app
+
+# Create /data directory for persistent stats (Railway volume mount point)
+RUN mkdir -p /data
 
 # Copy package files and install production deps only
 COPY package*.json ./
@@ -52,11 +51,8 @@ COPY --from=builder /app/dist ./dist
 # Copy public folder (for monolithic fallback reference)
 COPY public ./public
 
-# Set ownership
-RUN chown -R openhamclock:nodejs /app
-
-# Switch to non-root user
-USER openhamclock
+# Create local data directory as fallback
+RUN mkdir -p /app/data
 
 # Expose ports (3000 = web, 2237 = WSJT-X UDP)
 EXPOSE 3000
@@ -66,5 +62,5 @@ EXPOSE 2237/udp
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
 
-# Start server
+# Start server (running as root to allow writing to Railway volumes)
 CMD ["node", "server.js"]

@@ -15,12 +15,52 @@
   
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  
-  <!-- Leaflet Terminator (day/night) -->
-  <script src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.0.0/L.Terminator.js"></script>
 </head>
 <body>
   <div id="root"></div>
+  <script>
+    // Detect stale JS chunks after an update and force-reload once.
+    // After a server update, browsers may have old hashed JS cached.
+    // Old chunks import new chunks (or vice versa) → module error → blank screen.
+    // This catches that and reloads to get the fresh index.html + new chunk URLs.
+    window.addEventListener('error', function(e) {
+      var msg = (e.message || '') + ' ' + ((e.filename || '') + '');
+      if (
+        msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+        msg.indexOf('Importing a module script failed') !== -1 ||
+        msg.indexOf('error loading dynamically imported module') !== -1 ||
+        msg.indexOf('ChunkLoadError') !== -1 ||
+        msg.indexOf('Loading chunk') !== -1 ||
+        (e.filename && e.filename.indexOf('/assets/') !== -1 && msg.indexOf('SyntaxError') !== -1)
+      ) {
+        // Only auto-reload once to prevent infinite loops
+        if (!sessionStorage.getItem('ohc_chunk_reload')) {
+          sessionStorage.setItem('ohc_chunk_reload', '1');
+          console.warn('[OpenHamClock] Stale JS detected after update — reloading...');
+          window.location.reload();
+        }
+      }
+    });
+    // Clear the reload flag on successful load
+    window.addEventListener('load', function() {
+      sessionStorage.removeItem('ohc_chunk_reload');
+    });
+    // Also catch dynamic import() failures (rejected promises)
+    window.addEventListener('unhandledrejection', function(e) {
+      var msg = (e.reason && e.reason.message) || '';
+      if (
+        msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+        msg.indexOf('Importing a module script failed') !== -1 ||
+        msg.indexOf('error loading dynamically imported module') !== -1
+      ) {
+        if (!sessionStorage.getItem('ohc_chunk_reload')) {
+          sessionStorage.setItem('ohc_chunk_reload', '1');
+          console.warn('[OpenHamClock] Stale module detected — reloading...');
+          window.location.reload();
+        }
+      }
+    });
+  </script>
   <script type="module" src="/src/main.jsx"></script>
 </body>
 </html>

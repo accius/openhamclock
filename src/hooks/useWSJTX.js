@@ -67,7 +67,7 @@ export function useWSJTX(enabled = true) {
           const newDecodes = json.decodes.filter(d => !existing.has(d.id));
           if (newDecodes.length === 0) return prev;
           
-          const merged = [...prev.decodes, ...newDecodes].slice(-200);
+          const merged = [...prev.decodes, ...newDecodes].slice(-500);
           return { ...prev, decodes: merged, stats: { ...prev.stats, totalDecodes: merged.length } };
         });
       }
