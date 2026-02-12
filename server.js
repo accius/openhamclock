@@ -8197,6 +8197,23 @@ function normalizeCallsign(value) {
   return (value || '').trim().toUpperCase();
 }
 
+function parseXmlBoolean(value) {
+  if (value == null) return null;
+  const normalized = String(value).trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true;
+  if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
+  return null;
+}
+
+function detectContestSource(xml) {
+  const app = getXmlTag(xml, 'app').toLowerCase();
+  const logger = getXmlTag(xml, 'logger').toLowerCase();
+  if (app.includes('dxlog') || logger.includes('dxlog')) return 'dxlog';
+  if (app.includes('n1mm') || logger.includes('n1mm')) return 'n1mm';
+  return 'contest';
+}
+
 function n1mmFreqToMHz(value, bandMHz) {
   const v = parseFloat(value);
   if (!v || Number.isNaN(v)) return bandMHz || null;
@@ -8287,10 +8304,11 @@ function addContestQso(qso) {
   return true;
 }
 
-function parseN1MMContactInfo(xml) {
+function parseContestContactInfo(xml) {
   const dxCall = normalizeCallsign(getXmlTag(xml, 'call'));
   if (!dxCall) return null;
 
+  const source = detectContestSource(xml);
   const myCall = normalizeCallsign(getXmlTag(xml, 'mycall')) ||
     normalizeCallsign(getXmlTag(xml, 'stationprefix')) ||
     CONFIG.callsign;
@@ -8307,13 +8325,22 @@ function parseN1MMContactInfo(xml) {
   const contestName = getXmlTag(xml, 'contestname') || '';
   const timestampStr = getXmlTag(xml, 'timestamp') || '';
   const timestamp = parseN1MMTimestamp(timestampStr) || Date.now();
-  const id = getXmlTag(xml, 'ID') || '';
+  const id = getXmlTag(xml, 'ID') || getXmlTag(xml, 'guid') || getXmlTag(xml, 'qsoid') || '';
+  const isNewQso = parseXmlBoolean(getXmlTag(xml, 'newqso'));
+  const isDuplicate = parseXmlBoolean(getXmlTag(xml, 'duplicate'));
+  const isInvalid = parseXmlBoolean(getXmlTag(xml, 'invalid'));
+  const isDeleted = parseXmlBoolean(getXmlTag(xml, 'xqso'));
+
+  // DXLog may send non-new / duplicate / invalid/deleted updates on the same stream.
+  // Only ingest genuine new, valid QSOs so the map and auto-DX-follow stay clean.
+  if (isNewQso === false) return null;
+  if (isDuplicate === true || isInvalid === true || isDeleted === true) return null;
 
   const loc = resolveQsoLocation(dxCall, grid, comment);
 
   const qso = {
     id,
-    source: 'n1mm',
+    source,
     timestamp,
     time: timestampStr,
     myCall,
@@ -8398,17 +8425,17 @@ if (N1MM_ENABLED) {
       const text = buf.toString('utf8');
       const xml = extractContactInfoXml(text);
       if (!xml) return;
-      const qso = parseN1MMContactInfo(xml);
+      const qso = parseContestContactInfo(xml);
       if (qso) addContestQso(qso);
     });
 
     n1mmSocket.on('error', (err) => {
-      logErrorOnce('N1MM UDP', err.message);
+      logErrorOnce('Contest UDP', err.message);
     });
 
     n1mmSocket.on('listening', () => {
       const addr = n1mmSocket.address();
-      console.log(`[N1MM] UDP listener on ${addr.address}:${addr.port}`);
+      console.log(`[Contest UDP] listener on ${addr.address}:${addr.port}`);
     });
 
     n1mmSocket.bind(N1MM_UDP_PORT, '0.0.0.0');
@@ -8507,8 +8534,8 @@ app.listen(PORT, '0.0.0.0', () => {
   if (WSJTX_RELAY_KEY) {
     console.log(`  🔁 WSJT-X relay endpoint enabled (POST /api/wsjtx/relay)`);
   }
-if (N1MM_ENABLED) {
-    console.log(`  📥 N1MM UDP listener on port ${N1MM_UDP_PORT}`);
+  if (N1MM_ENABLED) {
+    console.log(`  📥 Contest logger UDP listener (N1MM/DXLog) on port ${N1MM_UDP_PORT}`);
   }
   if (AUTO_UPDATE_ENABLED) {
     console.log(`  🔄 Auto-update enabled every ${AUTO_UPDATE_INTERVAL_MINUTES || 60} minutes`);
