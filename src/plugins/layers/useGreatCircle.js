@@ -7,8 +7,8 @@ import { getGreatCirclePoints, replicatePath, calculateBearing, calculateDistanc
 
 export const metadata = {
   id: 'great-circle',
-  name: 'DE/DX Great Circle',
-  description: 'Short-path and long-path great circle between DE and DX',
+  name: 'plugins.layers.great_circle.name',
+  description: 'plugins.layers.great_circle.description',
   icon: '🌐',
   category: 'propagation',
   defaultEnabled: false,
@@ -39,10 +39,10 @@ function readLocations() {
   try {
     const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
     if (cfg.location) de = cfg.location;
-  } catch (e) {}
+  } catch (e) { }
   try {
     dx = JSON.parse(localStorage.getItem('openhamclock_dxLocation') || 'null');
-  } catch (e) {}
+  } catch (e) { }
   return { de, dx };
 }
 
@@ -59,7 +59,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
       setLocations(prev => {
         if (!de || !dx) return prev;
         if (prev.de?.lat === de.lat && prev.de?.lon === de.lon &&
-            prev.dx?.lat === dx.lat && prev.dx?.lon === dx.lon) {
+          prev.dx?.lat === dx.lat && prev.dx?.lon === dx.lon) {
           return prev;
         }
         return { de, dx };
@@ -77,7 +77,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
 
     // Remove old layers
     layersRef.current.forEach(l => {
-      try { map.removeLayer(l); } catch (e) {}
+      try { map.removeLayer(l); } catch (e) { }
     });
     layersRef.current = [];
 
@@ -91,7 +91,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
       try {
         const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
         if (cfg.units === 'metric') return `${km.toLocaleString()} km`;
-      } catch (e) {}
+      } catch (e) { }
       return `${Math.round(km * 0.621371).toLocaleString()} mi`;
     })();
 
@@ -138,7 +138,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
 
     return () => {
       layersRef.current.forEach(l => {
-        try { map.removeLayer(l); } catch (e) {}
+        try { map.removeLayer(l); } catch (e) { }
       });
       layersRef.current = [];
     };
@@ -148,7 +148,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
   useEffect(() => {
     if (!enabled && map) {
       layersRef.current.forEach(l => {
-        try { map.removeLayer(l); } catch (e) {}
+        try { map.removeLayer(l); } catch (e) { }
       });
       layersRef.current = [];
     }

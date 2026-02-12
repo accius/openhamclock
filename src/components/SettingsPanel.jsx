@@ -133,7 +133,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       // Also remove minimized state
       localStorage.removeItem(key + '-minimized');
     });
-    
+
     // Reload the page to apply position resets
     if (keys.length > 0) {
       window.location.reload();
@@ -164,10 +164,10 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
     let lat = lat1 + lat2 + 0.5;
 
     if (grid.length >= 6) {
-      const lon3 = (grid.charCodeAt(4) - 65) * (2/24);
-      const lat3 = (grid.charCodeAt(5) - 65) * (1/24);
-      lon = lon1 + lon2 + lon3 + (1/24);
-      lat = lat1 + lat2 + lat3 + (1/48);
+      const lon3 = (grid.charCodeAt(4) - 65) * (2 / 24);
+      const lat3 = (grid.charCodeAt(5) - 65) * (1 / 24);
+      lon = lon1 + lon2 + lon3 + (1 / 24);
+      lat = lat1 + lat2 + lat3 + (1 / 48);
     }
 
     return { lat, lon };
@@ -375,7 +375,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               fontFamily: 'JetBrains Mono, monospace'
             }}
           >
-            Profiles
+            {t('app.profiles.title')}
           </button>
         </div>
 
@@ -429,7 +429,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             </div>
 
             {/* Callsign Size*/}
-            <div style={{ marginBottom: '20px'}}>
+            <div style={{ marginBottom: '20px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>
                   {t('station.settings.headerSize')}
@@ -441,7 +441,8 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   onChange={(e) => {
                     if (e.target.value >= 0.1 && e.target.value <= 2.0) {
                       setheaderSize(e.target.value)
-                    }}}
+                    }
+                  }}
                   style={{
                     width: '100%',
                     padding: '10px',
@@ -456,7 +457,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 />
               </div>
             </div>
-            
+
             {/* Grid Square */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -745,7 +746,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             {/* Distance Units */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                📏 Distance Units
+                {t('app.units.distance')}
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -762,7 +763,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     fontWeight: units === 'imperial' ? '600' : '400'
                   }}
                 >
-                  🇺🇸 Imperial (mi)
+                  {t('app.units.imperial')}
                 </button>
                 <button
                   onClick={() => setUnits('metric')}
@@ -778,25 +779,25 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     fontWeight: units === 'metric' ? '600' : '400'
                   }}
                 >
-                  🌍 Metric (km)
+                  {t('app.units.metric')}
                 </button>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
                 {units === 'imperial'
-                  ? 'Distances shown in miles throughout the application.'
-                  : 'Distances shown in kilometers throughout the application.'}
+                  ? t('app.units.imperial.describe')
+                  : t('app.units.metric.describe')}
               </div>
             </div>
 
             {/* Propagation Settings */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                ⌇ Propagation Mode & Power
+                {t('app.propagation.settings.title')}
               </label>
-              
+
               {/* Mode */}
               <div style={{ marginBottom: '8px' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Operating Mode</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>{t('app.propagation.mode.label')}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
                   {[
                     { id: 'SSB', label: 'SSB', desc: 'Voice' },
@@ -831,10 +832,10 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   ))}
                 </div>
               </div>
-              
+
               {/* Power */}
               <div style={{ marginBottom: '6px' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>TX Power</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>{t('app.propagation.power.label')}</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) 1.2fr', gap: '4px', alignItems: 'center' }}>
                   {[
                     { w: 5, label: '5W', tip: 'QRP' },
@@ -889,21 +890,25 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   </div>
                 </div>
               </div>
-              
+
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
                 {(() => {
                   const modeAdv = { SSB: 0, CW: 10, RTTY: 8, PSK31: 10, FT8: 34, FT4: 30, WSPR: 41, JS8: 37 };
                   const adv = modeAdv[propMode] || 0;
                   const pwrDb = 10 * Math.log10((propPower || 100) / 100);
                   const margin = adv + pwrDb;
-                  return `Signal margin: ${margin >= 0 ? '+' : ''}${margin.toFixed(1)} dB vs SSB@100W — ${
-                    margin >= 30 ? 'extreme weak-signal advantage' :
-                    margin >= 15 ? 'strong advantage — marginal bands may open' :
-                    margin >= 5 ? 'moderate advantage' :
-                    margin >= -5 ? 'baseline conditions' :
-                    margin >= -15 ? 'reduced margin — some bands may close' :
-                    'significant disadvantage — only strong openings'
-                  }`;
+                  const advantageKey =
+                    margin >= 30 ? 'extreme' :
+                      margin >= 15 ? 'strong' :
+                        margin >= 5 ? 'moderate' :
+                          margin >= -5 ? 'baseline' :
+                            margin >= -15 ? 'reduced' :
+                              'poor';
+
+                  return t('app.propagation.margin.label', {
+                    margin: (margin >= 0 ? '+' : '') + margin.toFixed(1),
+                    advantage: t('app.propagation.advantage.' + advantageKey)
+                  });
                 })()}
               </div>
             </div>
@@ -911,7 +916,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             {/* Low Memory Mode */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
-                🧠 Performance Mode
+                {t('app.performance.title')}
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -928,7 +933,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     fontWeight: !lowMemoryMode ? '600' : '400'
                   }}
                 >
-                  🚀 Full
+                  {t('app.performance.full.label')}
                 </button>
                 <button
                   onClick={() => setLowMemoryMode(true)}
@@ -944,13 +949,13 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     fontWeight: lowMemoryMode ? '600' : '400'
                   }}
                 >
-                  🪶 Low Memory
+                  {t('app.performance.low.label')}
                 </button>
               </div>
               <div style={{ fontSize: '11px', color: lowMemoryMode ? 'var(--accent-green)' : 'var(--text-muted)', marginTop: '6px' }}>
-                {lowMemoryMode 
-                  ? '✓ Low Memory Mode: Reduced animations, fewer map markers, smaller spot limits. Recommended for systems with <8GB RAM.'
-                  : 'Full Mode: All features enabled. Requires 8GB+ RAM for best performance.'}
+                {lowMemoryMode
+                  ? t('app.performance.low.describe')
+                  : t('app.performance.full.describe')}
               </div>
             </div>
             <div style={{ marginBottom: '20px' }}>
@@ -985,17 +990,17 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Custom DX Cluster Settings */}
             {dxClusterSource === 'custom' && (
-              <div style={{ 
-                marginBottom: '20px', 
-                padding: '16px', 
-                background: 'var(--bg-tertiary)', 
+              <div style={{
+                marginBottom: '20px',
+                padding: '16px',
+                background: 'var(--bg-tertiary)',
                 borderRadius: '8px',
                 border: '1px solid var(--border-color)'
               }}>
                 <label style={{ display: 'block', marginBottom: '12px', color: 'var(--accent-cyan)', fontSize: '12px', fontWeight: '600' }}>
                   {t('station.settings.dx.custom.title')}
                 </label>
-                
+
                 {/* Host */}
                 <div style={{ marginBottom: '12px' }}>
                   <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '11px' }}>
@@ -1107,7 +1112,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 color: 'var(--text-muted)',
                 marginBottom: '10px'
               }}>
-                Map Overlays
+                {t('app.settings.mapOverlays')}
               </div>
               <label style={{
                 display: 'flex',
@@ -1129,10 +1134,10 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     fontWeight: '600',
                     fontFamily: 'JetBrains Mono, monospace'
                   }}>
-                    DX News Ticker
+                    {t('plugins.layers.dxnews.name')}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                    Scrolling DX news headlines on the map
+                    {t('plugins.layers.dxnews.description')}
                   </div>
                 </div>
               </label>
@@ -1194,7 +1199,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       padding: '2px 8px',
                       borderRadius: '3px'
                     }}>
-                      {layer.category}
+                      {t('category.' + layer.category)}
                     </span>
                   </div>
 
@@ -1221,7 +1226,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                           cursor: 'pointer'
                         }}
                       />
-                      
+
                       {/* CTRL+Click Reset Button - Hidden unless CTRL is pressed */}
                       {ctrlPressed && ['lightning', 'wspr', 'rbn', 'grayline', 'n3fjp_logged_qsos', 'voacap-heatmap'].includes(layer.id) && (
                         <button
@@ -1300,17 +1305,17 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 }}
               >{t('station.settings.satellites.clear')}</button>
             </div>
-            
+
             <div style={{
               fontSize: '11px',
               color: 'var(--text-muted)',
               marginBottom: '12px'
             }}>
-              {satelliteFilters.length === 0 
+              {satelliteFilters.length === 0
                 ? t('station.settings.satellites.showAll')
                 : t('station.settings.satellites.selectedCount', { count: satelliteFilters.length })}
             </div>
-            
+
             {/* Search Box */}
             <div style={{
               position: 'relative',
@@ -1320,7 +1325,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 type="text"
                 value={satelliteSearch}
                 onChange={(e) => setSatelliteSearch(e.target.value)}
-                placeholder="🔍 Search satellites..."
+                placeholder={t('station.settings.satellites.search.placeholder')}
                 style={{
                   width: '100%',
                   padding: '8px 32px 8px 12px',
@@ -1351,7 +1356,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 >×</button>
               )}
             </div>
-            
+
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
@@ -1360,74 +1365,74 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               overflowY: 'auto'
             }}>
               {(satellites || [])
-                .filter(sat => 
-                  !satelliteSearch || 
+                .filter(sat =>
+                  !satelliteSearch ||
                   sat.name.toLowerCase().includes(satelliteSearch.toLowerCase())
                 )
                 .sort((a, b) => {
                   const aSelected = satelliteFilters.includes(a.name);
                   const bSelected = satelliteFilters.includes(b.name);
-                  
+
                   // Selected satellites come first
                   if (aSelected && !bSelected) return -1;
                   if (!aSelected && bSelected) return 1;
-                  
+
                   // Then alphabetically by name
                   return a.name.localeCompare(b.name);
                 })
                 .map(sat => {
-                const isSelected = satelliteFilters.includes(sat.name);
-                return (
-                  <button
-                    key={sat.name}
-                    onClick={() => {
-                      if (isSelected) {
-                        onSatelliteFiltersChange(satelliteFilters.filter(n => n !== sat.name));
-                      } else {
-                        onSatelliteFiltersChange([...satelliteFilters, sat.name]);
-                      }
-                    }}
-                    style={{
-                      background: isSelected ? 'rgba(0, 255, 255, 0.15)' : 'var(--bg-tertiary)',
-                      border: `1px solid ${isSelected ? '#00ffff' : 'var(--border-color)'}`,
-                      borderRadius: '6px',
-                      padding: '10px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      color: 'var(--text-primary)',
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <span style={{
-                      width: '16px',
-                      height: '16px',
-                      borderRadius: '3px',
-                      border: `2px solid ${isSelected ? '#00ffff' : '#666'}`,
-                      background: isSelected ? '#00ffff' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '10px',
-                      flexShrink: 0
-                    }}>
-                      {isSelected && '✓'}
-                    </span>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <div style={{ 
-                        color: isSelected ? '#00ffff' : 'var(--text-primary)',
-                        fontWeight: '600',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>{sat.name}</div>
-                    </div>
-                  </button>
-                );
-              })}
+                  const isSelected = satelliteFilters.includes(sat.name);
+                  return (
+                    <button
+                      key={sat.name}
+                      onClick={() => {
+                        if (isSelected) {
+                          onSatelliteFiltersChange(satelliteFilters.filter(n => n !== sat.name));
+                        } else {
+                          onSatelliteFiltersChange([...satelliteFilters, sat.name]);
+                        }
+                      }}
+                      style={{
+                        background: isSelected ? 'rgba(0, 255, 255, 0.15)' : 'var(--bg-tertiary)',
+                        border: `1px solid ${isSelected ? '#00ffff' : 'var(--border-color)'}`,
+                        borderRadius: '6px',
+                        padding: '10px',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <span style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '3px',
+                        border: `2px solid ${isSelected ? '#00ffff' : '#666'}`,
+                        background: isSelected ? '#00ffff' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '10px',
+                        flexShrink: 0
+                      }}>
+                        {isSelected && '✓'}
+                      </span>
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <div style={{
+                          color: isSelected ? '#00ffff' : 'var(--text-primary)',
+                          fontWeight: '600',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>{sat.name}</div>
+                      </div>
+                    </button>
+                  );
+                })}
             </div>
           </div>
         )}
@@ -1437,8 +1442,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Description */}
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-              Save your current layout, theme, map layers, filters, and all preferences as a named profile. 
-              Switch between profiles when sharing a HamClock between operators, or to toggle between your own saved views.
+              {t('app.profiles.describe')}
             </div>
 
             {/* Active profile indicator */}
@@ -1454,7 +1458,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 fontSize: '12px'
               }}>
                 <span style={{ color: '#00ff88' }}>●</span>
-                <span style={{ color: 'var(--text-primary)' }}>Active: <strong>{activeProfileName}</strong></span>
+                <span style={{ color: 'var(--text-primary)' }}>{t('app.profiles.active.label')}<strong>{activeProfileName}</strong></span>
               </div>
             )}
 
@@ -1480,7 +1484,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               border: '1px solid var(--border-color)'
             }}>
               <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent-amber)', marginBottom: '8px' }}>
-                💾 Save Current State as Profile
+                {t('app.profiles.save.title')}
               </div>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <input
@@ -1498,7 +1502,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       setTimeout(() => setProfileMessage(null), 3000);
                     }
                   }}
-                  placeholder="Profile name (e.g. K0CJH, Contest, Field Day)"
+                  placeholder={t('app.profiles.name.placeholder')}
                   style={{
                     flex: 1,
                     padding: '8px 10px',
@@ -1534,7 +1538,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     whiteSpace: 'nowrap'
                   }}
                 >
-                  Save
+                  {t('app.profiles.save.button')}
                 </button>
               </div>
             </div>
@@ -1542,7 +1546,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             {/* Saved profiles list */}
             <div>
               <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent-amber)', marginBottom: '8px' }}>
-                📋 Saved Profiles ({Object.keys(profiles).length})
+                {t('app.profiles.saved.title')} ({Object.keys(profiles).length})
               </div>
               {Object.keys(profiles).length === 0 ? (
                 <div style={{
@@ -1561,217 +1565,217 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   {Object.entries(profiles)
                     .sort((a, b) => (b[1].updatedAt || '').localeCompare(a[1].updatedAt || ''))
                     .map(([name, profile]) => {
-                    const isActive = name === activeProfileName;
-                    const isRenaming = renamingProfile === name;
-                    
-                    // Parse callsign from snapshot if available
-                    let snapshotCallsign = '';
-                    try {
-                      const cfg = profile.snapshot?.openhamclock_config;
-                      if (cfg) snapshotCallsign = JSON.parse(cfg).callsign || '';
-                    } catch {}
-                    
-                    // Parse layout type
-                    let snapshotLayout = '';
-                    try {
-                      const cfg = profile.snapshot?.openhamclock_config;
-                      if (cfg) snapshotLayout = JSON.parse(cfg).layout || '';
-                    } catch {}
-                    
-                    return (
-                      <div key={name} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '10px 12px',
-                        background: isActive ? 'rgba(0, 255, 136, 0.08)' : 'var(--bg-tertiary)',
-                        border: `1px solid ${isActive ? 'rgba(0, 255, 136, 0.3)' : 'var(--border-color)'}`,
-                        borderRadius: '6px',
-                      }}>
-                        {/* Profile info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          {isRenaming ? (
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              <input
-                                type="text"
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    if (renameProfile(name, renameValue)) {
-                                      refreshProfiles();
-                                      setProfileMessage({ type: 'success', text: `Renamed to "${renameValue.trim()}"` });
-                                    } else {
-                                      setProfileMessage({ type: 'error', text: 'Rename failed — name may be taken' });
+                      const isActive = name === activeProfileName;
+                      const isRenaming = renamingProfile === name;
+
+                      // Parse callsign from snapshot if available
+                      let snapshotCallsign = '';
+                      try {
+                        const cfg = profile.snapshot?.openhamclock_config;
+                        if (cfg) snapshotCallsign = JSON.parse(cfg).callsign || '';
+                      } catch { }
+
+                      // Parse layout type
+                      let snapshotLayout = '';
+                      try {
+                        const cfg = profile.snapshot?.openhamclock_config;
+                        if (cfg) snapshotLayout = JSON.parse(cfg).layout || '';
+                      } catch { }
+
+                      return (
+                        <div key={name} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 12px',
+                          background: isActive ? 'rgba(0, 255, 136, 0.08)' : 'var(--bg-tertiary)',
+                          border: `1px solid ${isActive ? 'rgba(0, 255, 136, 0.3)' : 'var(--border-color)'}`,
+                          borderRadius: '6px',
+                        }}>
+                          {/* Profile info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {isRenaming ? (
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <input
+                                  type="text"
+                                  value={renameValue}
+                                  onChange={(e) => setRenameValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      if (renameProfile(name, renameValue)) {
+                                        refreshProfiles();
+                                        setProfileMessage({ type: 'success', text: `Renamed to "${renameValue.trim()}"` });
+                                      } else {
+                                        setProfileMessage({ type: 'error', text: 'Rename failed — name may be taken' });
+                                      }
+                                      setRenamingProfile(null);
+                                      setTimeout(() => setProfileMessage(null), 3000);
                                     }
-                                    setRenamingProfile(null);
+                                    if (e.key === 'Escape') setRenamingProfile(null);
+                                  }}
+                                  autoFocus
+                                  style={{
+                                    flex: 1,
+                                    padding: '4px 6px',
+                                    background: 'var(--bg-primary)',
+                                    border: '1px solid var(--accent-amber)',
+                                    borderRadius: '3px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '12px',
+                                    fontFamily: 'JetBrains Mono, monospace'
+                                  }}
+                                />
+                                <button onClick={() => {
+                                  if (renameProfile(name, renameValue)) {
+                                    refreshProfiles();
+                                    setProfileMessage({ type: 'success', text: `Renamed to "${renameValue.trim()}"` });
+                                  } else {
+                                    setProfileMessage({ type: 'error', text: 'Rename failed — name may already exist' });
+                                  }
+                                  setRenamingProfile(null);
+                                  setTimeout(() => setProfileMessage(null), 3000);
+                                }} style={{
+                                  padding: '4px 8px', background: 'var(--accent-green)', border: 'none',
+                                  borderRadius: '3px', color: '#000', fontSize: '10px', cursor: 'pointer', fontWeight: '700'
+                                }}>✓</button>
+                                <button onClick={() => setRenamingProfile(null)} style={{
+                                  padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+                                  borderRadius: '3px', color: 'var(--text-muted)', fontSize: '10px', cursor: 'pointer'
+                                }}>✕</button>
+                              </div>
+                            ) : (
+                              <>
+                                <div style={{
+                                  fontSize: '13px',
+                                  fontWeight: '600',
+                                  color: isActive ? '#00ff88' : 'var(--text-primary)',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis'
+                                }}>
+                                  {isActive && <span style={{ marginRight: '4px' }}>●</span>}
+                                  {name}
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                  {snapshotCallsign && <span>{snapshotCallsign}</span>}
+                                  {snapshotLayout && <span> • {snapshotLayout}</span>}
+                                  {profile.updatedAt && <span> • {new Date(profile.updatedAt).toLocaleDateString()}</span>}
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Action buttons */}
+                          {!isRenaming && (
+                            <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                              {/* Load */}
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Load profile "${name}"? This will replace your current settings and reload.`)) {
+                                    loadProfile(name);
+                                    window.location.reload();
+                                  }
+                                }}
+                                title="Load this profile"
+                                style={{
+                                  padding: '5px 10px',
+                                  background: isActive ? 'rgba(0,255,136,0.15)' : 'var(--bg-primary)',
+                                  border: `1px solid ${isActive ? 'rgba(0,255,136,0.3)' : 'var(--border-color)'}`,
+                                  borderRadius: '4px',
+                                  color: isActive ? '#00ff88' : 'var(--text-secondary)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer',
+                                  fontWeight: '600'
+                                }}
+                              >
+                                {isActive ? t('app.profiles.active.status') : '▶ ' + t('app.profiles.load.button')}
+                              </button>
+                              {/* Update (overwrite with current state) */}
+                              <button
+                                onClick={() => {
+                                  saveProfile(name);
+                                  refreshProfiles();
+                                  setProfileMessage({ type: 'success', text: `"${name}" updated with current state` });
+                                  setTimeout(() => setProfileMessage(null), 3000);
+                                }}
+                                title={t('app.profiles.update.title')}
+                                style={{
+                                  padding: '5px 8px',
+                                  background: 'var(--bg-primary)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '4px',
+                                  color: 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer'
+                                }}
+                              >↻</button>
+                              {/* Rename */}
+                              <button
+                                onClick={() => { setRenamingProfile(name); setRenameValue(name); }}
+                                title={t('app.profiles.rename.title')}
+                                style={{
+                                  padding: '5px 8px',
+                                  background: 'var(--bg-primary)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '4px',
+                                  color: 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer'
+                                }}
+                              >✎</button>
+                              {/* Export */}
+                              <button
+                                onClick={() => {
+                                  const json = exportProfile(name);
+                                  if (json) {
+                                    const blob = new Blob([json], { type: 'application/json' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `hamclock-profile-${name.replace(/\s+/g, '-').toLowerCase()}.json`;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                    setProfileMessage({ type: 'success', text: t('app.profiles.message.exported', { name: name }) });
                                     setTimeout(() => setProfileMessage(null), 3000);
                                   }
-                                  if (e.key === 'Escape') setRenamingProfile(null);
                                 }}
-                                autoFocus
+                                title={t('app.profiles.export.title')}
                                 style={{
-                                  flex: 1,
-                                  padding: '4px 6px',
+                                  padding: '5px 8px',
                                   background: 'var(--bg-primary)',
-                                  border: '1px solid var(--accent-amber)',
-                                  borderRadius: '3px',
-                                  color: 'var(--text-primary)',
-                                  fontSize: '12px',
-                                  fontFamily: 'JetBrains Mono, monospace'
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '4px',
+                                  color: 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer'
                                 }}
-                              />
-                              <button onClick={() => {
-                                if (renameProfile(name, renameValue)) {
-                                  refreshProfiles();
-                                  setProfileMessage({ type: 'success', text: `Renamed to "${renameValue.trim()}"` });
-                                } else {
-                                  setProfileMessage({ type: 'error', text: 'Rename failed — name may already exist' });
-                                }
-                                setRenamingProfile(null);
-                                setTimeout(() => setProfileMessage(null), 3000);
-                              }} style={{
-                                padding: '4px 8px', background: 'var(--accent-green)', border: 'none',
-                                borderRadius: '3px', color: '#000', fontSize: '10px', cursor: 'pointer', fontWeight: '700'
-                              }}>✓</button>
-                              <button onClick={() => setRenamingProfile(null)} style={{
-                                padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
-                                borderRadius: '3px', color: 'var(--text-muted)', fontSize: '10px', cursor: 'pointer'
-                              }}>✕</button>
+                              >⤓</button>
+                              {/* Delete */}
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(t('app.profiles.delete.confirm', { name: name }))) {
+                                    deleteProfile(name);
+                                    refreshProfiles();
+                                    setProfileMessage({ type: 'success', text: t('app.profiles.message.deleted', { name: name }) });
+                                    setTimeout(() => setProfileMessage(null), 3000);
+                                  }
+                                }}
+                                title={t('app.profiles.delete.title')}
+                                style={{
+                                  padding: '5px 8px',
+                                  background: 'var(--bg-primary)',
+                                  border: '1px solid rgba(255,68,102,0.3)',
+                                  borderRadius: '4px',
+                                  color: '#ff4466',
+                                  fontSize: '11px',
+                                  cursor: 'pointer'
+                                }}
+                              >✕</button>
                             </div>
-                          ) : (
-                            <>
-                              <div style={{
-                                fontSize: '13px',
-                                fontWeight: '600',
-                                color: isActive ? '#00ff88' : 'var(--text-primary)',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                              }}>
-                                {isActive && <span style={{ marginRight: '4px' }}>●</span>}
-                                {name}
-                              </div>
-                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                {snapshotCallsign && <span>{snapshotCallsign}</span>}
-                                {snapshotLayout && <span> • {snapshotLayout}</span>}
-                                {profile.updatedAt && <span> • {new Date(profile.updatedAt).toLocaleDateString()}</span>}
-                              </div>
-                            </>
                           )}
                         </div>
-
-                        {/* Action buttons */}
-                        {!isRenaming && (
-                          <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                            {/* Load */}
-                            <button
-                              onClick={() => {
-                                if (window.confirm(`Load profile "${name}"? This will replace your current settings and reload.`)) {
-                                  loadProfile(name);
-                                  window.location.reload();
-                                }
-                              }}
-                              title="Load this profile"
-                              style={{
-                                padding: '5px 10px',
-                                background: isActive ? 'rgba(0,255,136,0.15)' : 'var(--bg-primary)',
-                                border: `1px solid ${isActive ? 'rgba(0,255,136,0.3)' : 'var(--border-color)'}`,
-                                borderRadius: '4px',
-                                color: isActive ? '#00ff88' : 'var(--text-secondary)',
-                                fontSize: '11px',
-                                cursor: 'pointer',
-                                fontWeight: '600'
-                              }}
-                            >
-                              {isActive ? '✓ Active' : '▶ Load'}
-                            </button>
-                            {/* Update (overwrite with current state) */}
-                            <button
-                              onClick={() => {
-                                saveProfile(name);
-                                refreshProfiles();
-                                setProfileMessage({ type: 'success', text: `"${name}" updated with current state` });
-                                setTimeout(() => setProfileMessage(null), 3000);
-                              }}
-                              title="Update with current settings"
-                              style={{
-                                padding: '5px 8px',
-                                background: 'var(--bg-primary)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '4px',
-                                color: 'var(--text-muted)',
-                                fontSize: '11px',
-                                cursor: 'pointer'
-                              }}
-                            >↻</button>
-                            {/* Rename */}
-                            <button
-                              onClick={() => { setRenamingProfile(name); setRenameValue(name); }}
-                              title="Rename"
-                              style={{
-                                padding: '5px 8px',
-                                background: 'var(--bg-primary)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '4px',
-                                color: 'var(--text-muted)',
-                                fontSize: '11px',
-                                cursor: 'pointer'
-                              }}
-                            >✎</button>
-                            {/* Export */}
-                            <button
-                              onClick={() => {
-                                const json = exportProfile(name);
-                                if (json) {
-                                  const blob = new Blob([json], { type: 'application/json' });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = `hamclock-profile-${name.replace(/\s+/g, '-').toLowerCase()}.json`;
-                                  a.click();
-                                  URL.revokeObjectURL(url);
-                                  setProfileMessage({ type: 'success', text: `Exported "${name}"` });
-                                  setTimeout(() => setProfileMessage(null), 3000);
-                                }
-                              }}
-                              title="Export to file"
-                              style={{
-                                padding: '5px 8px',
-                                background: 'var(--bg-primary)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '4px',
-                                color: 'var(--text-muted)',
-                                fontSize: '11px',
-                                cursor: 'pointer'
-                              }}
-                            >⤓</button>
-                            {/* Delete */}
-                            <button
-                              onClick={() => {
-                                if (window.confirm(`Delete profile "${name}"? This cannot be undone.`)) {
-                                  deleteProfile(name);
-                                  refreshProfiles();
-                                  setProfileMessage({ type: 'success', text: `Deleted "${name}"` });
-                                  setTimeout(() => setProfileMessage(null), 3000);
-                                }
-                              }}
-                              title="Delete"
-                              style={{
-                                padding: '5px 8px',
-                                background: 'var(--bg-primary)',
-                                border: '1px solid rgba(255,68,102,0.3)',
-                                borderRadius: '4px',
-                                color: '#ff4466',
-                                fontSize: '11px',
-                                cursor: 'pointer'
-                              }}
-                            >✕</button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               )}
             </div>
@@ -1785,23 +1789,25 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               marginBottom: '12px'
             }}>
               <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent-amber)', marginBottom: '8px' }}>
-                🌡️ Open-Meteo API Key <span style={{ color: 'var(--text-muted)', fontWeight: '400', fontSize: '11px' }}>(optional)</span>
+                {t('app.weather.api_key.title')}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.4 }}>
-                Weather data is provided by Open-Meteo's free API. For higher rate limits or commercial use,
-                enter your API key from <a href="https://open-meteo.com/en/pricing" target="_blank" rel="noopener" style={{ color: 'var(--accent-blue)' }}>open-meteo.com</a>.
-                Leave blank for the free tier.
+                <Trans i18nKey="app.weather.api_key.describe">
+                  Weather data is provided by Open-Meteo's free API. For higher rate limits or commercial use,
+                  enter your API key from <a href="https://open-meteo.com/en/pricing" target="_blank" rel="noopener" style={{ color: 'var(--accent-blue)' }}>open-meteo.com</a>.
+                  Leave blank for the free tier.
+                </Trans>
               </div>
               <input
                 type="text"
-                placeholder="Free tier (no key needed)"
+                placeholder={t('app.weather.api_key.placeholder')}
                 defaultValue={(() => { try { return localStorage.getItem('ohc_openmeteo_apikey') || ''; } catch { return ''; } })()}
                 onChange={(e) => {
                   try {
                     const val = e.target.value.trim();
                     if (val) { localStorage.setItem('ohc_openmeteo_apikey', val); }
                     else { localStorage.removeItem('ohc_openmeteo_apikey'); }
-                  } catch {}
+                  } catch { }
                 }}
                 style={{
                   width: '100%',
@@ -1825,7 +1831,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               border: '1px solid var(--border-color)'
             }}>
               <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent-amber)', marginBottom: '8px' }}>
-                📦 Import / Export
+                {t('app.profiles.import_export.title')}
               </div>
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                 <input
@@ -1864,7 +1870,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     fontWeight: '600'
                   }}
                 >
-                  ⤒ Import Profile from File
+                  {t('app.profiles.import.button')}
                 </button>
                 <button
                   onClick={() => {
@@ -1890,11 +1896,11 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     fontWeight: '600'
                   }}
                 >
-                  ⤓ Export Current State
+                  {t('app.profiles.export.button')}
                 </button>
               </div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                Share profile files between devices or operators. Exported files contain all settings, layout preferences, map layers, and filter configurations.
+                {t('app.profiles.import_export.describe')}
               </div>
             </div>
           </div>

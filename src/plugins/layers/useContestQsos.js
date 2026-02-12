@@ -4,8 +4,8 @@ import { getGreatCirclePoints, replicatePath, replicatePoint } from '../../utils
 
 export const metadata = {
   id: 'contest_qsos',
-  name: 'Contest QSOs',
-  description: 'Recent QSOs from contest loggers (N1MM/DXLog)',
+  name: 'plugins.layers.contest_qsos.name',
+  description: 'plugins.layers.contest_qsos.description',
   icon: 'QSO',
   category: 'amateur',
   defaultEnabled: false,
@@ -67,10 +67,10 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null }) {
     if (!map || typeof L === 'undefined') return;
 
     linesRef.current.forEach(line => {
-      try { map.removeLayer(line); } catch (e) {}
+      try { map.removeLayer(line); } catch (e) { }
     });
     markersRef.current.forEach(marker => {
-      try { map.removeLayer(marker); } catch (e) {}
+      try { map.removeLayer(marker); } catch (e) { }
     });
     linesRef.current = [];
     markersRef.current = [];

@@ -13,8 +13,8 @@ import { useState, useEffect, useRef } from 'react';
 
 export const metadata = {
   id: 'earthquakes',
-  name: i18n.t('plugins.layers.earthquakes.name'),
-  description: i18n.t('plugins.layers.earthquakes.description'),
+  name: 'plugins.layers.earthquakes.name',
+  description: 'plugins.layers.earthquakes.description',
   icon: '🌋',
   category: 'geology',
   defaultEnabled: false,
@@ -27,7 +27,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
   const [earthquakeData, setEarthquakeData] = useState([]);
   const previousQuakeIds = useRef(new Set());
   const isFirstLoad = useRef(true);
-  
+
   // Low memory mode limits
   const MAX_QUAKES = lowMemoryMode ? 20 : 100;
   const REFRESH_INTERVAL = lowMemoryMode ? 600000 : 300000; // 10 min vs 5 min
@@ -85,7 +85,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       const coords = quake.geometry.coordinates;
       const props = quake.properties;
       const mag = props.mag;
-      
+
       // GeoJSON standard format: [longitude, latitude, elevation]
       // For Santa Lucía, Peru: [-70.5639, -15.6136, 206.486]
       //   coords[0] = -70.5639 = Longitude (W)
@@ -130,13 +130,13 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
       // Create earthquake icon with visible shake/wave symbol
       const waveIcon = `
-        <svg width="${size*0.8}" height="${size*0.8}" viewBox="0 0 32 32" style="fill: white; stroke: white; stroke-width: 1;">
+        <svg width="${size * 0.8}" height="${size * 0.8}" viewBox="0 0 32 32" style="fill: white; stroke: white; stroke-width: 1;">
           <path d="M16 4 L13 12 L10 8 L8 16 L6 12 L4 20 M16 4 L19 12 L22 8 L24 16 L26 12 L28 20" stroke-width="2" fill="none"/>
           <circle cx="16" cy="16" r="3" fill="white"/>
           <path d="M16 22 L14 26 L18 26 Z" fill="white"/>
         </svg>
       `;
-      
+
       const icon = L.divIcon({
         className: 'earthquake-icon',
         html: `<div style="
@@ -153,21 +153,21 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
           box-shadow: 0 2px 8px rgba(0,0,0,0.5);
         ">${waveIcon}</div>`,
         iconSize: [size, size],
-        iconAnchor: [size/2, size/2],
+        iconAnchor: [size / 2, size / 2],
         popupAnchor: [0, 0]  // Popup appears at the marker position (icon center)
       });
-      
+
       console.log(`📍 Creating marker for ${quakeId}: M${mag.toFixed(1)} at [lat=${lat}, lon=${lon}] - ${props.place}`);
-      
+
       // Use standard Leaflet [latitude, longitude] format
       // The popup was appearing in the correct location, confirming marker position is correct
       // The icon was appearing offset due to CSS position: relative issue (now fixed)
       const markerCoords = [lat, lon];  // CORRECT: [latitude, longitude]
-      
+
       console.log(`   → Creating L.marker([${markerCoords[0]}, ${markerCoords[1]}]) = [lat, lon]`);
-      
-      const circle = L.marker(markerCoords, { 
-        icon, 
+
+      const circle = L.marker(markerCoords, {
+        icon,
         opacity,
         zIndexOffset: 10000 // Ensure markers appear on top
       });
@@ -185,12 +185,12 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
               const iconDiv = iconElement.querySelector('div');
               if (iconDiv) {
                 iconDiv.classList.add('earthquake-pulse-new');
-                
+
                 // Remove animation class after it completes (0.8s)
                 setTimeout(() => {
                   try {
                     iconDiv.classList.remove('earthquake-pulse-new');
-                  } catch (e) {}
+                  } catch (e) { }
                 }, 800);
               }
             }
@@ -198,7 +198,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
             console.warn('Could not animate earthquake marker:', e);
           }
         }, 10);
-        
+
         // Create pulsing ring effect - use same [lat, lon] format
         const pulseRing = L.circle([lat, lon], {
           radius: 50000, // 50km radius in meters
@@ -209,14 +209,14 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
           opacity: 0.8,
           className: 'earthquake-pulse-ring'
         });
-        
+
         pulseRing.addTo(map);
-        
+
         // Remove pulse ring after animation completes
         setTimeout(() => {
           try {
             map.removeLayer(pulseRing);
-          } catch (e) {}
+          } catch (e) { }
         }, 3000);
       }
 
@@ -224,8 +224,8 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       const time = new Date(props.time);
       const timeStr = time.toLocaleString();
       const ageMinutes = Math.floor((Date.now() - props.time) / 60000);
-      const ageStr = ageMinutes < 60 
-        ? `${ageMinutes} min ago` 
+      const ageStr = ageMinutes < 60
+        ? `${ageMinutes} min ago`
         : `${Math.floor(ageMinutes / 60)} hr ago`;
 
       // Add popup with details
@@ -253,7 +253,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
     // Update previous quake IDs for next comparison
     previousQuakeIds.current = currentQuakeIds;
-    
+
     // After first load, allow animations for new quakes
     if (isFirstLoad.current) {
       isFirstLoad.current = false;

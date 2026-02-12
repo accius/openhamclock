@@ -13,8 +13,8 @@ import { useState, useEffect, useRef } from 'react';
 
 export const metadata = {
   id: 'voacap-heatmap',
-  name: 'VOACAP Propagation Map',
-  description: 'Color-coded HF propagation predictions from your station to the world',
+  name: 'plugins.layers.voacap.name',
+  description: 'plugins.layers.voacap.description',
   icon: '🌐',
   category: 'propagation',
   defaultEnabled: false,
@@ -25,15 +25,15 @@ export const metadata = {
 // HF bands: label, frequency in MHz
 const BANDS = [
   { label: '160m', freq: 1.8 },
-  { label: '80m',  freq: 3.5 },
-  { label: '40m',  freq: 7 },
-  { label: '30m',  freq: 10 },
-  { label: '20m',  freq: 14 },
-  { label: '17m',  freq: 18 },
-  { label: '15m',  freq: 21 },
-  { label: '12m',  freq: 24 },
-  { label: '10m',  freq: 28 },
-  { label: '6m',   freq: 50 }
+  { label: '80m', freq: 3.5 },
+  { label: '40m', freq: 7 },
+  { label: '30m', freq: 10 },
+  { label: '20m', freq: 14 },
+  { label: '17m', freq: 18 },
+  { label: '15m', freq: 21 },
+  { label: '12m', freq: 24 },
+  { label: '10m', freq: 28 },
+  { label: '6m', freq: 50 }
 ];
 
 // Reliability to color: red (0%) → yellow (50%) → green (100%)
@@ -57,7 +57,7 @@ function reliabilityColor(r) {
 // Make control panel draggable with CTRL+drag
 function makeDraggable(element, storageKey, skipPositionLoad = false) {
   if (!element) return;
-  
+
   // Load saved position only if not already loaded
   if (!skipPositionLoad) {
     const saved = localStorage.getItem(storageKey);
@@ -65,7 +65,7 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
       try {
         const data = JSON.parse(saved);
         element.style.position = 'fixed';
-        
+
         // Check if saved as percentage (new format) or pixels (old format)
         if (data.topPercent !== undefined && data.leftPercent !== undefined) {
           // Use percentage-based positioning (scales with zoom)
@@ -78,11 +78,11 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
           element.style.top = topPercent + '%';
           element.style.left = leftPercent + '%';
         }
-        
+
         element.style.right = 'auto';
         element.style.bottom = 'auto';
         element.style.transform = 'none';
-      } catch (e) {}
+      } catch (e) { }
     } else {
       // Convert from Leaflet control position to fixed
       const rect = element.getBoundingClientRect();
@@ -93,19 +93,19 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
       element.style.bottom = 'auto';
     }
   }
-  
+
   element.title = 'Hold CTRL and drag to reposition';
-  
+
   let isDragging = false;
   let startX, startY, startLeft, startTop;
-  
+
   const updateCursor = (e) => {
     element.style.cursor = e.ctrlKey ? 'grab' : 'default';
   };
-  
+
   element.addEventListener('mouseenter', updateCursor);
   element.addEventListener('mousemove', updateCursor);
-  
+
   element.addEventListener('mousedown', (e) => {
     if (!e.ctrlKey) return;
     isDragging = true;
@@ -117,7 +117,7 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
     e.preventDefault();
     e.stopPropagation();
   });
-  
+
   document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
     const dx = e.clientX - startX;
@@ -125,16 +125,16 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
     element.style.left = (startLeft + dx) + 'px';
     element.style.top = (startTop + dy) + 'px';
   });
-  
+
   document.addEventListener('mouseup', () => {
     if (!isDragging) return;
     isDragging = false;
     element.style.cursor = 'default';
-    
+
     // Save position as percentage of viewport for zoom compatibility
     const topPercent = (element.offsetTop / window.innerHeight) * 100;
     const leftPercent = (element.offsetLeft / window.innerWidth) * 100;
-    
+
     const position = {
       topPercent,
       leftPercent,
@@ -149,19 +149,19 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
 // Minimize/maximize toggle
 function addMinimizeToggle(container, storageKey) {
   if (!container) return;
-  
+
   const contentWrapper = container.querySelector('.voacap-panel-content');
   const minimizeBtn = container.querySelector('.voacap-minimize-btn');
   if (!contentWrapper || !minimizeBtn) return;
-  
+
   const minKey = storageKey + '-minimized';
   const isMinimized = localStorage.getItem(minKey) === 'true';
-  
+
   if (isMinimized) {
     contentWrapper.style.display = 'none';
     minimizeBtn.textContent = '▶';
   }
-  
+
   minimizeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const hidden = contentWrapper.style.display === 'none';
@@ -183,11 +183,11 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastFetch, setLastFetch] = useState(0);
-  
+
   const layersRef = useRef([]);
   const controlRef = useRef(null);
   const intervalRef = useRef(null);
-  
+
   // Parse DE location from locator grid square
   const deLocation = (() => {
     if (!locator || locator.length < 4) return null;
@@ -198,15 +198,15 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
     const latMin = parseInt(g[3]) * 1;
     return { lat: lat + latMin + 0.5, lon: lon + lonMin + 1 };
   })();
-  
+
   // Fetch heatmap data
   useEffect(() => {
     if (!enabled || !deLocation) return;
-    
+
     const fetchData = async () => {
       const band = BANDS[selectedBand];
       if (!band) return;
-      
+
       setLoading(true);
       try {
         // Read propagation mode/power from config
@@ -215,8 +215,8 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
           const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
           if (cfg.propagation?.mode) propMode = cfg.propagation.mode;
           if (cfg.propagation?.power) propPower = cfg.propagation.power;
-        } catch (e) {}
-        
+        } catch (e) { }
+
         const url = `/api/propagation/heatmap?deLat=${deLocation.lat.toFixed(1)}&deLon=${deLocation.lon.toFixed(1)}&freq=${band.freq}&grid=${gridSize}&mode=${propMode}&power=${propPower}`;
         const res = await fetch(url);
         if (res.ok) {
@@ -230,40 +230,40 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
         setLoading(false);
       }
     };
-    
+
     fetchData();
     intervalRef.current = setInterval(fetchData, 5 * 60 * 1000);
-    
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [enabled, deLocation?.lat, deLocation?.lon, selectedBand, gridSize]);
-  
+
   // Create control panel
   useEffect(() => {
     if (!map || !enabled) return;
-    
+
     // Avoid duplicate controls
     if (controlRef.current) {
-      try { map.removeControl(controlRef.current); } catch (e) {}
+      try { map.removeControl(controlRef.current); } catch (e) { }
       controlRef.current = null;
     }
-    
+
     const VOACAPControl = L.Control.extend({
       options: { position: 'topright' },
-      onAdd: function() {
+      onAdd: function () {
         const container = L.DomUtil.create('div', 'voacap-heatmap-control');
         L.DomEvent.disableClickPropagation(container);
         L.DomEvent.disableScrollPropagation(container);
-        
+
         const bandOptions = BANDS.map((b, i) =>
           `<option value="${i}" ${i === selectedBand ? 'selected' : ''}>${b.label} (${b.freq} MHz)</option>`
         ).join('');
-        
+
         const gridOptions = [5, 10, 15, 20].map(g =>
           `<option value="${g}" ${g === gridSize ? 'selected' : ''}>${g}°</option>`
         ).join('');
-        
+
         container.innerHTML = `
           <div style="
             background: rgba(20, 20, 40, 0.92);
@@ -319,19 +319,19 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
             </div>
           </div>
         `;
-        
+
         return container;
       }
     });
-    
+
     controlRef.current = new VOACAPControl();
     map.addControl(controlRef.current);
-    
+
     // Wire up event handlers after DOM is ready
     setTimeout(() => {
       const container = controlRef.current?._container;
       if (!container) return;
-      
+
       // Apply saved position
       const saved = localStorage.getItem('voacap-heatmap-position');
       if (saved) {
@@ -342,15 +342,15 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
           container.style.left = left + 'px';
           container.style.right = 'auto';
           container.style.bottom = 'auto';
-        } catch (e) {}
+        } catch (e) { }
       }
-      
+
       makeDraggable(container, 'voacap-heatmap-position');
       addMinimizeToggle(container, 'voacap-heatmap-position');
-      
+
       const bandSelect = document.getElementById('voacap-band-select');
       const gridSelect = document.getElementById('voacap-grid-select');
-      
+
       if (bandSelect) {
         bandSelect.addEventListener('change', (e) => {
           const val = parseInt(e.target.value);
@@ -366,9 +366,9 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
         });
       }
     }, 150);
-    
+
   }, [enabled, map]);
-  
+
   // Update status text
   useEffect(() => {
     const statusEl = document.getElementById('voacap-status');
@@ -380,33 +380,33 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
       }
     }
   }, [loading, data, enabled]);
-  
+
   // Render heatmap rectangles on the map
   useEffect(() => {
     if (!map || !enabled) return;
-    
+
     // Clear old layers
     layersRef.current.forEach(layer => {
-      try { map.removeLayer(layer); } catch (e) {}
+      try { map.removeLayer(layer); } catch (e) { }
     });
     layersRef.current = [];
-    
+
     if (!data?.cells?.length) return;
-    
+
     const half = (data.gridSize || 10) / 2;
     const newLayers = [];
-    
+
     data.cells.forEach(cell => {
       const color = reliabilityColor(cell.r);
       const band = BANDS[selectedBand];
-      
+
       // Create rectangles in 3 world copies for dateline support
       for (const offset of [-360, 0, 360]) {
         const bounds = [
           [cell.lat - half, cell.lon - half + offset],
           [cell.lat + half, cell.lon + half + offset]
         ];
-        
+
         const rect = L.rectangle(bounds, {
           color: 'transparent',
           fillColor: color,
@@ -415,35 +415,35 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
           interactive: false,
           bubblingMouseEvents: true
         });
-        
+
         rect.addTo(map);
         newLayers.push(rect);
       }
     });
-    
+
     layersRef.current = newLayers;
-    
+
     return () => {
       newLayers.forEach(layer => {
-        try { map.removeLayer(layer); } catch (e) {}
+        try { map.removeLayer(layer); } catch (e) { }
       });
     };
   }, [map, enabled, data, opacity, selectedBand]);
-  
+
   // Cleanup on disable
   useEffect(() => {
     if (!enabled && map) {
       if (controlRef.current) {
-        try { map.removeControl(controlRef.current); } catch (e) {}
+        try { map.removeControl(controlRef.current); } catch (e) { }
         controlRef.current = null;
       }
       layersRef.current.forEach(layer => {
-        try { map.removeLayer(layer); } catch (e) {}
+        try { map.removeLayer(layer); } catch (e) { }
       });
       layersRef.current = [];
     }
   }, [enabled, map]);
-  
+
   return { data, loading, selectedBand };
 }
 
@@ -452,10 +452,10 @@ function haversineApprox(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
 // Format distance using global units preference from config
@@ -463,6 +463,6 @@ function formatDistanceApprox(km) {
   try {
     const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
     if (cfg.units === 'metric') return `${km.toLocaleString()} km`;
-  } catch (e) {}
+  } catch (e) { }
   return `${Math.round(km * 0.621371).toLocaleString()} mi`;
 }

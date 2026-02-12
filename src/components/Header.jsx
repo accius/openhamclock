@@ -3,6 +3,7 @@
  * Top bar with callsign, clocks, weather, and controls
  */
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { IconGear, IconExpand, IconShrink } from './Icons.jsx';
 export const Header = ({
   config,
@@ -23,6 +24,7 @@ export const Header = ({
   updateInProgress,
   showUpdateButton
 }) => {
+  const { t } = useTranslation();
   return (
     <div style={{
       gridColumn: '1 / -1',
@@ -59,8 +61,8 @@ export const Header = ({
         <span style={{ fontSize: '13px', color: 'var(--accent-cyan)', fontWeight: '600' }}>UTC</span>
         <span style={{
           fontSize: config.headerSize > 0.1 && config.headerSize <= 2
-              ? `${24 * config.headerSize}px`
-              : "24px",
+            ? `${24 * config.headerSize}px`
+            : "24px",
           fontWeight: '700',
           color: 'var(--accent-cyan)',
           fontFamily: 'JetBrains Mono, Consolas, monospace',
@@ -78,8 +80,8 @@ export const Header = ({
         <span style={{ fontSize: '13px', color: 'var(--accent-amber)', fontWeight: '600' }}>LOCAL</span>
         <span style={{
           fontSize: config.headerSize > 0.1 && config.headerSize <= 2
-              ? `${24 * config.headerSize}px`
-              : "24px",
+            ? `${24 * config.headerSize}px`
+            : "24px",
           fontWeight: '700',
           color: 'var(--accent-amber)',
           fontFamily: 'JetBrains Mono, Consolas, monospace',
@@ -99,18 +101,20 @@ export const Header = ({
           const windLabel = localWeather.data.windUnit || 'mph';
           return (
             <div title={`${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${windLabel}`}>
-              <span style={{ marginRight: '3px', 
+              <span style={{
+                marginRight: '3px',
                 fontSize: config.headerSize > 0.1 && config.headerSize <= 2
                   ? `${12 * config.headerSize}px`
                   : "12px",
-               }}>
+              }}>
                 {localWeather.data.icon}
               </span>
-              <span style={{ color: 'var(--accent-cyan)', fontWeight: '600',
+              <span style={{
+                color: 'var(--accent-cyan)', fontWeight: '600',
                 fontSize: config.headerSize > 0.1 && config.headerSize <= 2
                   ? `${12 * config.headerSize}px`
                   : "12px",
-               }}>
+              }}>
                 {tempF}°F/{tempC}°C
               </span>
             </div>
@@ -140,11 +144,11 @@ export const Header = ({
         )}
         {bandConditions?.extras?.geomagField && (
           <div>
-            <span style={{ 
+            <span style={{
               fontSize: '10px',
-              color: bandConditions.extras.geomagField === 'QUIET' ? 'var(--accent-green)' : 
-                     bandConditions.extras.geomagField === 'ACTIVE' || bandConditions.extras.geomagField.includes('STORM') ? 'var(--accent-red)' : 
-                     'var(--accent-amber)',
+              color: bandConditions.extras.geomagField === 'QUIET' ? 'var(--accent-green)' :
+                bandConditions.extras.geomagField === 'ACTIVE' || bandConditions.extras.geomagField.includes('STORM') ? 'var(--accent-red)' :
+                  'var(--accent-amber)',
               fontWeight: '600'
             }}>
               {bandConditions.extras.geomagField}
@@ -178,7 +182,7 @@ export const Header = ({
               }}
               title="Buy me a coffee!"
             >
-              ☕ Donate
+              ☕ {t('header.donate')}
             </a>
             <a
               href="https://www.paypal.com/donate/?hosted_button_id=MMYPQBLA6SW68"
@@ -201,7 +205,7 @@ export const Header = ({
               }}
               title="Donate via PayPal"
             >
-              💳 PayPal
+              💳 {t('header.paypal', 'PayPal')}
             </a>
           </>
         )}
@@ -221,7 +225,7 @@ export const Header = ({
             }}
             title="Run update now (server will restart)"
           >
-            {updateInProgress ? 'UPDATING...' : 'UPDATE'}
+            {updateInProgress ? t('header.update.loading') : t('header.update.button')}
           </button>
         )}
         <button
@@ -237,7 +241,7 @@ export const Header = ({
             whiteSpace: 'nowrap'
           }}
         >
-          <IconGear size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />Settings
+          <IconGear size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />{t('header.settings')}
         </button>
         <button
           onClick={onFullscreenToggle}
@@ -251,11 +255,11 @@ export const Header = ({
             cursor: 'pointer',
             whiteSpace: 'nowrap'
           }}
-          title={isFullscreen ? "Exit Fullscreen (Esc)" : "Enter Fullscreen"}
+          title={isFullscreen ? t('header.fullscreen.tooltip.exit') : t('header.fullscreen.tooltip.enter')}
         >
           {isFullscreen
-            ? <><IconShrink size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />Exit</>
-            : <><IconExpand size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />Full</>
+            ? <><IconShrink size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />{t('header.fullscreen.exit')}</>
+            : <><IconExpand size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />{t('header.fullscreen.enter')}</>
           }
         </button>
       </div>
