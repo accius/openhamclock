@@ -2,6 +2,18 @@
 
 All notable changes to OpenHamClock will be documented in this file.
 
+## [15.2.12] - 2026-02-12
+
+### Fixed
+- **Critical memory leak (OOM at 4GB after ~24h)** — Multiple unbounded data structures in the PSK-MQTT proxy caused heap exhaustion:
+  - `recentSpots` had no cap on insert — spots were `.push()`ed with no limit, only trimmed to 500 every 5 minutes. With 1000+ subscribed callsigns, hundreds of thousands of spots accumulated between cleanups. Now capped at 200 per callsign at insert time.
+  - `recentSpots` and `spotBuffer` entries were never cleaned up when callsigns unsubscribed — every callsign that disconnected left behind up to 500 spots for up to 1 hour. Over 24 hours with thousands of unique visitors, this accumulated hundreds of MB of orphaned spot data. Now deleted immediately on unsubscribe.
+  - `spotBuffer` entries for unsubscribed callsigns were never cleaned in the 5-minute cleanup cycle (flush only iterated `subscribers`, not `spotBuffer`). Now cleaned.
+  - `mySpotsCache` (HamQTH spot lookups) grew forever with no eviction. Now cleaned every 2 minutes.
+  - Removed dead `pskReporterSpots` cache (tx/rx Maps with cleanup timer) that was never written to
+- **Added memory monitoring** — Logs RSS, heap usage, and data structure sizes every 15 minutes for leak detection
+- **Set explicit Node.js heap limit** (512MB) in Dockerfile to fail fast on leaks instead of slow-dying at 4GB
+
 ## [15.2.11] - 2026-02-11
 
 ### Added

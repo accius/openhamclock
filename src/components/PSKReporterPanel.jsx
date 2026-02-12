@@ -9,7 +9,6 @@
  */
 import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { usePSKReporter } from '../hooks/usePSKReporter.js';
 import { getBandColor } from '../utils/callsign.js';
 import { IconSearch, IconRefresh, IconMap } from './Icons.jsx';
 
@@ -20,6 +19,8 @@ const PSKReporterPanel = ({
   onToggleMap,
   filters = {},
   onOpenFilters,
+  // PSK data from App-level hook (single SSE connection)
+  pskReporter = {},
   // WSJT-X props
   wsjtxDecodes = [],
   wsjtxClients = {},
@@ -51,14 +52,11 @@ const PSKReporterPanel = ({
   const setPanelModePersist = (v) => { setPanelMode(v); try { localStorage.setItem('openhamclock_pskPanelMode', v); } catch {} };
   const setActiveTabPersist = (v) => { setActiveTab(v); try { localStorage.setItem('openhamclock_pskActiveTab', v); } catch {} };
   
-  // PSKReporter hook
+  // PSKReporter data from App-level hook (single SSE connection shared across app)
   const { 
-    txReports, txCount, rxReports, rxCount, 
-    loading, error, connected, source, refresh 
-  } = usePSKReporter(callsign, { 
-    minutes: 30,
-    enabled: callsign && callsign !== 'N0CALL'
-  });
+    txReports = [], txCount = 0, rxReports = [], rxCount = 0, 
+    loading = false, error = null, connected = false, source = '', refresh = () => {} 
+  } = pskReporter;
 
   // ── PSK filtering ──
   const filterReports = (reports) => {

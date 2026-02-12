@@ -345,6 +345,7 @@ export default function ModernLayout(props) {
             <div style={{ flex: `${config.panels.pskReporter.size || 1} 1 auto`, minHeight: '140px', overflow: 'hidden' }}>
               <PSKReporterPanel
                 callsign={config.callsign}
+                pskReporter={pskReporter}
                 showOnMap={mapLayers.showPSKReporter}
                 onToggleMap={togglePSKReporter}
                 filters={pskFilters}

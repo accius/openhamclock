@@ -3,7 +3,7 @@
  * Fetches PSKReporter data via Server-Sent Events (SSE) for real-time updates.
  *
  * The server maintains a single MQTT connection to mqtt.pskreporter.info and
- * relays spots to clients via SSE, batched every 10 seconds.
+ * relays spots to clients via SSE, batched every 15 seconds.
  *
  * On connect:
  *   1. Opens SSE stream to /api/pskreporter/stream/:callsign

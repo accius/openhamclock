@@ -404,6 +404,7 @@ export const DockableApp = ({
         content = (
           <PSKReporterPanel
             callsign={config.callsign}
+            pskReporter={pskReporter}
             showOnMap={mapLayers.showPSKReporter}
             onToggleMap={togglePSKReporter}
             filters={pskFilters}
