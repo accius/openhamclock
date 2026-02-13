@@ -78,6 +78,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
+// Enable trust proxy for correct IP resolution behind proxies (required for rate limiting)
+app.set('trust proxy', 1);
+
 // Security: API key for write operations (set in .env to protect POST endpoints)
 // If not set, write endpoints are open (backward-compatible for local installs)
 const API_WRITE_KEY = process.env.API_WRITE_KEY || '';
@@ -129,24 +132,24 @@ class UpstreamManager {
   recordFailure(service, statusCode) {
     const prev = this.backoffs.get(service) || { consecutive: 0 };
     const consecutive = prev.consecutive + 1;
-    
+
     // Base delays by status: 429=aggressive, 503=moderate, other=short
     const baseDelay = statusCode === 429 ? 60000 : statusCode === 503 ? 30000 : 15000;
-    
+
     // Per-service max backoff caps
     const maxBackoff = 30 * 60 * 1000; // 30 minutes
-    
+
     // Exponential: base * 2^(n-1), capped per service
     const delay = Math.min(maxBackoff, baseDelay * Math.pow(2, Math.min(consecutive - 1, 8)));
-    
+
     // Add 0-15s jitter to prevent synchronized retries across instances
     const jitter = Math.random() * 15000;
-    
-    this.backoffs.set(service, { 
-      until: Date.now() + delay + jitter, 
-      consecutive 
+
+    this.backoffs.set(service, {
+      until: Date.now() + delay + jitter,
+      consecutive
     });
-    
+
     return Math.round((delay + jitter) / 1000);
   }
 
@@ -211,7 +214,7 @@ function maidenheadToLatLon(grid) {
 
   // Start at SW corner of the 4-char square
   let lon = -180 + lonField * 20 + lonSquare * 2;
-  let lat =  -90 + latField * 10 + latSquare * 1;
+  let lat = -90 + latField * 10 + latSquare * 1;
 
   // Subsquare (a-x), optional
   if (g.length >= 6) {
@@ -220,11 +223,11 @@ function maidenheadToLatLon(grid) {
     const lonSub = (s0 >= a ? s0 - a : s0 - A);
     const latSub = (s1 >= a ? s1 - a : s1 - A);
     // each subsquare: 5' lon = 1/12 deg, 2.5' lat = 1/24 deg
-    lon += lonSub * (1/12);
-    lat += latSub * (1/24);
+    lon += lonSub * (1 / 12);
+    lat += latSub * (1 / 24);
     // center of subsquare
-    lon += (1/12) / 2;
-    lat += (1/24) / 2;
+    lon += (1 / 12) / 2;
+    lat += (1 / 24) / 2;
   } else {
     // center of 4-char square: 1 deg lon, 0.5 deg lat
     lon += 1.0;
@@ -237,24 +240,24 @@ function maidenheadToLatLon(grid) {
 // Convert Maidenhead grid locator to lat/lon
 function gridToLatLon(grid) {
   if (!grid || grid.length < 4) return null;
-  
+
   grid = grid.toUpperCase();
   const lon = (grid.charCodeAt(0) - 65) * 20 - 180;
   const lat = (grid.charCodeAt(1) - 65) * 10 - 90;
   const lon2 = parseInt(grid[2]) * 2;
   const lat2 = parseInt(grid[3]);
-  
+
   let longitude = lon + lon2 + 1; // Center of grid
   let latitude = lat + lat2 + 0.5;
-  
+
   // 6-character grid for more precision
   if (grid.length >= 6) {
-    const lon3 = (grid.charCodeAt(4) - 65) * (2/24);
-    const lat3 = (grid.charCodeAt(5) - 65) * (1/24);
-    longitude = lon + lon2 + lon3 + (1/24);
-    latitude = lat + lat2 + lat3 + (0.5/24);
+    const lon3 = (grid.charCodeAt(4) - 65) * (2 / 24);
+    const lat3 = (grid.charCodeAt(5) - 65) * (1 / 24);
+    longitude = lon + lon2 + lon3 + (1 / 24);
+    latitude = lat + lat2 + lat3 + (0.5 / 24);
   }
-  
+
   return { latitude, longitude };
 }
 
@@ -295,17 +298,17 @@ const CONFIG = {
   gridSquare: locator || jsonConfig.locator || '',
   latitude: stationLat || 40.7128,
   longitude: stationLon || -74.0060,
-  
+
   // Display preferences
   units: process.env.UNITS || jsonConfig.units || 'imperial',
   timeFormat: process.env.TIME_FORMAT || jsonConfig.timeFormat || '12',
   theme: process.env.THEME || jsonConfig.theme || 'dark',
   layout: process.env.LAYOUT || jsonConfig.layout || 'modern',
-  
+
   // DX target
   dxLatitude: parseFloat(process.env.DX_LATITUDE) || jsonConfig.defaultDX?.lat || 51.5074,
   dxLongitude: parseFloat(process.env.DX_LONGITUDE) || jsonConfig.defaultDX?.lon || -0.1278,
-  
+
   // Feature toggles
   showSatellites: process.env.SHOW_SATELLITES !== 'false' && jsonConfig.features?.showSatellites !== false,
   showPota: process.env.SHOW_POTA !== 'false' && jsonConfig.features?.showPOTA !== false,
@@ -314,11 +317,11 @@ const CONFIG = {
   classicAnalogClock: process.env.CLASSIC_ANALOG_CLOCK === 'true' || jsonConfig.features?.classicAnalogClock === true,
   showContests: jsonConfig.features?.showContests !== false,
   showDXpeditions: jsonConfig.features?.showDXpeditions !== false,
-  
+
   // DX Cluster settings
   spotRetentionMinutes: parseInt(process.env.SPOT_RETENTION_MINUTES) || jsonConfig.dxCluster?.spotRetentionMinutes || 30,
   dxClusterSource: process.env.DX_CLUSTER_SOURCE || jsonConfig.dxCluster?.source || 'auto',
-  
+
   // API keys (don't expose to frontend)
   _openWeatherApiKey: process.env.OPENWEATHER_API_KEY || '',
   _qrzUsername: process.env.QRZ_USERNAME || '',
@@ -337,8 +340,8 @@ if (configMissing) {
 // ITURHFProp service URL (enables ITU-R P.533-14 propagation predictions)
 // Defaults to the public OpenHamClock prediction service; override in .env if self-hosting
 const ITURHFPROP_DEFAULT = 'https://proppy-production.up.railway.app';
-const ITURHFPROP_URL = process.env.ITURHFPROP_URL && process.env.ITURHFPROP_URL.trim().startsWith('http') 
-  ? process.env.ITURHFPROP_URL.trim() 
+const ITURHFPROP_URL = process.env.ITURHFPROP_URL && process.env.ITURHFPROP_URL.trim().startsWith('http')
+  ? process.env.ITURHFPROP_URL.trim()
   : ITURHFPROP_DEFAULT;
 
 // Log configuration
@@ -412,18 +415,18 @@ app.use('/api', (req, res, next) => {
   if (req.path.includes('/stream/')) {
     return next();
   }
-  
+
   // Settings must always be fresh (multi-device sync)
   if (req.path.includes('/settings')) {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     return next();
   }
-  
+
   // Determine cache duration based on endpoint
   let cacheDuration = 30; // Default: 30 seconds
-  
+
   const path = req.path.toLowerCase();
-  
+
   if (path.includes('/satellites/tle')) {
     cacheDuration = 3600; // 1 hour (TLE data is static)
   } else if (path.includes('/contests') || path.includes('/dxpeditions')) {
@@ -443,7 +446,7 @@ app.use('/api', (req, res, next) => {
   } else if (path.includes('/config')) {
     cacheDuration = 3600; // 1 hour (config rarely changes)
   }
-  
+
   res.setHeader('Cache-Control', `public, max-age=${cacheDuration}`);
   res.setHeader('Vary', 'Accept-Encoding');
   next();
@@ -475,7 +478,7 @@ function logErrorOnce(category, message) {
   const key = `${category}:${message}`;
   const now = Date.now();
   const lastLogged = errorLogState[key] || 0;
-  
+
   if (now - lastLogged >= ERROR_LOG_INTERVAL) {
     errorLogState[key] = now;
     console.error(`[${category}] ${message}`);
@@ -502,20 +505,20 @@ function formatBytes(bytes) {
 const endpointStats = {
   endpoints: new Map(), // endpoint path -> stats
   startTime: Date.now(),
-  
+
   // Reset stats (call daily or on demand)
   reset() {
     this.endpoints.clear();
     this.startTime = Date.now();
   },
-  
+
   // Record a request
   record(path, responseSize, duration, statusCode) {
     // Normalize path (remove params like callsign values)
     const normalizedPath = path
       .replace(/\/[A-Z0-9]{3,10}(-[A-Z0-9]+)?$/i, '/:param') // callsigns
       .replace(/\/\d+$/g, '/:id'); // numeric IDs
-    
+
     if (!this.endpoints.has(normalizedPath)) {
       this.endpoints.set(normalizedPath, {
         path: normalizedPath,
@@ -526,7 +529,7 @@ const endpointStats = {
         lastRequest: null
       });
     }
-    
+
     const stats = this.endpoints.get(normalizedPath);
     stats.requests++;
     stats.totalBytes += responseSize || 0;
@@ -534,7 +537,7 @@ const endpointStats = {
     stats.lastRequest = Date.now();
     if (statusCode >= 400) stats.errors++;
   },
-  
+
   // Get sorted stats for display
   getStats() {
     const uptimeHours = (Date.now() - this.startTime) / (1000 * 60 * 60);
@@ -548,7 +551,7 @@ const endpointStats = {
         errorRate: s.requests > 0 ? ((s.errors / s.requests) * 100).toFixed(1) : 0
       }))
       .sort((a, b) => b.totalBytes - a.totalBytes); // Sort by bandwidth usage
-    
+
     return {
       uptimeHours: uptimeHours.toFixed(2),
       totalRequests: stats.reduce((sum, s) => sum + s.requests, 0),
@@ -562,36 +565,36 @@ const endpointStats = {
 app.use('/api', (req, res, next) => {
   // Skip health and version endpoints to avoid recursive/noisy tracking
   if (req.path === '/health' || req.path === '/version') return next();
-  
+
   const startTime = Date.now();
   let responseSize = 0;
-  
+
   // Intercept response to measure size
   const originalSend = res.send;
   const originalJson = res.json;
-  
-  res.send = function(body) {
+
+  res.send = function (body) {
     if (body) {
-      responseSize = typeof body === 'string' ? Buffer.byteLength(body) : 
-                     Buffer.isBuffer(body) ? body.length : 
-                     JSON.stringify(body).length;
+      responseSize = typeof body === 'string' ? Buffer.byteLength(body) :
+        Buffer.isBuffer(body) ? body.length :
+          JSON.stringify(body).length;
     }
     return originalSend.call(this, body);
   };
-  
-  res.json = function(body) {
+
+  res.json = function (body) {
     if (body) {
       responseSize = Buffer.byteLength(JSON.stringify(body));
     }
     return originalJson.call(this, body);
   };
-  
+
   // Record stats when response finishes
   res.on('finish', () => {
     const duration = Date.now() - startTime;
     endpointStats.record(req.path, responseSize, duration, res.statusCode);
   });
-  
+
   next();
 });
 
@@ -609,35 +612,35 @@ function getStatsFilePath() {
     console.log(`[Stats] Using STATS_FILE env: ${process.env.STATS_FILE}`);
     return process.env.STATS_FILE;
   }
-  
+
   // List of paths to try in order of preference
   const pathsToTry = [
     '/data/stats.json',                           // Railway volume
     path.join(__dirname, 'data', 'stats.json'),   // Local ./data subdirectory
     '/tmp/openhamclock-stats.json'                // Temp (won't survive restarts but better than nothing)
   ];
-  
+
   for (const statsPath of pathsToTry) {
     try {
       const dir = path.dirname(statsPath);
-      
+
       // Create directory if it doesn't exist
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      
+
       // Test write permission
       const testFile = path.join(dir, '.write-test-' + Date.now());
       fs.writeFileSync(testFile, 'test');
       fs.unlinkSync(testFile);
-      
+
       console.log(`[Stats] ✓ Using: ${statsPath}`);
       return statsPath;
     } catch (err) {
       console.log(`[Stats] ✗ ${statsPath}: ${err.code || err.message}`);
     }
   }
-  
+
   // No writable path found
   console.log('[Stats] ⚠ No writable storage - stats will be memory-only');
   return null;
@@ -661,13 +664,13 @@ function loadVisitorStats() {
     history: [],
     lastSaved: null
   };
-  
+
   // No stats file configured - memory only mode
   if (!STATS_FILE) {
     console.log('[Stats] Running in memory-only mode');
     return defaults;
   }
-  
+
   try {
     if (fs.existsSync(STATS_FILE)) {
       const data = JSON.parse(fs.readFileSync(STATS_FILE, 'utf8'));
@@ -675,7 +678,7 @@ function loadVisitorStats() {
       console.log(`[Stats]   📊 All-time: ${data.allTimeVisitors || 0} unique visitors, ${data.allTimeRequests || 0} requests`);
       console.log(`[Stats]   📅 History: ${(data.history || []).length} days tracked`);
       console.log(`[Stats]   🚀 Deployment #${(data.deploymentCount || 0) + 1} (first: ${data.serverFirstStarted || 'unknown'})`);
-      
+
       return {
         today: new Date().toISOString().slice(0, 10),
         uniqueIPsToday: data.today === new Date().toISOString().slice(0, 10) ? (data.uniqueIPsToday || []) : [],
@@ -693,7 +696,7 @@ function loadVisitorStats() {
   } catch (err) {
     console.error('[Stats] Failed to load:', err.message);
   }
-  
+
   console.log('[Stats] Starting fresh (no existing stats file)');
   return defaults;
 }
@@ -705,18 +708,18 @@ function saveVisitorStats() {
   if (!STATS_FILE) {
     return;
   }
-  
+
   try {
     const dir = path.dirname(STATS_FILE);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }
-    
+
     const data = {
       ...visitorStats,
       lastSaved: new Date().toISOString()
     };
-    
+
     fs.writeFileSync(STATS_FILE, JSON.stringify(data, null, 2));
     visitorStats.lastSaved = data.lastSaved; // Update in-memory too
     saveErrorCount = 0; // Reset on success
@@ -787,10 +790,10 @@ function recordCountry(ip, countryCode) {
   if (!countryCode || countryCode === 'Unknown') return;
   geoIPCache.set(ip, countryCode);
   visitorStats.geoIPCache[ip] = countryCode;
-  
+
   // All-time stats
   visitorStats.countryStats[countryCode] = (visitorStats.countryStats[countryCode] || 0) + 1;
-  
+
   // Today stats (only if IP is in today's set)
   if (todayIPSet.has(ip)) {
     visitorStats.countryStatsToday[countryCode] = (visitorStats.countryStatsToday[countryCode] || 0) + 1;
@@ -804,25 +807,25 @@ function recordCountry(ip, countryCode) {
  */
 async function resolveGeoIPBatch() {
   if (geoIPQueue.size === 0) return;
-  
+
   const now = Date.now();
   if (now - geoIPLastBatch < GEOIP_BATCH_INTERVAL) return;
   geoIPLastBatch = now;
-  
+
   // Take up to GEOIP_BATCH_SIZE IPs from queue
   const batch = [];
   for (const ip of geoIPQueue) {
     batch.push(ip);
     if (batch.length >= GEOIP_BATCH_SIZE) break;
   }
-  
+
   // Remove from queue before fetching (will re-queue on failure)
   batch.forEach(ip => geoIPQueue.delete(ip));
-  
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    
+
     const response = await fetch('http://ip-api.com/batch?fields=query,countryCode,status', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -830,7 +833,7 @@ async function resolveGeoIPBatch() {
       signal: controller.signal
     });
     clearTimeout(timeout);
-    
+
     if (response.status === 429) {
       // Rate limited — re-queue and back off
       batch.forEach(ip => geoIPQueue.add(ip));
@@ -838,16 +841,16 @@ async function resolveGeoIPBatch() {
       geoIPLastBatch = now + 60000; // Extra 60s backoff
       return;
     }
-    
+
     if (!response.ok) {
       batch.forEach(ip => geoIPQueue.add(ip));
       logWarn(`[GeoIP] Batch lookup failed: HTTP ${response.status}`);
       return;
     }
-    
+
     const results = await response.json();
     let resolved = 0;
-    
+
     for (const entry of results) {
       if (entry.status === 'success' && entry.countryCode) {
         recordCountry(entry.query, entry.countryCode);
@@ -855,7 +858,7 @@ async function resolveGeoIPBatch() {
       }
       // Don't re-queue failures (private IPs, invalid IPs) — they'll never resolve
     }
-    
+
     if (resolved > 0) {
       logDebug(`[GeoIP] Resolved ${resolved}/${batch.length} IPs (${geoIPQueue.size} remaining)`);
     }
@@ -911,14 +914,14 @@ function rolloverVisitorStats() {
       ? Math.round(visitorStats.history.reduce((sum, d) => sum + d.uniqueVisitors, 0) / visitorStats.history.length)
       : 0;
     console.log(`[Stats] Daily rollover for ${visitorStats.today}: ${visitorStats.uniqueIPsToday.length} unique, ${visitorStats.totalRequestsToday} requests | All-time: ${visitorStats.allTimeVisitors} visitors | ${visitorStats.history.length}-day avg: ${avg}/day`);
-    
+
     // Reset daily counters
     visitorStats.today = now;
     visitorStats.uniqueIPsToday = [];
     visitorStats.totalRequestsToday = 0;
     visitorStats.countryStatsToday = {};
     todayIPSet.clear();
-    
+
     // Save after rollover
     saveVisitorStats();
   }
@@ -936,7 +939,7 @@ const sessionTracker = {
   completedSessions: [],     // [{ duration, endedAt, requests }] — last 1000
   peakConcurrent: 0,
   peakConcurrentTime: null,
-  
+
   // Record activity for an IP
   touch(ip, userAgent) {
     const now = Date.now();
@@ -959,7 +962,7 @@ const sessionTracker = {
       this.peakConcurrentTime = new Date().toISOString();
     }
   },
-  
+
   // Expire stale sessions and record their durations
   cleanup() {
     const now = Date.now();
@@ -984,13 +987,13 @@ const sessionTracker = {
       this.completedSessions = this.completedSessions.slice(-1000);
     }
   },
-  
+
   // Get current concurrent count
   getConcurrent() {
     this.cleanup();
     return this.activeSessions.size;
   },
-  
+
   // Get session duration stats
   getStats() {
     this.cleanup();
@@ -1010,13 +1013,13 @@ const sessionTracker = {
         activeSessions: []
       };
     }
-    
+
     const durations = sessions.map(s => s.duration).sort((a, b) => a - b);
     const avg = Math.round(durations.reduce((s, d) => s + d, 0) / durations.length);
     const median = durations[Math.floor(durations.length / 2)];
     const p90 = durations[Math.floor(durations.length * 0.9)];
     const max = durations[durations.length - 1];
-    
+
     // Duration distribution buckets
     const buckets = { under1m: 0, '1to5m': 0, '5to15m': 0, '15to30m': 0, '30to60m': 0, over1h: 0 };
     for (const d of durations) {
@@ -1027,7 +1030,7 @@ const sessionTracker = {
       else if (d < 3600000) buckets['30to60m']++;
       else buckets.over1h++;
     }
-    
+
     // Hourly trend (last 24 hours) — avg session duration and concurrent users per hour
     const recentTrend = [];
     const now = Date.now();
@@ -1042,7 +1045,7 @@ const sessionTracker = {
       recentTrend.push({
         hour: hourLabel,
         sessions: hourSessions.length,
-        avgDuration: hourSessions.length > 0 
+        avgDuration: hourSessions.length > 0
           ? Math.round(hourSessions.reduce((s, x) => s + x.duration, 0) / hourSessions.length)
           : 0,
         avgDurationFormatted: hourSessions.length > 0
@@ -1050,7 +1053,7 @@ const sessionTracker = {
           : '--'
       });
     }
-    
+
     // Active session durations (current users)
     const activeList = [];
     for (const [ip, session] of this.activeSessions) {
@@ -1062,7 +1065,7 @@ const sessionTracker = {
       });
     }
     activeList.sort((a, b) => b.duration - a.duration);
-    
+
     return {
       concurrent: this.activeSessions.size,
       peakConcurrent: this.peakConcurrent,
@@ -1095,18 +1098,18 @@ setInterval(() => sessionTracker.cleanup(), SESSION_CLEANUP_INTERVAL);
 // Visitor tracking middleware
 app.use((req, res, next) => {
   rolloverVisitorStats();
-  
+
   // Track concurrent sessions for ALL requests (not just countable routes)
   const sessionIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || 'unknown';
   if (req.path !== '/api/health' && !req.path.startsWith('/assets/')) {
     sessionTracker.touch(sessionIp, req.headers['user-agent']);
   }
-  
+
   // Only count meaningful "visits" — initial page load or config fetch
   const countableRoutes = ['/', '/index.html', '/api/config'];
   if (countableRoutes.includes(req.path)) {
     const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip || req.connection?.remoteAddress || 'unknown';
-    
+
     // Track today's visitors
     const isNewToday = !todayIPSet.has(ip);
     if (isNewToday) {
@@ -1115,7 +1118,7 @@ app.use((req, res, next) => {
     }
     visitorStats.totalRequestsToday++;
     visitorStats.allTimeRequests++;
-    
+
     // Track all-time unique visitors
     const isNewAllTime = !allTimeIPSet.has(ip);
     if (isNewAllTime) {
@@ -1129,7 +1132,7 @@ app.use((req, res, next) => {
       queueGeoIPLookup(ip);
     }
   }
-  
+
   next();
 });
 
@@ -1210,12 +1213,12 @@ async function hasGitUpdates() {
   } catch {
     try {
       await execFilePromise('git', ['remote', 'add', 'origin', 'https://github.com/accius/openhamclock.git'], { cwd: __dirname });
-    } catch {} // already exists
+    } catch { } // already exists
   }
-  
+
   // Fetch with --prune to clean stale refs
   await execFilePromise('git', ['fetch', 'origin', '--prune'], { cwd: __dirname });
-  
+
   // Reset branch cache after fetch (refs may have changed)
   _defaultBranch = null;
   const branch = await getDefaultBranch();
@@ -1227,8 +1230,8 @@ async function hasGitUpdates() {
 // Prevent chmod changes from showing as dirty (common on Pi, Mac, Windows/WSL)
 if (fs.existsSync(path.join(__dirname, '.git'))) {
   try {
-    execFile('git', ['config', 'core.fileMode', 'false'], { cwd: __dirname }, () => {});
-  } catch {}
+    execFile('git', ['config', 'core.fileMode', 'false'], { cwd: __dirname }, () => { });
+  } catch { }
 }
 
 async function hasDirtyWorkingTree() {
@@ -1449,7 +1452,7 @@ app.get('/api/solar-indices', async (req, res) => {
     if (noaaCache.solarIndices.data && (Date.now() - noaaCache.solarIndices.timestamp) < NOAA_CACHE_TTL) {
       return res.json(noaaCache.solarIndices.data);
     }
-    
+
     const [fluxRes, kIndexRes, kForecastRes, sunspotRes, sfiSummaryRes] = await Promise.allSettled([
       fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json'),
       fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
@@ -1472,7 +1475,7 @@ app.get('/api/solar-indices', async (req, res) => {
         // Response: { "Flux": "158", "TimeStamp": "2026 Feb 10 2100 UTC", ... }
         const flux = parseInt(summary?.Flux);
         if (flux > 0) result.sfi.current = flux;
-      } catch {}
+      } catch { }
     }
 
     // --- SFI current fallback: N0NBH (hamqsl.com, same as GridTracker/Log4OM) ---
@@ -1545,7 +1548,7 @@ app.get('/api/solar-indices', async (req, res) => {
 
     // Cache the result
     noaaCache.solarIndices = { data: result, timestamp: Date.now() };
-    
+
     res.json(result);
   } catch (error) {
     logErrorOnce('Solar Indices', error.message);
@@ -1562,13 +1565,13 @@ app.get('/api/dxpeditions', async (req, res) => {
   try {
     const now = Date.now();
     logDebug('[DXpeditions] API called');
-    
+
     // Return cached data if fresh
     if (dxpeditionCache.data && (now - dxpeditionCache.timestamp) < dxpeditionCache.maxAge) {
       logDebug('[DXpeditions] Returning cached data:', dxpeditionCache.data.dxpeditions?.length, 'entries');
       return res.json(dxpeditionCache.data);
     }
-    
+
     // Fetch NG3K ADXO plain text version
     logDebug('[DXpeditions] Fetching from NG3K...');
     const response = await fetch('https://www.ng3k.com/Misc/adxoplain.html');
@@ -1576,10 +1579,10 @@ app.get('/api/dxpeditions', async (req, res) => {
       logDebug('[DXpeditions] NG3K fetch failed:', response.status);
       throw new Error('Failed to fetch NG3K: ' + response.status);
     }
-    
+
     let text = await response.text();
     logDebug('[DXpeditions] Received', text.length, 'bytes raw');
-    
+
     // Strip HTML tags and decode entities - the "plain" page is actually HTML!
     text = text
       .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove scripts
@@ -1594,51 +1597,51 @@ app.get('/api/dxpeditions', async (req, res) => {
       .replace(/&#39;/g, "'")
       .replace(/\s+/g, ' ') // Normalize whitespace
       .trim();
-    
+
     logDebug('[DXpeditions] Cleaned text length:', text.length);
     logDebug('[DXpeditions] First 500 chars:', text.substring(0, 500));
-    
+
     const dxpeditions = [];
-    
+
     // Each entry starts with a date pattern like "Jan 1-Feb 16, 2026 DXCC:"
     // Split on date patterns that are followed by DXCC
     const entryPattern = /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}[^D]*?DXCC:[^·]+?)(?=(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}|$)/gi;
     const entries = text.match(entryPattern) || [];
-    
+
     logDebug('[DXpeditions] Found', entries.length, 'potential entries');
-    
+
     // Log first 3 entries for debugging
     entries.slice(0, 3).forEach((e, i) => {
       logDebug(`[DXpeditions] Entry ${i}:`, e.substring(0, 150));
     });
-    
+
     for (const entry of entries) {
       if (!entry.trim()) continue;
-      
+
       // Skip header/footer/legend content
       if (entry.includes('ADXB=') || entry.includes('OPDX=') || entry.includes('425DX=') ||
-          entry.includes('Last updated') || entry.includes('Copyright') || 
-          entry.includes('Expired Announcements') || entry.includes('Table Version') ||
-          entry.includes('About ADXO') || entry.includes('Search ADXO') ||
-          entry.includes('GazDX=') || entry.includes('LNDX=') || entry.includes('TDDX=') ||
-          entry.includes('DXW.Net=') || entry.includes('DXMB=')) continue;
-      
+        entry.includes('Last updated') || entry.includes('Copyright') ||
+        entry.includes('Expired Announcements') || entry.includes('Table Version') ||
+        entry.includes('About ADXO') || entry.includes('Search ADXO') ||
+        entry.includes('GazDX=') || entry.includes('LNDX=') || entry.includes('TDDX=') ||
+        entry.includes('DXW.Net=') || entry.includes('DXMB=')) continue;
+
       // Try multiple parsing strategies
       let callsign = null;
       let entity = null;
       let qsl = null;
       let info = null;
       let dateStr = null;
-      
+
       // Strategy 1: "DXCC: xxx Callsign: xxx" format
       const dxccMatch = entry.match(/DXCC:\s*([^C\n]+?)(?=Callsign:|QSL:|Source:|Info:|$)/i);
       const callMatch = entry.match(/Callsign:\s*([A-Z0-9\/]+)/i);
-      
+
       if (callMatch && dxccMatch) {
         callsign = callMatch[1].trim().toUpperCase();
         entity = dxccMatch[1].trim();
       }
-      
+
       // Strategy 2: Look for callsign patterns directly (like "3Y0K" or "VP8/G3ABC")
       if (!callsign) {
         const directCallMatch = entry.match(/\b([A-Z]{1,2}\d[A-Z0-9]*[A-Z](?:\/[A-Z0-9]+)?)\b/);
@@ -1646,7 +1649,7 @@ app.get('/api/dxpeditions', async (req, res) => {
           callsign = directCallMatch[1];
         }
       }
-      
+
       // Strategy 3: Parse "Entity - Callsign" or similar patterns
       if (!callsign) {
         const altMatch = entry.match(/([A-Za-z\s&]+?)\s*[-–:]\s*([A-Z]{1,2}\d[A-Z0-9]*)/);
@@ -1655,81 +1658,81 @@ app.get('/api/dxpeditions', async (req, res) => {
           callsign = altMatch[2].trim();
         }
       }
-      
+
       // Extract other fields
       const qslMatch = entry.match(/QSL:\s*([A-Za-z0-9]+)/i);
       const infoMatch = entry.match(/Info:\s*(.+)/i);
       // Date is at the start of entry: "Jan 1-Feb 16, 2026"
       const dateMatch = entry.match(/^([A-Za-z]{3}\s+\d{1,2}[^D]*?)(?=DXCC:)/i);
-      
+
       qsl = qslMatch ? qslMatch[1].trim() : '';
       info = infoMatch ? infoMatch[1].trim() : '';
       dateStr = dateMatch ? dateMatch[1].trim() : '';
-      
+
       // Skip if we couldn't find a callsign
       if (!callsign || callsign.length < 3) continue;
-      
+
       // Skip obviously wrong matches
       if (/^(DXCC|QSL|INFO|SOURCE|THE|AND|FOR)$/i.test(callsign)) continue;
-      
+
       // Log first few successful parses
       if (dxpeditions.length < 3) {
         logDebug(`[DXpeditions] Parsed: ${callsign} - ${entity} - ${dateStr}`);
       }
-      
+
       // Try to extract entity from context if not found
       if (!entity && info) {
         // Look for "from Entity" or "fm Entity" patterns
         const fromMatch = info.match(/(?:from|fm)\s+([A-Za-z\s]+?)(?:;|,|$)/i);
         if (fromMatch) entity = fromMatch[1].trim();
       }
-      
+
       // Parse dates
       let startDate = null;
       let endDate = null;
       let isActive = false;
       let isUpcoming = false;
-      
+
       if (dateStr) {
         const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
         const datePattern = /([A-Za-z]{3})\s+(\d{1,2})(?:,?\s*(\d{4}))?(?:\s*[-–]\s*([A-Za-z]{3})?\s*(\d{1,2})(?:,?\s*(\d{4}))?)?/i;
         const dateParsed = dateStr.match(datePattern);
-        
+
         if (dateParsed) {
           const currentYear = new Date().getFullYear();
           const startMonth = monthNames.indexOf(dateParsed[1].toLowerCase());
           const startDay = parseInt(dateParsed[2]);
           const startYear = dateParsed[3] ? parseInt(dateParsed[3]) : currentYear;
-          
+
           const endMonthStr = dateParsed[4] || dateParsed[1];
           const endMonth = monthNames.indexOf(endMonthStr.toLowerCase());
           const endDay = parseInt(dateParsed[5]) || startDay + 14;
           const endYear = dateParsed[6] ? parseInt(dateParsed[6]) : startYear;
-          
+
           if (startMonth >= 0) {
             startDate = new Date(startYear, startMonth, startDay);
             endDate = new Date(endYear, endMonth >= 0 ? endMonth : startMonth, endDay);
-            
+
             if (endDate < startDate && !dateParsed[6]) {
               endDate.setFullYear(endYear + 1);
             }
-            
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
-            
+
             isActive = startDate <= today && endDate >= today;
             isUpcoming = startDate > today;
           }
         }
       }
-      
+
       // Extract bands and modes
       const bandsMatch = entry.match(/(\d+(?:-\d+)?m)/g);
       const bands = bandsMatch ? [...new Set(bandsMatch)].join(' ') : '';
-      
+
       const modesMatch = entry.match(/\b(CW|SSB|FT8|FT4|RTTY|PSK|FM|AM|DIGI)\b/gi);
       const modes = modesMatch ? [...new Set(modesMatch.map(m => m.toUpperCase()))].join(' ') : '';
-      
+
       dxpeditions.push({
         callsign,
         entity: entity || 'Unknown',
@@ -1744,7 +1747,7 @@ app.get('/api/dxpeditions', async (req, res) => {
         isUpcoming
       });
     }
-    
+
     // Remove duplicates by callsign
     const seen = new Set();
     const uniqueDxpeditions = dxpeditions.filter(d => {
@@ -1752,7 +1755,7 @@ app.get('/api/dxpeditions', async (req, res) => {
       seen.add(d.callsign);
       return true;
     });
-    
+
     // Sort: active first, then upcoming by start date
     uniqueDxpeditions.sort((a, b) => {
       if (a.isActive && !b.isActive) return -1;
@@ -1762,12 +1765,12 @@ app.get('/api/dxpeditions', async (req, res) => {
       if (a.startDate && b.startDate) return new Date(a.startDate) - new Date(b.startDate);
       return 0;
     });
-    
+
     logDebug('[DXpeditions] Parsed', uniqueDxpeditions.length, 'unique entries');
     if (uniqueDxpeditions.length > 0) {
       logDebug('[DXpeditions] First entry:', JSON.stringify(uniqueDxpeditions[0]));
     }
-    
+
     const result = {
       dxpeditions: uniqueDxpeditions.slice(0, 50),
       active: uniqueDxpeditions.filter(d => d.isActive).length,
@@ -1775,21 +1778,21 @@ app.get('/api/dxpeditions', async (req, res) => {
       source: 'NG3K ADXO',
       timestamp: new Date().toISOString()
     };
-    
+
     logDebug('[DXpeditions] Result:', result.active, 'active,', result.upcoming, 'upcoming');
-    
+
     dxpeditionCache.data = result;
     dxpeditionCache.timestamp = now;
-    
+
     res.json(result);
   } catch (error) {
     logErrorOnce('DXpeditions', error.message);
-    
+
     if (dxpeditionCache.data) {
       logDebug('[DXpeditions] Returning stale cache');
       return res.json({ ...dxpeditionCache.data, stale: true });
     }
-    
+
     res.status(500).json({ error: 'Failed to fetch DXpedition data' });
   }
 });
@@ -1910,15 +1913,15 @@ app.get('/api/pota/spots', async (req, res) => {
     if (potaCache.data && (Date.now() - potaCache.timestamp) < POTA_CACHE_TTL) {
       return res.json(potaCache.data);
     }
-    
+
     const response = await fetch('https://api.pota.app/spot/activator');
     const data = await response.json();
-    
+
     // Log diagnostic info about the response
     if (Array.isArray(data) && data.length > 0) {
       const sample = data[0];
       logDebug('[POTA] API returned', data.length, 'spots. Sample fields:', Object.keys(sample).join(', '));
-      
+
       // Count coordinate coverage
       const withLatLon = data.filter(s => s.latitude && s.longitude).length;
       const withGrid6 = data.filter(s => s.grid6).length;
@@ -1926,10 +1929,10 @@ app.get('/api/pota/spots', async (req, res) => {
       const noCoords = data.filter(s => !s.latitude && !s.longitude && !s.grid6 && !s.grid4).length;
       logDebug(`[POTA] Coords: ${withLatLon} lat/lon, ${withGrid6} grid6, ${withGrid4} grid4, ${noCoords} no coords`);
     }
-    
+
     // Cache the response
     potaCache = { data, timestamp: Date.now() };
-    
+
     res.json(data);
   } catch (error) {
     logErrorOnce('POTA', error.message);
@@ -1950,13 +1953,13 @@ app.get('/api/sota/spots', async (req, res) => {
     if (sotaCache.data && (Date.now() - sotaCache.timestamp) < SOTA_CACHE_TTL) {
       return res.json(sotaCache.data);
     }
-    
+
     const response = await fetch('https://api2.sota.org.uk/api/spots/50/all');
     const data = await response.json();
-    
+
     // Cache the response
     sotaCache = { data, timestamp: Date.now() };
-    
+
     res.json(data);
   } catch (error) {
     logErrorOnce('SOTA', error.message);
@@ -1975,7 +1978,7 @@ function parseN0NBHxml(xml) {
     const m = xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`));
     return m ? m[1].trim() : null;
   };
-  
+
   // Parse HF band conditions
   const bandConditions = [];
   const bandRegex = /<band name="([^"]+)" time="([^"]+)">([^<]+)<\/band>/g;
@@ -1990,7 +1993,7 @@ function parseN0NBHxml(xml) {
       });
     }
   }
-  
+
   // Parse VHF conditions
   const vhfConditions = [];
   const vhfRegex = /<phenomenon name="([^"]+)" location="([^"]+)">([^<]+)<\/phenomenon>/g;
@@ -2001,7 +2004,7 @@ function parseN0NBHxml(xml) {
       condition: match[3]
     });
   }
-  
+
   return {
     source: 'N0NBH',
     updated: get('updated'),
@@ -2037,11 +2040,11 @@ app.get('/api/n0nbh', async (req, res) => {
     if (n0nbhCache.data && (Date.now() - n0nbhCache.timestamp) < N0NBH_CACHE_TTL) {
       return res.json(n0nbhCache.data);
     }
-    
+
     const response = await fetch('https://www.hamqsl.com/solarxml.php');
     const xml = await response.text();
     const parsed = parseN0NBHxml(xml);
-    
+
     n0nbhCache = { data: parsed, timestamp: Date.now() };
     res.json(parsed);
   } catch (error) {
@@ -2099,35 +2102,35 @@ function tryDXSpiderNode(node, userCallsign = null) {
     let loginSent = false;
     let commandSent = false;
     let resolved = false;
-    
+
     // Use user's callsign with SSID if provided, otherwise GUEST
     const loginCallsign = userCallsign ? `${userCallsign.toUpperCase()}${DXSPIDER_SSID}` : 'GUEST';
-    
+
     const client = new net.Socket();
     client.setTimeout(12000);
-    
+
     const cleanup = () => {
       if (!resolved) {
         resolved = true;
-        try { client.destroy(); } catch(e) {}
+        try { client.destroy(); } catch (e) { }
       }
     };
-    
+
     // Try connecting to DX Spider node
     client.connect(node.port, node.host, () => {
       logDebug(`[DX Cluster] DX Spider: connected to ${node.host}:${node.port} as ${loginCallsign}`);
     });
-    
+
     client.on('data', (data) => {
       buffer += data.toString();
-      
+
       // Wait for login prompt
       if (!loginSent && (buffer.includes('login:') || buffer.includes('Please enter your call') || buffer.includes('enter your callsign'))) {
         loginSent = true;
         client.write(`${loginCallsign}\r\n`);
         return;
       }
-      
+
       // Wait for prompt after login, then send command
       if (loginSent && !commandSent && (buffer.includes('Hello') || buffer.includes('de ') || buffer.includes('>') || buffer.includes('GUEST') || buffer.includes(loginCallsign.split('-')[0]))) {
         commandSent = true;
@@ -2138,7 +2141,7 @@ function tryDXSpiderNode(node, userCallsign = null) {
         }, 1000);
         return;
       }
-      
+
       // Parse DX spots from the output
       const lines = buffer.split('\n');
       for (const line of lines) {
@@ -2150,11 +2153,11 @@ function tryDXSpiderNode(node, userCallsign = null) {
             const dxCall = match[3];
             const comment = match[4].trim();
             const timeStr = match[5];
-            
+
             if (!isNaN(freqKhz) && freqKhz > 0 && dxCall) {
               const freqMhz = (freqKhz / 1000).toFixed(3);
               const time = timeStr.substring(0, 2) + ':' + timeStr.substring(2, 4) + 'z';
-              
+
               // Avoid duplicates
               if (!spots.find(s => s.call === dxCall && s.freq === freqMhz)) {
                 spots.push({
@@ -2170,18 +2173,18 @@ function tryDXSpiderNode(node, userCallsign = null) {
           }
         }
       }
-      
+
       // If we have enough spots, close connection
       if (spots.length >= 20) {
         client.write('bye\r\n');
         setTimeout(cleanup, 500);
       }
     });
-    
+
     client.on('timeout', () => {
       cleanup();
     });
-    
+
     client.on('error', (err) => {
       // Only log unexpected errors, not connection issues (they're common)
       if (!err.message.includes('ECONNRESET') && !err.message.includes('ETIMEDOUT') && !err.message.includes('ENOTFOUND') && !err.message.includes('ECONNREFUSED')) {
@@ -2189,7 +2192,7 @@ function tryDXSpiderNode(node, userCallsign = null) {
       }
       cleanup();
     });
-    
+
     client.on('close', () => {
       if (!resolved) {
         resolved = true;
@@ -2202,7 +2205,7 @@ function tryDXSpiderNode(node, userCallsign = null) {
         }
       }
     });
-    
+
     // Fallback timeout - close after 15 seconds regardless
     setTimeout(() => {
       if (!resolved) {
@@ -2224,25 +2227,25 @@ function tryDXSpiderNode(node, userCallsign = null) {
 
 app.get('/api/dxcluster/spots', async (req, res) => {
   const source = (req.query.source || CONFIG.dxClusterSource || 'auto').toLowerCase();
-  
+
   // Helper function for HamQTH (HTTP-based, works everywhere)
   async function fetchHamQTH() {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    
+
     try {
       const response = await fetch('https://www.hamqth.com/dxc_csv.php?limit=25', {
         headers: { 'User-Agent': 'OpenHamClock/3.13.1' },
         signal: controller.signal
       });
       clearTimeout(timeout);
-      
+
       if (response.ok) {
         const text = await response.text();
         // HamQTH CSV format: Spotter^Frequency^DXCall^Comment^TimeDate^^^Continent^Band^Country^DXCC
         // Example: KF0NYM^18070.0^TX5U^Correction, Good Sig MO, 73^2149 2025-05-27^^^EU^17M^France^227
         const lines = text.trim().split('\n').filter(line => line.includes('^'));
-        
+
         if (lines.length > 0) {
           const spots = lines.slice(0, 25).map(line => {
             const parts = line.split('^');
@@ -2251,17 +2254,17 @@ app.get('/api/dxcluster/spots', async (req, res) => {
             const dxCall = parts[2] || 'UNKNOWN';
             const comment = parts[3] || '';
             const timeDate = parts[4] || '';
-            
+
             // Frequency: convert from kHz to MHz
             const freqMhz = freqKhz > 1000 ? (freqKhz / 1000).toFixed(3) : String(freqKhz);
-            
+
             // Time: extract HHMM from "2149 2025-05-27" format
             let time = '';
             if (timeDate && timeDate.length >= 4) {
               const timeStr = timeDate.substring(0, 4);
               time = timeStr.substring(0, 2) + ':' + timeStr.substring(2, 4) + 'z';
             }
-            
+
             return {
               freq: freqMhz,
               call: dxCall,
@@ -2283,19 +2286,19 @@ app.get('/api/dxcluster/spots', async (req, res) => {
     }
     return null;
   }
-  
+
   // Helper function for DX Spider Proxy (our microservice)
   async function fetchDXSpiderProxy() {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    
+
     try {
       const response = await fetch(`${DXSPIDER_PROXY_URL}/api/dxcluster/spots?limit=50`, {
         headers: { 'User-Agent': 'OpenHamClock/3.13.1' },
         signal: controller.signal
       });
       clearTimeout(timeout);
-      
+
       if (response.ok) {
         const spots = await response.json();
         if (Array.isArray(spots) && spots.length > 0) {
@@ -2311,7 +2314,7 @@ app.get('/api/dxcluster/spots', async (req, res) => {
     }
     return null;
   }
-  
+
   // Helper function for DX Spider (telnet-based, works locally/Pi)
   // Multiple nodes for failover - uses module-level constants and tryDXSpiderNode
   async function fetchDXSpider() {
@@ -2320,7 +2323,7 @@ app.get('/api/dxcluster/spots', async (req, res) => {
       logDebug('[DX Cluster] DX Spider: returning', dxSpiderCache.spots.length, 'cached spots');
       return dxSpiderCache.spots;
     }
-    
+
     // Try each node until one succeeds
     for (const node of DXSPIDER_NODES) {
       const result = await tryDXSpiderNode(node);
@@ -2328,14 +2331,14 @@ app.get('/api/dxcluster/spots', async (req, res) => {
         return result;
       }
     }
-    
+
     logDebug('[DX Cluster] DX Spider: all nodes failed');
     return null;
   }
-  
+
   // Fetch based on selected source
   let spots = null;
-  
+
   if (source === 'hamqth') {
     spots = await fetchHamQTH();
   } else if (source === 'proxy') {
@@ -2362,7 +2365,7 @@ app.get('/api/dxcluster/spots', async (req, res) => {
       spots = await fetchDXSpider();
     }
   }
-  
+
   res.json(spots || []);
 });
 
@@ -2392,7 +2395,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
   const customHost = req.query.host;
   const customPort = parseInt(req.query.port) || 7300;
   const userCallsign = req.query.callsign;
-  
+
   // SECURITY: Validate custom host to prevent SSRF (internal network scanning)
   if (source === 'custom' && customHost) {
     // Block private/reserved IP ranges and localhost
@@ -2405,9 +2408,9 @@ app.get('/api/dxcluster/paths', async (req, res) => {
     if (/^\d+\.\d+\.\d+\.\d+$/.test(customHost)) {
       const octets = customHost.split('.').map(Number);
       if (octets[0] === 10 || octets[0] === 127 || octets[0] === 0 ||
-          (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
-          (octets[0] === 192 && octets[1] === 168) ||
-          (octets[0] === 169 && octets[1] === 254)) {
+        (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+        (octets[0] === 192 && octets[1] === 168) ||
+        (octets[0] === 169 && octets[1] === 254)) {
         return res.status(400).json({ error: 'Custom host cannot be a private/reserved address' });
       }
     }
@@ -2416,31 +2419,31 @@ app.get('/api/dxcluster/paths', async (req, res) => {
       return res.status(400).json({ error: 'Port must be between 1024 and 49151' });
     }
   }
-  
+
   // Generate cache key based on source (custom sources shouldn't share cache)
   const cacheKey = source === 'custom' ? `custom-${customHost}-${customPort}` : 'default';
-  
+
   // Check cache first (but not for custom sources - they might have different data)
   if (source !== 'custom' && Date.now() - dxSpotPathsCache.timestamp < DXPATHS_CACHE_TTL && dxSpotPathsCache.paths.length > 0) {
     logDebug('[DX Paths] Returning', dxSpotPathsCache.paths.length, 'cached paths');
     return res.json(dxSpotPathsCache.paths);
   }
-  
+
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
     const now = Date.now();
-    
+
     // Try proxy first for better real-time data
     let newSpots = [];
     let usedSource = 'none';
-    
+
     // Handle custom telnet source
     if (source === 'custom' && customHost) {
       logDebug(`[DX Paths] Trying custom telnet: ${customHost}:${customPort} as ${userCallsign || 'GUEST'}`);
       const customNode = { host: customHost, port: customPort };
       const customSpots = await tryDXSpiderNode(customNode, userCallsign);
-      
+
       if (customSpots && customSpots.length > 0) {
         usedSource = 'custom';
         newSpots = customSpots.map(s => ({
@@ -2456,7 +2459,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
         logDebug('[DX Paths] Got', newSpots.length, 'spots from custom telnet');
       }
     }
-    
+
     // Try proxy if not using custom or custom failed
     if (newSpots.length === 0 && source !== 'custom') {
       try {
@@ -2464,7 +2467,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
           headers: { 'User-Agent': 'OpenHamClock/3.14.11' },
           signal: controller.signal
         });
-        
+
         if (proxyResponse.ok) {
           const proxyData = await proxyResponse.json();
           if (proxyData.spots && proxyData.spots.length > 0) {
@@ -2486,7 +2489,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
         logDebug('[DX Paths] Proxy failed, trying HamQTH');
       }
     }
-    
+
     // Fallback to HamQTH if proxy failed
     if (newSpots.length === 0) {
       try {
@@ -2494,27 +2497,27 @@ app.get('/api/dxcluster/paths', async (req, res) => {
           headers: { 'User-Agent': 'OpenHamClock/3.13.1' },
           signal: controller.signal
         });
-        
+
         if (response.ok) {
           const text = await response.text();
           const lines = text.trim().split('\n').filter(line => line.includes('^'));
           usedSource = 'hamqth';
-          
+
           for (const line of lines) {
             const parts = line.split('^');
             if (parts.length < 5) continue;
-            
+
             const spotter = parts[0]?.trim().toUpperCase();
             const freqKhz = parseFloat(parts[1]) || 0;
             const dxCall = parts[2]?.trim().toUpperCase();
             const comment = parts[3]?.trim() || '';
             const timeDate = parts[4]?.trim() || '';
-            
+
             if (!spotter || !dxCall || freqKhz <= 0) continue;
-            
+
             // Extract grids from comment for HamQTH data too
             const grids = extractGridsFromComment(comment);
-            
+
             newSpots.push({
               spotter,
               spotterGrid: grids.spotterGrid,
@@ -2532,39 +2535,39 @@ app.get('/api/dxcluster/paths', async (req, res) => {
         logDebug('[DX Paths] HamQTH also failed');
       }
     }
-    
+
     clearTimeout(timeout);
-    
+
     if (newSpots.length === 0) {
       // Return existing paths if fetch failed
       const validPaths = dxSpotPathsCache.allPaths.filter(p => (now - p.timestamp) < DXPATHS_RETENTION);
       return res.json(validPaths.slice(0, 50));
     }
-    
+
     // Get unique callsigns to look up
     const allCalls = new Set();
     newSpots.forEach(s => {
       allCalls.add(s.spotter);
       allCalls.add(s.dxCall);
     });
-    
+
     // Look up prefix-based locations for all callsigns (includes grid squares!)
     const prefixLocations = {};
     const callsToLookup = [...allCalls].slice(0, 100);
-    
+
     for (const call of callsToLookup) {
       const loc = estimateLocationFromPrefix(call);
       if (loc) {
-        prefixLocations[call] = { 
-          lat: loc.lat, 
-          lon: loc.lon, 
-          country: loc.country, 
+        prefixLocations[call] = {
+          lat: loc.lat,
+          lon: loc.lon,
+          country: loc.country,
           grid: loc.grid || null,  // Include grid from prefix mapping!
-          source: loc.grid ? 'prefix-grid' : 'prefix' 
+          source: loc.grid ? 'prefix-grid' : 'prefix'
         };
       }
     }
-    
+
     // Check HamQTH callsign cache for better accuracy (24h TTL, populated by /api/callsign/:call)
     // This gives DXCC-level lat/lon which is more accurate than prefix country centroids
     const hamqthLocations = {};
@@ -2584,7 +2587,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
         hamqthMisses.push(call);
       }
     }
-    
+
     // Fire background HamQTH lookups for cache misses (non-blocking, improves next poll)
     // Limit to 10 per cycle to avoid hammering HamQTH
     if (hamqthMisses.length > 0) {
@@ -2612,17 +2615,17 @@ app.get('/api/dxcluster/paths', async (req, res) => {
               timestamp: Date.now()
             });
           }
-        }).catch(() => {}); // Silent fail for background lookups
+        }).catch(() => { }); // Silent fail for background lookups
       }
     }
-    
+
     // Build new paths with locations - try grid first, fall back to prefix
     const newPaths = newSpots
       .map(spot => {
         // DX station location - try grid from spot data first, then comment, then prefix
         let dxLoc = null;
         let dxGridSquare = null;
-        
+
         // Check if spot already has dxGrid from proxy
         if (spot.dxGrid) {
           const gridLoc = maidenheadToLatLon(spot.dxGrid);
@@ -2631,7 +2634,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
             dxGridSquare = spot.dxGrid;
           }
         }
-        
+
         // If no grid yet, try extracting from comment
         if (!dxLoc && spot.comment) {
           const extractedGrids = extractGridsFromComment(spot.comment);
@@ -2643,12 +2646,12 @@ app.get('/api/dxcluster/paths', async (req, res) => {
             }
           }
         }
-        
+
         // Fall back to HamQTH cached location (more accurate than prefix)
         if (!dxLoc && hamqthLocations[spot.dxCall]) {
           dxLoc = hamqthLocations[spot.dxCall];
         }
-        
+
         // Fall back to prefix location (now includes grid-based coordinates!)
         if (!dxLoc) {
           dxLoc = prefixLocations[spot.dxCall];
@@ -2656,11 +2659,11 @@ app.get('/api/dxcluster/paths', async (req, res) => {
             dxGridSquare = dxLoc.grid;
           }
         }
-        
+
         // Spotter location - try grid first, then prefix
         let spotterLoc = null;
         let spotterGridSquare = null;
-        
+
         // Check if spot already has spotterGrid from proxy
         if (spot.spotterGrid) {
           const gridLoc = maidenheadToLatLon(spot.spotterGrid);
@@ -2669,7 +2672,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
             spotterGridSquare = spot.spotterGrid;
           }
         }
-        
+
         // If no grid yet, try extracting from comment (in case of dual grid format)
         if (!spotterLoc && spot.comment) {
           const extractedGrids = extractGridsFromComment(spot.comment);
@@ -2681,12 +2684,12 @@ app.get('/api/dxcluster/paths', async (req, res) => {
             }
           }
         }
-        
+
         // Fall back to HamQTH cached location for spotter
         if (!spotterLoc && hamqthLocations[spot.spotter]) {
           spotterLoc = hamqthLocations[spot.spotter];
         }
-        
+
         // Fall back to prefix location for spotter (now includes grid-based coordinates!)
         if (!spotterLoc) {
           spotterLoc = prefixLocations[spot.spotter];
@@ -2694,7 +2697,7 @@ app.get('/api/dxcluster/paths', async (req, res) => {
             spotterGridSquare = spotterLoc.grid;
           }
         }
-        
+
         if (spotterLoc && dxLoc) {
           return {
             spotter: spot.spotter,
@@ -2719,17 +2722,17 @@ app.get('/api/dxcluster/paths', async (req, res) => {
         return null;
       })
       .filter(p => p !== null);
-    
+
     // Merge with existing paths, removing expired and duplicates
-    const existingValidPaths = dxSpotPathsCache.allPaths.filter(p => 
+    const existingValidPaths = dxSpotPathsCache.allPaths.filter(p =>
       (now - p.timestamp) < DXPATHS_RETENTION
     );
-    
+
     // Add new paths, avoiding duplicates (same dxCall+freq within 2 minutes)
     const mergedPaths = [...existingValidPaths];
     for (const newPath of newPaths) {
-      const isDuplicate = mergedPaths.some(existing => 
-        existing.dxCall === newPath.dxCall && 
+      const isDuplicate = mergedPaths.some(existing =>
+        existing.dxCall === newPath.dxCall &&
         existing.freq === newPath.freq &&
         (now - existing.timestamp) < 120000 // 2 minute dedup window
       );
@@ -2737,19 +2740,19 @@ app.get('/api/dxcluster/paths', async (req, res) => {
         mergedPaths.push(newPath);
       }
     }
-    
+
     // Sort by timestamp (newest first) and limit
     const sortedPaths = mergedPaths.sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);
-    
+
     logDebug('[DX Paths]', sortedPaths.length, 'total paths (', newPaths.length, 'new from', newSpots.length, 'spots)');
-    
+
     // Update cache
-    dxSpotPathsCache = { 
+    dxSpotPathsCache = {
       paths: sortedPaths.slice(0, 50), // Return 50 for display
       allPaths: sortedPaths, // Keep all for accumulation
-      timestamp: now 
+      timestamp: now
     };
-    
+
     res.json(dxSpotPathsCache.paths);
   } catch (error) {
     logErrorOnce('DX Paths', error.message);
@@ -2770,16 +2773,16 @@ const CALLSIGN_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 app.get('/api/callsign/:call', async (req, res) => {
   const callsign = req.params.call.toUpperCase();
   const now = Date.now();
-  
+
   // Check cache first
   const cached = callsignLookupCache.get(callsign);
   if (cached && (now - cached.timestamp) < CALLSIGN_CACHE_TTL) {
     logDebug('[Callsign Lookup] Cache hit for:', callsign);
     return res.json(cached.data);
   }
-  
+
   logDebug('[Callsign Lookup] Looking up:', callsign);
-  
+
   try {
     // Try HamQTH XML API (no auth needed for basic lookup)
     // SECURITY: Validate callsign format and encode for URL
@@ -2789,14 +2792,14 @@ app.get('/api/callsign/:call', async (req, res) => {
     const response = await fetch(`https://www.hamqth.com/dxcc.php?callsign=${encodeURIComponent(callsign)}`);
     if (response.ok) {
       const text = await response.text();
-      
+
       // Parse basic info from response
       const latMatch = text.match(/<lat>([^<]+)<\/lat>/);
       const lonMatch = text.match(/<lng>([^<]+)<\/lng>/);
       const countryMatch = text.match(/<name>([^<]+)<\/name>/);
       const cqMatch = text.match(/<cq>([^<]+)<\/cq>/);
       const ituMatch = text.match(/<itu>([^<]+)<\/itu>/);
-      
+
       if (latMatch && lonMatch) {
         const result = {
           callsign,
@@ -2812,7 +2815,7 @@ app.get('/api/callsign/:call', async (req, res) => {
         return res.json(result);
       }
     }
-    
+
     // Fallback: estimate location from callsign prefix
     const estimated = estimateLocationFromPrefix(callsign);
     if (estimated) {
@@ -2821,7 +2824,7 @@ app.get('/api/callsign/:call', async (req, res) => {
       callsignLookupCache.set(callsign, { data: estimated, timestamp: now });
       return res.json(estimated);
     }
-    
+
     res.status(404).json({ error: 'Callsign not found' });
   } catch (error) {
     logErrorOnce('Callsign Lookup', error.message);
@@ -2832,37 +2835,37 @@ app.get('/api/callsign/:call', async (req, res) => {
 // Convert Maidenhead grid locator to lat/lon (center of grid square)
 function maidenheadToLatLon(grid) {
   if (!grid || typeof grid !== 'string') return null;
-  
+
   grid = grid.toUpperCase().trim();
-  
+
   // Validate grid format (2, 4, 6, or 8 characters)
   if (!/^[A-R]{2}([0-9]{2}([A-X]{2}([0-9]{2})?)?)?$/.test(grid)) return null;
-  
+
   let lon = -180;
   let lat = -90;
-  
+
   // Field (2 chars): 20° lon x 10° lat
   lon += (grid.charCodeAt(0) - 65) * 20;
   lat += (grid.charCodeAt(1) - 65) * 10;
-  
+
   if (grid.length >= 4) {
     // Square (2 digits): 2° lon x 1° lat
     lon += parseInt(grid[2]) * 2;
     lat += parseInt(grid[3]) * 1;
   }
-  
+
   if (grid.length >= 6) {
     // Subsquare (2 chars): 5' lon x 2.5' lat
     lon += (grid.charCodeAt(4) - 65) * (5 / 60);
     lat += (grid.charCodeAt(5) - 65) * (2.5 / 60);
   }
-  
+
   if (grid.length >= 8) {
     // Extended square (2 digits): 0.5' lon x 0.25' lat
     lon += parseInt(grid[6]) * (0.5 / 60);
     lat += parseInt(grid[7]) * (0.25 / 60);
   }
-  
+
   // Add offset to center of the grid square
   if (grid.length === 2) {
     lon += 10; lat += 5;
@@ -2873,7 +2876,7 @@ function maidenheadToLatLon(grid) {
   } else if (grid.length === 8) {
     lon += 0.25 / 60; lat += 0.125 / 60;
   }
-  
+
   return { lat, lon, grid };
 }
 
@@ -2881,7 +2884,7 @@ function maidenheadToLatLon(grid) {
 // Returns { spotterGrid, dxGrid } - may have one, both, or neither
 function extractGridsFromComment(comment) {
   if (!comment || typeof comment !== 'string') return { spotterGrid: null, dxGrid: null };
-  
+
   // Check for dual grid format: FN20<>EM79 or FN20->EM79 or FN20/EM79
   const dualGridMatch = comment.match(/\b([A-Ra-r]{2}[0-9]{2}(?:[A-Xa-x]{2})?)\s*(?:<>|->|\/|<)\s*([A-Ra-r]{2}[0-9]{2}(?:[A-Xa-x]{2})?)\b/);
   if (dualGridMatch) {
@@ -2892,7 +2895,7 @@ function extractGridsFromComment(comment) {
       return { spotterGrid: grid1, dxGrid: grid2 };
     }
   }
-  
+
   // Look for all grids in the comment
   const gridPattern = /\b([A-Ra-r]{2}[0-9]{2}(?:[A-Xa-x]{2})?)\b/g;
   const grids = [];
@@ -2903,17 +2906,17 @@ function extractGridsFromComment(comment) {
       grids.push(grid);
     }
   }
-  
+
   // If we found two grids, assume first is spotter, second is DX
   if (grids.length >= 2) {
     return { spotterGrid: grids[0], dxGrid: grids[1] };
   }
-  
+
   // If we found one grid, assume it's the DX station
   if (grids.length === 1) {
     return { spotterGrid: null, dxGrid: grids[0] };
   }
-  
+
   return { spotterGrid: null, dxGrid: null };
 }
 
@@ -2936,7 +2939,7 @@ function extractGridFromComment(comment) {
 // This gives much better precision than country centers
 function estimateLocationFromPrefix(callsign) {
   if (!callsign) return null;
-  
+
   // Comprehensive prefix to grid mapping
   // Uses typical/central grid for each prefix area
   // Comprehensive prefix to grid mapping
@@ -2957,7 +2960,7 @@ function estimateLocationFromPrefix(callsign) {
     'W9': 'EN52', 'K9': 'EN52', 'N9': 'EN52', 'AA9': 'EN52',
     'W0': 'EN31', 'K0': 'EN31', 'N0': 'EN31', 'AA0': 'EN31',
     'W': 'EM79', 'K': 'EM79', 'N': 'EM79',
-    
+
     // ============================================
     // US Territories
     // ============================================
@@ -3419,9 +3422,9 @@ function estimateLocationFromPrefix(callsign) {
     '9M0': 'NJ07',
     'BQ9': 'PJ29',
   };
-  
+
   const upper = callsign.toUpperCase();
-  
+
   // Check US territories FIRST (before generic US pattern)
   // These start with K but are NOT mainland USA
   const usTerritoryPrefixes = {
@@ -3456,7 +3459,7 @@ function estimateLocationFromPrefix(callsign) {
     'AL7': 'BP51',  // Alaska
     'KG4': 'FK29',  // Guantanamo Bay
   };
-  
+
   // Check for US territory prefix (3 chars like KP4, KH6, KL7)
   const territoryPrefix3 = upper.substring(0, 3);
   if (usTerritoryPrefixes[territoryPrefix3]) {
@@ -3469,14 +3472,14 @@ function estimateLocationFromPrefix(callsign) {
         lon: gridLoc.lon,
         grid: grid,
         country: territoryPrefix3.startsWith('KP') || territoryPrefix3.startsWith('NP') || territoryPrefix3.startsWith('WP') ? 'Puerto Rico/USVI' :
-                 territoryPrefix3.startsWith('KH') || territoryPrefix3.startsWith('NH') || territoryPrefix3.startsWith('WH') ? 'Hawaii/Pacific' :
-                 territoryPrefix3.includes('L7') ? 'Alaska' : 'US Territory',
+          territoryPrefix3.startsWith('KH') || territoryPrefix3.startsWith('NH') || territoryPrefix3.startsWith('WH') ? 'Hawaii/Pacific' :
+            territoryPrefix3.includes('L7') ? 'Alaska' : 'US Territory',
         estimated: true,
         source: 'prefix-grid'
       };
     }
   }
-  
+
   // Smart US callsign detection - US prefixes follow specific patterns
   // K, N, W + anything = USA
   // A[A-L] + digit = USA (e.g., AA0, AE5, AL7)
@@ -3486,7 +3489,7 @@ function estimateLocationFromPrefix(callsign) {
     // Extract call district (the digit) for more precise location
     const districtMatch = upper.match(/^[KNWA][A-L]?([0-9])/);
     const district = districtMatch ? districtMatch[1] : null;
-    
+
     const usDistrictGrids = {
       '0': 'EN31', // Central (CO, IA, KS, MN, MO, NE, ND, SD)
       '1': 'FN41', // New England (CT, MA, ME, NH, RI, VT)
@@ -3499,7 +3502,7 @@ function estimateLocationFromPrefix(callsign) {
       '8': 'EN81', // MI, OH, WV
       '9': 'EN52', // IL, IN, WI
     };
-    
+
     const grid = district && usDistrictGrids[district] ? usDistrictGrids[district] : 'EM79';
     const gridLoc = maidenheadToLatLon(grid);
     if (gridLoc) {
@@ -3514,17 +3517,17 @@ function estimateLocationFromPrefix(callsign) {
       };
     }
   }
-  
+
   // Try longest prefix match first (up to 4 chars) for non-US calls
   for (let len = 4; len >= 1; len--) {
     const prefix = upper.substring(0, len);
     if (prefixGrids[prefix]) {
       const gridLoc = maidenheadToLatLon(prefixGrids[prefix]);
       if (gridLoc) {
-        return { 
-          callsign, 
-          lat: gridLoc.lat, 
-          lon: gridLoc.lon, 
+        return {
+          callsign,
+          lat: gridLoc.lat,
+          lon: gridLoc.lon,
           grid: prefixGrids[prefix],
           country: getCountryFromPrefix(prefix),
           estimated: true,
@@ -3533,7 +3536,7 @@ function estimateLocationFromPrefix(callsign) {
       }
     }
   }
-  
+
   // Fallback to first character (most likely country for each letter)
   const firstCharGrids = {
     'A': 'EM79', 'B': 'PL02', 'C': 'FN03', 'D': 'JO51', 'E': 'IO63', // A=USA (AA-AL), B=China, C=Canada, D=Germany, E=Spain/Ireland
@@ -3542,7 +3545,7 @@ function estimateLocationFromPrefix(callsign) {
     'P': 'GG87', 'R': 'KO85', 'S': 'JO89', 'T': 'KI88', 'U': 'KO85', // P=Brazil, R=Russia, S=Sweden, T=varies, U=Russia
     'V': 'QF56', 'W': 'EM79', 'X': 'EK09', 'Y': 'JO91', 'Z': 'KG33'  // V=Australia, W=USA, X=Mexico, Y=varies, Z=South Africa
   };
-  
+
   const firstChar = upper[0];
   if (firstCharGrids[firstChar]) {
     const gridLoc = maidenheadToLatLon(firstCharGrids[firstChar]);
@@ -3558,7 +3561,7 @@ function estimateLocationFromPrefix(callsign) {
       };
     }
   }
-  
+
   return null;
 }
 
@@ -3587,7 +3590,7 @@ function getCountryFromPrefix(prefix) {
     '4X': 'Israel', 'OD': 'Lebanon', 'YK': 'Syria', 'YI': 'Iraq', 'EP': 'Iran', 'TA': 'Turkey',
     '5B': 'Cyprus', 'EK': 'Armenia', '4J': 'Azerbaijan'
   };
-  
+
   for (let len = 3; len >= 1; len--) {
     const p = prefix.substring(0, len);
     if (prefixCountries[p]) return prefixCountries[p];
@@ -3616,23 +3619,23 @@ setInterval(() => {
 app.get('/api/myspots/:callsign', async (req, res) => {
   const callsign = req.params.callsign.toUpperCase();
   const now = Date.now();
-  
+
   // Check cache first
   const cached = mySpotsCache.get(callsign);
   if (cached && (now - cached.timestamp) < MYSPOTS_CACHE_TTL) {
     logDebug('[My Spots] Returning cached data for:', callsign);
     return res.json(cached.data);
   }
-  
+
   logDebug('[My Spots] Searching for callsign:', callsign);
-  
+
   const mySpots = [];
-  
+
   try {
     // Try HamQTH for spots involving this callsign
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    
+
     const response = await fetch(
       `https://www.hamqth.com/dxc_csv.php?limit=100`,
       {
@@ -3641,25 +3644,25 @@ app.get('/api/myspots/:callsign', async (req, res) => {
       }
     );
     clearTimeout(timeout);
-    
+
     if (response.ok) {
       const text = await response.text();
       const lines = text.trim().split('\n');
-      
+
       for (const line of lines) {
         if (!line.trim()) continue;
         const parts = line.split('^');
         if (parts.length < 3) continue;
-        
+
         const spotter = parts[0]?.trim().toUpperCase();
         const dxCall = parts[2]?.trim().toUpperCase();
         const freq = parts[1]?.trim();
         const comment = parts[3]?.trim() || '';
         const timeStr = parts[4]?.trim() || '';
-        
+
         // Check if our callsign is involved (as spotter or spotted)
-        if (spotter === callsign || dxCall === callsign || 
-            spotter.includes(callsign) || dxCall.includes(callsign)) {
+        if (spotter === callsign || dxCall === callsign ||
+          spotter.includes(callsign) || dxCall.includes(callsign)) {
           mySpots.push({
             spotter,
             dxCall,
@@ -3672,13 +3675,13 @@ app.get('/api/myspots/:callsign', async (req, res) => {
         }
       }
     }
-    
+
     logDebug('[My Spots] Found', mySpots.length, 'spots involving', callsign);
-    
+
     // Now try to get locations for each unique callsign
     const uniqueCalls = [...new Set(mySpots.map(s => s.isMySpot ? s.dxCall : s.spotter))];
     const locations = {};
-    
+
     for (const call of uniqueCalls.slice(0, 10)) { // Limit to 10 lookups
       try {
         const loc = estimateLocationFromPrefix(call);
@@ -3689,7 +3692,7 @@ app.get('/api/myspots/:callsign', async (req, res) => {
         // Ignore lookup errors
       }
     }
-    
+
     // Add locations to spots
     const spotsWithLocations = mySpots.map(spot => {
       const targetCall = spot.isMySpot ? spot.dxCall : spot.spotter;
@@ -3702,10 +3705,10 @@ app.get('/api/myspots/:callsign', async (req, res) => {
         country: loc?.country
       };
     }).filter(s => s.lat && s.lon); // Only return spots with valid locations
-    
+
     // Cache the result
     mySpotsCache.set(callsign, { data: spotsWithLocations, timestamp: Date.now() });
-    
+
     res.json(spotsWithLocations);
   } catch (error) {
     logErrorOnce('My Spots', error.message);
@@ -3727,24 +3730,24 @@ app.get('/api/myspots/:callsign', async (req, res) => {
 // Convert grid square to lat/lon
 function gridToLatLonSimple(grid) {
   if (!grid || grid.length < 4) return null;
-  
+
   const g = grid.toUpperCase();
   const lon = (g.charCodeAt(0) - 65) * 20 - 180;
   const lat = (g.charCodeAt(1) - 65) * 10 - 90;
   const lonMin = parseInt(g[2]) * 2;
   const latMin = parseInt(g[3]) * 1;
-  
+
   let finalLon = lon + lonMin + 1;
   let finalLat = lat + latMin + 0.5;
-  
+
   // If 6-character grid, add more precision
   if (grid.length >= 6) {
-    const lonSec = (g.charCodeAt(4) - 65) * (2/24);
-    const latSec = (g.charCodeAt(5) - 65) * (1/24);
-    finalLon = lon + lonMin + lonSec + (1/24);
-    finalLat = lat + latMin + latSec + (0.5/24);
+    const lonSec = (g.charCodeAt(4) - 65) * (2 / 24);
+    const latSec = (g.charCodeAt(5) - 65) * (1 / 24);
+    finalLon = lon + lonMin + lonSec + (1 / 24);
+    finalLat = lat + latMin + latSec + (0.5 / 24);
   }
-  
+
   return { lat: finalLat, lon: finalLon };
 }
 
@@ -3789,7 +3792,7 @@ app.get('/api/pskreporter/config', (req, res) => {
 // Combined endpoint - returns stream info (live spots via SSE, no HTTP backfill)
 app.get('/api/pskreporter/:callsign', async (req, res) => {
   const callsign = req.params.callsign.toUpperCase();
-  
+
   res.json({
     callsign,
     stream: {
@@ -3840,9 +3843,9 @@ function pskMqttConnect() {
       // MUST re-attach a no-op error handler — Node.js crashes on
       // unhandled 'error' events, and the old client may still emit
       // errors (e.g. connack timeout) after we've detached
-      pskMqtt.client.on('error', () => {});
+      pskMqtt.client.on('error', () => { });
       pskMqtt.client.end(true);
-    } catch {}
+    } catch { }
     pskMqtt.client = null;
   }
 
@@ -4171,9 +4174,9 @@ app.get('/api/pskreporter/stream/:callsign', (req, res) => {
               // Strip listeners before end() to prevent close → reconnect
               try {
                 pskMqtt.client.removeAllListeners();
-                pskMqtt.client.on('error', () => {}); // prevent crash on late errors
+                pskMqtt.client.on('error', () => { }); // prevent crash on late errors
                 pskMqtt.client.end(true);
-              } catch {}
+              } catch { }
               pskMqtt.client = null;
               pskMqtt.connected = false;
               pskMqtt.reconnectAttempts = 0;
@@ -4192,23 +4195,23 @@ app.get('/api/pskreporter/stream/:callsign', (req, res) => {
 // Convert lat/lon to Maidenhead grid (6-character)
 function latLonToGrid(lat, lon) {
   if (!isFinite(lat) || !isFinite(lon)) return null;
-  
+
   // Adjust longitude to 0-360 range
   let adjLon = lon + 180;
   let adjLat = lat + 90;
-  
+
   // Field (2 chars): 20° lon x 10° lat
   const field1 = String.fromCharCode(65 + Math.floor(adjLon / 20));
   const field2 = String.fromCharCode(65 + Math.floor(adjLat / 10));
-  
+
   // Square (2 digits): 2° lon x 1° lat
   const square1 = Math.floor((adjLon % 20) / 2);
   const square2 = Math.floor((adjLat % 10) / 1);
-  
+
   // Subsquare (2 chars): 5' lon x 2.5' lat
   const subsq1 = String.fromCharCode(65 + Math.floor(((adjLon % 2) * 60) / 5));
   const subsq2 = String.fromCharCode(65 + Math.floor(((adjLat % 1) * 60) / 2.5));
-  
+
   return `${field1}${field2}${square1}${square2}${subsq1}${subsq2}`.toUpperCase();
 }
 
@@ -4241,26 +4244,26 @@ function maintainRBNConnection(port = 7000) {
   if (rbnConnection && !rbnConnection.destroyed) {
     return; // Already connected
   }
-  
+
   console.log(`[RBN] Creating persistent connection to telnet.reversebeacon.net:${port}...`);
-  
+
   let dataBuffer = '';
   let authenticated = false;
   const userCallsign = 'OPENHAMCLOCK'; // Generic callsign for the app
-  
-  const client = net.createConnection({ 
-    host: 'telnet.reversebeacon.net', 
-    port: port 
+
+  const client = net.createConnection({
+    host: 'telnet.reversebeacon.net',
+    port: port
   }, () => {
     console.log(`[RBN] Persistent connection established`);
   });
 
   client.setEncoding('utf8');
   client.setKeepAlive(true, 60000); // Keep alive every 60s
-  
+
   client.on('data', (data) => {
     dataBuffer += data;
-    
+
     // Check for authentication prompt
     if (!authenticated && dataBuffer.includes('Please enter your call:')) {
       console.log(`[RBN] Authenticating as ${userCallsign}`);
@@ -4269,25 +4272,25 @@ function maintainRBNConnection(port = 7000) {
       dataBuffer = '';
       return;
     }
-    
+
     const lines = dataBuffer.split('\n');
     dataBuffer = lines.pop() || '';
-    
+
     for (const line of lines) {
       if (!line.trim()) continue;
-      
+
       // Start collecting after authentication
       if (authenticated && line.includes('Connected')) {
         console.log(`[RBN] Authenticated, now streaming spots...`);
         continue;
       }
-      
+
       // Parse RBN spot line format:
       // CW:   DX de W3LPL-#:     7003.0  K3LR           CW    30 dB  23 WPM  CQ      0123Z
       // FT8:  DX de KM3T-#:     14074.0  K3LR           FT8   -12 dB              CQ      0123Z
       // RTTY: DX de W3LPL-#:    14080.0  K3LR           RTTY  15 dB  45 BPS  CQ      0123Z
       const spotMatch = line.match(/DX de\s+(\S+)\s*:\s*([\d.]+)\s+(\S+)\s+(\S+)\s+([-\d]+)\s+dB/);
-      
+
       if (spotMatch) {
         const [, skimmer, freq, dx, mode, snr] = spotMatch;
         // Optionally extract WPM or BPS after dB
@@ -4297,7 +4300,7 @@ function maintainRBNConnection(port = 7000) {
         const timestamp = Date.now();
         const freqNum = parseFloat(freq) * 1000;
         const band = freqToBandKHz(freqNum / 1000);
-        
+
         const spot = {
           callsign: skimmer.replace(/-#.*$/, ''),
           skimmerFull: skimmer,
@@ -4315,15 +4318,15 @@ function maintainRBNConnection(port = 7000) {
           source: 'rbn-telnet',
           grid: null // Will be filled by frontend from cache
         };
-        
+
         // Add to rolling buffer
         rbnSpots.push(spot);
-        
+
         // Keep only recent spots
         if (rbnSpots.length > MAX_RBN_SPOTS) {
           rbnSpots.shift();
         }
-        
+
         // Clean old spots
         const cutoff = timestamp - RBN_SPOT_TTL;
         rbnSpots = rbnSpots.filter(s => s.timestampMs > cutoff);
@@ -4343,7 +4346,7 @@ function maintainRBNConnection(port = 7000) {
     rbnConnection = null;
     setTimeout(() => maintainRBNConnection(port), 5000);
   });
-  
+
   rbnConnection = client;
 }
 
@@ -4358,26 +4361,26 @@ const RBN_API_CACHE_TTL = 30000; // 30 seconds - spots change constantly but not
 app.get('/api/rbn/spots', async (req, res) => {
   const minutes = parseInt(req.query.minutes) || 30;
   const limit = parseInt(req.query.limit) || 200; // Reduced from 500 to save bandwidth
-  
+
   const cacheKey = `${minutes}:${limit}`;
   const now = Date.now();
-  
+
   // Return cached response if fresh
   if (rbnApiCache.data && rbnApiCache.key === cacheKey && (now - rbnApiCache.timestamp) < RBN_API_CACHE_TTL) {
     return res.json(rbnApiCache.data);
   }
-  
+
   const cutoff = now - (minutes * 60 * 1000);
-  
+
   // Filter by time window
   const recentSpots = rbnSpots
     .filter(spot => spot.timestampMs > cutoff)
     .slice(-limit); // Get most recent
-  
+
   // Enrich spots with skimmer location data
   const enrichedSpots = await Promise.all(recentSpots.map(async (spot) => {
     const skimmerCall = spot.callsign;
-    
+
     // Check cache first
     if (callsignLocationCache.has(skimmerCall)) {
       const location = callsignLocationCache.get(skimmerCall);
@@ -4389,14 +4392,14 @@ app.get('/api/rbn/spots', async (req, res) => {
         skimmerCountry: location.country
       };
     }
-    
+
     // Lookup location (don't block on failures)
     try {
       const response = await fetch(`http://localhost:${PORT}/api/callsign/${skimmerCall}`);
       if (response.ok) {
         const locationData = await response.json();
         const grid = latLonToGrid(locationData.lat, locationData.lon);
-        
+
         const location = {
           callsign: skimmerCall,
           grid: grid,
@@ -4404,10 +4407,10 @@ app.get('/api/rbn/spots', async (req, res) => {
           lon: locationData.lon,
           country: locationData.country
         };
-        
+
         // Cache permanently
         callsignLocationCache.set(skimmerCall, location);
-        
+
         return {
           ...spot,
           grid: grid,
@@ -4419,13 +4422,13 @@ app.get('/api/rbn/spots', async (req, res) => {
     } catch (err) {
       // Silent fail - return spot without location
     }
-    
+
     // Return spot as-is if lookup failed
     return spot;
   }));
-  
+
   console.log(`[RBN] Returning ${enrichedSpots.length} enriched spots (last ${minutes} min)`);
-  
+
   const response = {
     count: enrichedSpots.length,
     spots: enrichedSpots,
@@ -4433,29 +4436,29 @@ app.get('/api/rbn/spots', async (req, res) => {
     timestamp: new Date().toISOString(),
     source: 'rbn-telnet-stream'
   };
-  
+
   // Cache the response
   rbnApiCache = { data: response, timestamp: Date.now(), key: cacheKey };
-  
+
   res.json(response);
 });
 
 // Endpoint to lookup skimmer location (cached permanently)
 app.get('/api/rbn/location/:callsign', async (req, res) => {
   const callsign = req.params.callsign.toUpperCase();
-  
+
   // Check cache first
   if (callsignLocationCache.has(callsign)) {
     return res.json(callsignLocationCache.get(callsign));
   }
-  
+
   try {
     // Look up via HamQTH
     const response = await fetch(`http://localhost:${PORT}/api/callsign/${callsign}`);
     if (response.ok) {
       const locationData = await response.json();
       const grid = latLonToGrid(locationData.lat, locationData.lon);
-      
+
       const result = {
         callsign: callsign,
         grid: grid,
@@ -4463,39 +4466,39 @@ app.get('/api/rbn/location/:callsign', async (req, res) => {
         lon: locationData.lon,
         country: locationData.country
       };
-      
+
       // Cache permanently (skimmers don't move!)
       callsignLocationCache.set(callsign, result);
-      
+
       return res.json(result);
     }
   } catch (err) {
     console.warn(`[RBN] Failed to lookup ${callsign}: ${err.message}`);
   }
-  
+
   res.status(404).json({ error: 'Location not found' });
 });
 
 // Legacy endpoint for compatibility (deprecated)
 app.get('/api/rbn', async (req, res) => {
   console.log('[RBN] Warning: Using deprecated /api/rbn endpoint, use /api/rbn/spots instead');
-  
+
   const callsign = (req.query.callsign || '').toUpperCase().trim();
   const minutes = parseInt(req.query.minutes) || 30;
   const limit = parseInt(req.query.limit) || 100;
-  
+
   if (!callsign || callsign === 'N0CALL') {
     return res.json([]);
   }
-  
+
   const now = Date.now();
   const cutoff = now - (minutes * 60 * 1000);
-  
+
   // Filter spots for this callsign
   const userSpots = rbnSpots
     .filter(spot => spot.timestampMs > cutoff && spot.dx.toUpperCase() === callsign)
     .slice(-limit);
-  
+
   res.json(userSpots);
 });
 // ============================================
@@ -4513,12 +4516,12 @@ const WSPR_STALE_TTL = 60 * 60 * 1000;  // Serve stale data up to 1 hour
 function aggregateWSPRByGrid(spots) {
   const grids = new Map();
   const paths = new Map();
-  
+
   for (const spot of spots) {
     // Get 4-char grids (field + square, e.g., "EM48")
     const senderGrid4 = spot.senderGrid?.substring(0, 4)?.toUpperCase();
     const receiverGrid4 = spot.receiverGrid?.substring(0, 4)?.toUpperCase();
-    
+
     // Aggregate sender grid stats
     if (senderGrid4 && spot.senderLat && spot.senderLon) {
       if (!grids.has(senderGrid4)) {
@@ -4545,7 +4548,7 @@ function aggregateWSPRByGrid(spots) {
       if (spot.distance > g.maxDistance) g.maxDistance = spot.distance;
       if (spot.sender) g.stations.add(spot.sender);
     }
-    
+
     // Aggregate receiver grid stats
     if (receiverGrid4 && spot.receiverLat && spot.receiverLon) {
       if (!grids.has(receiverGrid4)) {
@@ -4566,14 +4569,14 @@ function aggregateWSPRByGrid(spots) {
       g.rxCount++;
       if (spot.receiver) g.stations.add(spot.receiver);
     }
-    
+
     // Track paths between grid squares
     if (senderGrid4 && receiverGrid4 && senderGrid4 !== receiverGrid4) {
       const pathKey = `${senderGrid4}-${receiverGrid4}`;
       if (!paths.has(pathKey)) {
-        paths.set(pathKey, { 
-          from: senderGrid4, 
-          to: receiverGrid4, 
+        paths.set(pathKey, {
+          from: senderGrid4,
+          to: receiverGrid4,
           fromLat: spot.senderLat,
           fromLon: spot.senderLon,
           toLat: spot.receiverLat,
@@ -4593,7 +4596,7 @@ function aggregateWSPRByGrid(spots) {
       p.bands[spot.band] = (p.bands[spot.band] || 0) + 1;
     }
   }
-  
+
   // Convert to arrays and compute averages
   const gridArray = Array.from(grids.values()).map(g => ({
     grid: g.grid,
@@ -4607,7 +4610,7 @@ function aggregateWSPRByGrid(spots) {
     maxDistance: g.maxDistance,
     stationCount: g.stations.size
   })).sort((a, b) => b.totalActivity - a.totalActivity);
-  
+
   // Top 200 paths by activity (limit for bandwidth)
   const pathArray = Array.from(paths.values())
     .map(p => ({
@@ -4623,7 +4626,7 @@ function aggregateWSPRByGrid(spots) {
     }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 200);
-  
+
   // Band activity summary
   const bandActivity = {};
   for (const spot of spots) {
@@ -4631,10 +4634,10 @@ function aggregateWSPRByGrid(spots) {
       bandActivity[spot.band] = (bandActivity[spot.band] || 0) + 1;
     }
   }
-  
-  return { 
-    grids: gridArray, 
-    paths: pathArray, 
+
+  return {
+    grids: gridArray,
+    paths: pathArray,
     bandActivity,
     totalSpots: spots.length,
     uniqueGrids: gridArray.length,
@@ -4647,17 +4650,17 @@ app.get('/api/wspr/heatmap', async (req, res) => {
   const band = req.query.band || 'all';
   const raw = req.query.raw === 'true';
   const now = Date.now();
-  
+
   // Cache key for this exact query
   const cacheKey = `wspr:${minutes}:${band}:${raw ? 'raw' : 'agg'}`;
-  
+
   // 1. Fresh cache hit — serve immediately
-  if (wsprCache.data && 
-      wsprCache.data.cacheKey === cacheKey && 
-      (now - wsprCache.timestamp) < WSPR_CACHE_TTL) {
+  if (wsprCache.data &&
+    wsprCache.data.cacheKey === cacheKey &&
+    (now - wsprCache.timestamp) < WSPR_CACHE_TTL) {
     return res.json({ ...wsprCache.data.result, cached: true });
   }
-  
+
   // 2. Backoff active (WSPR uses PSKReporter upstream, shares its backoff)
   if (upstream.isBackedOff('pskreporter')) {
     if (wsprCache.data && wsprCache.data.cacheKey === cacheKey) {
@@ -4665,35 +4668,35 @@ app.get('/api/wspr/heatmap', async (req, res) => {
     }
     return res.json({ grids: [], paths: [], totalSpots: 0, minutes, band, format: 'aggregated', backoff: true });
   }
-  
+
   // 3. Stale-while-revalidate: if stale data exists, serve it and refresh in background
   const hasStale = wsprCache.data && wsprCache.data.cacheKey === cacheKey && (now - wsprCache.timestamp) < WSPR_STALE_TTL;
-  
+
   // 4. Deduplicated upstream fetch — WSPR is global data, so all users share ONE in-flight request
   const doFetch = () => upstream.fetch(cacheKey, async () => {
     const flowStartSeconds = -Math.abs(minutes * 60);
     const url = `https://retrieve.pskreporter.info/query?mode=WSPR&flowStartSeconds=${flowStartSeconds}&rronly=1&nolocator=0&appcontact=openhamclock&rptlimit=2000`;
-    
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 20000);
-    
+
     const response = await fetch(url, {
-      headers: { 
+      headers: {
         'User-Agent': 'OpenHamClock/15.2.12 (Amateur Radio Dashboard)',
         'Accept': '*/*'
       },
       signal: controller.signal
     });
     clearTimeout(timeout);
-    
+
     if (!response.ok) {
       const backoffSecs = upstream.recordFailure('pskreporter', response.status);
       throw new Error(`HTTP ${response.status} — backing off for ${backoffSecs}s`);
     }
-    
+
     const xml = await response.text();
     const spots = [];
-    
+
     const reportRegex = /<receptionReport[^>]*>/g;
     let match;
     while ((match = reportRegex.exec(xml)) !== null) {
@@ -4702,7 +4705,7 @@ app.get('/api/wspr/heatmap', async (req, res) => {
         const m = report.match(new RegExp(`${name}="([^"]*)"`));
         return m ? m[1] : null;
       };
-      
+
       const receiverCallsign = getAttr('receiverCallsign');
       const receiverLocator = getAttr('receiverLocator');
       const senderCallsign = getAttr('senderCallsign');
@@ -4716,22 +4719,22 @@ app.get('/api/wspr/heatmap', async (req, res) => {
       const senderAz = getAttr('senderAzimuth');
       const receiverAz = getAttr('receiverAzimuth');
       const drift = getAttr('drift');
-      
+
       if (receiverCallsign && senderCallsign && senderLocator && receiverLocator) {
         const freq = frequency ? parseInt(frequency) : null;
         const spotBand = freq ? getBandFromHz(freq) : 'Unknown';
-        
+
         if (band !== 'all' && spotBand !== band) continue;
-        
+
         const senderLoc = gridToLatLonSimple(senderLocator);
         const receiverLoc = gridToLatLonSimple(receiverLocator);
-        
+
         if (senderLoc && receiverLoc) {
           const powerWatts = power ? parseFloat(power) : null;
           const powerDbm = powerWatts ? (10 * Math.log10(powerWatts * 1000)).toFixed(0) : null;
           const dist = distance ? parseInt(distance) : null;
           const kPerW = (dist && powerWatts && powerWatts > 0) ? Math.round(dist / powerWatts) : null;
-          
+
           spots.push({
             sender: senderCallsign,
             senderGrid: senderLocator,
@@ -4758,10 +4761,10 @@ app.get('/api/wspr/heatmap', async (req, res) => {
         }
       }
     }
-    
+
     spots.sort((a, b) => b.timestamp - a.timestamp);
     upstream.recordSuccess('pskreporter');
-    
+
     let result;
     if (raw) {
       result = {
@@ -4777,17 +4780,17 @@ app.get('/api/wspr/heatmap', async (req, res) => {
       };
       console.log(`[WSPR Heatmap] Aggregated ${spots.length} spots → ${aggregated.uniqueGrids} grids, ${aggregated.paths.length} paths (${minutes}min, band: ${band})`);
     }
-    
+
     wsprCache = { data: { result, cacheKey }, timestamp: Date.now() };
     return result;
   });
-  
+
   if (hasStale) {
     // Stale-while-revalidate: respond with stale data now, refresh in background
-    doFetch().catch(() => {});
+    doFetch().catch(() => { });
     return res.json({ ...wsprCache.data.result, cached: true, stale: true });
   }
-  
+
   // No stale data — must wait for upstream
   try {
     const result = await doFetch();
@@ -4816,7 +4819,7 @@ const HAM_SATELLITES = {
   'AO-91': { norad: 43017, name: 'AO-91 (Fox-1B)', color: '#ff6600', priority: 1, mode: 'FM' },
   'AO-92': { norad: 43137, name: 'AO-92 (Fox-1D)', color: '#ff9900', priority: 1, mode: 'FM/L-band' },
   'PO-101': { norad: 43678, name: 'PO-101 (Diwata-2)', color: '#ff3399', priority: 1, mode: 'FM' },
-  
+
   // Weather Satellites - GOES & METEOR
   //'GOES-18': { norad: 51850, name: 'GOES-18', color: '#66ff66', priority: 1, mode: 'GRB/HRIT/LRIT' },
   //'GOES-19': { norad: 60133, name: 'GOES-19', color: '#33cc33', priority: 1, mode: 'GRB/HRIT/LRIT' },
@@ -4825,7 +4828,7 @@ const HAM_SATELLITES = {
   'SUOMI-NPP': { norad: 37849, name: 'SUOMI NPP', color: '#0000FF', priority: 2, mode: 'HRD/SMD' },
   'NOAA-20': { norad: 43013, name: 'NOAA-20 (JPSS-1)', color: '#0000FF', priority: 2, mode: 'HRD/SMD' },
   'NOAA-21': { norad: 54234, name: 'NOAA-21 (JPSS-2)', color: '#0000FF', priority: 2, mode: 'HRD/SMD' },
-  
+
   // Linear Transponder Satellites
   'RS-44': { norad: 44909, name: 'RS-44 (DOSAAF)', color: '#ff0066', priority: 1, mode: 'Linear' },
   'AO-7': { norad: 7530, name: 'AO-7', color: '#ffcc00', priority: 2, mode: 'Linear (daylight)' },
@@ -4838,15 +4841,15 @@ const HAM_SATELLITES = {
   'XW-2D': { norad: 40907, name: 'XW-2D (CAS-3D)', color: '#99ff99', priority: 2, mode: 'Linear' },
   'XW-2E': { norad: 40909, name: 'XW-2E (CAS-3E)', color: '#ccff99', priority: 2, mode: 'Linear' },
   'XW-2F': { norad: 40910, name: 'XW-2F (CAS-3F)', color: '#ccffcc', priority: 2, mode: 'Linear' },
-  
+
   // CAS (Chinese Amateur Satellites)
   'CAS-4A': { norad: 42761, name: 'CAS-4A', color: '#9966ff', priority: 2, mode: 'Linear' },
   'CAS-4B': { norad: 42759, name: 'CAS-4B', color: '#9933ff', priority: 2, mode: 'Linear' },
   'CAS-6': { norad: 44881, name: 'CAS-6 (TO-108)', color: '#cc66ff', priority: 2, mode: 'Linear' },
-  
+
   // GreenCube / IO satellites
   'IO-117': { norad: 53106, name: 'IO-117 (GreenCube)', color: '#00ff99', priority: 2, mode: 'Digipeater' },
-  
+
   // TEVEL constellation
   'TEVEL-1': { norad: 50988, name: 'TEVEL-1', color: '#66ccff', priority: 3, mode: 'FM' },
   'TEVEL-2': { norad: 50989, name: 'TEVEL-2', color: '#66ddff', priority: 3, mode: 'FM' },
@@ -4856,25 +4859,25 @@ const HAM_SATELLITES = {
   'TEVEL-6': { norad: 51063, name: 'TEVEL-6', color: '#77eeff', priority: 3, mode: 'FM' },
   'TEVEL-7': { norad: 51069, name: 'TEVEL-7', color: '#88ccff', priority: 3, mode: 'FM' },
   'TEVEL-8': { norad: 51084, name: 'TEVEL-8', color: '#88ddff', priority: 3, mode: 'FM' },
-  
+
   // OSCAR satellites
   'AO-27': { norad: 22825, name: 'AO-27', color: '#ff9966', priority: 3, mode: 'FM' },
   'AO-73': { norad: 39444, name: 'AO-73 (FUNcube-1)', color: '#ffcc66', priority: 3, mode: 'Linear/Telemetry' },
   'EO-88': { norad: 42017, name: 'EO-88 (Nayif-1)', color: '#ffaa66', priority: 3, mode: 'Linear/Telemetry' },
-  
+
   // Russian satellites
   'RS-15': { norad: 23439, name: 'RS-15', color: '#ff6666', priority: 3, mode: 'Linear' },
-  
+
   // QO-100 (Geostationary - special)
   'QO-100': { norad: 43700, name: 'QO-100 (Es\'hail-2)', color: '#ffff00', priority: 1, mode: 'Linear (GEO)' },
-  
+
   // APRS Digipeaters
   'ARISS': { norad: 25544, name: 'ARISS (ISS)', color: '#00ffff', priority: 1, mode: 'APRS' },
-  
+
   // Cubesats with amateur payloads
   'UVSQ-SAT': { norad: 47438, name: 'UVSQ-SAT', color: '#ff66ff', priority: 4, mode: 'Telemetry' },
   'MEZNSAT': { norad: 46489, name: 'MeznSat', color: '#66ff66', priority: 4, mode: 'Telemetry' },
-  
+
   // SSTV/Slow Scan
   'SSTV-ISS': { norad: 25544, name: 'ISS SSTV', color: '#00ffff', priority: 2, mode: 'SSTV' }
 };
@@ -4893,12 +4896,12 @@ app.get('/api/satellites/tle', async (req, res) => {
 
     logDebug('[Satellites] Fetching fresh TLE data from multiple groups...');
     const tleData = {}; // Declare this exactly once to avoid SyntaxErrors
-    
+
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
     // This list tells the server to look in all three CelesTrak folders
-    const groups = ['amateur', 'weather', 'goes']; 
+    const groups = ['amateur', 'weather', 'goes'];
 
     for (const group of groups) {
       try {
@@ -4917,17 +4920,17 @@ app.get('/api/satellites/tle', async (req, res) => {
             const line2 = lines[i + 2]?.trim();
             if (name && line1 && line1.startsWith('1 ')) {
               const noradId = parseInt(line1.substring(2, 7));
-              
+
               // Skip if this NORAD ID already exists (prevent duplicates)
               const alreadyExists = Object.values(tleData).some(sat => sat.norad === noradId);
               if (alreadyExists) continue;
-              
+
               // Create a sanitized key from the satellite name
               const key = name.replace(/[^A-Z0-9\-]/g, '_').toUpperCase();
-              
+
               // Check if we have metadata in HAM_SATELLITES
               const hamSat = Object.values(HAM_SATELLITES).find(s => s.norad === noradId);
-              
+
               if (hamSat) {
                 // Use defined metadata from HAM_SATELLITES
                 tleData[key] = { ...hamSat, tle1: line1, tle2: line2 };
@@ -4954,7 +4957,7 @@ app.get('/api/satellites/tle', async (req, res) => {
 
     // Check if ISS (NORAD 25544) was already added with any key
     const issExists = Object.values(tleData).some(sat => sat.norad === 25544);
-    
+
     // Fallback for ISS if it wasn't found in the groups above
     if (!issExists) {
       try {
@@ -4991,22 +4994,22 @@ let ionosondeCache = {
 // Fetch real-time ionosonde data from KC2G (GIRO network)
 async function fetchIonosondeData() {
   const now = Date.now();
-  
+
   // Return cached data if fresh
   if (ionosondeCache.data && (now - ionosondeCache.timestamp) < ionosondeCache.maxAge) {
     return ionosondeCache.data;
   }
-  
+
   try {
     const response = await fetch('https://prop.kc2g.com/api/stations.json', {
       headers: { 'User-Agent': 'OpenHamClock/3.13.1' },
       timeout: 15000
     });
-    
+
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    
+
     const data = await response.json();
-    
+
     // Filter to only recent data (within last 2 hours) with valid readings
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
     const validStations = data.filter(s => {
@@ -5025,15 +5028,15 @@ async function fetchIonosondeData() {
       confidence: s.cs,
       time: s.time
     }));
-    
+
     ionosondeCache = {
       data: validStations,
       timestamp: now
     };
-    
+
     logDebug(`[Ionosonde] Fetched ${validStations.length} valid stations from KC2G`);
     return validStations;
-    
+
   } catch (error) {
     logErrorOnce('Ionosonde', `Fetch error: ${error.message}`);
     return ionosondeCache.data || [];
@@ -5060,31 +5063,31 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-            Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-            Math.sin(dLon/2) * Math.sin(dLon/2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // Interpolate foF2 at a given location using inverse distance weighting
 function interpolateFoF2(lat, lon, stations) {
   if (!stations || stations.length === 0) return null;
-  
+
   // Maximum distance (km) to consider ionosonde data valid
   // Beyond this, the data is too far away to be representative
   const MAX_VALID_DISTANCE = 3000; // km
-  
+
   // Calculate distances to all stations
   const stationsWithDist = stations.map(s => ({
     ...s,
     distance: haversineDistance(lat, lon, s.lat, s.lon)
   })).filter(s => s.foF2 > 0);
-  
+
   if (stationsWithDist.length === 0) return null;
-  
+
   // Sort by distance and take nearest 5
   stationsWithDist.sort((a, b) => a.distance - b.distance);
-  
+
   // Check if nearest station is within valid range
   if (stationsWithDist[0].distance > MAX_VALID_DISTANCE) {
     logDebug(`[Ionosonde] Nearest station ${stationsWithDist[0].name} is ${Math.round(stationsWithDist[0].distance)}km away - too far, using estimates`);
@@ -5100,11 +5103,11 @@ function interpolateFoF2(lat, lon, stations) {
       reason: `Nearest ionosonde (${stationsWithDist[0].name}) is ${Math.round(stationsWithDist[0].distance)}km away - no local coverage`
     };
   }
-  
+
   // Filter to only stations within valid range
   const validStations = stationsWithDist.filter(s => s.distance <= MAX_VALID_DISTANCE);
   const nearest = validStations.slice(0, 5);
-  
+
   // If very close to a station, use its value directly
   if (nearest[0].distance < 100) {
     return {
@@ -5118,14 +5121,14 @@ function interpolateFoF2(lat, lon, stations) {
       method: 'direct'
     };
   }
-  
+
   // Inverse distance weighted interpolation
   let sumWeights = 0;
   let sumFoF2 = 0;
   let sumMufd = 0;
   let sumHmF2 = 0;
   let sumMd = 0;
-  
+
   nearest.forEach(s => {
     const weight = (s.confidence / 100) / Math.pow(s.distance, 2);
     sumWeights += weight;
@@ -5134,7 +5137,7 @@ function interpolateFoF2(lat, lon, stations) {
     if (s.hmF2) sumHmF2 += s.hmF2 * weight;
     if (s.md) sumMd += s.md * weight;
   });
-  
+
   return {
     foF2: sumFoF2 / sumWeights,
     mufd: sumMufd > 0 ? sumMufd / sumWeights : null,
@@ -5165,33 +5168,33 @@ let iturhfpropCache = {
  */
 async function fetchITURHFPropPrediction(txLat, txLon, rxLat, rxLon, ssn, month, hour) {
   if (!ITURHFPROP_URL) return null;
-  
+
   const cacheKey = `${txLat.toFixed(1)},${txLon.toFixed(1)}-${rxLat.toFixed(1)},${rxLon.toFixed(1)}-${ssn}-${month}-${hour}`;
   const now = Date.now();
-  
+
   // Check cache
   if (iturhfpropCache.key === cacheKey && (now - iturhfpropCache.timestamp) < iturhfpropCache.maxAge) {
     return iturhfpropCache.data;
   }
-  
+
   try {
     const url = `${ITURHFPROP_URL}/api/bands?txLat=${txLat}&txLon=${txLon}&rxLat=${rxLat}&rxLon=${rxLon}&ssn=${ssn}&month=${month}&hour=${hour}`;
-    
+
     // Create abort controller for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
-    
+
     const response = await fetch(url, { signal: controller.signal });
     clearTimeout(timeoutId);
-    
+
     if (!response.ok) {
       logErrorOnce('Hybrid', `ITURHFProp returned ${response.status}`);
       return null;
     }
-    
+
     const data = await response.json();
     // Only log success occasionally to reduce noise
-    
+
     // Cache the result
     iturhfpropCache = {
       data,
@@ -5199,7 +5202,7 @@ async function fetchITURHFPropPrediction(txLat, txLon, rxLat, rxLon, ssn, month,
       timestamp: now,
       maxAge: iturhfpropCache.maxAge
     };
-    
+
     return data;
   } catch (err) {
     if (err.name !== 'AbortError') {
@@ -5214,13 +5217,13 @@ async function fetchITURHFPropPrediction(txLat, txLon, rxLat, rxLon, ssn, month,
  */
 async function fetchITURHFPropHourly(txLat, txLon, rxLat, rxLon, ssn, month) {
   if (!ITURHFPROP_URL) return null;
-  
+
   try {
     const url = `${ITURHFPROP_URL}/api/predict/hourly?txLat=${txLat}&txLon=${txLon}&rxLat=${rxLat}&rxLon=${rxLon}&ssn=${ssn}&month=${month}`;
-    
+
     const response = await fetch(url, { timeout: 60000 }); // 60s timeout for 24-hour calc
     if (!response.ok) return null;
-    
+
     const data = await response.json();
     return data;
   } catch (err) {
@@ -5238,18 +5241,18 @@ async function fetchITURHFPropHourly(txLat, txLon, rxLat, rxLon, ssn, month) {
  */
 function calculateIonoCorrection(expectedFoF2, actualFoF2, kIndex) {
   if (!expectedFoF2 || !actualFoF2) return { factor: 1.0, confidence: 'low' };
-  
+
   // Ratio of actual to expected ionospheric conditions
   const ratio = actualFoF2 / expectedFoF2;
-  
+
   // Geomagnetic correction (storms reduce reliability)
   const kFactor = kIndex <= 3 ? 1.0 : 1.0 - (kIndex - 3) * 0.1;
-  
+
   // Combined correction factor
   // ratio > 1 means better conditions than predicted
   // ratio < 1 means worse conditions than predicted
   const factor = ratio * kFactor;
-  
+
   // Confidence based on how close actual is to expected
   let confidence;
   if (Math.abs(ratio - 1) < 0.15) {
@@ -5259,9 +5262,9 @@ function calculateIonoCorrection(expectedFoF2, actualFoF2, kIndex) {
   } else {
     confidence = 'low';    // Model significantly off - rely more on ionosonde
   }
-  
+
   logDebug(`[Hybrid] Correction factor: ${factor.toFixed(2)} (expected foF2: ${expectedFoF2.toFixed(1)}, actual: ${actualFoF2.toFixed(1)}, K: ${kIndex})`);
-  
+
   return { factor, confidence, ratio, kFactor };
 }
 
@@ -5270,43 +5273,43 @@ function calculateIonoCorrection(expectedFoF2, actualFoF2, kIndex) {
  */
 function applyHybridCorrection(iturhfpropData, ionoData, kIndex, sfi) {
   if (!iturhfpropData?.bands) return null;
-  
+
   // Estimate what foF2 ITURHFProp expected (based on SSN/SFI)
   const ssn = Math.max(0, Math.round((sfi - 67) / 0.97));
   const expectedFoF2 = 0.9 * Math.sqrt(ssn + 15) * 1.2; // Rough estimate at solar noon
-  
+
   // Get actual foF2 from ionosonde
   const actualFoF2 = ionoData?.foF2;
-  
+
   // Calculate correction
   const correction = calculateIonoCorrection(expectedFoF2, actualFoF2, kIndex);
-  
+
   // Apply correction to each band
   const correctedBands = {};
   for (const [band, data] of Object.entries(iturhfpropData.bands)) {
     const baseReliability = data.reliability || 50;
-    
+
     // Apply correction factor with bounds
     let correctedReliability = baseReliability * correction.factor;
     correctedReliability = Math.max(0, Math.min(100, correctedReliability));
-    
+
     // For high bands, also check if we're above/below MUF
     const freq = data.freq;
     if (actualFoF2 && freq > actualFoF2 * 3.5) {
       // Frequency likely above MUF - reduce reliability
       correctedReliability *= 0.5;
     }
-    
+
     correctedBands[band] = {
       ...data,
       reliability: Math.round(correctedReliability),
       baseReliability: Math.round(baseReliability),
       correctionApplied: correction.factor !== 1.0,
-      status: correctedReliability >= 70 ? 'GOOD' : 
-              correctedReliability >= 40 ? 'FAIR' : 'POOR'
+      status: correctedReliability >= 70 ? 'GOOD' :
+        correctedReliability >= 40 ? 'FAIR' : 'POOR'
     };
   }
-  
+
   // Correct MUF based on actual ionosonde data
   let correctedMuf = iturhfpropData.muf;
   if (actualFoF2 && ionoData?.md) {
@@ -5315,7 +5318,7 @@ function applyHybridCorrection(iturhfpropData, ionoData, kIndex, sfi) {
     // Blend ITURHFProp MUF with ionosonde-derived MUF
     correctedMuf = (iturhfpropData.muf * 0.4) + (ionoMuf * 0.6);
   }
-  
+
   return {
     bands: correctedBands,
     muf: Math.round(correctedMuf * 10) / 10,
@@ -5333,7 +5336,7 @@ function estimateExpectedFoF2(ssn, lat, hour) {
   const hourFactor = 0.6 + 0.4 * Math.cos((hour - 14) * Math.PI / 12);
   const latFactor = 1 - Math.abs(lat) / 150;
   const ssnFactor = Math.sqrt(ssn + 15);
-  
+
   return 0.9 * ssnFactor * hourFactor * latFactor;
 }
 
@@ -5343,32 +5346,32 @@ function estimateExpectedFoF2(ssn, lat, hour) {
 
 app.get('/api/propagation', async (req, res) => {
   const { deLat, deLon, dxLat, dxLon, mode, power } = req.query;
-  
+
   // Calculate signal margin from mode + power
   const txMode = (mode || 'SSB').toUpperCase();
   const txPower = parseFloat(power) || 100;
   const signalMarginDb = calculateSignalMargin(txMode, txPower);
-  
+
   const useHybrid = ITURHFPROP_URL !== null;
   logDebug(`[Propagation] ${useHybrid ? 'Hybrid' : 'Standalone'} calculation for DE:`, deLat, deLon, 'to DX:', dxLat, dxLon, `[${txMode} @ ${txPower}W, margin: ${signalMarginDb.toFixed(1)}dB]`);
-  
+
   try {
     // Get current space weather data
     let sfi = 150, ssn = 100, kIndex = 2, aIndex = 10;
-    
+
     try {
       // Prefer SWPC summary (updates every few hours) + N0NBH for SSN
       const [summaryRes, kRes] = await Promise.allSettled([
         fetch('https://services.swpc.noaa.gov/products/summary/10cm-flux.json'),
         fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json')
       ]);
-      
+
       if (summaryRes.status === 'fulfilled' && summaryRes.value.ok) {
         try {
           const summary = await summaryRes.value.json();
           const flux = parseInt(summary?.Flux);
           if (flux > 0) sfi = flux;
-        } catch {}
+        } catch { }
       }
       // Fallback: N0NBH cache (daily, same as hamqsl.com)
       if (sfi === 150 && n0nbhCache.data?.solarData?.solarFlux) {
@@ -5389,44 +5392,44 @@ app.get('/api/propagation', async (req, res) => {
     } catch (e) {
       logDebug('[Propagation] Using default solar values');
     }
-    
+
     // Get real ionosonde data
     const ionosondeStations = await fetchIonosondeData();
-    
+
     // Calculate path geometry
     const de = { lat: parseFloat(deLat) || 40, lon: parseFloat(deLon) || -75 };
     const dx = { lat: parseFloat(dxLat) || 35, lon: parseFloat(dxLon) || 139 };
-    
+
     const distance = haversineDistance(de.lat, de.lon, dx.lat, dx.lon);
     const midLat = (de.lat + dx.lat) / 2;
     let midLon = (de.lon + dx.lon) / 2;
-    
+
     // Handle antimeridian crossing
     if (Math.abs(de.lon - dx.lon) > 180) {
       midLon = (de.lon + dx.lon + 360) / 2;
       if (midLon > 180) midLon -= 360;
     }
-    
+
     // Get ionospheric data at path midpoint
     const ionoData = interpolateFoF2(midLat, midLon, ionosondeStations);
     const hasValidIonoData = !!(ionoData && ionoData.method !== 'no-coverage' && ionoData.foF2);
-    
+
     const currentHour = new Date().getUTCHours();
     const currentMonth = new Date().getMonth() + 1;
-    
+
     logDebug('[Propagation] Distance:', Math.round(distance), 'km');
     logDebug('[Propagation] Solar: SFI', sfi, 'SSN', ssn, 'K', kIndex);
     if (hasValidIonoData) {
       logDebug('[Propagation] Real foF2:', ionoData.foF2?.toFixed(2), 'MHz from', ionoData.nearestStation || ionoData.source);
     }
-    
+
     // ===== HYBRID MODE: Try ITURHFProp first =====
     let hybridResult = null;
     if (useHybrid) {
       const iturhfpropData = await fetchITURHFPropPrediction(
         de.lat, de.lon, dx.lat, dx.lon, ssn, currentMonth, currentHour
       );
-      
+
       if (iturhfpropData && hasValidIonoData) {
         // Full hybrid: ITURHFProp + ionosonde correction
         hybridResult = applyHybridCorrection(iturhfpropData, ionoData, kIndex, sfi);
@@ -5441,16 +5444,16 @@ app.get('/api/propagation', async (req, res) => {
         logDebug('[Propagation] Using ITURHFProp only (no ionosonde coverage)');
       }
     }
-    
+
     // ===== FALLBACK: Built-in calculations =====
     const bands = ['160m', '80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m'];
     const bandFreqs = [1.8, 3.5, 7, 10, 14, 18, 21, 24, 28];
-    
+
     // Generate predictions (hybrid or fallback)
     const effectiveIonoData = hasValidIonoData ? ionoData : null;
     const predictions = {};
     let currentBands;
-    
+
     if (hybridResult) {
       // Use hybrid results for current bands
       currentBands = bands.map((band, idx) => {
@@ -5478,22 +5481,22 @@ app.get('/api/propagation', async (req, res) => {
           status: getStatus(reliability)
         };
       }).sort((a, b) => b.reliability - a.reliability);
-      
+
       // Generate 24-hour predictions with correction ratios from hybrid data
       // This makes predictions more accurate by scaling them to match the hybrid model
       bands.forEach((band, idx) => {
         const freq = bandFreqs[idx];
         predictions[band] = [];
-        
+
         // Calculate built-in reliability for current hour
         const builtInCurrentReliability = calculateEnhancedReliability(
           freq, distance, midLat, midLon, currentHour, sfi, ssn, kIndex, de, dx, effectiveIonoData, currentHour, signalMarginDb
         );
-        
+
         // Get hybrid reliability for this band (the accurate one)
         const hybridBand = hybridResult.bands?.[band];
         const hybridReliability = hybridBand?.reliability || builtInCurrentReliability;
-        
+
         // Calculate correction ratio (how much to scale predictions)
         // Avoid division by zero, and cap the ratio to prevent extreme corrections
         let correctionRatio = 1.0;
@@ -5505,7 +5508,7 @@ app.get('/api/propagation', async (req, res) => {
           // Built-in thinks band is closed but hybrid says it's open
           correctionRatio = 2.0;
         }
-        
+
         for (let hour = 0; hour < 24; hour++) {
           const baseReliability = calculateEnhancedReliability(
             freq, distance, midLat, midLon, hour, sfi, ssn, kIndex, de, dx, effectiveIonoData, currentHour, signalMarginDb
@@ -5519,11 +5522,11 @@ app.get('/api/propagation', async (req, res) => {
           });
         }
       });
-      
+
     } else {
       // Full fallback - use built-in calculations
       logDebug('[Propagation] Using FALLBACK mode (built-in calculations)');
-      
+
       bands.forEach((band, idx) => {
         const freq = bandFreqs[idx];
         predictions[band] = [];
@@ -5538,7 +5541,7 @@ app.get('/api/propagation', async (req, res) => {
           });
         }
       });
-      
+
       currentBands = bands.map((band, idx) => ({
         band,
         freq: bandFreqs[idx],
@@ -5547,11 +5550,11 @@ app.get('/api/propagation', async (req, res) => {
         status: getStatus(predictions[band][currentHour].reliability)
       })).sort((a, b) => b.reliability - a.reliability);
     }
-    
+
     // Calculate MUF and LUF
     const currentMuf = hybridResult?.muf || calculateMUF(distance, midLat, midLon, currentHour, sfi, ssn, effectiveIonoData);
     const currentLuf = calculateLUF(distance, midLat, currentHour, sfi, kIndex);
-    
+
     // Build ionospheric response
     let ionosphericResponse;
     if (hasValidIonoData) {
@@ -5575,7 +5578,7 @@ app.get('/api/propagation', async (req, res) => {
     } else {
       ionosphericResponse = { source: 'model', method: 'estimated' };
     }
-    
+
     // Determine data source description
     let dataSource;
     if (hybridResult && hasValidIonoData) {
@@ -5587,7 +5590,7 @@ app.get('/api/propagation', async (req, res) => {
     } else {
       dataSource = 'Estimated from solar indices';
     }
-    
+
     res.json({
       model: hybridResult?.model || 'Built-in estimation',
       solarData: { sfi, ssn, kIndex },
@@ -5610,7 +5613,7 @@ app.get('/api/propagation', async (req, res) => {
       },
       dataSource
     });
-    
+
   } catch (error) {
     logErrorOnce('Propagation', error.message);
     res.status(500).json({ error: 'Failed to calculate propagation' });
@@ -5633,14 +5636,14 @@ app.get('/api/propagation/heatmap', async (req, res) => {
   const txMode = (req.query.mode || 'SSB').toUpperCase();
   const txPower = parseFloat(req.query.power) || 100;
   const signalMarginDb = calculateSignalMargin(txMode, txPower);
-  
+
   const cacheKey = `${deLat.toFixed(0)}:${deLon.toFixed(0)}:${freq}:${gridSize}:${txMode}:${txPower}`;
   const now = Date.now();
-  
+
   if (PROP_HEATMAP_CACHE[cacheKey] && (now - PROP_HEATMAP_CACHE[cacheKey].ts) < PROP_HEATMAP_TTL) {
     return res.json(PROP_HEATMAP_CACHE[cacheKey].data);
   }
-  
+
   try {
     // Fetch current solar conditions (same as main propagation endpoint)
     let sfi = 150, ssn = 100, kIndex = 2;
@@ -5661,33 +5664,33 @@ app.get('/api/propagation/heatmap', async (req, res) => {
     } catch (e) {
       logDebug('[PropHeatmap] Using default solar values');
     }
-    
+
     const currentHour = new Date().getUTCHours();
     const de = { lat: deLat, lon: deLon };
     const halfGrid = gridSize / 2;
     const cells = [];
-    
+
     // Compute reliability grid
     for (let lat = -85 + halfGrid; lat <= 85 - halfGrid; lat += gridSize) {
       for (let lon = -180 + halfGrid; lon <= 180 - halfGrid; lon += gridSize) {
         const dx = { lat, lon };
         const distance = haversineDistance(de.lat, de.lon, lat, lon);
-        
+
         // Skip very short distances (< 200km) - not meaningful for HF skip
         if (distance < 200) continue;
-        
+
         const midLat = (de.lat + lat) / 2;
         let midLon = (de.lon + lon) / 2;
         if (Math.abs(de.lon - lon) > 180) {
           midLon = (de.lon + lon + 360) / 2;
           if (midLon > 180) midLon -= 360;
         }
-        
+
         const reliability = calculateEnhancedReliability(
           freq, distance, midLat, midLon, currentHour,
           sfi, ssn, kIndex, de, dx, null, currentHour, signalMarginDb
         );
-        
+
         cells.push({
           lat,
           lon,
@@ -5695,7 +5698,7 @@ app.get('/api/propagation/heatmap', async (req, res) => {
         });
       }
     }
-    
+
     const result = {
       deLat, deLon, freq, gridSize,
       mode: txMode, power: txPower, signalMargin: Math.round(signalMarginDb * 10) / 10,
@@ -5704,12 +5707,12 @@ app.get('/api/propagation/heatmap', async (req, res) => {
       cells,
       timestamp: new Date().toISOString()
     };
-    
+
     PROP_HEATMAP_CACHE[cacheKey] = { data: result, ts: now };
-    
+
     logDebug(`[PropHeatmap] Computed ${cells.length} cells for ${freq} MHz [${txMode} @ ${txPower}W] from ${deLat.toFixed(1)},${deLon.toFixed(1)}`);
     res.json(result);
-    
+
   } catch (error) {
     logErrorOnce('PropHeatmap', error.message);
     res.status(500).json({ error: 'Failed to compute propagation heatmap' });
@@ -5728,12 +5731,12 @@ function calculateMUF(distance, midLat, midLon, hour, sfi, ssn, ionoData) {
       return ionoData.mufd * (1 + 0.15 * Math.log10(distance / 3000));
     }
   }
-  
+
   // If we have foF2, calculate MUF using M(3000)F2 factor
   if (ionoData?.foF2) {
     const M = ionoData.md || 3.0; // M(3000)F2 factor, typically 2.5-3.5
     const muf3000 = ionoData.foF2 * M;
-    
+
     // Scale for actual distance
     if (distance < 3000) {
       return muf3000 * Math.sqrt(distance / 3000);
@@ -5741,17 +5744,17 @@ function calculateMUF(distance, midLat, midLon, hour, sfi, ssn, ionoData) {
       return muf3000 * (1 + 0.15 * Math.log10(distance / 3000));
     }
   }
-  
+
   // Fallback: Estimate foF2 from solar indices
   // foF2 ≈ 0.9 * sqrt(SSN + 15) * diurnal_factor
   const hourFactor = 1 + 0.4 * Math.cos((hour - 14) * Math.PI / 12); // Peak at 14:00 local
   const latFactor = 1 - Math.abs(midLat) / 150; // Higher latitudes = lower foF2
   const foF2_est = 0.9 * Math.sqrt(ssn + 15) * hourFactor * latFactor;
-  
+
   // Standard M(3000)F2 factor
   const M = 3.0;
   const muf3000 = foF2_est * M;
-  
+
   // Scale for distance
   if (distance < 3000) {
     return muf3000 * Math.sqrt(distance / 3000);
@@ -5767,47 +5770,47 @@ function calculateLUF(distance, midLat, hour, sfi, kIndex) {
   // - Daytime (D-layer forms during day)
   // - Shorter paths (higher elevation angles = more time in D-layer)
   // - Geomagnetic activity
-  
+
   // Local solar time at midpoint (approximate)
   const localHour = hour; // Would need proper calculation with midLon
-  
+
   // Day/night factor: D-layer absorption is much higher during daytime
   let dayFactor = 0.3; // Night
   if (localHour >= 6 && localHour <= 18) {
     // Daytime - peaks around noon
     dayFactor = 0.5 + 0.5 * Math.cos((localHour - 12) * Math.PI / 6);
   }
-  
+
   // Solar flux factor: higher SFI = more absorption
   const sfiFactor = 1 + (sfi - 70) / 200;
-  
+
   // Distance factor: shorter paths have higher LUF (higher angles)
   const distFactor = Math.max(0.5, 1 - distance / 10000);
-  
+
   // Latitude factor: polar paths have more absorption
   const latFactor = 1 + Math.abs(midLat) / 90 * 0.5;
-  
+
   // K-index: geomagnetic storms increase absorption
   const kFactor = 1 + kIndex * 0.1;
-  
+
   // Base LUF is around 2 MHz for long night paths
   const baseLuf = 2.0;
-  
+
   return baseLuf * dayFactor * sfiFactor * distFactor * latFactor * kFactor;
 }
 
 // Mode decode advantage in dB relative to SSB (higher = can decode weaker signals)
 // Based on typical required SNR thresholds for each mode
 const MODE_ADVANTAGE_DB = {
-  'SSB':   0,    // Baseline: requires ~13dB SNR
-  'AM':   -6,    // Worse than SSB: requires ~19dB SNR
-  'CW':   10,    // Narrow bandwidth: requires ~3dB SNR
-  'RTTY':  8,    // Digital FSK: requires ~5dB SNR
-  'PSK31':10,    // Phase-shift keying: requires ~3dB SNR
-  'FT8':  34,    // Deep decode: requires ~-21dB SNR
-  'FT4':  30,    // Slightly less sensitive: requires ~-17dB SNR
+  'SSB': 0,    // Baseline: requires ~13dB SNR
+  'AM': -6,    // Worse than SSB: requires ~19dB SNR
+  'CW': 10,    // Narrow bandwidth: requires ~3dB SNR
+  'RTTY': 8,    // Digital FSK: requires ~5dB SNR
+  'PSK31': 10,    // Phase-shift keying: requires ~3dB SNR
+  'FT8': 34,    // Deep decode: requires ~-21dB SNR
+  'FT4': 30,    // Slightly less sensitive: requires ~-17dB SNR
   'WSPR': 41,    // Ultra-weak signal: requires ~-28dB SNR
-  'JS8':  37,    // Conversational weak-signal: requires ~-24dB SNR
+  'JS8': 37,    // Conversational weak-signal: requires ~-24dB SNR
   'OLIVIA': 20,  // Error-correcting: requires ~-7dB SNR
   'JT65': 38     // Deep decode: requires ~-25dB SNR
 };
@@ -5831,24 +5834,24 @@ function calculateEnhancedReliability(freq, distance, midLat, midLon, hour, sfi,
   // Calculate MUF and LUF for this hour
   // For non-current hours, we need to estimate how foF2 changes
   let hourIonoData = ionoData;
-  
+
   if (ionoData && hour !== currentHour) {
     // Estimate foF2 change based on diurnal variation
     // foF2 typically varies by factor of 2-3 between day and night
     const currentHourFactor = 1 + 0.4 * Math.cos((currentHour - 14) * Math.PI / 12);
     const targetHourFactor = 1 + 0.4 * Math.cos((hour - 14) * Math.PI / 12);
     const scaleFactor = targetHourFactor / currentHourFactor;
-    
+
     hourIonoData = {
       ...ionoData,
       foF2: ionoData.foF2 * scaleFactor,
       mufd: ionoData.mufd ? ionoData.mufd * scaleFactor : null
     };
   }
-  
+
   const muf = calculateMUF(distance, midLat, midLon, hour, sfi, ssn, hourIonoData);
   const luf = calculateLUF(distance, midLat, hour, sfi, kIndex);
-  
+
   // Apply signal margin from mode + power
   // Positive margin (e.g. FT8 or high power) effectively widens the usable window:
   //   - Extends effective MUF (weak-signal modes can decode signals near/above MUF)
@@ -5856,10 +5859,10 @@ function calculateEnhancedReliability(freq, distance, midLat, midLon, hour, sfi,
   // Each dB of margin extends MUF by ~1.2% and reduces LUF by ~0.8%
   const effectiveMuf = muf * (1 + signalMarginDb * 0.012);
   const effectiveLuf = luf * Math.max(0.1, 1 - signalMarginDb * 0.008);
-  
+
   // Calculate reliability based on frequency position relative to effective MUF/LUF
   let reliability = 0;
-  
+
   if (freq > effectiveMuf * 1.1) {
     // Well above MUF - very poor
     reliability = Math.max(0, 30 - (freq - effectiveMuf) * 5);
@@ -5877,14 +5880,14 @@ function calculateEnhancedReliability(freq, distance, midLat, midLon, hour, sfi,
     // Optimum Working Frequency (OWF) is typically 80-85% of MUF
     const owf = effectiveMuf * 0.85;
     const range = effectiveMuf - effectiveLuf;
-    
+
     if (range <= 0) {
       reliability = 30; // Very narrow window
     } else {
       // Higher reliability near OWF, tapering toward MUF and LUF
       const position = (freq - effectiveLuf) / range; // 0 at LUF, 1 at MUF
       const optimalPosition = 0.75; // 75% up from LUF = OWF
-      
+
       if (position < optimalPosition) {
         // Below OWF - reliability increases as we approach OWF
         reliability = 50 + (position / optimalPosition) * 45;
@@ -5894,37 +5897,37 @@ function calculateEnhancedReliability(freq, distance, midLat, midLon, hour, sfi,
       }
     }
   }
-  
+
   // K-index degradation (geomagnetic storms)
   if (kIndex >= 7) reliability *= 0.1;
   else if (kIndex >= 6) reliability *= 0.2;
   else if (kIndex >= 5) reliability *= 0.4;
   else if (kIndex >= 4) reliability *= 0.6;
   else if (kIndex >= 3) reliability *= 0.8;
-  
+
   // Very long paths (multiple hops) are harder
   const hops = Math.ceil(distance / 3500);
   if (hops > 1) {
     reliability *= Math.pow(0.92, hops - 1); // ~8% loss per additional hop
   }
-  
+
   // Polar path penalty (auroral absorption)
   if (Math.abs(midLat) > 60) {
     reliability *= 0.7;
     if (kIndex >= 3) reliability *= 0.7; // Additional penalty during storms
   }
-  
+
   // High bands need sufficient solar activity
   if (freq >= 21 && sfi < 100) reliability *= Math.sqrt(sfi / 100);
   if (freq >= 28 && sfi < 120) reliability *= Math.sqrt(sfi / 120);
   if (freq >= 50 && sfi < 150) reliability *= Math.pow(sfi / 150, 1.5);
-  
+
   // Low bands work better at night
   const localHour = (hour + midLon / 15 + 24) % 24;
   const isNight = localHour < 6 || localHour > 18;
   if (freq <= 7 && isNight) reliability *= 1.1;
   if (freq <= 3.5 && !isNight) reliability *= 0.7;
-  
+
   return Math.min(99, Math.max(0, reliability));
 }
 
@@ -5950,7 +5953,7 @@ function getStatus(reliability) {
 app.get('/api/qrz/lookup/:callsign', async (req, res) => {
   const { callsign } = req.params;
   // Note: QRZ requires an API key - this is a placeholder
-  res.json({ 
+  res.json({
     message: 'QRZ lookup requires API key configuration',
     callsign: callsign.toUpperCase()
   });
@@ -5965,20 +5968,20 @@ app.get('/api/contests', async (req, res) => {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    
+
     const response = await fetch('https://www.contestcalendar.com/calendar.rss', {
-      headers: { 
+      headers: {
         'User-Agent': 'OpenHamClock/3.13.1',
         'Accept': 'application/rss+xml, application/xml, text/xml'
       },
       signal: controller.signal
     });
     clearTimeout(timeout);
-    
+
     if (response.ok) {
       const text = await response.text();
       const contests = parseContestRSS(text);
-      
+
       if (contests.length > 0) {
         logDebug('[Contests] WA7BNM RSS:', contests.length, 'contests');
         return res.json(contests);
@@ -6007,32 +6010,32 @@ function parseContestRSS(xml) {
   const contests = [];
   const now = new Date();
   const currentYear = now.getFullYear();
-  
+
   // Simple regex-based XML parsing (no external dependencies)
   const itemRegex = /<item>([\s\S]*?)<\/item>/g;
   const titleRegex = /<title>([^<]+)<\/title>/;
   const linkRegex = /<link>([^<]+)<\/link>/;
   const descRegex = /<description>([^<]+)<\/description>/;
-  
+
   let match;
   while ((match = itemRegex.exec(xml)) !== null) {
     const item = match[1];
-    
+
     const titleMatch = item.match(titleRegex);
     const linkMatch = item.match(linkRegex);
     const descMatch = item.match(descRegex);
-    
+
     if (titleMatch && descMatch) {
       const name = titleMatch[1].trim();
       const desc = descMatch[1].trim();
       const url = linkMatch ? linkMatch[1].trim() : null;
-      
+
       // Parse description like "1300Z, Jan 31 to 1300Z, Feb 1" or "0000Z-2359Z, Jan 31"
       const parsed = parseContestDateTime(desc, currentYear);
-      
+
       if (parsed) {
         const status = (now >= parsed.start && now <= parsed.end) ? 'active' : 'upcoming';
-        
+
         // Try to detect mode from contest name
         let mode = 'Mixed';
         const nameLower = name.toLowerCase();
@@ -6041,7 +6044,7 @@ function parseContestRSS(xml) {
         else if (nameLower.includes('rtty')) mode = 'RTTY';
         else if (nameLower.includes('ft4') || nameLower.includes('ft8') || nameLower.includes('digi')) mode = 'Digital';
         else if (nameLower.includes('vhf') || nameLower.includes('uhf')) mode = 'VHF';
-        
+
         contests.push({
           name,
           start: parsed.start.toISOString(),
@@ -6053,7 +6056,7 @@ function parseContestRSS(xml) {
       }
     }
   }
-  
+
   // Sort by start date, filter out past contests, and limit
   const currentAndFuture = contests.filter(c => new Date(c.end) >= now);
   currentAndFuture.sort((a, b) => new Date(a.start) - new Date(b.start));
@@ -6063,66 +6066,68 @@ function parseContestRSS(xml) {
 // Parse contest date/time strings
 function parseContestDateTime(desc, year) {
   try {
-    const months = { 'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5, 
-                     'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11 };
-    
+    const months = {
+      'jan': 0, 'feb': 1, 'mar': 2, 'apr': 3, 'may': 4, 'jun': 5,
+      'jul': 6, 'aug': 7, 'sep': 8, 'oct': 9, 'nov': 10, 'dec': 11
+    };
+
     // Pattern 1: "1300Z, Jan 31 to 1300Z, Feb 1"
     const rangeMatch = desc.match(/(\d{4})Z,\s*(\w+)\s+(\d+)\s+to\s+(\d{4})Z,\s*(\w+)\s+(\d+)/i);
     if (rangeMatch) {
       const [, startTime, startMon, startDay, endTime, endMon, endDay] = rangeMatch;
       const startMonth = months[startMon.toLowerCase()];
       const endMonth = months[endMon.toLowerCase()];
-      
+
       let startYear = year;
       let endYear = year;
       // Handle year rollover
       if (startMonth > 10 && endMonth < 2) endYear = year + 1;
-      
-      const start = new Date(Date.UTC(startYear, startMonth, parseInt(startDay), 
+
+      const start = new Date(Date.UTC(startYear, startMonth, parseInt(startDay),
         parseInt(startTime.substring(0, 2)), parseInt(startTime.substring(2, 4))));
       const end = new Date(Date.UTC(endYear, endMonth, parseInt(endDay),
         parseInt(endTime.substring(0, 2)), parseInt(endTime.substring(2, 4))));
-      
+
       return { start, end };
     }
-    
+
     // Pattern 2: "0000Z-2359Z, Jan 31" (same day)
     const sameDayMatch = desc.match(/(\d{4})Z-(\d{4})Z,\s*(\w+)\s+(\d+)/i);
     if (sameDayMatch) {
       const [, startTime, endTime, mon, day] = sameDayMatch;
       const month = months[mon.toLowerCase()];
-      
+
       const start = new Date(Date.UTC(year, month, parseInt(day),
         parseInt(startTime.substring(0, 2)), parseInt(startTime.substring(2, 4))));
       const end = new Date(Date.UTC(year, month, parseInt(day),
         parseInt(endTime.substring(0, 2)), parseInt(endTime.substring(2, 4))));
-      
+
       // Handle overnight contests (end time < start time means next day)
       if (end <= start) end.setUTCDate(end.getUTCDate() + 1);
-      
+
       return { start, end };
     }
-    
+
     // Pattern 3: "0000Z-0100Z, Feb 5 and 0200Z-0300Z, Feb 6" (multiple sessions - use first)
     const multiMatch = desc.match(/(\d{4})Z-(\d{4})Z,\s*(\w+)\s+(\d+)/i);
     if (multiMatch) {
       const [, startTime, endTime, mon, day] = multiMatch;
       const month = months[mon.toLowerCase()];
-      
+
       const start = new Date(Date.UTC(year, month, parseInt(day),
         parseInt(startTime.substring(0, 2)), parseInt(startTime.substring(2, 4))));
       const end = new Date(Date.UTC(year, month, parseInt(day),
         parseInt(endTime.substring(0, 2)), parseInt(endTime.substring(2, 4))));
-      
+
       if (end <= start) end.setUTCDate(end.getUTCDate() + 1);
-      
+
       return { start, end };
     }
-    
+
   } catch (e) {
     // Parse error, skip this contest
   }
-  
+
   return null;
 }
 
@@ -6130,7 +6135,7 @@ function parseContestDateTime(desc, year) {
 function calculateUpcomingContests() {
   const now = new Date();
   const contests = [];
-  
+
   // Major contest definitions with typical schedules
   const majorContests = [
     { name: 'CQ WW DX CW', month: 10, weekend: -1, duration: 48, mode: 'CW' }, // Last full weekend Nov
@@ -6193,12 +6198,12 @@ function calculateUpcomingContests() {
       todayStart.setUTCHours(contest.hour, contest.minute || 0, 0, 0);
       if (now > todayStart) daysUntil = 7;
     }
-    
+
     next.setUTCDate(now.getUTCDate() + daysUntil);
     next.setUTCHours(contest.hour, contest.minute || 0, 0, 0);
-    
+
     const endTime = new Date(next.getTime() + contest.duration * 3600000);
-    
+
     contests.push({
       name: contest.name,
       start: next.toISOString(),
@@ -6213,7 +6218,7 @@ function calculateUpcomingContests() {
   majorContests.forEach(contest => {
     for (let y = year; y <= year + 1; y++) {
       let startDate;
-      
+
       if (contest.weekend === -1) {
         // Last weekend of month
         startDate = getLastWeekendOfMonth(y, contest.month);
@@ -6221,11 +6226,11 @@ function calculateUpcomingContests() {
         // Nth weekend of month
         startDate = getNthWeekendOfMonth(y, contest.month, contest.weekend);
       }
-      
+
       // Most contests start at 00:00 UTC Saturday
       startDate.setUTCHours(0, 0, 0, 0);
       const endDate = new Date(startDate.getTime() + contest.duration * 3600000);
-      
+
       if (endDate > now) {
         const status = (now >= startDate && now <= endDate) ? 'active' : 'upcoming';
         contests.push({
@@ -6242,14 +6247,14 @@ function calculateUpcomingContests() {
 
   // Sort by start date
   contests.sort((a, b) => new Date(a.start) - new Date(b.start));
-  
+
   return contests.slice(0, 15);
 }
 
 function getNthWeekendOfMonth(year, month, n) {
   const date = new Date(Date.UTC(year, month, 1, 0, 0, 0));
   let weekendCount = 0;
-  
+
   while (date.getUTCMonth() === month) {
     if (date.getUTCDay() === 6) { // Saturday
       weekendCount++;
@@ -6257,18 +6262,18 @@ function getNthWeekendOfMonth(year, month, n) {
     }
     date.setUTCDate(date.getUTCDate() + 1);
   }
-  
+
   return date;
 }
 
 function getLastWeekendOfMonth(year, month) {
   // Start from last day of month and work backwards
   const date = new Date(Date.UTC(year, month + 1, 0)); // Last day of month
-  
+
   while (date.getUTCDay() !== 6) { // Find last Saturday
     date.setUTCDate(date.getUTCDate() - 1);
   }
-  
+
   return date;
 }
 
@@ -6279,21 +6284,21 @@ function getLastWeekendOfMonth(year, month) {
 // Generate HTML status dashboard
 function generateStatusDashboard() {
   rolloverVisitorStats();
-  
+
   const uptime = process.uptime();
   const days = Math.floor(uptime / 86400);
   const hours = Math.floor((uptime % 86400) / 3600);
   const minutes = Math.floor((uptime % 3600) / 60);
   const uptimeStr = `${days}d ${hours}h ${minutes}m`;
-  
+
   // Calculate time since first deployment
   const firstStart = new Date(visitorStats.serverFirstStarted);
   const trackingDays = Math.floor((Date.now() - firstStart.getTime()) / 86400000);
-  
+
   const avg = visitorStats.history.length > 0
     ? Math.round(visitorStats.history.reduce((sum, d) => sum + d.uniqueVisitors, 0) / visitorStats.history.length)
     : visitorStats.uniqueIPsToday.length;
-  
+
   // Get last 14 days for the chart
   const chartData = [...visitorStats.history].slice(-14);
   // Add today if we have data
@@ -6304,9 +6309,9 @@ function generateStatusDashboard() {
       totalRequests: visitorStats.totalRequestsToday
     });
   }
-  
+
   const maxVisitors = Math.max(...chartData.map(d => d.uniqueVisitors), 1);
-  
+
   // Generate bar chart
   const bars = chartData.map(d => {
     const height = Math.max((d.uniqueVisitors / maxVisitors) * 100, 2);
@@ -6322,23 +6327,23 @@ function generateStatusDashboard() {
       </div>
     `;
   }).join('');
-  
+
   // Calculate week-over-week growth
   const thisWeek = chartData.slice(-7).reduce((sum, d) => sum + d.uniqueVisitors, 0);
   const lastWeek = chartData.slice(-14, -7).reduce((sum, d) => sum + d.uniqueVisitors, 0);
   const growth = lastWeek > 0 ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100) : 0;
   const growthIcon = growth > 0 ? '📈' : growth < 0 ? '📉' : '➡️';
   const growthColor = growth > 0 ? '#00ff88' : growth < 0 ? '#ff4466' : '#888';
-  
+
   // Get API traffic stats
   const apiStats = endpointStats.getStats();
-  const estimatedMonthlyGB = apiStats.uptimeHours > 0 
+  const estimatedMonthlyGB = apiStats.uptimeHours > 0
     ? ((apiStats.totalBytes / parseFloat(apiStats.uptimeHours)) * 24 * 30 / (1024 * 1024 * 1024)).toFixed(2)
     : '0.00';
-  
+
   // Get session stats
   const sessionStats = sessionTracker.getStats();
-  
+
   // Generate API traffic table rows (top 15 by bandwidth)
   const apiTableRows = apiStats.endpoints.slice(0, 15).map((ep, i) => {
     const bytesFormatted = formatBytes(ep.totalBytes);
@@ -6361,7 +6366,7 @@ function generateStatusDashboard() {
       </tr>
     `;
   }).join('');
-  
+
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6720,33 +6725,33 @@ function generateStatusDashboard() {
       
       <!-- Duration Distribution Bars -->
       ${sessionStats.completedSessions > 0 ? (() => {
-        const b = sessionStats.durationBuckets;
-        const total = Object.values(b).reduce((s, v) => s + v, 0) || 1;
-        const bucketLabels = [
-          { key: 'under1m', label: '<1m', color: '#ff4466' },
-          { key: '1to5m', label: '1-5m', color: '#ffb347' },
-          { key: '5to15m', label: '5-15m', color: '#ffdd00' },
-          { key: '15to30m', label: '15-30m', color: '#88cc00' },
-          { key: '30to60m', label: '30m-1h', color: '#00ff88' },
-          { key: 'over1h', label: '1h+', color: '#00ccff' }
-        ];
-        return `
+      const b = sessionStats.durationBuckets;
+      const total = Object.values(b).reduce((s, v) => s + v, 0) || 1;
+      const bucketLabels = [
+        { key: 'under1m', label: '<1m', color: '#ff4466' },
+        { key: '1to5m', label: '1-5m', color: '#ffb347' },
+        { key: '5to15m', label: '5-15m', color: '#ffdd00' },
+        { key: '15to30m', label: '15-30m', color: '#88cc00' },
+        { key: '30to60m', label: '30m-1h', color: '#00ff88' },
+        { key: 'over1h', label: '1h+', color: '#00ccff' }
+      ];
+      return `
           <div style="margin-bottom: 8px; font-size: 0.75rem; color: #888">Session Length Distribution</div>
           <div style="display: flex; gap: 6px; align-items: flex-end; height: 80px; margin-bottom: 4px">
             ${bucketLabels.map(({ key, label, color }) => {
-              const count = b[key] || 0;
-              const pct = Math.max((count / total) * 100, 2);
-              return `
-                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%" title="${label}: ${count} sessions (${Math.round(count/total*100)}%)">
+        const count = b[key] || 0;
+        const pct = Math.max((count / total) * 100, 2);
+        return `
+                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%" title="${label}: ${count} sessions (${Math.round(count / total * 100)}%)">
                   <div style="font-size: 0.65rem; color: #888; margin-bottom: 4px">${count}</div>
                   <div style="width: 100%; max-width: 50px; background: ${color}; border-radius: 4px 4px 0 0; height: ${pct}%; min-height: 3px; opacity: 0.85"></div>
                   <div style="font-size: 0.6rem; color: #666; margin-top: 4px">${label}</div>
                 </div>
               `;
-            }).join('')}
+      }).join('')}
           </div>
         `;
-      })() : '<div style="color: #666; text-align: center; padding: 16px">No completed sessions yet — data will appear as users visit and leave</div>'}
+    })() : '<div style="color: #666; text-align: center; padding: 16px">No completed sessions yet — data will appear as users visit and leave</div>'}
     </div>
     
     <!-- Active Users Table -->
@@ -6829,17 +6834,17 @@ function generateStatusDashboard() {
       const allTimeCountries = Object.entries(visitorStats.countryStats || {}).sort((a, b) => b[1] - a[1]);
       const todayCountries = Object.entries(visitorStats.countryStatsToday || {}).sort((a, b) => b[1] - a[1]);
       const totalResolved = allTimeCountries.reduce((s, [, v]) => s + v, 0);
-      
+
       if (allTimeCountries.length === 0 && geoIPQueue.size === 0) return '';
-      
+
       // Country code to flag emoji
       const flag = (cc) => {
-        try { return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1E5 + c.charCodeAt(0) - 64)); } 
+        try { return String.fromCodePoint(...[...cc.toUpperCase()].map(c => 0x1F1E5 + c.charCodeAt(0) - 64)); }
         catch { return '🏳'; }
       };
-      
+
       const maxCount = allTimeCountries[0]?.[1] || 1;
-      
+
       return `
     <div class="api-section">
       <div class="api-title">
@@ -6862,9 +6867,9 @@ function generateStatusDashboard() {
       <div style="color: #888; font-size: 0.75rem; margin-bottom: 6px">All-Time (${allTimeCountries.length} countries, ${totalResolved} visitors resolved)</div>
       <div style="max-height: 300px; overflow-y: auto">
         ${allTimeCountries.slice(0, 40).map(([cc, count]) => {
-          const pct = Math.round(count / totalResolved * 100);
-          const barWidth = Math.max(2, (count / maxCount) * 100);
-          return `
+        const pct = Math.round(count / totalResolved * 100);
+        const barWidth = Math.max(2, (count / maxCount) * 100);
+        return `
           <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px; font-size: 0.8rem">
             <span style="width: 28px; text-align: center">${flag(cc)}</span>
             <span style="width: 28px; color: #888; font-family: monospace">${cc}</span>
@@ -6874,7 +6879,7 @@ function generateStatusDashboard() {
             <span style="width: 60px; text-align: right; font-family: monospace; color: #ccc">${count}</span>
             <span style="width: 40px; text-align: right; font-size: 0.7rem; color: #888">${pct}%</span>
           </div>`;
-        }).join('')}
+      }).join('')}
       </div>
     </div>`;
     })()}
@@ -6931,20 +6936,20 @@ function generateStatusDashboard() {
         <thead><tr><th>Service</th><th>Status</th><th>Backoff</th><th>Consecutive Failures</th><th>In-Flight</th></tr></thead>
         <tbody>
           ${['pskreporter'].map(svc => {
-            const backedOff = upstream.isBackedOff(svc);
-            const remaining = upstream.backoffRemaining(svc);
-            const consecutive = upstream.backoffs.get(svc)?.consecutive || 0;
-            const prefix = svc === 'pskreporter' ? ['psk:', 'wspr:'] : ['weather:'];
-            const inFlight = [...upstream.inFlight.keys()].filter(k => prefix.some(p => k.startsWith(p))).length;
-            const label = 'PSKReporter (WSPR Heatmap)';
-            return `<tr>
+      const backedOff = upstream.isBackedOff(svc);
+      const remaining = upstream.backoffRemaining(svc);
+      const consecutive = upstream.backoffs.get(svc)?.consecutive || 0;
+      const prefix = svc === 'pskreporter' ? ['psk:', 'wspr:'] : ['weather:'];
+      const inFlight = [...upstream.inFlight.keys()].filter(k => prefix.some(p => k.startsWith(p))).length;
+      const label = 'PSKReporter (WSPR Heatmap)';
+      return `<tr>
               <td>${label}</td>
               <td style="color: ${backedOff ? '#ff4444' : '#00ff88'}">${backedOff ? '⛔ Backoff' : '✅ OK'}</td>
               <td>${backedOff ? remaining + 's' : '—'}</td>
               <td>${consecutive || '—'}</td>
               <td>${inFlight}</td>
             </tr>`;
-          }).join('')}
+    }).join('')}
         </tbody>
       </table>
       <p style="font-size: 11px; color: #888; margin-top: 8px">
@@ -6984,25 +6989,25 @@ function generateStatusDashboard() {
 
 app.get('/api/health', (req, res) => {
   rolloverVisitorStats();
-  
+
   // SECURITY: Check if request is authenticated for full details
   const token = req.headers.authorization?.replace('Bearer ', '') || req.query.key || '';
   const isAuthed = API_WRITE_KEY && token === API_WRITE_KEY;
-  
+
   // Check if browser wants HTML or explicitly requesting JSON
-  const wantsJSON = req.query.format === 'json' || 
-                    req.headers.accept?.includes('application/json') ||
-                    !req.headers.accept?.includes('text/html');
-  
+  const wantsJSON = req.query.format === 'json' ||
+    req.headers.accept?.includes('application/json') ||
+    !req.headers.accept?.includes('text/html');
+
   if (wantsJSON) {
     // JSON response for API consumers
     const avg = visitorStats.history.length > 0
       ? Math.round(visitorStats.history.reduce((sum, d) => sum + d.uniqueVisitors, 0) / visitorStats.history.length)
       : visitorStats.uniqueIPsToday.length;
-    
+
     // Get endpoint monitoring stats
     const apiStats = endpointStats.getStats();
-    
+
     res.json({
       status: 'ok',
       version: APP_VERSION,
@@ -7037,8 +7042,8 @@ app.get('/api/health', (req, res) => {
         geoIP: {
           resolved: geoIPCache.size,
           pending: geoIPQueue.size,
-          coverage: visitorStats.allTimeVisitors > 0 
-            ? `${Math.round(geoIPCache.size / visitorStats.allTimeVisitors * 100)}%` 
+          coverage: visitorStats.allTimeVisitors > 0
+            ? `${Math.round(geoIPCache.size / visitorStats.allTimeVisitors * 100)}%`
             : '0%'
         },
         dailyAverage: avg,
@@ -7117,7 +7122,7 @@ function getSettingsFilePath() {
     path.join(__dirname, 'data', 'settings.json'),
     '/tmp/openhamclock-settings.json'
   ].filter(Boolean);
-  
+
   for (const settingsPath of pathsToTry) {
     try {
       const dir = path.dirname(settingsPath);
@@ -7127,7 +7132,7 @@ function getSettingsFilePath() {
       fs.writeFileSync(testFile, 'test');
       fs.unlinkSync(testFile);
       return settingsPath;
-    } catch {}
+    } catch { }
   }
   return null;
 }
@@ -7180,7 +7185,7 @@ app.post('/api/settings', writeLimiter, requireWriteAuth, (req, res) => {
   if (!settings || typeof settings !== 'object') {
     return res.status(400).json({ error: 'Invalid settings object' });
   }
-  
+
   // Only allow openhamclock_* and ohc_* keys (security: prevent arbitrary data injection)
   const filtered = {};
   for (const [key, value] of Object.entries(settings)) {
@@ -7188,7 +7193,7 @@ app.post('/api/settings', writeLimiter, requireWriteAuth, (req, res) => {
       filtered[key] = value;
     }
   }
-  
+
   if (saveServerSettings(filtered)) {
     res.json({ ok: true, keys: Object.keys(filtered).length });
   } else {
@@ -7202,40 +7207,40 @@ app.get('/api/config', (req, res) => {
   // Don't expose API keys/passwords - only public config
   res.json({
     version: APP_VERSION,
-    
+
     // Station info (from .env or config.json)
     callsign: CONFIG.callsign,
     locator: CONFIG.gridSquare,
     latitude: CONFIG.latitude,
     longitude: CONFIG.longitude,
-    
+
     // Display preferences
     units: CONFIG.units,
     timeFormat: CONFIG.timeFormat,
     theme: CONFIG.theme,
     layout: CONFIG.layout,
-    
+
     // DX target
     dxLatitude: CONFIG.dxLatitude,
     dxLongitude: CONFIG.dxLongitude,
-    
+
     // Feature toggles
     showSatellites: CONFIG.showSatellites,
     showPota: CONFIG.showPota,
     showDxPaths: CONFIG.showDxPaths,
     showContests: CONFIG.showContests,
     showDXpeditions: CONFIG.showDXpeditions,
-    
+
     // DX Cluster settings
     spotRetentionMinutes: CONFIG.spotRetentionMinutes,
     dxClusterSource: CONFIG.dxClusterSource,
-    
+
     // Whether config is incomplete (show setup wizard)
     configIncomplete: CONFIG.callsign === 'N0CALL' || !CONFIG.gridSquare,
-    
+
     // Server timezone (from TZ env var or system)
     timezone: process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || '',
-    
+
     // Feature availability
     features: {
       spaceWeather: true,
@@ -7248,7 +7253,7 @@ app.get('/api/config', (req, res) => {
       wsjtxRelay: !!WSJTX_RELAY_KEY,
       settingsSync: SETTINGS_SYNC_ENABLED,
     },
-    
+
     // Refresh intervals (ms)
     refreshIntervals: {
       spaceWeather: 300000,
@@ -7400,30 +7405,30 @@ class WSJTXReader {
     this.buf = buffer;
     this.offset = 0;
   }
-  
+
   remaining() { return this.buf.length - this.offset; }
-  
+
   readUInt8() {
     if (this.remaining() < 1) return null;
     const v = this.buf.readUInt8(this.offset);
     this.offset += 1;
     return v;
   }
-  
+
   readInt32() {
     if (this.remaining() < 4) return null;
     const v = this.buf.readInt32BE(this.offset);
     this.offset += 4;
     return v;
   }
-  
+
   readUInt32() {
     if (this.remaining() < 4) return null;
     const v = this.buf.readUInt32BE(this.offset);
     this.offset += 4;
     return v;
   }
-  
+
   readUInt64() {
     if (this.remaining() < 8) return null;
     // JavaScript can't do 64-bit ints natively, use BigInt or approximate
@@ -7432,19 +7437,19 @@ class WSJTXReader {
     this.offset += 8;
     return high * 0x100000000 + low;
   }
-  
+
   readBool() {
     const v = this.readUInt8();
     return v === null ? null : v !== 0;
   }
-  
+
   readDouble() {
     if (this.remaining() < 8) return null;
     const v = this.buf.readDoubleBE(this.offset);
     this.offset += 8;
     return v;
   }
-  
+
   // Qt utf8 string: uint32 length + bytes (0xFFFFFFFF = null)
   readUtf8() {
     const len = this.readUInt32();
@@ -7455,7 +7460,7 @@ class WSJTXReader {
     this.offset += len;
     return str;
   }
-  
+
   // QTime: uint32 milliseconds since midnight
   readQTime() {
     const ms = this.readUInt32();
@@ -7463,10 +7468,12 @@ class WSJTXReader {
     const h = Math.floor(ms / 3600000);
     const m = Math.floor((ms % 3600000) / 60000);
     const s = Math.floor((ms % 60000) / 1000);
-    return { ms, hours: h, minutes: m, seconds: s, 
-             formatted: `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` };
+    return {
+      ms, hours: h, minutes: m, seconds: s,
+      formatted: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    };
   }
-  
+
   // QDateTime: QDate (int64 julian day) + QTime (uint32 ms) + timespec
   readQDateTime() {
     const julianDay = this.readUInt64();
@@ -7482,19 +7489,19 @@ class WSJTXReader {
  */
 function parseWSJTXMessage(buffer) {
   const reader = new WSJTXReader(buffer);
-  
+
   // Header
   const magic = reader.readUInt32();
   if (magic !== WSJTX_MAGIC) return null;
-  
+
   const schema = reader.readUInt32();
   const type = reader.readUInt32();
   const id = reader.readUtf8();
-  
+
   if (type === null || id === null) return null;
-  
+
   const msg = { type, id, schema, timestamp: Date.now() };
-  
+
   try {
     switch (type) {
       case WSJTX_MSG.HEARTBEAT: {
@@ -7503,7 +7510,7 @@ function parseWSJTXMessage(buffer) {
         msg.revision = reader.readUtf8();
         break;
       }
-      
+
       case WSJTX_MSG.STATUS: {
         msg.dialFrequency = reader.readUInt64();
         msg.mode = reader.readUtf8();
@@ -7528,7 +7535,7 @@ function parseWSJTXMessage(buffer) {
         msg.txMessage = reader.readUtf8();
         break;
       }
-      
+
       case WSJTX_MSG.DECODE: {
         msg.isNew = reader.readBool();
         msg.time = reader.readQTime();
@@ -7541,12 +7548,12 @@ function parseWSJTXMessage(buffer) {
         msg.offAir = reader.readBool();
         break;
       }
-      
+
       case WSJTX_MSG.CLEAR: {
         msg.window = reader.readUInt8();
         break;
       }
-      
+
       case WSJTX_MSG.QSO_LOGGED: {
         msg.dateTimeOff = reader.readQDateTime();
         msg.dxCall = reader.readUtf8();
@@ -7567,7 +7574,7 @@ function parseWSJTXMessage(buffer) {
         msg.adifPropMode = reader.readUtf8();
         break;
       }
-      
+
       case WSJTX_MSG.WSPR_DECODE: {
         msg.isNew = reader.readBool();
         msg.time = reader.readQTime();
@@ -7581,15 +7588,15 @@ function parseWSJTXMessage(buffer) {
         msg.offAir = reader.readBool();
         break;
       }
-      
+
       case WSJTX_MSG.LOGGED_ADIF: {
         msg.adif = reader.readUtf8();
         break;
       }
-      
+
       case WSJTX_MSG.CLOSE:
         break;
-        
+
       default:
         // Unknown message type - ignore per protocol spec
         return null;
@@ -7598,7 +7605,7 @@ function parseWSJTXMessage(buffer) {
     // Malformed packet - ignore
     return null;
   }
-  
+
   return msg;
 }
 
@@ -7613,11 +7620,11 @@ const wsjtxHamqthInflight = new Set(); // callsigns currently being looked up (p
 function parseDecodeMessage(text) {
   if (!text) return {};
   const result = {};
-  
+
   // FT8/FT4 protocol tokens that look like valid Maidenhead grids but aren't
   // RR73 matches [A-R]{2}\d{2} but is a QSO acknowledgment
   const FT8_TOKENS = new Set(['RR73', 'RR53', 'RR13', 'RR23', 'RR33', 'RR43', 'RR63', 'RR83', 'RR93']);
-  
+
   // Validate grid: must be valid Maidenhead AND not an FT8 protocol token
   function isGrid(s) {
     if (!s || s.length < 4) return false;
@@ -7625,23 +7632,23 @@ function parseDecodeMessage(text) {
     if (FT8_TOKENS.has(g)) return false;
     return /^[A-R]{2}\d{2}(?:[A-Xa-x]{2})?$/.test(s);
   }
-  
+
   // Grid square regex: 2 alpha (A-R) + 2 digits, optionally + 2 alpha (a-x)
   const gridRegex = /\b([A-R]{2}\d{2}(?:[a-x]{2})?)\b/i;
-  
+
   // ── CQ messages ──
   // Format: "CQ [modifier] CALLSIGN [GRID]"
   // Examples: "CQ K1ABC FN42", "CQ DX K1ABC FN42", "CQ POTA N0VIG EM28", "CQ K1ABC"
   if (/^CQ\s/i.test(text)) {
     result.type = 'CQ';
     const tokens = text.split(/\s+/).slice(1); // drop "CQ"
-    
+
     // Work backwards: last token might be a grid
     let grid = null;
     if (tokens.length >= 2 && isGrid(tokens[tokens.length - 1])) {
       grid = tokens.pop();
     }
-    
+
     // Remaining tokens: [modifier] CALLSIGN
     // The callsign is always the LAST remaining token
     // Modifiers (DX, POTA, NA, EU, etc.) come before it
@@ -7649,9 +7656,9 @@ function parseDecodeMessage(text) {
       result.caller = tokens[tokens.length - 1];
       result.modifier = tokens.length >= 2 ? tokens.slice(0, -1).join(' ') : null;
     }
-    
+
     result.grid = grid;
-    
+
     // Cache this callsign's grid for future lookups
     if (result.caller && result.grid) {
       const coords = gridToLatLon(result.grid);
@@ -7666,7 +7673,7 @@ function parseDecodeMessage(text) {
     }
     return result;
   }
-  
+
   // ── Standard QSO exchange ──
   // Format: "DXCALL DECALL EXCHANGE"
   // Exchange can be: grid (EN82), report (+05, -12, R+05, R-12), 73, RR73, RRR
@@ -7676,7 +7683,7 @@ function parseDecodeMessage(text) {
     result.dxCall = qsoMatch[1];
     result.deCall = qsoMatch[2];
     result.exchange = qsoMatch[3].trim();
-    
+
     // Look for a grid square in the exchange, but NOT FT8 protocol tokens
     const gridMatch = result.exchange.match(gridRegex);
     if (gridMatch && isGrid(gridMatch[1])) {
@@ -7694,7 +7701,7 @@ function parseDecodeMessage(text) {
     }
     return result;
   }
-  
+
   return result;
 }
 
@@ -7727,7 +7734,7 @@ function freqToBand(freqHz) {
 function handleWSJTXMessage(msg, state) {
   if (!msg) return;
   if (!state) state = wsjtxState;
-  
+
   switch (msg.type) {
     case WSJTX_MSG.HEARTBEAT: {
       state.clients[msg.id] = {
@@ -7737,7 +7744,7 @@ function handleWSJTXMessage(msg, state) {
       };
       break;
     }
-    
+
     case WSJTX_MSG.STATUS: {
       state.clients[msg.id] = {
         ...(state.clients[msg.id] || {}),
@@ -7757,11 +7764,11 @@ function handleWSJTXMessage(msg, state) {
       };
       break;
     }
-    
+
     case WSJTX_MSG.DECODE: {
       const clientStatus = state.clients[msg.id] || {};
       const parsed = parseDecodeMessage(msg.message);
-      
+
       const decode = {
         id: `${msg.id}-${msg.timestamp}-${msg.deltaFreq}`,
         clientId: msg.id,
@@ -7780,7 +7787,7 @@ function handleWSJTXMessage(msg, state) {
         ...parsed,
         timestamp: msg.timestamp,
       };
-      
+
       // Resolve grid to lat/lon for map plotting
       if (parsed.grid) {
         const coords = gridToLatLon(parsed.grid);
@@ -7789,7 +7796,7 @@ function handleWSJTXMessage(msg, state) {
           decode.lon = coords.longitude;
         }
       }
-      
+
       // If no grid from message, try callsign → grid cache (from prior CQ/exchange with grid)
       if (!decode.lat) {
         const targetCall = (parsed.caller || parsed.dxCall || '').toUpperCase();
@@ -7803,7 +7810,7 @@ function handleWSJTXMessage(msg, state) {
           }
         }
       }
-      
+
       // Try HamQTH callsign cache (DXCC-level, more accurate than prefix centroid)
       if (!decode.lat) {
         const targetCall = (parsed.caller || parsed.dxCall || '').toUpperCase();
@@ -7840,7 +7847,7 @@ function handleWSJTXMessage(msg, state) {
           }
         }
       }
-      
+
       // Last resort: estimate from callsign prefix
       if (!decode.lat) {
         const targetCall = parsed.caller || parsed.dxCall || '';
@@ -7854,27 +7861,27 @@ function handleWSJTXMessage(msg, state) {
           }
         }
       }
-      
+
       // Only keep new decodes (not replays)
       if (msg.isNew) {
         state.decodes.push(decode);
-        
+
         // Trim old decodes
         const cutoff = Date.now() - WSJTX_MAX_AGE;
-        while (state.decodes.length > WSJTX_MAX_DECODES || 
-               (state.decodes.length > 0 && state.decodes[0].timestamp < cutoff)) {
+        while (state.decodes.length > WSJTX_MAX_DECODES ||
+          (state.decodes.length > 0 && state.decodes[0].timestamp < cutoff)) {
           state.decodes.shift();
         }
       }
       break;
     }
-    
+
     case WSJTX_MSG.CLEAR: {
       // WSJT-X cleared its band activity - optionally clear our decodes for this client
       state.decodes = state.decodes.filter(d => d.clientId !== msg.id);
       break;
     }
-    
+
     case WSJTX_MSG.QSO_LOGGED: {
       const clientStatus = state.clients[msg.id] || {};
       const qso = {
@@ -7900,7 +7907,7 @@ function handleWSJTXMessage(msg, state) {
       if (state.qsos.length > 50) state.qsos.shift();
       break;
     }
-    
+
     case WSJTX_MSG.WSPR_DECODE: {
       const wsprDecode = {
         clientId: msg.id,
@@ -7921,7 +7928,7 @@ function handleWSJTXMessage(msg, state) {
       }
       break;
     }
-    
+
     case WSJTX_MSG.CLOSE: {
       delete state.clients[msg.id];
       break;
@@ -8035,21 +8042,21 @@ let wsjtxSocket = null;
 if (WSJTX_ENABLED) {
   try {
     wsjtxSocket = dgram.createSocket('udp4');
-    
+
     wsjtxSocket.on('message', (buf, rinfo) => {
       const msg = parseWSJTXMessage(buf);
       if (msg) handleWSJTXMessage(msg);
     });
-    
+
     wsjtxSocket.on('error', (err) => {
       logErrorOnce('WSJT-X UDP', err.message);
     });
-    
+
     wsjtxSocket.on('listening', () => {
       const addr = wsjtxSocket.address();
       console.log(`[WSJT-X] UDP listener on ${addr.address}:${addr.port}`);
     });
-    
+
     wsjtxSocket.bind(WSJTX_UDP_PORT, '0.0.0.0');
   } catch (e) {
     console.error(`[WSJT-X] Failed to start UDP listener: ${e.message}`);
@@ -8059,10 +8066,10 @@ if (WSJTX_ENABLED) {
 // API endpoint: get WSJT-X data
 app.get('/api/wsjtx', (req, res) => {
   const sessionId = req.query.session || '';
-  
+
   // Use session-specific state for relay mode, or global state for local UDP
   const state = (sessionId && WSJTX_RELAY_KEY) ? (wsjtxRelaySessions[sessionId] || { clients: {}, decodes: [], qsos: [], wspr: [], relay: null }) : wsjtxState;
-  
+
   const clients = {};
   for (const [id, client] of Object.entries(state.clients)) {
     // Only include clients seen in last 5 minutes
@@ -8070,10 +8077,10 @@ app.get('/api/wsjtx', (req, res) => {
       clients[id] = client;
     }
   }
-  
+
   // Relay is "connected" if this session's relay was seen in last 60 seconds
   const relayConnected = state.relay && (Date.now() - state.relay.lastSeen < 60000);
-  
+
   res.json({
     enabled: WSJTX_ENABLED,
     port: WSJTX_UDP_PORT,
@@ -8096,12 +8103,12 @@ app.get('/api/wsjtx', (req, res) => {
 app.get('/api/wsjtx/decodes', (req, res) => {
   const sessionId = req.query.session || '';
   const state = (sessionId && WSJTX_RELAY_KEY) ? (wsjtxRelaySessions[sessionId] || { decodes: [] }) : wsjtxState;
-  
+
   const since = parseInt(req.query.since) || 0;
-  const decodes = since 
+  const decodes = since
     ? state.decodes.filter(d => d.timestamp > since)
     : state.decodes.slice(-100);
-  
+
   res.json({ decodes, timestamp: Date.now() });
 });
 
@@ -8113,21 +8120,21 @@ app.post('/api/wsjtx/relay', (req, res) => {
   if (!WSJTX_RELAY_KEY) {
     return res.status(503).json({ error: 'Relay not configured — set WSJTX_RELAY_KEY in .env' });
   }
-  
+
   const authHeader = req.headers.authorization || '';
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
   if (token !== WSJTX_RELAY_KEY) {
     return res.status(401).json({ error: 'Invalid relay key' });
   }
-  
+
   // Session ID is required for relay — isolates data per browser
   const sessionId = req.body.session || req.headers['x-relay-session'] || '';
   if (!sessionId) {
     return res.status(400).json({ error: 'Session ID required' });
   }
-  
+
   const session = getRelaySession(sessionId);
-  
+
   // Relay heartbeat — just registers the relay as alive for this session
   if (req.body && req.body.relay === true) {
     session.relay = {
@@ -8137,20 +8144,20 @@ app.post('/api/wsjtx/relay', (req, res) => {
     };
     return res.json({ ok: true, timestamp: Date.now() });
   }
-  
+
   // Regular message batch
   const { messages } = req.body || {};
   if (!Array.isArray(messages) || messages.length === 0) {
     return res.status(400).json({ error: 'No messages provided' });
   }
-  
+
   // Update relay last seen on every batch too
   session.relay = { ...(session.relay || {}), lastSeen: Date.now() };
-  
+
   // Rate limit: max 100 messages per request
   const batch = messages.slice(0, 100);
   let processed = 0;
-  
+
   for (const msg of batch) {
     if (msg && typeof msg.type === 'number' && msg.id) {
       // Ensure timestamp is reasonable (within last 5 minutes or use server time)
@@ -8161,7 +8168,7 @@ app.post('/api/wsjtx/relay', (req, res) => {
       processed++;
     }
   }
-  
+
   res.json({ ok: true, processed, timestamp: Date.now() });
 });
 
@@ -8183,33 +8190,33 @@ app.get('/api/wsjtx/relay/download/:platform', (req, res) => {
   if (!WSJTX_RELAY_KEY) {
     return res.status(503).json({ error: 'Relay not configured — set WSJTX_RELAY_KEY in .env' });
   }
-  
+
   const platform = req.params.platform; // 'linux', 'mac', or 'windows'
   const relayJsPath = path.join(__dirname, 'wsjtx-relay', 'relay.js');
-  
+
   let relayJs;
   try {
     relayJs = fs.readFileSync(relayJsPath, 'utf8');
   } catch (e) {
     return res.status(500).json({ error: 'relay.js not found on server' });
   }
-  
+
   // Detect server URL from request
   const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
   const host = req.headers['x-forwarded-host'] || req.headers.host;
   const serverURL = proto + '://' + host;
-  
+
   // Session ID from query param — ties this relay to the downloading browser
   const sessionId = req.query.session || '';
   if (!sessionId) {
     return res.status(400).json({ error: 'Session ID required — download from the OpenHamClock dashboard' });
   }
-  
+
   // SECURITY: Validate platform parameter
   if (!['linux', 'mac', 'windows'].includes(platform)) {
     return res.status(400).json({ error: 'Invalid platform. Use: linux, mac, or windows' });
   }
-  
+
   // SECURITY: Sanitize all values embedded into generated scripts to prevent command injection
   // Only allow URL-safe characters in serverURL, alphanumeric + hyphen/underscore in session/key
   function sanitizeForShell(str) {
@@ -8218,7 +8225,7 @@ app.get('/api/wsjtx/relay/download/:platform', (req, res) => {
   const safeServerURL = sanitizeForShell(serverURL);
   const safeSessionId = sanitizeForShell(sessionId);
   const safeRelayKey = sanitizeForShell(WSJTX_RELAY_KEY);
-  
+
   if (platform === 'linux' || platform === 'mac') {
     // Build bash script with relay.js embedded as heredoc
     const lines = [
@@ -8263,13 +8270,13 @@ app.get('/api/wsjtx/relay/download/:platform', (req, res) => {
       '  --key "' + safeRelayKey + '" \\',
       '  --session "' + safeSessionId + '"',
     ];
-    
+
     const script = lines.join('\n') + '\n';
     const filename = platform === 'mac' ? 'start-relay.command' : 'start-relay.sh';
     res.setHeader('Content-Type', 'application/x-sh');
     res.setHeader('Content-Disposition', 'attachment; filename="' + filename + '"');
     return res.send(script);
-    
+
   } else if (platform === 'windows') {
     // .bat that auto-downloads portable Node.js if needed, then runs relay
     // No install, no admin, no PowerShell execution policy issues
@@ -8277,7 +8284,7 @@ app.get('/api/wsjtx/relay/download/:platform', (req, res) => {
     const NODE_ZIP = 'node-' + NODE_VERSION + '-win-x64.zip';
     const NODE_DIR = 'node-' + NODE_VERSION + '-win-x64';
     const NODE_URL = 'https://nodejs.org/dist/' + NODE_VERSION + '/' + NODE_ZIP;
-    
+
     const batLines = [
       '@echo off',
       'setlocal',
@@ -8368,12 +8375,12 @@ app.get('/api/wsjtx/relay/download/:platform', (req, res) => {
       'echo.',
       'pause',
     ];
-    
+
     const script = batLines.join('\r\n') + '\r\n';
     res.setHeader('Content-Type', 'application/x-msdos-program');
     res.setHeader('Content-Disposition', 'attachment; filename="start-relay.bat"');
     return res.send(script);
-    
+
   } else {
     return res.status(400).json({ error: 'Invalid platform. Use: linux, mac, or windows' });
   }
@@ -8686,7 +8693,7 @@ app.get('*', (req, res) => {
   // Try dist first (built React app), fallback to public (monolithic)
   const distIndex = path.join(__dirname, 'dist', 'index.html');
   const publicIndex = path.join(__dirname, 'public', 'index.html');
-  
+
   const indexPath = fs.existsSync(distIndex) ? distIndex : publicIndex;
   // Never cache index.html - stale copies cause browsers to load old JS after updates
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -8733,7 +8740,7 @@ app.listen(PORT, '0.0.0.0', () => {
   if (WSJTX_RELAY_KEY) {
     console.log(`  🔁 WSJT-X relay endpoint enabled (POST /api/wsjtx/relay)`);
   }
-if (N1MM_ENABLED) {
+  if (N1MM_ENABLED) {
     console.log(`  📥 N1MM UDP listener on port ${N1MM_UDP_PORT}`);
   }
   if (AUTO_UPDATE_ENABLED) {
@@ -8752,7 +8759,7 @@ if (N1MM_ENABLED) {
   console.log('');
 
   startAutoUpdateScheduler();
-  
+
   // Check for outdated systemd service file that prevents auto-update restart
   if (AUTO_UPDATE_ENABLED && (process.env.INVOCATION_ID || process.ppid === 1)) {
     try {
