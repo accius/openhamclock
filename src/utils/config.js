@@ -29,6 +29,7 @@
   },
   theme: 'dark', // 'dark', 'light', 'legacy', or 'retro'
   layout: 'modern', // 'modern' or 'classic'
+  mouseZoom: 50, // Factor to affect rate of zooming with scrollwheel (1-100)
   timezone: '', // IANA timezone (e.g. 'America/Regina') — empty = browser default
   use12Hour: true,
   showSatellites: true,
@@ -133,6 +134,7 @@ export const loadConfig = () => {
       units: serverConfig.units || config.units,
       theme: serverConfig.theme || config.theme,
       layout: serverConfig.layout || config.layout,
+      mouseZoom: serverConfig.mouseZoom || config.mouseZoom,
       timezone: serverConfig.timezone || config.timezone,
       use12Hour: serverConfig.timeFormat === '12',
       showSatellites: serverConfig.showSatellites ?? config.showSatellites,

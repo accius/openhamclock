@@ -26,6 +26,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   const [lon, setLon] = useState(config?.location?.lon || 0);
   const [theme, setTheme] = useState(config?.theme || 'dark');
   const [layout, setLayout] = useState(config?.layout || 'modern');
+  const [mouseZoom, setMouseZoom] = useState(config?.mouseZoom || 50);
   const [timezone, setTimezone] = useState(config?.timezone || '');
   const [dxClusterSource, setDxClusterSource] = useState(config?.dxClusterSource || 'dxspider-proxy');
   const [customDxCluster, setCustomDxCluster] = useState(config?.customDxCluster || { enabled: false, host: '', port: 7300 });
@@ -63,6 +64,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       setLon(config.location?.lon || 0);
       setTheme(config.theme || 'dark');
       setLayout(config.layout || 'modern');
+      setMouseZoom(config.mouseZoom || 50);
       setTimezone(config.timezone || '');
       setDxClusterSource(config.dxClusterSource || 'dxspider-proxy');
       setCustomDxCluster(config.customDxCluster || { enabled: false, host: '', port: 7300 });
@@ -235,6 +237,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       location: { lat: parseFloat(lat), lon: parseFloat(lon) },
       theme,
       layout,
+      mouseZoom,
       timezone,
       dxClusterSource,
       customDxCluster,
@@ -547,6 +550,31 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             >
               {t('station.settings.useLocation')}
             </button>
+
+            {/* Mouse wheel zoom factor */}
+            <div style={{ marginBottom: '31px' }}>
+              <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                {t('station.settings.mouseZoom')}
+                <input
+                  type="range"
+                  min="1"
+                  max="100"
+                  value={mouseZoom}
+                  onChange={(e) => setMouseZoom(e.target.value)}
+                  style={{
+                    width: '100%',
+                    cursor: 'pointer',
+                    marginTop: '3px'
+                  }}
+                />
+              </label>
+              <span style={{ float: 'left', fontSize: '11px', color: 'var(--text-muted)' }}>
+                {t('station.settings.mouseZoom.describeMin')}
+              </span>
+              <span style={{ float: 'right', fontSize: '11px', color: 'var(--text-muted)' }}>
+                {t('station.settings.mouseZoom.describeMax')}
+              </span>
+            </div>                   
 
             {/* Theme */}
             <div style={{ marginBottom: '8px' }}>

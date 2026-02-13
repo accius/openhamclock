@@ -289,7 +289,8 @@ export default function ClassicLayout(props) {
             hoveredSpot={hoveredSpot}
             callsign={config.callsign}
             lowMemoryMode={config.lowMemoryMode}
-          units={config.units}
+            units={config.units}
+            mouseZoom={config.mouseZoom}
           />
 
           {/* Map overlay buttons — bottom-left to avoid WorldMap's SAT/CALLS buttons at top */}
@@ -531,7 +532,8 @@ export default function ClassicLayout(props) {
             hideOverlays={true}
             callsign={config.callsign}
             lowMemoryMode={config.lowMemoryMode}
-          units={config.units}
+            units={config.units}
+            mouseZoom={config.mouseZoom}
           />
           {/* DX Lock button overlay — bottom-left to avoid WorldMap's SAT/CALLS buttons at top */}
           <button
@@ -907,7 +909,8 @@ export default function ClassicLayout(props) {
             hideOverlays={true}
             callsign={config.callsign}
             lowMemoryMode={config.lowMemoryMode}
-          units={config.units}
+            units={config.units}
+            mouseZoom={config.mouseZoom}
           />
           <div style={{
             position: 'absolute',
