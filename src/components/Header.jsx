@@ -4,7 +4,10 @@
  */
 import React from 'react';
 import { IconGear, IconExpand, IconShrink } from './Icons.jsx';
+import { useTranslation } from 'react-i18next';
+import { LANGUAGES } from '../lang/i18n';
 import { QRZToggle } from './CallsignLink.jsx';
+
 export const Header = ({
   config,
   utcTime,
@@ -24,6 +27,9 @@ export const Header = ({
   updateInProgress,
   showUpdateButton
 }) => {
+  const { i18n } = useTranslation();
+  const currentLang = LANGUAGES.find(l => l.code === i18n.language) || LANGUAGES[0];
+
   return (
     <div style={{
       gridColumn: '1 / -1',
@@ -40,7 +46,7 @@ export const Header = ({
       overflow: 'hidden'
     }}>
       {/* Callsign & Settings */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
         <span
           style={{
             fontSize: config.headerSize > 0.1 && config.headerSize <= 2
@@ -52,6 +58,20 @@ export const Header = ({
         >
           {config.callsign}
         </span>
+
+        {/* Language Flag */}
+        <span
+          style={{
+            fontSize: config.headerSize > 0.1 && config.headerSize <= 2
+              ? `${18 * config.headerSize}px` // slightly smaller than text
+              : "18px",
+            cursor: 'help'
+          }}
+          title={`Language: ${currentLang.name}`}
+        >
+          {currentLang.flag}
+        </span>
+
         {config.version && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>v{config.version}</span>}
         {(() => {
           const touch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
@@ -68,8 +88,8 @@ export const Header = ({
         <span style={{ fontSize: '13px', color: 'var(--accent-cyan)', fontWeight: '600' }}>UTC</span>
         <span style={{
           fontSize: config.headerSize > 0.1 && config.headerSize <= 2
-              ? `${24 * config.headerSize}px`
-              : "24px",
+            ? `${24 * config.headerSize}px`
+            : "24px",
           fontWeight: '700',
           color: 'var(--accent-cyan)',
           fontFamily: 'JetBrains Mono, Consolas, monospace',
@@ -87,8 +107,8 @@ export const Header = ({
         <span style={{ fontSize: '13px', color: 'var(--accent-amber)', fontWeight: '600' }}>LOCAL</span>
         <span style={{
           fontSize: config.headerSize > 0.1 && config.headerSize <= 2
-              ? `${24 * config.headerSize}px`
-              : "24px",
+            ? `${24 * config.headerSize}px`
+            : "24px",
           fontWeight: '700',
           color: 'var(--accent-amber)',
           fontFamily: 'JetBrains Mono, Consolas, monospace',
@@ -108,18 +128,20 @@ export const Header = ({
           const windLabel = localWeather.data.windUnit || 'mph';
           return (
             <div title={`${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${windLabel}`}>
-              <span style={{ marginRight: '3px', 
+              <span style={{
+                marginRight: '3px',
                 fontSize: config.headerSize > 0.1 && config.headerSize <= 2
                   ? `${12 * config.headerSize}px`
                   : "12px",
-               }}>
+              }}>
                 {localWeather.data.icon}
               </span>
-              <span style={{ color: 'var(--accent-cyan)', fontWeight: '600',
+              <span style={{
+                color: 'var(--accent-cyan)', fontWeight: '600',
                 fontSize: config.headerSize > 0.1 && config.headerSize <= 2
                   ? `${12 * config.headerSize}px`
                   : "12px",
-               }}>
+              }}>
                 {tempF}°F/{tempC}°C
               </span>
             </div>
@@ -149,11 +171,11 @@ export const Header = ({
         )}
         {bandConditions?.extras?.geomagField && (
           <div>
-            <span style={{ 
+            <span style={{
               fontSize: '10px',
-              color: bandConditions.extras.geomagField === 'QUIET' ? 'var(--accent-green)' : 
-                     bandConditions.extras.geomagField === 'ACTIVE' || bandConditions.extras.geomagField.includes('STORM') ? 'var(--accent-red)' : 
-                     'var(--accent-amber)',
+              color: bandConditions.extras.geomagField === 'QUIET' ? 'var(--accent-green)' :
+                bandConditions.extras.geomagField === 'ACTIVE' || bandConditions.extras.geomagField.includes('STORM') ? 'var(--accent-red)' :
+                  'var(--accent-amber)',
               fontWeight: '600'
             }}>
               {bandConditions.extras.geomagField}
