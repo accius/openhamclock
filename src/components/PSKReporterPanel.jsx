@@ -13,10 +13,11 @@ import { getBandColor } from '../utils/callsign.js';
 import { IconSearch, IconRefresh, IconMap } from './Icons.jsx';
 import CallsignLink from './CallsignLink.jsx';
 
-const PSKReporterPanel = ({ 
-  callsign, 
-  onShowOnMap, 
-  showOnMap, 
+const PSKReporterPanel = ({
+  callsign,
+  onShowOnMap, // Deprecated in favor of onSpotClick, but kept just in case
+  onSpotClick, // New unified handler
+  showOnMap,
   onToggleMap,
   filters = {},
   onOpenFilters,
@@ -48,15 +49,15 @@ const PSKReporterPanel = ({
   const [wsjtxAge, setWsjtxAge] = useState(() => {
     try { return parseInt(localStorage.getItem('ohc_wsjtx_age')) || 30; } catch { return 30; }
   }); // minutes: 5, 15, 30, 60
-  
+
   // Persist panel mode and active tab
-  const setPanelModePersist = (v) => { setPanelMode(v); try { localStorage.setItem('openhamclock_pskPanelMode', v); } catch {} };
-  const setActiveTabPersist = (v) => { setActiveTab(v); try { localStorage.setItem('openhamclock_pskActiveTab', v); } catch {} };
-  
+  const setPanelModePersist = (v) => { setPanelMode(v); try { localStorage.setItem('openhamclock_pskPanelMode', v); } catch { } };
+  const setActiveTabPersist = (v) => { setActiveTab(v); try { localStorage.setItem('openhamclock_pskActiveTab', v); } catch { } };
+
   // PSKReporter data from App-level hook (single SSE connection shared across app)
-  const { 
-    txReports = [], txCount = 0, rxReports = [], rxCount = 0, 
-    loading = false, error = null, connected = false, source = '', refresh = () => {} 
+  const {
+    txReports = [], txCount = 0, rxReports = [], rxCount = 0,
+    loading = false, error = null, connected = false, source = '', refresh = () => { }
   } = pskReporter;
 
   // ── PSK filtering ──
@@ -104,11 +105,11 @@ const PSKReporterPanel = ({
 
   const filteredDecodes = useMemo(() => {
     let filtered = [...wsjtxDecodes];
-    
+
     // Time retention filter
     const ageCutoff = Date.now() - wsjtxAge * 60 * 1000;
     filtered = filtered.filter(d => d.timestamp >= ageCutoff);
-    
+
     if (wsjtxFilter === 'cq') {
       filtered = filtered.filter(d => d.type === 'CQ');
     } else if (wsjtxFilter !== 'all') {
@@ -138,7 +139,7 @@ const PSKReporterPanel = ({
   const handleMapToggle = panelMode === 'psk' ? onToggleMap : onToggleWSJTXMap;
 
   // Compact status dot
-  const statusDot = connected 
+  const statusDot = connected
     ? { color: '#4ade80', char: '●' }
     : (source === 'connecting' || source === 'reconnecting')
       ? { color: '#fbbf24', char: '◐' }
@@ -181,16 +182,16 @@ const PSKReporterPanel = ({
   });
 
   return (
-    <div className="panel" style={{ 
-      padding: '8px 10px', 
-      display: 'flex', 
+    <div className="panel" style={{
+      padding: '8px 10px',
+      display: 'flex',
       flexDirection: 'column',
       height: '100%',
       overflow: 'hidden'
     }}>
       {/* ── Row 1: Mode toggle + controls ── */}
-      <div style={{ 
-        display: 'flex', 
+      <div style={{
+        display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         marginBottom: '5px',
@@ -254,7 +255,7 @@ const PSKReporterPanel = ({
               </select>
               <select
                 value={wsjtxAge}
-                onChange={(e) => { const v = parseInt(e.target.value); setWsjtxAge(v); try { localStorage.setItem('ohc_wsjtx_age', v); } catch {} }}
+                onChange={(e) => { const v = parseInt(e.target.value); setWsjtxAge(v); try { localStorage.setItem('ohc_wsjtx_age', v); } catch { } }}
                 style={{
                   background: 'var(--bg-tertiary)',
                   color: 'var(--text-primary)',
@@ -328,9 +329,9 @@ const PSKReporterPanel = ({
               </div>
             ) : filteredReports.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)', fontSize: '11px' }}>
-                {pskFilterCount > 0 
+                {pskFilterCount > 0
                   ? t('pskReporterPanel.psk.noSpotsFiltered')
-                  : activeTab === 'tx' 
+                  : activeTab === 'tx'
                     ? t('pskReporterPanel.psk.waitingForSpots')
                     : t('pskReporterPanel.psk.noStationsHeard')}
               </div>
@@ -340,11 +341,14 @@ const PSKReporterPanel = ({
                 const color = getFreqColor(freqMHz);
                 const displayCall = activeTab === 'tx' ? report.receiver : report.sender;
                 const grid = activeTab === 'tx' ? report.receiverGrid : report.senderGrid;
-                
+
                 return (
                   <div
                     key={`${displayCall}-${report.freq}-${i}`}
-                    onClick={() => onShowOnMap?.(report)}
+                    onClick={() => {
+                      if (onSpotClick) onSpotClick(report);
+                      else if (onShowOnMap) onShowOnMap(report);
+                    }}
                     style={{
                       display: 'grid',
                       gridTemplateColumns: '52px 1fr auto',
@@ -358,7 +362,7 @@ const PSKReporterPanel = ({
                     onMouseLeave={(e) => e.currentTarget.style.background = i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent'}
                   >
                     <span style={{ color, fontWeight: '600', fontSize: '10px' }}>{freqMHz}</span>
-                    <span style={{ 
+                    <span style={{
                       color: 'var(--text-primary)', fontWeight: '600', fontSize: '11px',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'
                     }}>
@@ -386,7 +390,7 @@ const PSKReporterPanel = ({
           <>
             {/* No client connected */}
             {!wsjtxLoading && activeClients.length === 0 && wsjtxDecodes.length === 0 ? (
-              <div style={{ 
+              <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 flexDirection: 'column', gap: '8px', color: 'var(--text-muted)',
                 fontSize: '11px', textAlign: 'center', padding: '16px 8px', height: '100%'
@@ -409,20 +413,20 @@ const PSKReporterPanel = ({
                         {t('pskReporterPanel.wsjtx.downloadRelay')}
                       </div>
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <a href={`/api/wsjtx/relay/download/linux?session=${wsjtxSessionId || ''}`} 
-                          style={{ 
+                        <a href={`/api/wsjtx/relay/download/linux?session=${wsjtxSessionId || ''}`}
+                          style={{
                             padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600',
                             background: 'rgba(167,139,250,0.2)', border: '1px solid #a78bfa55',
                             color: '#a78bfa', textDecoration: 'none', cursor: 'pointer',
                           }}>{t('pskReporterPanel.wsjtx.platformLinux')}</a>
                         <a href={`/api/wsjtx/relay/download/mac?session=${wsjtxSessionId || ''}`}
-                          style={{ 
+                          style={{
                             padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600',
                             background: 'rgba(167,139,250,0.2)', border: '1px solid #a78bfa55',
                             color: '#a78bfa', textDecoration: 'none', cursor: 'pointer',
                           }}>{t('pskReporterPanel.wsjtx.platformMac')}</a>
                         <a href={`/api/wsjtx/relay/download/windows?session=${wsjtxSessionId || ''}`}
-                          style={{ 
+                          style={{
                             padding: '4px 10px', borderRadius: '4px', fontSize: '10px', fontWeight: '600',
                             background: 'rgba(167,139,250,0.2)', border: '1px solid #a78bfa55',
                             color: '#a78bfa', textDecoration: 'none', cursor: 'pointer',
@@ -449,7 +453,7 @@ const PSKReporterPanel = ({
                   </div>
                 ) : (
                   filteredDecodes.map((d, i) => (
-                    <div 
+                    <div
                       key={d.id || i}
                       style={{
                         display: 'flex', gap: '5px', padding: '2px 2px',
@@ -463,11 +467,11 @@ const PSKReporterPanel = ({
                         {d.snr != null ? (d.snr >= 0 ? `+${d.snr}` : d.snr) : ''}
                       </span>
                       <span style={{ color: 'var(--text-muted)', minWidth: '24px', textAlign: 'right', fontSize: '10px' }}>{d.dt}</span>
-                      <span style={{ 
+                      <span style={{
                         color: d.band ? getBandColor(d.dialFrequency / 1000000) : 'var(--text-muted)',
                         minWidth: '32px', textAlign: 'right', fontSize: '10px'
                       }}>{d.freq}</span>
-                      <span style={{ 
+                      <span style={{
                         color: getMsgColor(d), flex: 1, whiteSpace: 'nowrap',
                         overflow: 'hidden', textOverflow: 'ellipsis',
                       }}>{d.message}</span>
@@ -488,38 +492,40 @@ const PSKReporterPanel = ({
                       display: 'flex', gap: '5px', padding: '3px 2px',
                       borderBottom: '1px solid var(--border-color)', alignItems: 'baseline',
                     }}>
-                      <span style={{ 
-                        color: q.band ? getBandColor(q.frequency / 1000000) : 'var(--accent-green)', 
-                        fontWeight: '600', minWidth: '65px' 
+                      <span style={{
+                        color: q.band ? getBandColor(q.frequency / 1000000) : 'var(--accent-green)',
+                        fontWeight: '600', minWidth: '65px'
                       }}><CallsignLink call={q.dxCall} color={q.band ? getBandColor(q.frequency / 1000000) : 'var(--accent-green)'} fontWeight="600" /></span>
                       <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{q.band}</span>
                       <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{q.mode}</span>
                       <span style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{q.reportSent}/{q.reportRecv}</span>
                       {q.dxGrid && <span style={{ color: '#a78bfa', fontSize: '10px' }}>{q.dxGrid}</span>}
-                    </div>
+                    </div >
                   ))
                 )}
               </>
             )}
           </>
         )}
-      </div>
+      </div >
 
       {/* ── WSJT-X status footer ── */}
-      {panelMode === 'wsjtx' && activeClients.length > 0 && (
-        <div style={{ 
-          fontSize: '9px', color: 'var(--text-muted)',
-          borderTop: '1px solid var(--border-color)',
-          paddingTop: '2px', marginTop: '2px',
-          display: 'flex', justifyContent: 'space-between', flexShrink: 0
-        }}>
-          <span>{activeClients.map(([id, c]) => `${id}${c.version ? ` v${c.version}` : ''}`).join(', ')}</span>
-          {primaryClient?.dialFrequency && (
-            <span style={{ color: '#a78bfa' }}>{(primaryClient.dialFrequency / 1000000).toFixed(6)} MHz</span>
-          )}
-        </div>
-      )}
-    </div>
+      {
+        panelMode === 'wsjtx' && activeClients.length > 0 && (
+          <div style={{
+            fontSize: '9px', color: 'var(--text-muted)',
+            borderTop: '1px solid var(--border-color)',
+            paddingTop: '2px', marginTop: '2px',
+            display: 'flex', justifyContent: 'space-between', flexShrink: 0
+          }}>
+            <span>{activeClients.map(([id, c]) => `${id}${c.version ? ` v${c.version}` : ''}`).join(', ')}</span>
+            {primaryClient?.dialFrequency && (
+              <span style={{ color: '#a78bfa' }}>{(primaryClient.dialFrequency / 1000000).toFixed(6)} MHz</span>
+            )}
+          </div>
+        )
+      }
+    </div >
   );
 };
 

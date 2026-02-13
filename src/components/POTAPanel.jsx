@@ -3,15 +3,18 @@
  * Displays Parks on the Air activations with ON/OFF toggle
  */
 import React from 'react';
+import { detectMode } from '../utils/callsign.js';
+import { useRig } from '../contexts/RigContext.jsx';
 import CallsignLink from './CallsignLink.jsx';
 
 export const POTAPanel = ({ data, loading, showOnMap, onToggleMap }) => {
+  const { tuneTo, tuneEnabled } = useRig();
   return (
     <div className="panel" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div className="panel-header" style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
+      <div className="panel-header" style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         marginBottom: '6px',
         fontSize: '11px'
       }}>
@@ -33,7 +36,7 @@ export const POTAPanel = ({ data, loading, showOnMap, onToggleMap }) => {
           ⊞ Map {showOnMap ? 'ON' : 'OFF'}
         </button>
       </div>
-      
+
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '10px' }}>
@@ -42,14 +45,26 @@ export const POTAPanel = ({ data, loading, showOnMap, onToggleMap }) => {
         ) : data && data.length > 0 ? (
           <div style={{ fontSize: '10px', fontFamily: 'JetBrains Mono, monospace' }}>
             {data.map((spot, i) => (
-              <div 
+              <div
                 key={`${spot.call}-${spot.ref}-${i}`}
-                style={{ 
+                style={{
                   display: 'grid',
                   gridTemplateColumns: '62px 50px 58px 1fr',
                   gap: '4px',
                   padding: '3px 0',
-                  borderBottom: i < data.length - 1 ? '1px solid var(--border-color)' : 'none'
+                  borderBottom: i < data.length - 1 ? '1px solid var(--border-color)' : 'none',
+                  cursor: 'pointer'
+                }}
+                onClick={() => {
+                  if (spot.freq) {
+                    const freqVal = parseFloat(spot.freq);
+                    let freqHz = freqVal;
+                    if (freqVal < 1000) freqHz = freqVal * 1000000;
+                    else if (freqVal < 100000) freqHz = freqVal * 1000;
+
+                    const mode = spot.mode || detectMode(spot.locationDesc || spot.comment || '');
+                    tuneTo(freqHz, mode);
+                  }
                 }}
               >
                 <span style={{ color: '#44cc44', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

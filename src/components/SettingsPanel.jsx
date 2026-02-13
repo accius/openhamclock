@@ -33,6 +33,10 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   const [units, setUnits] = useState(config?.units || 'imperial');
   const [propMode, setPropMode] = useState(config?.propagation?.mode || 'SSB');
   const [propPower, setPropPower] = useState(config?.propagation?.power || 100);
+  const [rigEnabled, setRigEnabled] = useState(config?.rigControl?.enabled || false);
+  const [rigHost, setRigHost] = useState(config?.rigControl?.host || 'http://localhost');
+  const [rigPort, setRigPort] = useState(config?.rigControl?.port || 5555);
+  const [tuneEnabled, setTuneEnabled] = useState(config?.rigControl?.tuneEnabled || false);
   const [satelliteSearch, setSatelliteSearch] = useState('');
   const { t, i18n } = useTranslation();
 
@@ -69,7 +73,12 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       setLowMemoryMode(config.lowMemoryMode || false);
       setUnits(config.units || 'imperial');
       setPropMode(config.propagation?.mode || 'SSB');
+      setPropMode(config.propagation?.mode || 'SSB');
       setPropPower(config.propagation?.power || 100);
+      setRigEnabled(config.rigControl?.enabled || false);
+      setRigHost(config.rigControl?.host || 'http://localhost');
+      setRigPort(config.rigControl?.port || 5555);
+      setTuneEnabled(config.rigControl?.tuneEnabled || false);
       if (config.location?.lat && config.location?.lon) {
         setGridSquare(calculateGridSquare(config.location.lat, config.location.lon));
       }
@@ -164,10 +173,10 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
     let lat = lat1 + lat2 + 0.5;
 
     if (grid.length >= 6) {
-      const lon3 = (grid.charCodeAt(4) - 65) * (2/24);
-      const lat3 = (grid.charCodeAt(5) - 65) * (1/24);
-      lon = lon1 + lon2 + lon3 + (1/24);
-      lat = lat1 + lat2 + lat3 + (1/48);
+      const lon3 = (grid.charCodeAt(4) - 65) * (2 / 24);
+      const lat3 = (grid.charCodeAt(5) - 65) * (1 / 24);
+      lon = lon1 + lon2 + lon3 + (1 / 24);
+      lat = lat1 + lat2 + lat3 + (1 / 48);
     }
 
     return { lat, lon };
@@ -240,7 +249,8 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       customDxCluster,
       lowMemoryMode,
       units,
-      propagation: { mode: propMode, power: parseFloat(propPower) || 100 }
+      propagation: { mode: propMode, power: parseFloat(propPower) || 100 },
+      rigControl: { enabled: rigEnabled, host: rigHost, port: parseInt(rigPort) || 5555, tuneEnabled }
     });
     onClose();
   };
@@ -429,7 +439,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             </div>
 
             {/* Callsign Size*/}
-            <div style={{ marginBottom: '20px'}}>
+            <div style={{ marginBottom: '20px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>
                   {t('station.settings.headerSize')}
@@ -441,7 +451,8 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   onChange={(e) => {
                     if (e.target.value >= 0.1 && e.target.value <= 2.0) {
                       setheaderSize(e.target.value)
-                    }}}
+                    }
+                  }}
                   style={{
                     width: '100%',
                     padding: '10px',
@@ -456,7 +467,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 />
               </div>
             </div>
-            
+
             {/* Grid Square */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
@@ -788,12 +799,106 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               </div>
             </div>
 
+            {/* Rig Control Settings */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                {t('station.settings.rigControl.title')} (Beta)
+              </label>
+
+              <div style={{
+                background: 'var(--bg-tertiary)',
+                padding: '12px',
+                borderRadius: '6px',
+                border: '1px solid var(--border-color)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
+                  <input
+                    type="checkbox"
+                    checked={rigEnabled}
+                    onChange={(e) => setRigEnabled(e.target.checked)}
+                    style={{ marginRight: '8px' }}
+                  />
+                  <span style={{ color: 'var(--text-primary)', fontSize: '14px' }}>
+                    {t('station.settings.rigControl.enabled')}
+                  </span>
+                </div>
+
+                {rigEnabled && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '10px' }}>
+                        {t('station.settings.rigControl.host')}
+                      </label>
+                      <input
+                        type="text"
+                        value={rigHost}
+                        onChange={(e) => setRigHost(e.target.value)}
+                        placeholder="http://localhost"
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          background: 'var(--bg-primary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '4px',
+                          color: 'var(--accent-cyan)',
+                          fontSize: '13px',
+                          fontFamily: 'JetBrains Mono',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '10px' }}>
+                        {t('station.settings.rigControl.port')}
+                      </label>
+                      <input
+                        type="number"
+                        value={rigPort}
+                        onChange={(e) => setRigPort(e.target.value)}
+                        placeholder="5555"
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          background: 'var(--bg-primary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '4px',
+                          color: 'var(--accent-cyan)',
+                          fontSize: '13px',
+                          fontFamily: 'JetBrains Mono',
+                          boxSizing: 'border-box'
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {rigEnabled && (
+                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={tuneEnabled}
+                      onChange={(e) => setTuneEnabled(e.target.checked)}
+                      style={{ marginRight: '8px' }}
+                    />
+                    <div>
+                      <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>
+                        {t('station.settings.rigControl.tuneEnabled')}
+                      </span>
+                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                        {t('station.settings.rigControl.tuneEnabled.hint')}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {/* Propagation Settings */}
             <div style={{ marginBottom: '20px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
                 ⌇ Propagation Mode & Power
               </label>
-              
+
               {/* Mode */}
               <div style={{ marginBottom: '8px' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Operating Mode</div>
@@ -831,7 +936,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   ))}
                 </div>
               </div>
-              
+
               {/* Power */}
               <div style={{ marginBottom: '6px' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>TX Power</div>
@@ -889,21 +994,20 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   </div>
                 </div>
               </div>
-              
+
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
                 {(() => {
                   const modeAdv = { SSB: 0, CW: 10, RTTY: 8, PSK31: 10, FT8: 34, FT4: 30, WSPR: 41, JS8: 37 };
                   const adv = modeAdv[propMode] || 0;
                   const pwrDb = 10 * Math.log10((propPower || 100) / 100);
                   const margin = adv + pwrDb;
-                  return `Signal margin: ${margin >= 0 ? '+' : ''}${margin.toFixed(1)} dB vs SSB@100W — ${
-                    margin >= 30 ? 'extreme weak-signal advantage' :
+                  return `Signal margin: ${margin >= 0 ? '+' : ''}${margin.toFixed(1)} dB vs SSB@100W — ${margin >= 30 ? 'extreme weak-signal advantage' :
                     margin >= 15 ? 'strong advantage — marginal bands may open' :
-                    margin >= 5 ? 'moderate advantage' :
-                    margin >= -5 ? 'baseline conditions' :
-                    margin >= -15 ? 'reduced margin — some bands may close' :
-                    'significant disadvantage — only strong openings'
-                  }`;
+                      margin >= 5 ? 'moderate advantage' :
+                        margin >= -5 ? 'baseline conditions' :
+                          margin >= -15 ? 'reduced margin — some bands may close' :
+                            'significant disadvantage — only strong openings'
+                    }`;
                 })()}
               </div>
             </div>
@@ -948,7 +1052,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 </button>
               </div>
               <div style={{ fontSize: '11px', color: lowMemoryMode ? 'var(--accent-green)' : 'var(--text-muted)', marginTop: '6px' }}>
-                {lowMemoryMode 
+                {lowMemoryMode
                   ? '✓ Low Memory Mode: Reduced animations, fewer map markers, smaller spot limits. Recommended for systems with <8GB RAM.'
                   : 'Full Mode: All features enabled. Requires 8GB+ RAM for best performance.'}
               </div>
@@ -985,17 +1089,17 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Custom DX Cluster Settings */}
             {dxClusterSource === 'custom' && (
-              <div style={{ 
-                marginBottom: '20px', 
-                padding: '16px', 
-                background: 'var(--bg-tertiary)', 
+              <div style={{
+                marginBottom: '20px',
+                padding: '16px',
+                background: 'var(--bg-tertiary)',
                 borderRadius: '8px',
                 border: '1px solid var(--border-color)'
               }}>
                 <label style={{ display: 'block', marginBottom: '12px', color: 'var(--accent-cyan)', fontSize: '12px', fontWeight: '600' }}>
                   {t('station.settings.dx.custom.title')}
                 </label>
-                
+
                 {/* Host */}
                 <div style={{ marginBottom: '12px' }}>
                   <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '11px' }}>
@@ -1300,17 +1404,17 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 }}
               >{t('station.settings.satellites.clear')}</button>
             </div>
-            
+
             <div style={{
               fontSize: '11px',
               color: 'var(--text-muted)',
               marginBottom: '12px'
             }}>
-              {satelliteFilters.length === 0 
+              {satelliteFilters.length === 0
                 ? t('station.settings.satellites.showAll')
                 : t('station.settings.satellites.selectedCount', { count: satelliteFilters.length })}
             </div>
-            
+
             {/* Search Box */}
             <div style={{
               position: 'relative',
@@ -1351,7 +1455,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 >×</button>
               )}
             </div>
-            
+
             <div style={{
               display: 'grid',
               gridTemplateColumns: 'repeat(2, 1fr)',
@@ -1360,74 +1464,74 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               overflowY: 'auto'
             }}>
               {(satellites || [])
-                .filter(sat => 
-                  !satelliteSearch || 
+                .filter(sat =>
+                  !satelliteSearch ||
                   sat.name.toLowerCase().includes(satelliteSearch.toLowerCase())
                 )
                 .sort((a, b) => {
                   const aSelected = satelliteFilters.includes(a.name);
                   const bSelected = satelliteFilters.includes(b.name);
-                  
+
                   // Selected satellites come first
                   if (aSelected && !bSelected) return -1;
                   if (!aSelected && bSelected) return 1;
-                  
+
                   // Then alphabetically by name
                   return a.name.localeCompare(b.name);
                 })
                 .map(sat => {
-                const isSelected = satelliteFilters.includes(sat.name);
-                return (
-                  <button
-                    key={sat.name}
-                    onClick={() => {
-                      if (isSelected) {
-                        onSatelliteFiltersChange(satelliteFilters.filter(n => n !== sat.name));
-                      } else {
-                        onSatelliteFiltersChange([...satelliteFilters, sat.name]);
-                      }
-                    }}
-                    style={{
-                      background: isSelected ? 'rgba(0, 255, 255, 0.15)' : 'var(--bg-tertiary)',
-                      border: `1px solid ${isSelected ? '#00ffff' : 'var(--border-color)'}`,
-                      borderRadius: '6px',
-                      padding: '10px',
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      color: 'var(--text-primary)',
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: '12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <span style={{
-                      width: '16px',
-                      height: '16px',
-                      borderRadius: '3px',
-                      border: `2px solid ${isSelected ? '#00ffff' : '#666'}`,
-                      background: isSelected ? '#00ffff' : 'transparent',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '10px',
-                      flexShrink: 0
-                    }}>
-                      {isSelected && '✓'}
-                    </span>
-                    <div style={{ flex: 1, overflow: 'hidden' }}>
-                      <div style={{ 
-                        color: isSelected ? '#00ffff' : 'var(--text-primary)',
-                        fontWeight: '600',
-                        whiteSpace: 'nowrap',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}>{sat.name}</div>
-                    </div>
-                  </button>
-                );
-              })}
+                  const isSelected = satelliteFilters.includes(sat.name);
+                  return (
+                    <button
+                      key={sat.name}
+                      onClick={() => {
+                        if (isSelected) {
+                          onSatelliteFiltersChange(satelliteFilters.filter(n => n !== sat.name));
+                        } else {
+                          onSatelliteFiltersChange([...satelliteFilters, sat.name]);
+                        }
+                      }}
+                      style={{
+                        background: isSelected ? 'rgba(0, 255, 255, 0.15)' : 'var(--bg-tertiary)',
+                        border: `1px solid ${isSelected ? '#00ffff' : 'var(--border-color)'}`,
+                        borderRadius: '6px',
+                        padding: '10px',
+                        textAlign: 'left',
+                        cursor: 'pointer',
+                        color: 'var(--text-primary)',
+                        fontFamily: 'JetBrains Mono',
+                        fontSize: '12px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <span style={{
+                        width: '16px',
+                        height: '16px',
+                        borderRadius: '3px',
+                        border: `2px solid ${isSelected ? '#00ffff' : '#666'}`,
+                        background: isSelected ? '#00ffff' : 'transparent',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '10px',
+                        flexShrink: 0
+                      }}>
+                        {isSelected && '✓'}
+                      </span>
+                      <div style={{ flex: 1, overflow: 'hidden' }}>
+                        <div style={{
+                          color: isSelected ? '#00ffff' : 'var(--text-primary)',
+                          fontWeight: '600',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>{sat.name}</div>
+                      </div>
+                    </button>
+                  );
+                })}
             </div>
           </div>
         )}
@@ -1437,7 +1541,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Description */}
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-              Save your current layout, theme, map layers, filters, and all preferences as a named profile. 
+              Save your current layout, theme, map layers, filters, and all preferences as a named profile.
               Switch between profiles when sharing a HamClock between operators, or to toggle between your own saved views.
             </div>
 
@@ -1561,217 +1665,217 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   {Object.entries(profiles)
                     .sort((a, b) => (b[1].updatedAt || '').localeCompare(a[1].updatedAt || ''))
                     .map(([name, profile]) => {
-                    const isActive = name === activeProfileName;
-                    const isRenaming = renamingProfile === name;
-                    
-                    // Parse callsign from snapshot if available
-                    let snapshotCallsign = '';
-                    try {
-                      const cfg = profile.snapshot?.openhamclock_config;
-                      if (cfg) snapshotCallsign = JSON.parse(cfg).callsign || '';
-                    } catch {}
-                    
-                    // Parse layout type
-                    let snapshotLayout = '';
-                    try {
-                      const cfg = profile.snapshot?.openhamclock_config;
-                      if (cfg) snapshotLayout = JSON.parse(cfg).layout || '';
-                    } catch {}
-                    
-                    return (
-                      <div key={name} style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        padding: '10px 12px',
-                        background: isActive ? 'rgba(0, 255, 136, 0.08)' : 'var(--bg-tertiary)',
-                        border: `1px solid ${isActive ? 'rgba(0, 255, 136, 0.3)' : 'var(--border-color)'}`,
-                        borderRadius: '6px',
-                      }}>
-                        {/* Profile info */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          {isRenaming ? (
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              <input
-                                type="text"
-                                value={renameValue}
-                                onChange={(e) => setRenameValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    if (renameProfile(name, renameValue)) {
-                                      refreshProfiles();
-                                      setProfileMessage({ type: 'success', text: `Renamed to "${renameValue.trim()}"` });
-                                    } else {
-                                      setProfileMessage({ type: 'error', text: 'Rename failed — name may be taken' });
+                      const isActive = name === activeProfileName;
+                      const isRenaming = renamingProfile === name;
+
+                      // Parse callsign from snapshot if available
+                      let snapshotCallsign = '';
+                      try {
+                        const cfg = profile.snapshot?.openhamclock_config;
+                        if (cfg) snapshotCallsign = JSON.parse(cfg).callsign || '';
+                      } catch { }
+
+                      // Parse layout type
+                      let snapshotLayout = '';
+                      try {
+                        const cfg = profile.snapshot?.openhamclock_config;
+                        if (cfg) snapshotLayout = JSON.parse(cfg).layout || '';
+                      } catch { }
+
+                      return (
+                        <div key={name} style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '10px 12px',
+                          background: isActive ? 'rgba(0, 255, 136, 0.08)' : 'var(--bg-tertiary)',
+                          border: `1px solid ${isActive ? 'rgba(0, 255, 136, 0.3)' : 'var(--border-color)'}`,
+                          borderRadius: '6px',
+                        }}>
+                          {/* Profile info */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            {isRenaming ? (
+                              <div style={{ display: 'flex', gap: '4px' }}>
+                                <input
+                                  type="text"
+                                  value={renameValue}
+                                  onChange={(e) => setRenameValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      if (renameProfile(name, renameValue)) {
+                                        refreshProfiles();
+                                        setProfileMessage({ type: 'success', text: `Renamed to "${renameValue.trim()}"` });
+                                      } else {
+                                        setProfileMessage({ type: 'error', text: 'Rename failed — name may be taken' });
+                                      }
+                                      setRenamingProfile(null);
+                                      setTimeout(() => setProfileMessage(null), 3000);
                                     }
-                                    setRenamingProfile(null);
+                                    if (e.key === 'Escape') setRenamingProfile(null);
+                                  }}
+                                  autoFocus
+                                  style={{
+                                    flex: 1,
+                                    padding: '4px 6px',
+                                    background: 'var(--bg-primary)',
+                                    border: '1px solid var(--accent-amber)',
+                                    borderRadius: '3px',
+                                    color: 'var(--text-primary)',
+                                    fontSize: '12px',
+                                    fontFamily: 'JetBrains Mono, monospace'
+                                  }}
+                                />
+                                <button onClick={() => {
+                                  if (renameProfile(name, renameValue)) {
+                                    refreshProfiles();
+                                    setProfileMessage({ type: 'success', text: `Renamed to "${renameValue.trim()}"` });
+                                  } else {
+                                    setProfileMessage({ type: 'error', text: 'Rename failed — name may already exist' });
+                                  }
+                                  setRenamingProfile(null);
+                                  setTimeout(() => setProfileMessage(null), 3000);
+                                }} style={{
+                                  padding: '4px 8px', background: 'var(--accent-green)', border: 'none',
+                                  borderRadius: '3px', color: '#000', fontSize: '10px', cursor: 'pointer', fontWeight: '700'
+                                }}>✓</button>
+                                <button onClick={() => setRenamingProfile(null)} style={{
+                                  padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+                                  borderRadius: '3px', color: 'var(--text-muted)', fontSize: '10px', cursor: 'pointer'
+                                }}>✕</button>
+                              </div>
+                            ) : (
+                              <>
+                                <div style={{
+                                  fontSize: '13px',
+                                  fontWeight: '600',
+                                  color: isActive ? '#00ff88' : 'var(--text-primary)',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis'
+                                }}>
+                                  {isActive && <span style={{ marginRight: '4px' }}>●</span>}
+                                  {name}
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                  {snapshotCallsign && <span>{snapshotCallsign}</span>}
+                                  {snapshotLayout && <span> • {snapshotLayout}</span>}
+                                  {profile.updatedAt && <span> • {new Date(profile.updatedAt).toLocaleDateString()}</span>}
+                                </div>
+                              </>
+                            )}
+                          </div>
+
+                          {/* Action buttons */}
+                          {!isRenaming && (
+                            <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
+                              {/* Load */}
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Load profile "${name}"? This will replace your current settings and reload.`)) {
+                                    loadProfile(name);
+                                    window.location.reload();
+                                  }
+                                }}
+                                title="Load this profile"
+                                style={{
+                                  padding: '5px 10px',
+                                  background: isActive ? 'rgba(0,255,136,0.15)' : 'var(--bg-primary)',
+                                  border: `1px solid ${isActive ? 'rgba(0,255,136,0.3)' : 'var(--border-color)'}`,
+                                  borderRadius: '4px',
+                                  color: isActive ? '#00ff88' : 'var(--text-secondary)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer',
+                                  fontWeight: '600'
+                                }}
+                              >
+                                {isActive ? '✓ Active' : '▶ Load'}
+                              </button>
+                              {/* Update (overwrite with current state) */}
+                              <button
+                                onClick={() => {
+                                  saveProfile(name);
+                                  refreshProfiles();
+                                  setProfileMessage({ type: 'success', text: `"${name}" updated with current state` });
+                                  setTimeout(() => setProfileMessage(null), 3000);
+                                }}
+                                title="Update with current settings"
+                                style={{
+                                  padding: '5px 8px',
+                                  background: 'var(--bg-primary)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '4px',
+                                  color: 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer'
+                                }}
+                              >↻</button>
+                              {/* Rename */}
+                              <button
+                                onClick={() => { setRenamingProfile(name); setRenameValue(name); }}
+                                title="Rename"
+                                style={{
+                                  padding: '5px 8px',
+                                  background: 'var(--bg-primary)',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '4px',
+                                  color: 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer'
+                                }}
+                              >✎</button>
+                              {/* Export */}
+                              <button
+                                onClick={() => {
+                                  const json = exportProfile(name);
+                                  if (json) {
+                                    const blob = new Blob([json], { type: 'application/json' });
+                                    const url = URL.createObjectURL(blob);
+                                    const a = document.createElement('a');
+                                    a.href = url;
+                                    a.download = `hamclock-profile-${name.replace(/\s+/g, '-').toLowerCase()}.json`;
+                                    a.click();
+                                    URL.revokeObjectURL(url);
+                                    setProfileMessage({ type: 'success', text: `Exported "${name}"` });
                                     setTimeout(() => setProfileMessage(null), 3000);
                                   }
-                                  if (e.key === 'Escape') setRenamingProfile(null);
                                 }}
-                                autoFocus
+                                title="Export to file"
                                 style={{
-                                  flex: 1,
-                                  padding: '4px 6px',
+                                  padding: '5px 8px',
                                   background: 'var(--bg-primary)',
-                                  border: '1px solid var(--accent-amber)',
-                                  borderRadius: '3px',
-                                  color: 'var(--text-primary)',
-                                  fontSize: '12px',
-                                  fontFamily: 'JetBrains Mono, monospace'
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '4px',
+                                  color: 'var(--text-muted)',
+                                  fontSize: '11px',
+                                  cursor: 'pointer'
                                 }}
-                              />
-                              <button onClick={() => {
-                                if (renameProfile(name, renameValue)) {
-                                  refreshProfiles();
-                                  setProfileMessage({ type: 'success', text: `Renamed to "${renameValue.trim()}"` });
-                                } else {
-                                  setProfileMessage({ type: 'error', text: 'Rename failed — name may already exist' });
-                                }
-                                setRenamingProfile(null);
-                                setTimeout(() => setProfileMessage(null), 3000);
-                              }} style={{
-                                padding: '4px 8px', background: 'var(--accent-green)', border: 'none',
-                                borderRadius: '3px', color: '#000', fontSize: '10px', cursor: 'pointer', fontWeight: '700'
-                              }}>✓</button>
-                              <button onClick={() => setRenamingProfile(null)} style={{
-                                padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
-                                borderRadius: '3px', color: 'var(--text-muted)', fontSize: '10px', cursor: 'pointer'
-                              }}>✕</button>
+                              >⤓</button>
+                              {/* Delete */}
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Delete profile "${name}"? This cannot be undone.`)) {
+                                    deleteProfile(name);
+                                    refreshProfiles();
+                                    setProfileMessage({ type: 'success', text: `Deleted "${name}"` });
+                                    setTimeout(() => setProfileMessage(null), 3000);
+                                  }
+                                }}
+                                title="Delete"
+                                style={{
+                                  padding: '5px 8px',
+                                  background: 'var(--bg-primary)',
+                                  border: '1px solid rgba(255,68,102,0.3)',
+                                  borderRadius: '4px',
+                                  color: '#ff4466',
+                                  fontSize: '11px',
+                                  cursor: 'pointer'
+                                }}
+                              >✕</button>
                             </div>
-                          ) : (
-                            <>
-                              <div style={{
-                                fontSize: '13px',
-                                fontWeight: '600',
-                                color: isActive ? '#00ff88' : 'var(--text-primary)',
-                                whiteSpace: 'nowrap',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis'
-                              }}>
-                                {isActive && <span style={{ marginRight: '4px' }}>●</span>}
-                                {name}
-                              </div>
-                              <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                                {snapshotCallsign && <span>{snapshotCallsign}</span>}
-                                {snapshotLayout && <span> • {snapshotLayout}</span>}
-                                {profile.updatedAt && <span> • {new Date(profile.updatedAt).toLocaleDateString()}</span>}
-                              </div>
-                            </>
                           )}
                         </div>
-
-                        {/* Action buttons */}
-                        {!isRenaming && (
-                          <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
-                            {/* Load */}
-                            <button
-                              onClick={() => {
-                                if (window.confirm(`Load profile "${name}"? This will replace your current settings and reload.`)) {
-                                  loadProfile(name);
-                                  window.location.reload();
-                                }
-                              }}
-                              title="Load this profile"
-                              style={{
-                                padding: '5px 10px',
-                                background: isActive ? 'rgba(0,255,136,0.15)' : 'var(--bg-primary)',
-                                border: `1px solid ${isActive ? 'rgba(0,255,136,0.3)' : 'var(--border-color)'}`,
-                                borderRadius: '4px',
-                                color: isActive ? '#00ff88' : 'var(--text-secondary)',
-                                fontSize: '11px',
-                                cursor: 'pointer',
-                                fontWeight: '600'
-                              }}
-                            >
-                              {isActive ? '✓ Active' : '▶ Load'}
-                            </button>
-                            {/* Update (overwrite with current state) */}
-                            <button
-                              onClick={() => {
-                                saveProfile(name);
-                                refreshProfiles();
-                                setProfileMessage({ type: 'success', text: `"${name}" updated with current state` });
-                                setTimeout(() => setProfileMessage(null), 3000);
-                              }}
-                              title="Update with current settings"
-                              style={{
-                                padding: '5px 8px',
-                                background: 'var(--bg-primary)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '4px',
-                                color: 'var(--text-muted)',
-                                fontSize: '11px',
-                                cursor: 'pointer'
-                              }}
-                            >↻</button>
-                            {/* Rename */}
-                            <button
-                              onClick={() => { setRenamingProfile(name); setRenameValue(name); }}
-                              title="Rename"
-                              style={{
-                                padding: '5px 8px',
-                                background: 'var(--bg-primary)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '4px',
-                                color: 'var(--text-muted)',
-                                fontSize: '11px',
-                                cursor: 'pointer'
-                              }}
-                            >✎</button>
-                            {/* Export */}
-                            <button
-                              onClick={() => {
-                                const json = exportProfile(name);
-                                if (json) {
-                                  const blob = new Blob([json], { type: 'application/json' });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement('a');
-                                  a.href = url;
-                                  a.download = `hamclock-profile-${name.replace(/\s+/g, '-').toLowerCase()}.json`;
-                                  a.click();
-                                  URL.revokeObjectURL(url);
-                                  setProfileMessage({ type: 'success', text: `Exported "${name}"` });
-                                  setTimeout(() => setProfileMessage(null), 3000);
-                                }
-                              }}
-                              title="Export to file"
-                              style={{
-                                padding: '5px 8px',
-                                background: 'var(--bg-primary)',
-                                border: '1px solid var(--border-color)',
-                                borderRadius: '4px',
-                                color: 'var(--text-muted)',
-                                fontSize: '11px',
-                                cursor: 'pointer'
-                              }}
-                            >⤓</button>
-                            {/* Delete */}
-                            <button
-                              onClick={() => {
-                                if (window.confirm(`Delete profile "${name}"? This cannot be undone.`)) {
-                                  deleteProfile(name);
-                                  refreshProfiles();
-                                  setProfileMessage({ type: 'success', text: `Deleted "${name}"` });
-                                  setTimeout(() => setProfileMessage(null), 3000);
-                                }
-                              }}
-                              title="Delete"
-                              style={{
-                                padding: '5px 8px',
-                                background: 'var(--bg-primary)',
-                                border: '1px solid rgba(255,68,102,0.3)',
-                                borderRadius: '4px',
-                                color: '#ff4466',
-                                fontSize: '11px',
-                                cursor: 'pointer'
-                              }}
-                            >✕</button>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               )}
             </div>
