@@ -2,10 +2,9 @@
  * Header Component
  * Top bar with callsign, clocks, weather, and controls
  */
-import React from 'react';
+import { startTransition } from 'react';
 import { IconGear, IconExpand, IconShrink } from './Icons.jsx';
-import { useTranslation } from 'react-i18next';
-import { LANGUAGES } from '../lang/i18n';
+import { getFlagForCallsign } from '../utils/countryFlags';
 import { QRZToggle } from './CallsignLink.jsx';
 
 export const Header = ({
@@ -27,8 +26,7 @@ export const Header = ({
   updateInProgress,
   showUpdateButton
 }) => {
-  const { i18n } = useTranslation();
-  const currentLang = LANGUAGES.find(l => l.code === i18n.language) || LANGUAGES[0];
+  const countryFlag = getFlagForCallsign(config.callsign);
 
   return (
     <div style={{
@@ -59,18 +57,20 @@ export const Header = ({
           {config.callsign}
         </span>
 
-        {/* Language Flag */}
-        <span
-          style={{
-            fontSize: config.headerSize > 0.1 && config.headerSize <= 2
-              ? `${18 * config.headerSize}px` // slightly smaller than text
-              : "18px",
-            cursor: 'help'
-          }}
-          title={`Language: ${currentLang.name}`}
-        >
-          {currentLang.flag}
-        </span>
+        {/* Country Flag */}
+        {countryFlag && (
+          <span
+            style={{
+              fontSize: config.headerSize > 0.1 && config.headerSize <= 2
+                ? `${18 * config.headerSize}px` // slightly smaller than text
+                : "18px",
+              cursor: 'help'
+            }}
+            title="Country Flag"
+          >
+            {countryFlag}
+          </span>
+        )}
 
         {config.version && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>v{config.version}</span>}
         {(() => {
