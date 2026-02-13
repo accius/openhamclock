@@ -3,23 +3,55 @@ services:
     build: .
     container_name: openhamclock
     ports:
-      - "3000:3000"
-      - "2237:2237/udp"   # WSJT-X UDP — point WSJT-X to 127.0.0.1:2237
+      - "3000:3000"       # HTTP
+      - "2237:2237/udp"   # WSJT-X UDP
+      - "12060:12060/udp" # N1MM UDP
     environment:
-      - NODE_ENV=production
-      - PORT=3000
-      # Uncomment and set your timezone (IANA format)
-      # This ensures correct local time display, especially with privacy browsers
-      # - TZ=America/New_York
-      # Uncomment to enable WSJT-X relay from local machine (cloud deployments)
-      # - WSJTX_RELAY_KEY=your-secret-relay-key-here
+      - CALLSIGN=${CALLSIGN}
+      - LOCATOR=${LOCATOR}
+      - LATITUDE=${LATITUDE}
+      - LONGITUDE=${LONGITUDE}
+      - PORT=${PORT}
+      - HOST=${HOST}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - AUTO_UPDATE_ENABLED=${AUTO_UPDATE_ENABLED}
+      - AUTO_UPDATE_INTERVAL_MINUTES=${AUTO_UPDATE_INTERVAL_MINUTES}
+      - AUTO_UPDATE_ON_START=${AUTO_UPDATE_ON_START}
+      - AUTO_UPDATE_EXIT_AFTER=${AUTO_UPDATE_EXIT_AFTER}
+      - SETTINGS_SYNC=${SETTINGS_SYNC}
+      - SETTINGS_FILE=${SETTINGS_FILE}
+      - UNITS=${UNITS}
+      - TIME_FORMAT=${TIME_FORMAT}
+      - THEME=${THEME}
+      - LAYOUT=${LAYOUT}
+      - TZ=${TZ}
+      - ITURHFPROP_URL=${ITURHFPROP_URL}
+      - DXSPIDER_PROXY_URL=${DXSPIDER_PROXY_URL}
+      - DX_CLUSTER_SOURCE=${DX_CLUSTER_SOURCE}
+      - OPENWEATHER_API_KEY=${OPENWEATHER_API_KEY}
+      - VITE_OPENWEATHER_API_KEY=${VITE_OPENWEATHER_API_KEY}
+      - SHOW_POTA=${SHOW_POTA}
+      - SHOW_SATELLITES=${SHOW_SATELLITES}
+      - SHOW_DX_PATHS=${SHOW_DX_PATHS}
+      - SHOW_DX_WEATHER=${SHOW_DX_WEATHER}
+      - CLASSIC_ANALOG_CLOCK=${CLASSIC_ANALOG_CLOCK}
+      - WSJTX_ENABLED=${WSJTX_ENABLED}
+      - WSJTX_UDP_PORT=${WSJTX_UDP_PORT}
+      - WSJTX_RELAY_KEY=${WSJTX_RELAY_KEY}
+      - DX_CLUSTER_CALLSIGN=${DX_CLUSTER_CALLSIGN}
+      - SPOT_RETENTION_MINUTES=${SPOT_RETENTION_MINUTES}
+      - N1MM_UDP_ENABLED=${N1MM_UDP_ENABLED}
+      - N1MM_UDP_PORT=${N1MM_UDP_PORT}
+      - N1MM_MAX_QSOS=${N1MM_MAX_QSOS}
+      - N1MM_QSO_MAX_AGE_MINUTES=${N1MM_QSO_MAX_AGE_MINUTES}
+      - VITE_AMBIENT_APPLICATION_KEY=${VITE_AMBIENT_APPLICATION_KEY}
+      - VITE_AMBIENT_API_KEY=${VITE_AMBIENT_API_KEY}
+      - VITE_AMBIENT_DEVICE_MAC=${VITE_AMBIENT_DEVICE_MAC}
+      - VITE_AMBIENT_POLL_SECONDS=${VITE_AMBIENT_POLL_SECONDS}
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "${HEALTH_ENDPOINT}"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 10s
-
-# For development with hot reload:
-# docker compose -f docker-compose.dev.yml up
