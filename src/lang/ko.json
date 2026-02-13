@@ -135,5 +135,6 @@
   "plugins.layers.wxradar.attribution": "기상 데이터 © 아이오와 주립대학교 Mesonet",
   "station.settings.layers.title": "지도 레이어",
   "station.settings.layers.noLayers": "사용 가능한 지도 레이어가 없습니다",
-  "station.settings.layers.opacity": "불투명도"
+  "station.settings.layers.opacity": "불투명도",
+  "dxClusterPanel.relativeTime": "{{minutes}}m ago ({{time}})"
 }

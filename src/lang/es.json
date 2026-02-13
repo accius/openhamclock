@@ -221,6 +221,7 @@
   "dxClusterPanel.quickSearch": "Búsqueda rápida...",
   "dxClusterPanel.noSpotsFiltered": "Ningún spot coincide con los filtros",
   "dxClusterPanel.noSpots": "No hay spots disponibles",
+  "dxClusterPanel.relativeTime": "{{minutes}}m ago ({{time}})",
   "dxClusterPanel.spotter": "de {{spotter}}",
   "pskReporterPanel.mode.pskTooltip": "Informes de recepción por Internet vía PSKReporter.info",
   "pskReporterPanel.mode.wsjtxTooltip": "Decodificaciones WSJT-X locales vía relé UDP",

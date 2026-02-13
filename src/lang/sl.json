@@ -112,6 +112,7 @@
   "dxClusterPanel.quickSearch": "Hitro iskanje...",
   "dxClusterPanel.noSpotsFiltered": "Noben spot ne ustreza filtrom",
   "dxClusterPanel.noSpots": "Na voljo ni spotov",
+  "dxClusterPanel.relativeTime": "{{minutes}}m ago ({{time}})",
   "pskReporterPanel.mode.pskTooltip": "Internetna poro?ila o sprejemu prek PSKReporter.info",
   "pskReporterPanel.mode.wsjtxTooltip": "Lokalni WSJT-X dekodi prek UDP relaya",
   "pskReporterPanel.psk.filterTooltip": "Filtriraj spote po pasu, na?inu ali mre?i",

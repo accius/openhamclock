@@ -111,6 +111,7 @@
   "dxClusterPanel.quickSearch": "Busca rápida...",
   "dxClusterPanel.noSpotsFiltered": "Nenhum spot corresponde aos filtros",
   "dxClusterPanel.noSpots": "Nenhum spot disponível",
+  "dxClusterPanel.relativeTime": "{{minutes}}m ago ({{time}})",
   "pskReporterPanel.mode.pskTooltip": "Relat?rios de recep??o pela Internet via PSKReporter.info",
   "pskReporterPanel.mode.wsjtxTooltip": "Decodifica??es WSJT-X locais via relay UDP",
   "pskReporterPanel.psk.filterTooltip": "Filtrar spots por banda, modo ou grade",

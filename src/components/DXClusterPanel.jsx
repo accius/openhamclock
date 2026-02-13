@@ -2,15 +2,14 @@
  * DXClusterPanel Component
  * Displays DX cluster spots with filtering controls and ON/OFF toggle
  */
-import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBandColor } from '../utils/callsign.js';
 import { IconSearch, IconMap, IconGlobe } from './Icons.jsx';
 import CallsignLink from './CallsignLink.jsx';
 
-export const DXClusterPanel = ({ 
-  data, 
-  loading, 
+export const DXClusterPanel = ({
+  data,
+  loading,
   totalSpots,
   filters,
   onFilterChange,
@@ -19,9 +18,56 @@ export const DXClusterPanel = ({
   onSpotClick,
   hoveredSpot,
   showOnMap,
-  onToggleMap
+  onToggleMap,
 }) => {
   const { t } = useTranslation();
+
+  const parseSpotTimeToTimestamp = (spot) => {
+    if (spot?.timestamp && Number.isFinite(spot.timestamp)) {
+      return spot.timestamp;
+    }
+
+    const raw = typeof spot?.time === 'string' ? spot.time.trim() : '';
+    const m = raw.match(/^(\d{2}):(\d{2})z$/i);
+    if (!m) return null;
+
+    const hh = parseInt(m[1], 10);
+    const mm = parseInt(m[2], 10);
+    if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh > 23 || mm > 59)
+      return null;
+
+    const now = new Date();
+    let ts = Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate(),
+      hh,
+      mm,
+      0,
+      0,
+    );
+
+    // Handle day rollover near UTC midnight.
+    if (ts - Date.now() > 5 * 60 * 1000) {
+      ts -= 24 * 60 * 60 * 1000;
+    }
+
+    return ts;
+  };
+
+  const formatSpotTimeLabel = (spot) => {
+    const ts = parseSpotTimeToTimestamp(spot);
+    if (!ts) return spot?.time || '';
+
+    const diffMs = Math.max(0, Date.now() - ts);
+    const minutes = Math.floor(diffMs / 60000);
+    const utc = new Date(ts);
+    const hh = String(utc.getUTCHours()).padStart(2, '0');
+    const mm = String(utc.getUTCMinutes()).padStart(2, '0');
+    const clock = `${hh}:${mm}z`;
+
+    return t('dxClusterPanel.relativeTime', { minutes, time: clock });
+  };
   const getActiveFilterCount = () => {
     let count = 0;
     if (filters?.continents?.length) count++;
@@ -44,68 +90,108 @@ export const DXClusterPanel = ({
   const spots = data || [];
 
   return (
-    <div className="panel" style={{ 
-      padding: '10px', 
-      display: 'flex', 
-      flexDirection: 'column',
-      height: '100%',
-      overflow: 'hidden'
-    }}>
+    <div
+      className='panel'
+      style={{
+        padding: '10px',
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden',
+      }}
+    >
       {/* Header */}
-      <div style={{ 
-        fontSize: '12px', 
-        color: 'var(--accent-green)', 
-        fontWeight: '700', 
-        marginBottom: '6px', 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center' 
-      }}>
-        <span><IconGlobe size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />{t('dxClusterPanel.title')} <span style={{ color: 'var(--accent-green)', fontSize: '10px' }}>● {t('dxClusterPanel.live')}</span></span>
+      <div
+        style={{
+          fontSize: '12px',
+          color: 'var(--accent-green)',
+          fontWeight: '700',
+          marginBottom: '6px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}
+      >
+        <span>
+          <IconGlobe
+            size={12}
+            style={{ verticalAlign: 'middle', marginRight: '4px' }}
+          />
+          {t('dxClusterPanel.title')}{' '}
+          <span style={{ color: 'var(--accent-green)', fontSize: '10px' }}>
+            ● {t('dxClusterPanel.live')}
+          </span>
+        </span>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{spots.length}/{totalSpots || spots.length}</span>
+          <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
+            {spots.length}/{totalSpots || spots.length}
+          </span>
           <button
             onClick={onOpenFilters}
             title={t('dxClusterPanel.filterTooltip')}
             style={{
-              background: filterCount > 0 ? 'rgba(255, 170, 0, 0.3)' : 'rgba(100, 100, 100, 0.3)',
+              background:
+                filterCount > 0
+                  ? 'rgba(255, 170, 0, 0.3)'
+                  : 'rgba(100, 100, 100, 0.3)',
               border: `1px solid ${filterCount > 0 ? '#ffaa00' : '#666'}`,
               color: filterCount > 0 ? '#ffaa00' : '#888',
               padding: '2px 8px',
               borderRadius: '4px',
               fontSize: '10px',
               fontFamily: 'JetBrains Mono',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
-            <IconSearch size={10} style={{ verticalAlign: 'middle', marginRight: '3px' }} />{t('dxClusterPanel.filtersButton')}
+            <IconSearch
+              size={10}
+              style={{ verticalAlign: 'middle', marginRight: '3px' }}
+            />
+            {t('dxClusterPanel.filtersButton')}
           </button>
           <button
             onClick={onToggleMap}
-            title={showOnMap ? t('dxClusterPanel.mapToggleHide') : t('dxClusterPanel.mapToggleShow')}
+            title={
+              showOnMap
+                ? t('dxClusterPanel.mapToggleHide')
+                : t('dxClusterPanel.mapToggleShow')
+            }
             style={{
-              background: showOnMap ? 'rgba(68, 136, 255, 0.3)' : 'rgba(100, 100, 100, 0.3)',
+              background: showOnMap
+                ? 'rgba(68, 136, 255, 0.3)'
+                : 'rgba(100, 100, 100, 0.3)',
               border: `1px solid ${showOnMap ? '#4488ff' : '#666'}`,
               color: showOnMap ? '#4488ff' : '#888',
               padding: '2px 8px',
               borderRadius: '4px',
               fontSize: '10px',
               fontFamily: 'JetBrains Mono',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
-            <IconMap size={10} style={{ verticalAlign: 'middle', marginRight: '3px' }} />{showOnMap ? t('dxClusterPanel.mapToggleOn') : t('dxClusterPanel.mapToggleOff')}
+            <IconMap
+              size={10}
+              style={{ verticalAlign: 'middle', marginRight: '3px' }}
+            />
+            {showOnMap
+              ? t('dxClusterPanel.mapToggleOn')
+              : t('dxClusterPanel.mapToggleOff')}
           </button>
         </div>
       </div>
-      
+
       {/* Quick search */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '6px' }}>
         <input
-          type="text"
+          type='text'
           placeholder={t('dxClusterPanel.quickSearch')}
           value={filters?.callsign || ''}
-          onChange={(e) => onFilterChange?.({ ...filters, callsign: e.target.value || undefined })}
+          onChange={(e) =>
+            onFilterChange?.({
+              ...filters,
+              callsign: e.target.value || undefined,
+            })
+          }
           style={{
             flex: 1,
             padding: '4px 8px',
@@ -114,37 +200,45 @@ export const DXClusterPanel = ({
             borderRadius: '3px',
             color: 'var(--text-primary)',
             fontSize: '11px',
-            fontFamily: 'JetBrains Mono'
+            fontFamily: 'JetBrains Mono',
           }}
         />
       </div>
 
       {/* Spots list */}
       {loading ? (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
-          <div className="loading-spinner" />
+        <div
+          style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}
+        >
+          <div className='loading-spinner' />
         </div>
       ) : spots.length === 0 ? (
-        <div style={{ 
-          textAlign: 'center', 
-          padding: '20px', 
-          color: 'var(--text-muted)',
-          fontSize: '12px'
-        }}>
-          {filterCount > 0 ? t('dxClusterPanel.noSpotsFiltered') : t('dxClusterPanel.noSpots')}
+        <div
+          style={{
+            textAlign: 'center',
+            padding: '20px',
+            color: 'var(--text-muted)',
+            fontSize: '12px',
+          }}
+        >
+          {filterCount > 0
+            ? t('dxClusterPanel.noSpotsFiltered')
+            : t('dxClusterPanel.noSpots')}
         </div>
       ) : (
-        <div style={{ 
-          flex: 1, 
-          overflow: 'auto',
-          fontSize: '12px',
-          fontFamily: 'JetBrains Mono, monospace'
-        }}>
+        <div
+          style={{
+            flex: 1,
+            overflow: 'auto',
+            fontSize: '12px',
+            fontFamily: 'JetBrains Mono, monospace',
+          }}
+        >
           {spots.slice(0, 25).map((spot, i) => {
             // Frequency can be in MHz (string like "14.070") or kHz (number like 14070)
             let freqDisplay = '?';
             let freqMHz = 0;
-            
+
             if (spot.freq) {
               const freqVal = parseFloat(spot.freq);
               if (freqVal > 1000) {
@@ -157,10 +251,10 @@ export const DXClusterPanel = ({
                 freqDisplay = freqVal.toFixed(3);
               }
             }
-            
+
             const color = getBandColor(freqMHz);
             const isHovered = hoveredSpot?.call === spot.call;
-            
+
             return (
               <div
                 key={`${spot.call}-${spot.freq}-${i}`}
@@ -174,36 +268,59 @@ export const DXClusterPanel = ({
                   padding: '5px 6px',
                   borderRadius: '3px',
                   marginBottom: '2px',
-                  background: isHovered ? 'rgba(68, 136, 255, 0.25)' : (i % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent'),
+                  background: isHovered
+                    ? 'rgba(68, 136, 255, 0.25)'
+                    : i % 2 === 0
+                      ? 'rgba(255,255,255,0.03)'
+                      : 'transparent',
                   cursor: 'pointer',
                   transition: 'background 0.15s',
-                  borderLeft: isHovered ? '2px solid #4488ff' : '2px solid transparent'
+                  borderLeft: isHovered
+                    ? '2px solid #4488ff'
+                    : '2px solid transparent',
                 }}
               >
-                <div style={{ color, fontWeight: '600' }}>
-                  {freqDisplay}
+                <div style={{ color, fontWeight: '600' }}>{freqDisplay}</div>
+                <div
+                  style={{
+                    color: 'var(--text-primary)',
+                    fontWeight: '700',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  <CallsignLink
+                    call={spot.call}
+                    color='var(--text-primary)'
+                    fontWeight='700'
+                  />
                 </div>
-                <div style={{ 
-                  color: 'var(--text-primary)', 
-                  fontWeight: '700',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
-                }}>
-                  <CallsignLink call={spot.call} color="var(--text-primary)" fontWeight="700" />
+                <div
+                  style={{
+                    color: 'var(--text-muted)',
+                    fontSize: '10px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    alignSelf: 'center',
+                  }}
+                >
+                  de{' '}
+                  <CallsignLink
+                    call={spot.spotter || '?'}
+                    color='var(--text-muted)'
+                    fontSize='10px'
+                  />
                 </div>
-                <div style={{ 
-                  color: 'var(--text-muted)', 
-                  fontSize: '10px',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  alignSelf: 'center'
-                }}>
-                  de <CallsignLink call={spot.spotter || '?'} color="var(--text-muted)" fontSize="10px" />
-                </div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
-                  {spot.time || ''}
+                <div
+                  style={{
+                    color: 'var(--text-muted)',
+                    fontSize: '10px',
+                    alignSelf: 'center',
+                  }}
+                >
+                  {formatSpotTimeLabel(spot)}
                 </div>
               </div>
             );
