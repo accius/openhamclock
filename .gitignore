@@ -4,6 +4,7 @@ package-lock.json
 
 # Build outputs
 dist/
+dist-electron/
 build/
 out/
 
