@@ -66,8 +66,8 @@ if (fs.existsSync(envPath)) {
     if (trimmed && !trimmed.startsWith('#')) {
       const [key, ...valueParts] = trimmed.split('=');
       const value = valueParts.join('=');
-      if (key && value !== undefined && !process.env[key]) {
-        process.env[key] = value;
+      if (key && value !== undefined) {
+        process.env[key] = value.trim();
       }
     }
   });
@@ -75,7 +75,7 @@ if (fs.existsSync(envPath)) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Security: API key for write operations (set in .env to protect POST endpoints)
@@ -418,7 +418,11 @@ app.use('/api', (req, res, next) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     return next();
   }
-  
+  // Rotator status must always be fresh
+  if (req.path.includes('/rotator')) {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return next();
+  }
   // Determine cache duration based on endpoint
   let cacheDuration = 30; // Default: 30 seconds
   
@@ -593,6 +597,217 @@ app.use('/api', (req, res, next) => {
   });
   
   next();
+});
+// ============================================
+// ROTATOR BRIDGE (PstRotatorAz UDP Provider)
+// Exposes a stable REST API for the frontend.
+// Provider can be swapped later (hamlib/gs232/etc).
+//
+// Env:
+//   ROTATOR_PROVIDER=pstrotator_udp | none
+//   PSTROTATOR_HOST=192.168.1.43
+//   PSTROTATOR_UDP_PORT=12000
+//   ROTATOR_STALE_MS=5000
+// ============================================
+
+const ROTATOR_PROVIDER = (process.env.ROTATOR_PROVIDER || 'pstrotator_udp').toLowerCase();
+const PSTROTATOR_HOST = process.env.PSTROTATOR_HOST || '192.168.1.43';
+const PSTROTATOR_UDP_PORT = parseInt(process.env.PSTROTATOR_UDP_PORT || '12000', 10);
+const ROTATOR_STALE_MS = parseInt(process.env.ROTATOR_STALE_MS || '5000', 10);
+
+// PstRotatorAz replies to UDP port+1 at the sender's IP (per manual)
+const PSTROTATOR_REPLY_PORT = PSTROTATOR_UDP_PORT + 1;
+
+const rotatorState = {
+  azimuth: null,
+  lastSeen: 0,
+  source: ROTATOR_PROVIDER,
+  lastError: null,
+};
+
+function clampAz(v) {
+  let n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  // normalize to [0, 360)
+  n = ((n % 360) + 360) % 360;
+  return Math.round(n);
+}
+
+function parseAzimuthFromMessage(msgStr) {
+  // Expected examples:
+  //   "AZ:123"
+  //   "... AZ:123 ..."
+  const m = msgStr.match(/AZ\s*:\s*([0-9]{1,3})/i);
+  if (!m) return null;
+  const az = clampAz(parseInt(m[1], 10));
+  return az;
+}
+
+// A simple in-process "mutex" so we don't overlap UDP queries
+let rotatorInflight = Promise.resolve();
+
+let rotatorSocket = null;
+
+function ensureRotatorSocket() {
+  if (rotatorSocket) return rotatorSocket;
+
+  const sock = dgram.createSocket('udp4');
+
+  sock.on('error', (err) => {
+    rotatorState.lastError = String(err?.message || err);
+    // Don't crash server; just log once in a while
+    console.warn(`[Rotator] UDP socket error: ${rotatorState.lastError}`);
+  });
+
+  sock.on('message', (buf, rinfo) => {
+    const s = buf.toString('utf8').trim();
+
+    console.log(
+      `[Rotator] RX from ${rinfo.address}:${rinfo.port} -> "${s}"`
+    );
+
+    const az = parseAzimuthFromMessage(s);
+
+    if (az !== null) {
+      rotatorState.azimuth = az;
+      rotatorState.lastSeen = Date.now();
+      rotatorState.lastError = null;
+    }
+  });
+
+  // Bind to reply port so PstRotatorAz can send responses back
+  // NOTE: allow on all interfaces
+  sock.bind(PSTROTATOR_REPLY_PORT, '0.0.0.0', () => {
+    try {
+      sock.setRecvBufferSize?.(1024 * 1024);
+    } catch {}
+    console.log(`[Rotator] UDP listening on ${PSTROTATOR_REPLY_PORT} (provider=${ROTATOR_PROVIDER})`);
+  });
+
+  rotatorSocket = sock;
+  return rotatorSocket;
+}
+
+function udpSend(message) {
+  const sock = ensureRotatorSocket();     // this one is bound to 12001
+  const buf = Buffer.from(message, 'utf8');
+
+  return new Promise((resolve, reject) => {
+    sock.send(buf, 0, buf.length, PSTROTATOR_UDP_PORT, PSTROTATOR_HOST, (err) => {
+      if (err) return reject(err);
+      resolve();
+    });
+  });
+}
+
+async function queryAzimuthOnce(timeoutMs = 800) {
+  if (ROTATOR_PROVIDER === 'none') {
+    return { ok: false, reason: 'disabled' };
+  }
+
+  // Serialize UDP queries
+  rotatorInflight = rotatorInflight.then(async () => {
+    const before = Date.now();
+    try {
+      // Per manual: request azimuth
+      // <PST>AZ?</PST>
+      console.log(`[Rotator] TX query -> ${PSTROTATOR_HOST}:${PSTROTATOR_UDP_PORT}`);
+      await udpSend('<PST>AZ?</PST>');
+
+      // Wait until we see a fresh AZ update (or timeout)
+      while (Date.now() - before < timeoutMs) {
+        if (rotatorState.lastSeen >= before && rotatorState.azimuth !== null) {
+          return { ok: true, azimuth: rotatorState.azimuth };
+        }
+        await new Promise(r => setTimeout(r, 30));
+      }
+      return { ok: false, reason: 'timeout' };
+    } catch (e) {
+      rotatorState.lastError = String(e?.message || e);
+      return { ok: false, reason: rotatorState.lastError };
+    }
+  });
+
+  return rotatorInflight;
+}
+
+async function setAzimuth(az) {
+  if (ROTATOR_PROVIDER === 'none') return { ok: false, reason: 'disabled' };
+
+  const clamped = clampAz(az);
+  if (clamped === null) return { ok: false, reason: 'invalid azimuth' };
+
+  // Per manual: set azimuth
+  // <PST><AZIMUTH>85</AZIMUTH></PST>
+  await udpSend(`<PST><AZIMUTH>${clamped}</AZIMUTH></PST>`);
+  return { ok: true, target: clamped };
+}
+
+async function stopRotator() {
+  if (ROTATOR_PROVIDER === 'none') return { ok: false, reason: 'disabled' };
+
+  // Per manual: STOP command
+  await udpSend('<PST><STOP>1</STOP></PST>');
+  return { ok: true };
+}
+
+// --- REST API ---
+
+app.get('/api/rotator/status', async (req, res) => {
+  // Always fresh
+  console.log('[Rotator] /api/rotator/status hit');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+
+  // If we haven't seen an update recently, try to poll once
+  const now = Date.now();
+  const isLive = rotatorState.azimuth !== null && (now - rotatorState.lastSeen) <= ROTATOR_STALE_MS;
+
+  if (!isLive && ROTATOR_PROVIDER !== 'none') {
+    await queryAzimuthOnce(800);
+  }
+
+  const now2 = Date.now();
+  const live2 = rotatorState.azimuth !== null && (now2 - rotatorState.lastSeen) <= ROTATOR_STALE_MS;
+
+  res.json({
+    source: ROTATOR_PROVIDER,
+    live: live2,
+    azimuth: rotatorState.azimuth,
+    lastSeen: rotatorState.lastSeen || 0,
+    staleMs: ROTATOR_STALE_MS,
+    error: rotatorState.lastError,
+  });
+});
+
+app.post('/api/rotator/turn', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  try {
+    const { azimuth } = req.body || {};
+    const result = await setAzimuth(azimuth);
+
+    // Optionally query immediately so UI updates quickly
+    await queryAzimuthOnce(800);
+
+    res.json({
+      ok: result.ok,
+      target: result.target,
+      azimuth: rotatorState.azimuth,
+      live: rotatorState.azimuth !== null && (Date.now() - rotatorState.lastSeen) <= ROTATOR_STALE_MS,
+      error: result.ok ? null : result.reason,
+    });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
+});
+
+app.post('/api/rotator/stop', async (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  try {
+    const result = await stopRotator();
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ ok: false, error: String(e?.message || e) });
+  }
 });
 
 // ============================================

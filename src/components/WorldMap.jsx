@@ -53,9 +53,10 @@ export const WorldMap = ({
   showDXPaths, 
   showDXLabels, 
   onToggleDXLabels, 
-  showPOTA, 
+  showPOTA,
+  showPOTALabels = true,
   showSOTA,
-  showSatellites, 
+  showSatellites,
   showPSKReporter,
   showWSJTX,
   onToggleSatellites, 
@@ -64,7 +65,13 @@ export const WorldMap = ({
   showDXNews = true,
   hideOverlays,
   lowMemoryMode = false,
-  units = 'imperial'
+  units = 'imperial',
+  showRotatorBearing = false,
+  rotatorAzimuth = null,
+  rotatorLastGoodAzimuth = null,
+  rotatorIsStale = false,
+  rotatorControlEnabled,
+  onRotatorTurnRequest
 }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
@@ -86,13 +93,18 @@ export const WorldMap = ({
   const wsjtxMarkersRef = useRef([]);
   const countriesLayerRef = useRef(null);
   const dxLockedRef = useRef(dxLocked);
+  const rotatorLineRef = useRef(null);
+  const rotatorGlowRef = useRef(null);
+  const rotatorTurnRef = useRef(onRotatorTurnRequest);
+  const rotatorEnabledRef = useRef(rotatorControlEnabled);
+  const deRef = useRef(deLocation);
 
   // Calculate grid locator from DE location for plugins
   const deLocator = useMemo(() => {
     if (!deLocation?.lat || !deLocation?.lon) return '';
     return calculateGridSquare(deLocation.lat, deLocation.lon);
   }, [deLocation?.lat, deLocation?.lon]);
-
+  
   // Expose DE location to window for plugins (e.g., RBN)
   useEffect(() => {
     if (deLocation?.lat && deLocation?.lon) {
@@ -144,6 +156,68 @@ export const WorldMap = ({
     zoom: storedSettings.zoom || 2.5
   });
   
+  const destinationPoint = (latDeg, lonDeg, bearingDeg, distanceDeg) => {
+    const toRad = (d) => (d * Math.PI) / 180;
+    const toDeg = (r) => (r * 180) / Math.PI;
+
+    const φ1 = toRad(latDeg);
+    const λ1 = toRad(lonDeg);
+    const θ = toRad(bearingDeg);
+    const δ = toRad(distanceDeg);
+
+    const sinφ1 = Math.sin(φ1), cosφ1 = Math.cos(φ1);
+    const sinδ = Math.sin(δ), cosδ = Math.cos(δ);
+
+    const sinφ2 = sinφ1 * cosδ + cosφ1 * sinδ * Math.cos(θ);
+    const φ2 = Math.asin(sinφ2);
+
+    const y = Math.sin(θ) * sinδ * cosφ1;
+    const x = cosδ - sinφ1 * sinφ2;
+    const λ2 = λ1 + Math.atan2(y, x);
+
+    let lon2 = ((toDeg(λ2) + 540) % 360) - 180;
+    let lat2 = toDeg(φ2);
+
+    return { lat: lat2, lon: lon2 };
+  };
+
+  const buildBearingPoints = (lat, lon, azDeg, maxDeg = 90, stepDeg = 2) => {
+    const pts = [];
+    for (let d = 0; d <= maxDeg; d += stepDeg) {
+      const p = destinationPoint(lat, lon, azDeg, d);
+      pts.push([p.lat, p.lon]);
+    }
+    return pts;
+  };
+
+  const initialBearingDeg = (lat1, lon1, lat2, lon2) => {
+    const toRad = (d) => (d * Math.PI) / 180;
+    const toDeg = (r) => (r * 180) / Math.PI;
+
+    const φ1 = toRad(lat1);
+    const φ2 = toRad(lat2);
+    const Δλ = toRad(lon2 - lon1);
+
+    const y = Math.sin(Δλ) * Math.cos(φ2);
+    const x =
+      Math.cos(φ1) * Math.sin(φ2) -
+      Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+    const θ = Math.atan2(y, x);
+    return ((toDeg(θ) + 360) % 360);
+  };
+  useEffect(() => {
+    rotatorTurnRef.current = onRotatorTurnRequest;
+  }, [onRotatorTurnRequest]);
+
+  useEffect(() => {
+    rotatorEnabledRef.current = rotatorControlEnabled;
+  }, [rotatorControlEnabled]);
+
+  useEffect(() => {
+    deRef.current = deLocation;
+  }, [deLocation]);
+
   // Save map settings to localStorage when changed (merge, don't overwrite)
   useEffect(() => {
     try {
@@ -211,17 +285,6 @@ export const WorldMap = ({
         terminatorRef.current.setTime();
       }
     }, 60000);
-
-    // Click handler for setting DX (only if not locked)
-    map.on('click', (e) => {
-      if (onDXChange && !dxLockedRef.current) {
-        // Normalize longitude to -180 to 180 range (Leaflet can return values outside this range when map wraps)
-        let lon = e.latlng.lng;
-        while (lon > 180) lon -= 360;
-        while (lon < -180) lon += 360;
-        onDXChange({ lat: e.latlng.lat, lon });
-      }
-    });
     
     // Save map view when user pans or zooms
     // IMPORTANT: Do NOT normalize longitude here. Leaflet tracks center beyond ±180 
@@ -232,7 +295,35 @@ export const WorldMap = ({
       const zoom = map.getZoom();
       setMapView({ center: [center.lat, center.lng], zoom });
     });
+    // Click handler:
+    // - Shift+click => turn rotator toward clicked point (if enabled)
+    // - Normal click => set DX (only if not locked)
+    map.on("click", (e) => {
+      // Normalize longitude to -180..180
+      let lon = e.latlng.lng;
+      while (lon > 180) lon -= 360;
+      while (lon < -180) lon += 360;
 
+      const oe = e?.originalEvent;
+      const isShift =
+        !!oe?.shiftKey ||
+        (typeof oe?.getModifierState === "function" && oe.getModifierState("Shift"));
+
+      // SHIFT+click => turn rotator (do NOT move DX)
+      if (isShift && rotatorEnabledRef.current && typeof rotatorTurnRef.current === "function") {
+        const de = deRef.current;
+        if (de?.lat != null && de?.lon != null) {
+          const az = initialBearingDeg(de.lat, de.lon, e.latlng.lat, lon);
+          rotatorTurnRef.current(az);
+          return;
+        }
+      }
+
+      // Normal click => move DX (only if not locked)
+      if (onDXChange && !dxLockedRef.current) {
+        onDXChange({ lat: e.latlng.lat, lon });
+      }
+    });
     mapInstanceRef.current = map;
 
     // ResizeObserver to handle panel resize/maximize in dockable layout
@@ -356,6 +447,18 @@ export const WorldMap = ({
       .catch(err => {
         console.warn('Could not load countries GeoJSON:', err);
       });
+      return () => {
+        try {
+          if (rotatorLineRef.current) {
+            map.removeLayer(rotatorLineRef.current);
+            rotatorLineRef.current = null;
+          }
+          if (rotatorGlowRef.current) {
+            map.removeLayer(rotatorGlowRef.current);
+            rotatorGlowRef.current = null;
+          }
+        } catch {}
+      };
   }, [mapStyle]);
 
   // Update DE/DX markers
@@ -521,6 +624,83 @@ export const WorldMap = ({
     }
   }, [dxPaths, dxFilters, showDXPaths, showDXLabels, hoveredSpot]);
 
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map || typeof L === 'undefined') return;
+
+    const lat = deLocation?.lat;
+    const lon = deLocation?.lon;
+
+    const aRaw = rotatorAzimuth ?? rotatorLastGoodAzimuth;
+    const az = Number.isFinite(aRaw) ? (((aRaw % 360) + 360) % 360) : null;
+
+    // If disabled or no DE/azimuth, remove layer if it exists
+    if (!showRotatorBearing || !Number.isFinite(lat) || !Number.isFinite(lon) || az == null) {
+      if (rotatorLineRef.current) { map.removeLayer(rotatorLineRef.current); rotatorLineRef.current = null; }
+      if (rotatorGlowRef.current) { map.removeLayer(rotatorGlowRef.current); rotatorGlowRef.current = null; }
+      return;
+    }
+
+    let points = buildBearingPoints(lat, lon, az, 95, 2);
+    points = unwrapLonPath(points);
+
+    // Create if missing
+    if (!rotatorGlowRef.current) {
+      rotatorGlowRef.current = L.polyline(points, {
+        color: 'rgba(0,255,255,0.20)',
+        weight: 8,
+        opacity: 1,
+        dashArray: '10 10',
+        className: 'ohc-rotator-bearing-glow',
+        interactive: false,
+      }).addTo(map);
+    } else {
+      rotatorGlowRef.current.setLatLngs(points);
+    }
+
+    if (!rotatorLineRef.current) {
+      rotatorLineRef.current = L.polyline(points, {
+        color: 'rgba(0,255,255,0.78)',
+        weight: 2.4,
+        opacity: rotatorIsStale ? 0.55 : 1,
+        dashArray: '10 10',
+        className: 'ohc-rotator-bearing',
+        interactive: false,
+      }).addTo(map);
+    } else {
+      rotatorLineRef.current.setLatLngs(points);
+      rotatorLineRef.current.setStyle({ opacity: rotatorIsStale ? 0.55 : 1 });
+    }
+  }, [
+    showRotatorBearing,
+    deLocation?.lat,
+    deLocation?.lon,
+    rotatorAzimuth,
+    rotatorLastGoodAzimuth,
+    rotatorIsStale
+  ]);
+
+  const unwrapLonPath = (latlngs) => {
+    if (!Array.isArray(latlngs) || latlngs.length < 2) return latlngs;
+
+    const out = [];
+    let prevLon = latlngs[0][1];
+    out.push(latlngs[0]);
+
+    for (let i = 1; i < latlngs.length; i++) {
+      const [lat, lon] = latlngs[i];
+      let adjLon = lon;
+
+      // shift lon by +/- 360 to minimize jump from previous
+      while (adjLon - prevLon > 180) adjLon -= 360;
+      while (adjLon - prevLon < -180) adjLon += 360;
+
+      out.push([lat, adjLon]);
+      prevLon = adjLon;
+    }
+    return out;
+  };
+
   // Update POTA markers
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -545,7 +725,7 @@ export const WorldMap = ({
           potaMarkersRef.current.push(marker);
 
           // Only show callsign label when labels are enabled
-          if (showDXLabels) {
+          if (showPOTALabels) {
             const labelIcon = L.divIcon({
               className: '',
               html: `<span style="display:inline-block;background:#44cc44;color:#000;padding:4px 8px;border-radius:4px;font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;border:2px solid rgba(0,0,0,0.5);box-shadow:0 2px 4px rgba(0,0,0,0.4);">${esc(spot.call)}</span>`,
@@ -558,7 +738,7 @@ export const WorldMap = ({
         }
       });
     }
-  }, [potaSpots, showPOTA, showDXLabels]);
+  }, [potaSpots, showPOTA, showPOTALabels]);
 
   // Update SOTA markers
   useEffect(() => {
@@ -925,11 +1105,11 @@ export const WorldMap = ({
 		    lowMemoryMode={lowMemoryMode}
 		  />
 		))}
-      //  MODIS SLIDER CODE HERE 
+      {/* MODIS SLIDER */}
       {mapStyle === 'MODIS' && (
         <div style={{
           position: 'absolute',
-          top: '50px', 
+          top: '50px',
           right: '10px',
           background: 'rgba(0, 0, 0, 0.8)',
           border: '1px solid #444',
@@ -944,17 +1124,17 @@ export const WorldMap = ({
           <div style={{ color: '#00ffcc', fontSize: '10px', fontFamily: 'JetBrains Mono' }}>
             {gibsOffset === 0 ? 'LATEST' : `${gibsOffset} DAYS AGO`}
           </div>
-          <input 
-            type="range" 
-            min="0" 
-            max="7" 
-            value={gibsOffset} 
+          <input
+            type="range"
+            min="0"
+            max="7"
+            value={gibsOffset}
             onChange={(e) => setGibsOffset(parseInt(e.target.value))}
             style={{ cursor: 'pointer', width: '100px' }}
           />
         </div>
-      )} 
-      // End MODIS SLIDER CODE
+      )}
+      {/* END MODIS SLIDER */}
       {/* Map style dropdown */}
       <select
         value={mapStyle}
@@ -1005,7 +1185,7 @@ export const WorldMap = ({
       )}
       
       {/* Labels toggle */}
-      {onToggleDXLabels && showDXPaths && (
+      {onToggleDXLabels && showDXPaths && Array.isArray(dxPaths) && dxPaths.length > 0 && (
         <button
           onClick={onToggleDXLabels}
           title={showDXLabels ? 'Hide callsign labels on map' : 'Show callsign labels on map'}
@@ -1085,6 +1265,33 @@ export const WorldMap = ({
         </div>
       </div>
       )}
+      <style>{`
+        .ohc-rotator-bearing {
+          stroke-dasharray: 10 10;
+          animation: ohcRotDash 2.8s linear infinite, ohcRotPulse 3.2s ease-in-out infinite;
+          filter: drop-shadow(0 0 4px rgba(0,255,255,0.25));
+        }
+
+        .ohc-rotator-bearing-glow {
+          stroke-dasharray: 10 10;
+          animation: ohcRotDash 2.8s linear infinite, ohcRotGlow 3.2s ease-in-out infinite;
+        }
+
+        @keyframes ohcRotDash {
+          from { stroke-dashoffset: 0; }
+          to   { stroke-dashoffset: -44; }
+        }
+
+        @keyframes ohcRotPulse {
+          0%,100% { opacity: 0.55; }
+          50%     { opacity: 0.95; }
+        }
+
+        @keyframes ohcRotGlow {
+          0%,100% { opacity: 0.10; }
+          50%     { opacity: 0.24; }
+        }
+      `}</style>
     </div>
   );
 };

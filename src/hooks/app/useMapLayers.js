@@ -1,36 +1,61 @@
-'use strict';
-
 import { useState, useEffect, useCallback } from 'react';
 import { syncAllSettingsToServer } from '../../utils';
 
 export default function useMapLayers() {
+  const defaults = {
+    showDXPaths: true,
+    showDXLabels: true,
+    showPOTA: true,
+    showPOTALabels: true,
+    showSOTA: true,
+    showSatellites: false,
+    showPSKReporter: true,
+    showWSJTX: true,
+    showDXNews: true,
+    showRotatorBearing: false,
+  };
+
   const [mapLayers, setMapLayers] = useState(() => {
     try {
       const stored = localStorage.getItem('openhamclock_mapLayers');
-      const defaults = { showDXPaths: true, showDXLabels: true, showPOTA: true, showSOTA: true, showSatellites: false, showPSKReporter: true, showWSJTX: true, showDXNews: true };
-      return stored ? { ...defaults, ...JSON.parse(stored) } : defaults;
+      if (!stored) return defaults;
+
+      const parsed = JSON.parse(stored);
+
+      // If parsed isn't a plain object, fall back safely
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+        return defaults;
+      }
+
+      // Merge, but keep defaults for any newly-added keys
+      return { ...defaults, ...parsed };
     } catch (e) {
-      return { showDXPaths: true, showDXLabels: true, showPOTA: true, showSOTA: true, showSatellites: false, showPSKReporter: true, showWSJTX: true, showDXNews: true };
+      return defaults;
     }
   });
 
+  // Persist to localStorage + server when changed
   useEffect(() => {
     try {
       localStorage.setItem('openhamclock_mapLayers', JSON.stringify(mapLayers));
-      // Notify components that read directly from localStorage (e.g., DXNewsTicker)
-      window.dispatchEvent(new Event('mapLayersChanged'));
-      syncAllSettingsToServer();
-    } catch (e) {}
+    } catch {}
+
+    // If your upstream uses this utility, keep it — it helps keep settings in sync.
+    try {
+      syncAllSettingsToServer({ mapLayers });
+    } catch {}
   }, [mapLayers]);
 
   const toggleDXPaths = useCallback(() => setMapLayers(prev => ({ ...prev, showDXPaths: !prev.showDXPaths })), []);
   const toggleDXLabels = useCallback(() => setMapLayers(prev => ({ ...prev, showDXLabels: !prev.showDXLabels })), []);
   const togglePOTA = useCallback(() => setMapLayers(prev => ({ ...prev, showPOTA: !prev.showPOTA })), []);
+  const togglePOTALabels = useCallback(() => setMapLayers(prev => ({ ...prev, showPOTALabels: !prev.showPOTALabels })), []);
   const toggleSOTA = useCallback(() => setMapLayers(prev => ({ ...prev, showSOTA: !prev.showSOTA })), []);
   const toggleSatellites = useCallback(() => setMapLayers(prev => ({ ...prev, showSatellites: !prev.showSatellites })), []);
   const togglePSKReporter = useCallback(() => setMapLayers(prev => ({ ...prev, showPSKReporter: !prev.showPSKReporter })), []);
   const toggleWSJTX = useCallback(() => setMapLayers(prev => ({ ...prev, showWSJTX: !prev.showWSJTX })), []);
   const toggleDXNews = useCallback(() => setMapLayers(prev => ({ ...prev, showDXNews: !prev.showDXNews })), []);
+  const toggleRotatorBearing = useCallback(() => setMapLayers(prev => ({ ...prev, showRotatorBearing: !prev.showRotatorBearing })), []);
 
   return {
     mapLayers,
@@ -38,10 +63,12 @@ export default function useMapLayers() {
     toggleDXPaths,
     toggleDXLabels,
     togglePOTA,
+    togglePOTALabels,
     toggleSOTA,
     toggleSatellites,
     togglePSKReporter,
     toggleWSJTX,
-    toggleDXNews
+    toggleDXNews,
+    toggleRotatorBearing,
   };
 }
