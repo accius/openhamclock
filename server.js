@@ -1942,6 +1942,50 @@ app.get('/api/pota/spots', async (req, res) => {
 // SOTA cache (2 minutes)
 let sotaCache = { data: null, timestamp: 0 };
 const SOTA_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+let sotaSummits = { data: null, timestamp: 0};
+const SOTASUMMITS_CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
+
+// SOTA Summits
+// SOTA publishes a CSV of teh Summit detail every day. Save this into
+// a cache so we can look it up when loading the spots.
+
+async function checkSummitCache() {
+  const now = Date.now();
+  try {
+    if (sotaSummits.data && (now - sotaSummits.timestamp) < SOTASUMMITS_CACHE_TTL) {
+      return;
+    }
+    logDebug('[SOTA] Refreshing sotaSummits');
+    const response = await fetch('https://storage.sota.org.uk/summitslist.csv');
+    const data = await response.text();
+    const rows = data.trim().split('\n');
+    rows.shift(); // discard the title line
+    const headers = rows.shift().split(',').map(header => header.trim());
+    let summit = {};
+
+    rows.forEach(row => {
+      values = row.split(',').map(value => value.trim());
+      const obj = {};
+      headers.forEach((header, index) => {
+        obj[header] = values[index].replace(/"/g, '');
+      });
+      summit[obj['SummitCode']] = {
+        latitude: obj['Latitude'],
+        longitude: obj['Longitude'],
+        name: obj['SummitName'],
+        altM: obj['AltM'],
+        points: obj['Points']
+      };
+    });
+    sotaSummits = {
+      data: summit,
+      timestamp: now
+    }
+  } catch(error) {
+    logErrorOnce('[SOTA]', error.message);
+  }
+}
+checkSummitCache(); // Prime the sotaSummits cache
 
 // SOTA Spots
 app.get('/api/sota/spots', async (req, res) => {
@@ -1950,9 +1994,23 @@ app.get('/api/sota/spots', async (req, res) => {
     if (sotaCache.data && (Date.now() - sotaCache.timestamp) < SOTA_CACHE_TTL) {
       return res.json(sotaCache.data);
     }
-    
+
+    checkSummitCache(); // Updates sotaSummits if required
+
     const response = await fetch('https://api2.sota.org.uk/api/spots/50/all');
     const data = await response.json();
+
+    if (sotaSummits.data) {
+      // If we have data in teh sotaSummits cache, use it to populate summitDetails.
+      data.map(s => {
+        const summit = `${s.associationCode}/${s.summitCode}`;
+        s.summitDetails = sotaSummits.data[summit];
+      });
+    }
+    if (Array.isArray(data) && data.length > 0) {
+      const sample = data[0];
+      logDebug('[SOTA] API returned', data.length, 'spots. Sample fields:', Object.keys(sample).join(', '));
+    }
     
     // Cache the response
     sotaCache = { data, timestamp: Date.now() };
