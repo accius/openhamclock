@@ -5,6 +5,7 @@ services:
     ports:
       - "3000:3000"
       - "2237:2237/udp"   # WSJT-X UDP — point WSJT-X to 127.0.0.1:2237
+    env_file: .env
     environment:
       - NODE_ENV=production
       - PORT=3000
