@@ -1,5 +1,8 @@
 {
   "cancel": "Annuleer",
+  "contest.panel.time.live.hoursMinutes": "{{hours}}h {{minutes}}m left",
+  "contest.panel.time.live.minutes": "{{minutes}}m left",
+  "contest.panel.time.startsIn": "Starts in {{hours}}h",
   "station.settings.language": "Taal",
   "station.settings.language.en": "Engels",
   "station.settings.language.fr": "Frans",
