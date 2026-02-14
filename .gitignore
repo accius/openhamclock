@@ -88,3 +88,4 @@ start.sh
 stop.sh
 restart.sh
 status.sh
+.agent/
