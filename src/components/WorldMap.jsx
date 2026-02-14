@@ -42,7 +42,8 @@ export const WorldMap = ({
   dxLocation, 
   onDXChange,
   dxLocked,
-  potaSpots, 
+  potaSpots,
+  wwffSpots,
   sotaSpots,
   mySpots, 
   dxPaths, 
@@ -54,6 +55,7 @@ export const WorldMap = ({
   showDXLabels, 
   onToggleDXLabels, 
   showPOTA, 
+  showWWFF,
   showSOTA,
   showSatellites, 
   showPSKReporter,
@@ -75,6 +77,7 @@ export const WorldMap = ({
   const sunMarkerRef = useRef(null);
   const moonMarkerRef = useRef(null);
   const potaMarkersRef = useRef([]);
+  const wwffMarkersRef = useRef([]);
   const sotaMarkersRef = useRef([]);
   const mySpotsMarkersRef = useRef([]);
   const mySpotsLinesRef = useRef([]);
@@ -559,6 +562,45 @@ export const WorldMap = ({
       });
     }
   }, [potaSpots, showPOTA, showDXLabels]);
+
+// Update WWFF markers
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    wwffMarkersRef.current.forEach(m => map.removeLayer(m));
+    wwffMarkersRef.current = [];
+
+    if (showWWFF && wwffSpots) {
+      wwffSpots.forEach(spot => {
+        if (spot.lat && spot.lon) {
+          // Light Green triangle marker for WWFF activators
+          const triangleIcon = L.divIcon({
+            className: '',
+            html: `<span style="display:inline-block;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:14px solid #a3f3a3;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
+            iconSize: [14, 14],
+            iconAnchor: [7, 14]
+          });
+          const marker = L.marker([spot.lat, spot.lon], { icon: triangleIcon })
+            .bindPopup(`<b data-qrz-call="${esc(spot.call)}" style="color:#44cc44; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`)
+            .addTo(map);
+          wwffMarkersRef.current.push(marker);
+
+          // Only show callsign label when labels are enabled
+          if (showDXLabels) {
+            const labelIcon = L.divIcon({
+              className: '',
+              html: `<span style="display:inline-block;background:#a3f3a3;color:#000;padding:4px 8px;border-radius:4px;font-size:12px;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;border:2px solid rgba(0,0,0,0.5);box-shadow:0 2px 4px rgba(0,0,0,0.4);">${esc(spot.call)}</span>`,
+              iconSize: null,
+              iconAnchor: [0, -2]
+            });
+            const label = L.marker([spot.lat, spot.lon], { icon: labelIcon, interactive: false }).addTo(map);
+            wwffMarkersRef.current.push(label);
+          }
+        }
+      });
+    }
+  }, [wwffSpots, showWWFF, showDXLabels]);
 
   // Update SOTA markers
   useEffect(() => {
@@ -1072,6 +1114,11 @@ export const WorldMap = ({
         {showPOTA && (
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
             <span style={{ background: '#44cc44', color: '#000', padding: '2px 5px', borderRadius: '3px', fontWeight: '600' }}>▲ POTA</span>
+          </div>
+        )}
+        {showWWFF && (
+          <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <span style={{ background: '#a3f3a3', color: '#000', padding: '2px 5px', borderRadius: '3px', fontWeight: '600' }}>▲ WWFF</span>
           </div>
         )}
         {showSOTA && (

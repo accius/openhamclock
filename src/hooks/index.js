@@ -9,6 +9,7 @@ export { useDXCluster } from './useDXCluster.js';
 export { useDXPaths } from './useDXPaths.js';
 export { useDXClusterData } from './useDXClusterData.js';
 export { usePOTASpots } from './usePOTASpots.js';
+export { useWWFFSpots } from './useWWFFSpots.js';
 export { useSOTASpots } from './useSOTASpots.js';
 export { useContests } from './useContests.js';
 export { useWeather, convertWeatherData } from './useWeather.js';

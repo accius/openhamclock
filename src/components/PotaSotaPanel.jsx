@@ -1,16 +1,18 @@
 /**
  * PotaSotaPanel Component
- * Tabbed panel that switches between POTA and SOTA views.
+ * Tabbed panel that switches between POTA, WWFF and SOTA views.
  * Used in Classic and Modern layouts. In Dockable layout, each is a separate panel.
  */
 import React, { useState } from 'react';
 import { POTAPanel } from './POTAPanel.jsx';
+import { WWFFPanel } from './WWFFPanel.jsx';
 import { SOTAPanel } from './SOTAPanel.jsx';
 
 const TABS = ['pota', 'sota'];
 
 export const PotaSotaPanel = ({
   potaData, potaLoading, showPOTA, onTogglePOTA,
+  wwffData, wwffLoading, showWWFF, onToggleWWFF,
   sotaData, sotaLoading, showSOTA, onToggleSOTA
 }) => {
   const [activeTab, setActiveTab] = useState(() => {
@@ -54,6 +56,9 @@ export const PotaSotaPanel = ({
         <button style={tabStyle('pota')} onClick={() => handleTabChange('pota')}>
           ▲ POTA {potaData?.length > 0 ? `(${potaData.length})` : ''}
         </button>
+        <button style={tabStyle('wwff')} onClick={() => handleTabChange('wwff')}>
+          ▲ WWFF {wwffData?.length > 0 ? `(${wwffData.length})` : ''}
+        </button>
         <button style={tabStyle('sota')} onClick={() => handleTabChange('sota')}>
           ⛰ SOTA {sotaData?.length > 0 ? `(${sotaData.length})` : ''}
         </button>
@@ -68,12 +73,19 @@ export const PotaSotaPanel = ({
             showOnMap={showPOTA}
             onToggleMap={onTogglePOTA}
           />
-        ) : (
+        ) : activeTab === 'sota' ? (
           <SOTAPanel
             data={sotaData}
             loading={sotaLoading}
             showOnMap={showSOTA}
             onToggleMap={onToggleSOTA}
+          />
+        ) : (
+          <WWFFPanel
+            data={wwffData}
+            loading={wwffLoading}
+            showOnMap={showWWFF}
+            onToggleMap={onToggleWWFF}
           />
         )}
       </div>

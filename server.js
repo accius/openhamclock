@@ -1938,6 +1938,38 @@ app.get('/api/pota/spots', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch POTA spots' });
   }
 });
+// WWFF Spots
+// WWFF cache (1 minute)
+let wwffCache = { data: null, timestamp: 0 };
+const WWFF_CACHE_TTL = 90 * 1000; // 90 seconds (longer than 60s frontend poll to maximize cache hits)
+
+app.get('/api/wwff/spots', async (req, res) => {
+  try {
+    // Return cached data if fresh
+    if (potaCache.data && (Date.now() - potaCache.timestamp) < WWFF_CACHE_TTL) {
+      return res.json(wwffCache.data);
+    }
+    
+    const response = await fetch('https://spots.wwff.co/static/spots.json');
+    const data = await response.json();
+    
+    // Log diagnostic info about the response
+    if (Array.isArray(data) && data.length > 0) {
+      const sample = data[0];
+      logDebug('[WWFF] API returned', data.length, 'spots. Sample fields:', Object.keys(sample).join(', '));
+    }
+    
+    // Cache the response
+    wwffCache = { data, timestamp: Date.now() };
+    
+    res.json(data);
+  } catch (error) {
+    logErrorOnce('WWFF', error.message);
+    // Return stale cache on error
+    if (wwffCache.data) return res.json(wwffCache.data);
+    res.status(500).json({ error: 'Failed to fetch WWFF spots' });
+  }
+});
 
 // SOTA cache (2 minutes)
 let sotaCache = { data: null, timestamp: 0 };

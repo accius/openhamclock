@@ -11,6 +11,7 @@ import {
   WorldMap,
   DXClusterPanel,
   POTAPanel,
+  WWFFPanel,
   SOTAPanel,
   ContestPanel,
   SolarPanel,
@@ -66,6 +67,7 @@ export const DockableApp = ({
   // Spots & data
   dxClusterData,
   potaSpots,
+  wwffSpots,
   sotaSpots,
   mySpots,
   dxpeditions,
@@ -89,6 +91,7 @@ export const DockableApp = ({
   toggleDXPaths,
   toggleDXLabels,
   togglePOTA,
+  toggleWWFF,
   toggleSOTA,
   toggleSatellites,
   togglePSKReporter,
@@ -195,6 +198,7 @@ export const DockableApp = ({
       'psk-reporter': { name: 'PSK Reporter', icon: '📡' },
       'dxpeditions': { name: 'DXpeditions', icon: '🏝️' },
       'pota': { name: 'POTA', icon: '🏕️' },
+      'wwff': { name: 'WWFF', icon: '🌲' },
       'sota': { name: 'SOTA', icon: '⛰️' },
       'contests': { name: 'Contests', icon: '🏆' },
       ...(hasAmbient ? { 'ambient': { name: 'Ambient Weather', icon: '🌦️' } } : {}),
@@ -293,6 +297,7 @@ export const DockableApp = ({
         onDXChange={handleDXChange}
         dxLocked={dxLocked}
         potaSpots={potaSpots.data}
+        wwffSpots={wwffSpots.data}
         sotaSpots={sotaSpots.data}
         mySpots={mySpots.data}
         dxPaths={dxClusterData.paths}
@@ -303,6 +308,7 @@ export const DockableApp = ({
         showDXLabels={mapLayers.showDXLabels}
         onToggleDXLabels={toggleDXLabels}
         showPOTA={mapLayers.showPOTA}
+        showWWFF={mapLayers.showWWFF}
         showSOTA={mapLayers.showSOTA}
         showSatellites={mapLayers.showSatellites}
         showPSKReporter={mapLayers.showPSKReporter}
@@ -446,6 +452,10 @@ export const DockableApp = ({
       case 'pota':
         content = <POTAPanel data={potaSpots.data} loading={potaSpots.loading} showOnMap={mapLayers.showPOTA} onToggleMap={togglePOTA} />;
         break;
+      
+      case 'wwff':
+        content = <WWFFPanel data={wwffSpots.data} loading={wwffSpots.loading} showOnMap={mapLayers.showWWFF} onToggleMap={toggleWWFF} />;
+        break;
 
       case 'sota':
         content = <SOTAPanel data={sotaSpots.data} loading={sotaSpots.loading} showOnMap={mapLayers.showSOTA} onToggleMap={toggleSOTA} />;
@@ -493,10 +503,10 @@ export const DockableApp = ({
     return content;
   }, [
     config, deGrid, dxGrid, dxLocation, deSunTimes, dxSunTimes, showDxWeather, tempUnit, localWeather, dxWeather, solarIndices,
-    propagation, bandConditions, dxClusterData, dxFilters, hoveredSpot, mapLayers, potaSpots, sotaSpots,
+    propagation, bandConditions, dxClusterData, dxFilters, hoveredSpot, mapLayers, potaSpots, wwffSpots, sotaSpots,
     mySpots, satellites, filteredSatellites, filteredPskSpots, wsjtxMapSpots, dxpeditions, contests,
     pskFilters, wsjtx, handleDXChange, setDxFilters, setShowDXFilters, setShowPSKFilters,
-    setHoveredSpot, toggleDXPaths, toggleDXLabels, togglePOTA, toggleSOTA, toggleSatellites, togglePSKReporter, toggleWSJTX,
+    setHoveredSpot, toggleDXPaths, toggleDXLabels, togglePOTA, toggleWWFF, toggleSOTA, toggleSatellites, togglePSKReporter, toggleWSJTX,
     dxLocked, handleToggleDxLock, panelZoom
   ]);
 
