@@ -117,7 +117,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
       }}
     >
       {/* DX NEWS label */}
-      <div style={{
+      <a href="https://dxnews.com" target="_blank" rel="noopener noreferrer" style={{
         background: 'rgba(255, 136, 0, 0.9)',
         color: '#000',
         fontWeight: '700',
@@ -129,10 +129,11 @@ export const DXNewsTicker = ({ sidebar = false }) => {
         alignItems: 'center',
         flexShrink: 0,
         borderRight: '1px solid #444',
-        letterSpacing: '0.5px'
+        letterSpacing: '0.5px',
+        textDecoration: 'none',
       }}>
         📰 DX NEWS
-      </div>
+      </a>
 
       {/* Scrolling content */}
       <div style={{
