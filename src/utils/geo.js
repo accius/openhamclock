@@ -313,12 +313,38 @@ export const getGreatCirclePoints = (lat1, lon1, lat2, lon2, n = 100) => {
  * Replicate an unwrapped polyline path across 3 world copies (-360, 0, +360).
  * Returns an array of 3 coordinate arrays, one per world copy.
  * Each copy can be passed directly to L.polyline().
+ * Returns an array of coordinate segments, Detect Date Line jumps and split into separate line segments to prevent horizontal streaks.
  */
-export const replicatePath = (points) => {
-  if (!points || points.length < 2) return [points || []];
-  return WORLD_COPY_OFFSETS.map(offset =>
-    points.map(([lat, lon]) => [lat, lon + offset])
-  );
+export const replicatePath = (path) => {
+  if (!path || path.length === 0) return [];
+
+  const segments = [[]];
+  
+  // 1. Detect Date Line jumps and split into separate line segments
+  for (let i = 0; i < path.length; i++) {
+    const current = path[i];
+    const prev = path[i - 1];
+    
+    // If the longitude jump is > 180 degrees, the satellite crossed the edge.
+    if (prev && Math.abs(current[1] - prev[1]) > 180) {
+      segments.push([]); 
+    }
+    segments[segments.length - 1].push(current);
+  }
+
+  // 2. Wrap each segment for the "3-world" view (-360, 0, +360)
+  const wrappedWorlds = [];
+  const offsets = [0, 360, -360];
+
+  segments.forEach(segment => {
+    if (segment.length < 2) return;
+    
+    offsets.forEach(offset => {
+      wrappedWorlds.push(segment.map(p => [p[0], p[1] + offset]));
+    });
+  });
+
+  return wrappedWorlds;
 };
 
 /**

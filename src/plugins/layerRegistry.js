@@ -5,6 +5,7 @@
 import * as N3FJPLoggedQSOsPlugin from './layers/useN3FJPLoggedQSOs.js';
 import * as WXRadarPlugin from './layers/useWXRadar.js';
 import * as OWMCloudsPlugin from './layers/useOWMClouds.js';
+import * as CityLightsPlugin from './layers/useCityLights.js';
 import * as EarthquakesPlugin from './layers/useEarthquakes.js';
 import * as AuroraPlugin from './layers/useAurora.js';
 import * as WSPRPlugin from './layers/useWSPR.js';
@@ -14,10 +15,12 @@ import * as RBNPlugin from './layers/useRBN.js';
 import * as ContestQsosPlugin from './layers/useContestQsos.js';
 import * as GreatCirclePlugin from './layers/useGreatCircle.js';
 import * as VOACAPHeatmapPlugin from './layers/useVOACAPHeatmap.js';
-import * as MUFMapPlugin from './layers/useMUFMap.js';
+import * as SatellitePlugin from './layers/useSatelliteLayer.js';
 
 const layerPlugins = [
   OWMCloudsPlugin,
+  CityLightsPlugin,
+  SatellitePlugin,
   WXRadarPlugin,
   EarthquakesPlugin,
   AuroraPlugin,
@@ -29,7 +32,6 @@ const layerPlugins = [
   N3FJPLoggedQSOsPlugin,
   GreatCirclePlugin,
   VOACAPHeatmapPlugin,
-  MUFMapPlugin,
 ];
 
 // Memoize the layer list - it never changes at runtime

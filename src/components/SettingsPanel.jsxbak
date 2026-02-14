@@ -1152,10 +1152,12 @@ const handleUpdateLayerConfig = (layerId, configDelta) => {
               </label>
             </div>
 
-			{layers.length > 0 ? (
-			  layers
-				.filter(layer => layer.category !== 'satellites') // Correctly filter out satellites
-				.map(layer => (
+			{layers && layers.length > 0 ? (
+			  layers.map(layer => {
+				// If this is the satellite layer, skip drawing the row but keep the data
+				if (layer.id === 'satellites') return null;
+
+				return (
 				  <div key={layer.id} style={{
 					background: 'var(--bg-tertiary)',
 					border: `1px solid ${layer.enabled ? 'var(--accent-amber)' : 'var(--border-color)'}`,
@@ -1171,108 +1173,87 @@ const handleUpdateLayerConfig = (layerId, configDelta) => {
 						cursor: 'pointer',
 						flex: 1
 					  }}>
-                      <input
-                        type="checkbox"
-                        checked={layer.enabled}
-                        onChange={() => handleToggleLayer(layer.id)}
-                        style={{
-                          width: '18px',
-                          height: '18px',
-                          cursor: 'pointer'
-                        }}
-                      />
-                      <span style={{ fontSize: '18px' }}>{layer.icon}</span>
-                      <div>
-                        <div style={{
-                          color: layer.enabled ? 'var(--accent-amber)' : 'var(--text-primary)',
-                          fontSize: '14px',
-                          fontWeight: '600',
-                          fontFamily: 'JetBrains Mono, monospace'
-                        }}>
-                          {layer.name.startsWith('plugins.') ? t(layer.name) : layer.name}
-                        </div>
-                        {layer.description && (
-                          <div style={{
-                            fontSize: '11px',
-                            color: 'var(--text-muted)',
-                            marginTop: '2px'
-                          }}>
-                            {layer.description.startsWith('plugins.') ? t(layer.description) : layer.description}
-                          </div>
-                        )}
-                      </div>
-                    </label>
-                    <span style={{
-                      fontSize: '11px',
-                      textTransform: 'uppercase',
-                      color: 'var(--text-secondary)',
-                      background: 'var(--bg-hover)',
-                      padding: '2px 8px',
-                      borderRadius: '3px'
-                    }}>
-                      {layer.category}
-                    </span>
-                  </div>
+						<input
+						  type="checkbox"
+						  checked={layer.enabled}
+						  onChange={() => handleToggleLayer(layer.id)}
+						  style={{
+							width: '18px',
+							height: '18px',
+							cursor: 'pointer'
+						  }}
+						/>
+						<span style={{ fontSize: '18px' }}>{layer.icon}</span>
+						<div>
+						  <div style={{
+							color: layer.enabled ? 'var(--accent-amber)' : 'var(--text-primary)',
+							fontSize: '14px',
+							fontWeight: '600',
+							fontFamily: 'JetBrains Mono, monospace'
+						  }}>
+							{layer.name.startsWith('plugins.') ? t(layer.name) : layer.name}
+						  </div>
+						  {layer.description && (
+							<div style={{
+							  fontSize: '11px',
+							  color: 'var(--text-muted)',
+							  marginTop: '2px'
+							}}>
+							  {layer.description.startsWith('plugins.') ? t(layer.description) : layer.description}
+							</div>
+						  )}
+						</div>
+					  </label>
+					  <span style={{
+						fontSize: '11px',
+						textTransform: 'uppercase',
+						color: 'var(--text-secondary)',
+						background: 'var(--bg-hover)',
+						padding: '2px 8px',
+						borderRadius: '3px'
+					  }}>
+						{layer.category}
+					  </span>
+					</div>
 
-                  {layer.enabled && (
-                    <div style={{ paddingLeft: '38px', marginTop: '12px' }}>
-                      <label style={{
-                        display: 'block',
-                        fontSize: '11px',
-                        color: 'var(--text-muted)',
-                        marginBottom: '6px',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px'
-                      }}>
-                        {t('station.settings.layers.opacity')}: {Math.round(layer.opacity * 100)}%
-                      </label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="100"
-                        value={layer.opacity * 100}
-                        onChange={(e) => handleOpacityChange(layer.id, parseFloat(e.target.value) / 100)}
-                        style={{
-                          width: '100%',
-                          cursor: 'pointer'
-                        }}
-                      />
-                      
-                      {/* CTRL+Click Reset Button - Hidden unless CTRL is pressed */}
-                      {ctrlPressed && ['lightning', 'wspr', 'rbn', 'grayline', 'n3fjp_logged_qsos', 'voacap-heatmap'].includes(layer.id) && (
-                        <button
-                          onClick={() => resetPopupPositions(layer.id)}
-                          style={{
-                            marginTop: '12px',
-                            padding: '8px 12px',
-                            background: 'var(--accent-red)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '11px',
-                            fontWeight: '600',
-                            textTransform: 'uppercase',
-                            width: '100%'
-                          }}
-                        >
-                          🔄 RESET POPUPS
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              ))
-            ) : (
-              <div style={{
-                textAlign: 'center',
-                padding: '40px 20px',
-                color: 'var(--text-muted)',
-                fontSize: '13px'
-              }}>
-                {t('station.settings.layers.noLayers')}
-              </div>
-            )}
+					{layer.enabled && (
+					  <div style={{ paddingLeft: '38px', marginTop: '12px' }}>
+						<label style={{
+						  display: 'block',
+						  fontSize: '11px',
+						  color: 'var(--text-muted)',
+						  marginBottom: '6px',
+						  textTransform: 'uppercase',
+						  letterSpacing: '0.5px'
+						}}>
+						  {t('station.settings.layers.opacity')}: {Math.round(layer.opacity * 100)}%
+						</label>
+						<input
+						  type="range"
+						  min="0"
+						  max="100"
+						  value={layer.opacity * 100}
+						  onChange={(e) => handleOpacityChange(layer.id, parseFloat(e.target.value) / 100)}
+						  style={{
+							width: '100%',
+							cursor: 'pointer'
+						  }}
+						/>
+					  </div>
+					)}
+				  </div>
+				);
+			  }) // <--- THE FIXED LINE: Added the } here
+			) : (
+			  <div style={{
+				textAlign: 'center',
+				padding: '40px 20px',
+				color: 'var(--text-muted)',
+				fontSize: '13px'
+			  }}>
+				{t('station.settings.layers.noLayers')}
+			  </div>
+			)}
           </div>
         )}
 
