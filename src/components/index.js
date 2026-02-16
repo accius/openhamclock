@@ -30,3 +30,4 @@ export { default as OnAirPanel } from './OnAirPanel.jsx';
 export { IDTimerPanel } from './IDTimerPanel.jsx';
 export { default as RotatorPanel } from './RotatorPanel.jsx';
 export { default as RotatorMapOverlay } from './RotatorMapOverlay.jsx';
+export { default as HFJ350MPanel } from './HFJ350MPanel.jsx';

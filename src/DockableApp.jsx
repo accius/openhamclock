@@ -24,7 +24,8 @@ import {
   AnalogClockPanel,
   RigControlPanel,
   OnAirPanel,
-  IDTimerPanel
+  IDTimerPanel,
+  HFJ350MPanel
 } from './components';
 
 import { loadLayout, saveLayout, DEFAULT_LAYOUT } from './store/layoutStore.js';
@@ -257,6 +258,7 @@ export const DockableApp = ({
       'contests': { name: 'Contests', icon: '🏆' },
       ...(hasAmbient ? { 'ambient': { name: 'Ambient Weather', icon: '🌦️' } } : {}),
       'rig-control': { name: 'Rig Control', icon: '📻' },
+      'hfj350m-calc': { name: 'HFJ-350M Calc', icon: '📏' },
       'on-air': { name: 'On Air', icon: '🔴' },
       'id-timer': { name: 'ID Timer', icon: '📢' },
     };
@@ -599,6 +601,10 @@ export const DockableApp = ({
 
       case 'id-timer':
         content = <IDTimerPanel callsign={config.callsign} />;
+        break;
+
+      case 'hfj350m-calc':
+        content = <HFJ350MPanel />;
         break;
 
       default:

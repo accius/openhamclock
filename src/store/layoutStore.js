@@ -104,6 +104,7 @@ export const PANEL_DEFINITIONS = {
   'id-timer': { name: 'ID Timer', icon: '📢', description: '10-minute station identification reminder' },
   'world-map': { name: 'World Map', icon: '🗺️', description: 'Interactive world map' },
   'rig-control': { name: 'Rig Control', icon: '📻', description: 'Transceiver control and feedback' },
+  'hfj350m-calc': { name: 'HFJ-350M Calc', icon: '📏', description: 'Antenna calculator for Comet HFJ-350M' },
   'on-air': { name: 'On Air', icon: '🔴', description: 'Large TX status indicator' },
 };
 

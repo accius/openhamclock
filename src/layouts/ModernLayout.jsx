@@ -12,7 +12,8 @@ import {
   DXpeditionPanel,
   PSKReporterPanel,
   WeatherPanel,
-  AnalogClockPanel
+  AnalogClockPanel,
+  HFJ350MPanel
 } from '../components';
 import { useRig } from '../contexts/RigContext.jsx';
 
@@ -268,6 +269,11 @@ export default function ModernLayout(props) {
               propConfig={config.propagation}
             />
           )}
+
+          {/* HFJ-350M Antenna Calculator */}
+          <div style={{ flex: '0 0 auto' }}>
+            <HFJ350MPanel />
+          </div>
         </div>
       )}
 
