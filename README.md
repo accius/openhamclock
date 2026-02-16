@@ -1,4 +1,6 @@
-# OpenHamClock
+# OpenHamClock - updated by KS4DOW
+
+I've forked the original project to introduce a CI/CD pipeline, complete with a Docker image published to ghcr.io, as well as DockerHub. I leveraged Copilot to assist in rapid development to accomplish this project, but all other code is unchanged from the original author.
 
 **A real-time amateur radio dashboard for the modern operator.**
 
