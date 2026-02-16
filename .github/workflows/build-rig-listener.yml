@@ -1,0 +1,85 @@
+# Builds standalone rig-listener executables for Windows, Mac, and Linux.
+# Runs on release creation or manual trigger.
+#
+# Each OS runner installs native serialport bindings for its platform,
+# then @yao-pkg/pkg bundles everything into a single executable.
+
+name: Build Rig Listener
+
+on:
+  workflow_dispatch:          # Manual trigger from Actions tab
+  release:
+    types: [created]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            target: node18-win-x64
+            output: rig-listener-win-x64.exe
+            artifact: rig-listener-win-x64
+
+          - os: macos-13              # Intel Mac
+            target: node18-macos-x64
+            output: rig-listener-mac-x64
+            artifact: rig-listener-mac-x64
+
+          - os: macos-latest          # Apple Silicon
+            target: node18-macos-arm64
+            output: rig-listener-mac-arm64
+            artifact: rig-listener-mac-arm64
+
+          - os: ubuntu-latest
+            target: node18-linux-x64
+            output: rig-listener-linux-x64
+            artifact: rig-listener-linux-x64
+
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: rig-listener
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      # Install deps — this downloads platform-specific serialport prebuilds
+      - run: npm install
+
+      # Build standalone executable with pkg
+      - name: Build executable
+        run: npx --yes @yao-pkg/pkg . --target ${{ matrix.target }} --output dist/${{ matrix.output }} --compress GZip
+
+      # Make executable on unix
+      - name: Set permissions
+        if: runner.os != 'Windows'
+        run: chmod +x dist/${{ matrix.output }}
+
+      # Upload as artifact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: rig-listener/dist/${{ matrix.output }}
+
+  # Attach all binaries to the GitHub release
+  attach-to-release:
+    needs: build
+    if: github.event_name == 'release'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*

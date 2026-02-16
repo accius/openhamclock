@@ -1,0 +1,36 @@
+{
+  "name": "openhamclock-rig-listener",
+  "version": "1.0.0",
+  "description": "Direct USB bridge between your radio and OpenHamClock — download and run, no Node.js needed",
+  "main": "rig-listener.js",
+  "bin": "rig-listener.js",
+  "scripts": {
+    "start": "node rig-listener.js",
+    "setup": "node rig-listener.js --wizard",
+    "mock": "node rig-listener.js --mock",
+    "build": "node build.js",
+    "build:win": "npx --yes @yao-pkg/pkg . --target node18-win-x64 --output dist/rig-listener-win-x64.exe --compress GZip",
+    "build:mac-intel": "npx --yes @yao-pkg/pkg . --target node18-macos-x64 --output dist/rig-listener-mac-x64 --compress GZip",
+    "build:mac-arm": "npx --yes @yao-pkg/pkg . --target node18-macos-arm64 --output dist/rig-listener-mac-arm64 --compress GZip",
+    "build:linux": "npx --yes @yao-pkg/pkg . --target node18-linux-x64 --output dist/rig-listener-linux-x64 --compress GZip"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/@serialport/bindings-cpp/prebuilds/**/*"
+    ],
+    "targets": [
+      "node18-win-x64",
+      "node18-macos-x64",
+      "node18-macos-arm64",
+      "node18-linux-x64"
+    ],
+    "outputPath": "dist"
+  },
+  "dependencies": {
+    "serialport": "^12.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "MIT"
+}

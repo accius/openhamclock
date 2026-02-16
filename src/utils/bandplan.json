@@ -1,0 +1,182 @@
+[
+  {
+    "min": 1800,
+    "max": 1840,
+    "mode": "LSB",
+    "desc": "160m CW"
+  },
+  {
+    "min": 1840,
+    "max": 2000,
+    "mode": "LSB",
+    "desc": "160m SSB"
+  },
+  {
+    "min": 3500,
+    "max": 3600,
+    "mode": "LSB",
+    "desc": "80m CW"
+  },
+  {
+    "min": 3600,
+    "max": 4000,
+    "mode": "LSB",
+    "desc": "80m SSB"
+  },
+  {
+    "min": 5330,
+    "max": 5405,
+    "mode": "USB",
+    "desc": "60m"
+  },
+  {
+    "min": 7000,
+    "max": 7040,
+    "mode": "LSB",
+    "desc": "40m CW"
+  },
+  {
+    "min": 7040,
+    "max": 7300,
+    "mode": "LSB",
+    "desc": "40m SSB"
+  },
+  {
+    "min": 10100,
+    "max": 10130,
+    "mode": "USB",
+    "desc": "30m CW"
+  },
+  {
+    "min": 10130,
+    "max": 10150,
+    "mode": "USB",
+    "desc": "30m Data"
+  },
+  {
+    "min": 14000,
+    "max": 14070,
+    "mode": "USB",
+    "desc": "20m CW"
+  },
+  {
+    "min": 14070,
+    "max": 14100,
+    "mode": "USB",
+    "desc": "20m Data"
+  },
+  {
+    "min": 14100,
+    "max": 14350,
+    "mode": "USB",
+    "desc": "20m SSB"
+  },
+  {
+    "min": 18068,
+    "max": 18110,
+    "mode": "USB",
+    "desc": "17m CW"
+  },
+  {
+    "min": 18110,
+    "max": 18168,
+    "mode": "USB",
+    "desc": "17m SSB"
+  },
+  {
+    "min": 21000,
+    "max": 21070,
+    "mode": "USB",
+    "desc": "15m CW"
+  },
+  {
+    "min": 21070,
+    "max": 21450,
+    "mode": "USB",
+    "desc": "15m SSB"
+  },
+  {
+    "min": 24890,
+    "max": 24915,
+    "mode": "USB",
+    "desc": "12m CW"
+  },
+  {
+    "min": 24915,
+    "max": 24990,
+    "mode": "USB",
+    "desc": "12m SSB"
+  },
+  {
+    "min": 28000,
+    "max": 28070,
+    "mode": "USB",
+    "desc": "10m CW"
+  },
+  {
+    "min": 28070,
+    "max": 29000,
+    "mode": "USB",
+    "desc": "10m SSB/Data"
+  },
+  {
+    "min": 29000,
+    "max": 29700,
+    "mode": "FM",
+    "desc": "10m FM"
+  },
+  {
+    "min": 50000,
+    "max": 50100,
+    "mode": "USB",
+    "desc": "6m CW"
+  },
+  {
+    "min": 50100,
+    "max": 51000,
+    "mode": "USB",
+    "desc": "6m SSB"
+  },
+  {
+    "min": 51000,
+    "max": 54000,
+    "mode": "FM",
+    "desc": "6m FM"
+  },
+  {
+    "min": 144000,
+    "max": 144100,
+    "mode": "USB",
+    "desc": "2m CW"
+  },
+  {
+    "min": 144100,
+    "max": 144500,
+    "mode": "USB",
+    "desc": "2m SSB"
+  },
+  {
+    "min": 144500,
+    "max": 148000,
+    "mode": "FM",
+    "desc": "2m FM"
+  },
+  {
+    "min": 432000,
+    "max": 432100,
+    "mode": "USB",
+    "desc": "70cm CW"
+  },
+  {
+    "min": 432100,
+    "max": 433000,
+    "mode": "USB",
+    "desc": "70cm SSB"
+  },
+  {
+    "min": 433000,
+    "max": 450000,
+    "mode": "FM",
+    "desc": "70cm FM"
+  }
+]

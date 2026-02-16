@@ -1,0 +1,14 @@
+node_modules
+dist
+.git
+.env
+.env.local
+*.log
+npm-debug.log*
+.DS_Store
+.vscode
+.idea
+*.zip
+*.tar.gz
+dxspider-proxy/node_modules
+iturhfprop-service/node_modules

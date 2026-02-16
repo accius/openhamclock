@@ -1,0 +1,14 @@
+[Unit]
+Description=OpenHamClock Rig Control Daemon
+After=network.target
+
+[Service]
+Type=simple
+User={{USER}}
+WorkingDirectory={{INSTALL_DIR}}
+ExecStart=/usr/bin/node {{INSTALL_DIR}}/rig-daemon.js
+Restart=on-failure
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

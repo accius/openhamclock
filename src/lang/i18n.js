@@ -13,6 +13,7 @@ import translationNL from './nl.json';
 import translationKO from './ko.json';
 import translationRU from './ru.json';
 import translationKA from './ka.json';
+import translationSL from './sl.json';
 
 export const LANGUAGES = [
   { code: 'en', name: 'English', flag: '🇬🇧' },
@@ -25,7 +26,8 @@ export const LANGUAGES = [
   { code: 'ko', name: '한국어', flag: '🇰🇷' },
   { code: 'it', name: 'Italiano', flag: '🇮🇹' },
   { code: 'ru', name: 'Русский', flag: '🇷🇺' },
-  { code: 'ka', name: 'ქართული', flag: '🇬🇪' }
+  { code: 'ka', name: 'ქართული', flag: '🇬🇪' },
+  { code: 'sl', name: 'Slovenščina', flag: '🇸🇮' }
 ];
 
 export const resources = {
@@ -39,7 +41,8 @@ export const resources = {
   ko: { translation: translationKO },
   it: { translation: translationIT },
   ru: { translation: translationRU },
-  ka: { translation: translationKA }
+  ka: { translation: translationKA },
+  sl: { translation: translationSL }
 };
 
 i18n

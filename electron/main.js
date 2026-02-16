@@ -22,9 +22,10 @@ if (!isDev) {
   const serverApp = express();
   const PORT = 3847; // Use a unique port for embedded server
   
-  serverApp.use(express.static(path.join(__dirname, '..', 'public')));
+  const staticDir = path.join(__dirname, '..', 'dist');
+  serverApp.use(express.static(staticDir));
   serverApp.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
+    res.sendFile(path.join(staticDir, 'index.html'));
   });
   
   server = serverApp.listen(PORT, () => {
@@ -39,13 +40,17 @@ function createWindow() {
     : `http://localhost:3847`;
 
   // Create the browser window
+  const assetDir = isDev
+    ? path.join(__dirname, '..', 'public')
+    : path.join(__dirname, '..', 'dist');
+
   mainWindow = new BrowserWindow({
     width: 1600,
     height: 900,
     minWidth: 1024,
     minHeight: 600,
     title: 'OpenHamClock',
-    icon: path.join(__dirname, '..', 'public', 'icons', 'icon.png'),
+    icon: path.join(assetDir, 'icons', 'icon.png'),
     backgroundColor: '#0a0e14',
     webPreferences: {
       nodeIntegration: false,

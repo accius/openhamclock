@@ -1,0 +1,45 @@
+--- a/server.js
++++ b/server.js
+@@ -2580,6 +2580,9 @@ function maintainRBNConnection(port = 7000) {
+   
+   client.on('data', (data) => {
+     dataBuffer += data;
++    
++    // DEBUG: Show raw data coming in
++    console.log('[RBN DEBUG] Raw data chunk:', data.substring(0, 200));
+     
+     // Check for authentication prompt
+     if (!authenticated && dataBuffer.includes('Please enter your call:')) {
+@@ -2594,6 +2597,9 @@ function maintainRBNConnection(port = 7000) {
+     
+     for (const line of lines) {
+       if (!line.trim()) continue;
++      
++      // DEBUG: Show each line being processed
++      console.log('[RBN DEBUG] Processing line:', line);
+       
+       // Start collecting after authentication
+       if (authenticated && line.includes('Connected')) {
+@@ -2606,6 +2612,12 @@ function maintainRBNConnection(port = 7000) {
+       const spotMatch = line.match(/DX de\s+(\S+)\s*:\s*([\d.]+)\s+(\S+)\s+(\S+)\s+([-\d]+)\s+dB\s+(\d+)\s+WPM/);
+       
+       if (spotMatch) {
++        // DEBUG: Show matched spots with details
++        console.log('[RBN DEBUG] Matched spot:', spotMatch[0]);
++        console.log('[RBN DEBUG] Spot details:', {
++          skimmer: spotMatch[1], freq: spotMatch[2], dx: spotMatch[3],
++          mode: spotMatch[4], snr: spotMatch[5], wpm: spotMatch[6]
++        });
+         const [, skimmer, freq, dx, mode, snr, wpm] = spotMatch;
+         const timestamp = Date.now();
+         const freqNum = parseFloat(freq) * 1000;
+@@ -2671,6 +2683,9 @@ app.get('/api/rbn/spots', async (req, res) => {
+     }
+   }));
+   
++  // DEBUG: Show what we're returning
++  console.log(`[RBN DEBUG] Returning ${enrichedSpots.length} enriched spots (last ${minutes} min)`);
++  
+   console.log(`[RBN] Returning ${enrichedSpots.length} enriched spots (last ${minutes} min)`);
+   
+   res.json({

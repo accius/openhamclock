@@ -1,7 +1,8 @@
 /**
  * Callsign and Band Utilities
- * Band detection, mode detection, callsign parsing, DX filtering
+ * Band detection, mode detection, callsign parsing
  */
+import { ctyLookup } from './ctyLookup.js';
 
 /**
  * HF Amateur Bands
@@ -188,109 +189,64 @@ const FALLBACK_MAP = {
 };
 
 /**
- * Get CQ zone, ITU zone, and continent from callsign
+ * Get CQ zone, ITU zone, continent, and entity info from callsign.
+ *
+ * Uses the cty.dat database (loaded from server on startup) for comprehensive
+ * DXCC entity identification with thousands of prefix patterns and exact
+ * callsign matches. Falls back to the built-in PREFIX_MAP if cty.dat
+ * hasn't loaded yet.
  */
 export const getCallsignInfo = (call) => {
-  if (!call) return { cqZone: null, ituZone: null, continent: null };
+  if (!call) return { cqZone: null, ituZone: null, continent: null, entity: null, lat: null, lon: null, dxcc: null };
+
+  // Try cty.dat lookup first (comprehensive: ~400 entities, thousands of prefixes)
+  const cty = ctyLookup(call);
+  if (cty) {
+    return {
+      cqZone: cty.cq,
+      ituZone: cty.itu,
+      continent: cty.cont,
+      entity: cty.entity,
+      dxcc: cty.dxcc,
+      lat: cty.lat,
+      lon: cty.lon,
+    };
+  }
+
+  // Fallback to built-in PREFIX_MAP (used before cty.dat loads or if fetch fails)
   const upper = call.toUpperCase();
-  
+
   // Try to match prefix (longest match first)
   for (let len = 4; len >= 1; len--) {
     const prefix = upper.substring(0, len);
     if (PREFIX_MAP[prefix]) {
-      return { 
-        cqZone: PREFIX_MAP[prefix].cq, 
-        ituZone: PREFIX_MAP[prefix].itu, 
-        continent: PREFIX_MAP[prefix].cont 
+      return {
+        cqZone: PREFIX_MAP[prefix].cq,
+        ituZone: PREFIX_MAP[prefix].itu,
+        continent: PREFIX_MAP[prefix].cont,
+        entity: null,
+        dxcc: null,
+        lat: null,
+        lon: null,
       };
     }
   }
-  
+
   // Fallback based on first character
   const firstChar = upper[0];
   if (FALLBACK_MAP[firstChar]) {
     return {
       cqZone: FALLBACK_MAP[firstChar].cq,
       ituZone: FALLBACK_MAP[firstChar].itu,
-      continent: FALLBACK_MAP[firstChar].cont
+      continent: FALLBACK_MAP[firstChar].cont,
+      entity: null,
+      dxcc: null,
+      lat: null,
+      lon: null,
     };
   }
-  
-  return { cqZone: null, ituZone: null, continent: null };
-};
 
-/**
- * Filter DX paths based on filters (filter by SPOTTER origin)
- */
-export const filterDXPaths = (paths, filters) => {
-  if (!paths || !filters) return paths;
-  if (Object.keys(filters).length === 0) return paths;
-  
-  return paths.filter(path => {
-    // Get info for spotter (origin) - this is what we filter by
-    const spotterInfo = getCallsignInfo(path.spotter);
-    
-    // Watchlist filter - show ONLY watchlist if enabled
-    if (filters.watchlistOnly && filters.watchlist?.length > 0) {
-      const inWatchlist = filters.watchlist.some(w => 
-        path.dxCall?.toUpperCase().includes(w.toUpperCase()) ||
-        path.spotter?.toUpperCase().includes(w.toUpperCase())
-      );
-      if (!inWatchlist) return false;
-    }
-    
-    // Exclude list - hide matching callsigns
-    if (filters.excludeList?.length > 0) {
-      const isExcluded = filters.excludeList.some(e =>
-        path.dxCall?.toUpperCase().startsWith(e.toUpperCase())
-      );
-      if (isExcluded) return false;
-    }
-    
-    // CQ Zone filter - filter by SPOTTER's zone (origin)
-    if (filters.cqZones?.length > 0) {
-      if (!spotterInfo.cqZone || !filters.cqZones.includes(spotterInfo.cqZone)) {
-        return false;
-      }
-    }
-    
-    // ITU Zone filter - filter by SPOTTER's zone (origin)
-    if (filters.ituZones?.length > 0) {
-      if (!spotterInfo.ituZone || !filters.ituZones.includes(spotterInfo.ituZone)) {
-        return false;
-      }
-    }
-    
-    // Continent filter - filter by SPOTTER's continent (origin)
-    if (filters.continents?.length > 0) {
-      if (!spotterInfo.continent || !filters.continents.includes(spotterInfo.continent)) {
-        return false;
-      }
-    }
-    
-    // Band filter
-    if (filters.bands?.length > 0) {
-      const freqKhz = parseFloat(path.freq) * 1000; // Convert MHz to kHz
-      const band = getBandFromFreq(freqKhz);
-      if (!filters.bands.includes(band)) return false;
-    }
-    
-    // Mode filter
-    if (filters.modes?.length > 0) {
-      const mode = detectMode(path.comment);
-      if (!mode || !filters.modes.includes(mode)) return false;
-    }
-    
-    // Callsign search filter
-    if (filters.callsign && filters.callsign.trim()) {
-      const search = filters.callsign.trim().toUpperCase();
-      const matchesDX = path.dxCall?.toUpperCase().includes(search);
-      const matchesSpotter = path.spotter?.toUpperCase().includes(search);
-      if (!matchesDX && !matchesSpotter) return false;
-    }
-    
-    return true;
-  });
+  return { cqZone: null, ituZone: null, continent: null, entity: null, lat: null, lon: null, dxcc: null };
 };
 
 export default {
@@ -302,5 +258,4 @@ export default {
   detectMode,
   PREFIX_MAP,
   getCallsignInfo,
-  filterDXPaths
 };

@@ -2,7 +2,7 @@
 
 **A real-time amateur radio dashboard for the modern operator.**
 
-OpenHamClock brings DX cluster spots, space weather, propagation predictions, POTA activations, PSKReporter, satellite tracking, WSJT-X integration, and more into a single browser-based interface. Run it locally on a Raspberry Pi, on your desktop, or access it from anywhere via a cloud deployment.
+OpenHamClock brings DX cluster spots, space weather, propagation predictions, POTA activations, WWFF activations, PSKReporter, satellite tracking, WSJT-X integration, and more into a single browser-based interface. Run it locally on a Raspberry Pi, on your desktop, or access it from anywhere via a cloud deployment.
 
 **🌐 Live Site:** [openhamclock.com](https://openhamclock.com)
 
@@ -56,6 +56,7 @@ npm run dev
   - [DX Cluster](#dx-cluster)
   - [PSKReporter](#pskreporter)
   - [POTA — Parks on the Air](#pota--parks-on-the-air)
+  - [WWFF — World Wide Flora and Fauna](#wwff---world-wide-flora-and-fauna)
   - [Space Weather](#space-weather)
   - [Solar Panel](#solar-panel)
   - [Band Conditions](#band-conditions)
@@ -65,12 +66,16 @@ npm run dev
   - [DXpeditions](#dxpeditions)
   - [DX News Ticker](#dx-news-ticker)
   - [WSJT-X Integration](#wsjt-x-integration)
-  - [Local Weather](#local-weather)
+  - [Weather](#weather)
   - [DE / DX Location Panels](#de--dx-location-panels)
   - [Header Bar](#header-bar)
+  - [Analog Clock](#analog-clock)
 - [Themes and Layouts](#themes-and-layouts)
 - [Map Layers and Plugins](#map-layers-and-plugins)
 - [Languages](#languages)
+- [Profiles](#profiles)
+- [Auto-Refresh on Update](#auto-refresh-on-update)
+- [Health Dashboard](#health-dashboard)
 - [Configuration Reference](#configuration-reference)
 - [Deployment](#deployment)
   - [Local / Desktop](#local--desktop)
@@ -97,7 +102,7 @@ OpenHamClock is built from independent modules, each focused on a specific data 
 
 ### World Map
 
-The central interactive map is the heart of the dashboard. It ties every other module together visually — DX spots, POTA activators, satellite orbits, signal paths, and your own station location all appear here.
+The central interactive map is the heart of the dashboard. It ties every other module together visually — DX spots, POTA/WWFF activators, satellite orbits, signal paths, and your own station location all appear here.
 
 **What it shows:**
 
@@ -105,6 +110,7 @@ The central interactive map is the heart of the dashboard. It ties every other m
 - **DX cluster spots** — Colored circle markers for each DX spot, color-coded by band (160m = dark red, 80m = orange, 40m = yellow, 20m = green, 15m = cyan, 10m = magenta, etc.). Click any marker to see the full callsign, frequency, mode, spotter, and DXCC entity.
 - **Great-circle signal paths** — Lines drawn from your station to each DX spot showing the shortest path on the globe. These are true great-circle paths, not straight lines.
 - **POTA activators** — Green triangle markers for Parks on the Air activators. Click for park name, reference number, frequency, mode, and spot time.
+- **WWFF activators** - Light Green inverted triangle markers for World Wide Flora and Fauna activators. Click for park name, reference number, frequency, mode, and spot time.
 - **Satellite positions** — Colored markers for amateur radio satellites with orbital track lines showing their predicted path.
 - **PSKReporter paths** — Signal paths from the PSKReporter network showing who is hearing whom on digital modes.
 - **Day/night terminator** — A shaded overlay showing which parts of the Earth are in darkness, updated in real time.
@@ -113,7 +119,7 @@ The central interactive map is the heart of the dashboard. It ties every other m
 **How to use it:**
 
 - **Pan and zoom:** Click and drag to pan, scroll wheel to zoom. Double-click to zoom in.
-- **Toggle overlays:** Use the header bar buttons to turn DX Paths, DX Labels, POTA, Satellites, PSKReporter, and WSJT-X overlays on and off. Each button shows its current state (highlighted = on).
+- **Toggle overlays:** Use the header bar buttons to turn DX Paths, DX Labels, POTA, WWFF, Satellites, PSKReporter, and WSJT-X overlays on and off. Each button shows its current state (highlighted = on).
 - **Click any marker** to see detailed information in a popup.
 - **Set a DX target:** Click anywhere on the map to set a DX target location for propagation predictions. The DX panel on the right sidebar updates with the bearing, distance, and grid square of wherever you clicked.
 
@@ -239,6 +245,39 @@ Shows all currently active POTA activators worldwide with their park references,
 
 ---
 
+### WWFF - World Wide Flora and Fauna
+
+Shows all currently active WWFF activators worldwide with their park references, frequencies, and map locations. If you're a WWFF chaser, this panel tells you exactly who is on the air right now and where.
+
+**What it shows:**
+
+- A scrollable list of all active WWFF activators with:
+  - Callsign (green)
+  - Park Reference
+  - Frequency (KHz)
+  - Spot time (UTC)
+- Total activator count in the panel header (e.g., "▲ WWFF ACTIVATORS (42)")
+- Inverted Light Green triangle markers on the map for each activator
+- Callsign labels on map (visible when DX Labels are enabled)
+- Click a map marker to see the full park name, reference number (e.g., VKFF-0056), frequency, mode, and spot time
+
+**How to use it:**
+
+1. **Scan the panel** for interesting activations — look for states, provinces, or countries you need.
+2. **Click "⊞ Map ON/OFF"** to toggle WWFF markers on the map. Inverted Light Green triangles appear at each activator's park location.
+3. **Click any light green triangle** on the map for full details including park name.
+4. **Enable DX Labels** (in the header bar) to see callsign labels next to each triangle on the map.
+
+**Smart filtering (automatic, no configuration needed):**
+
+- Operators who have signed off (comments containing "QRT") are automatically hidden
+- Spots older than 60 minutes are filtered out
+- Spots are sorted newest-first so the freshest activations are always at the top
+
+**How it works under the hood:** The server proxies the WWFF API (`spots.wwff.co/static/spots.json`) with a 90 second cache to reduce load on the upstream service. The `useWWFFSpots` hook fetches spots every 60 seconds, filters out QRT/expired entries, sorts by recency, and resolves coordinates from the API's latitude/longitude fields.
+
+---
+
 ### Space Weather
 
 Displays the three key solar indices that affect HF radio propagation. If you operate HF, these numbers directly determine what bands will be open.
@@ -287,18 +326,24 @@ Current moon phase with a visual SVG rendering, illumination percentage, and cal
 
 ### Band Conditions
 
-Shows the current usability of each HF band based on real-time space weather conditions. This is your at-a-glance guide for which bands are worth tuning to right now.
+Real-time HF and VHF band conditions from the N0NBH solar conditions feed, sourced from NOAA data. This is your at-a-glance guide for which bands are worth tuning to right now.
 
 **What it shows:**
 
-Each HF band from 160m through 6m with a condition indicator:
-- **Green (OPEN)** — Band is open with good propagation. Get on the air!
-- **Amber (MARGINAL)** — Band may be usable but conditions are degraded. Short-range contacts likely, DX uncertain.
-- **Red (CLOSED)** — Band is not supporting propagation. Don't waste your time here.
+Each HF band from 80m through 10m with day and night condition indicators:
+- **Green (GOOD)** — Band is open with good propagation. Get on the air!
+- **Amber (FAIR)** — Band may be usable but conditions are degraded.
+- **Red (POOR)** — Band is not supporting propagation.
 
-**How to use it:** Before tuning to a band, check its condition indicator here. If 15m is green and 10m is amber, start on 15m. Combine this with the DX cluster spots to see where activity actually is.
+Additional information in the panel:
+- **Day/night indicator** — Shows current conditions with a ☀/☾ marker, plus mini indicators when day and night conditions differ
+- **VHF conditions** — Aurora and E-skip status by region (Europe, North America) with green/gray color coding
+- **Footer stats** — SFI, K-index, geomagnetic field status (color-coded: green=QUIET, amber=UNSETTLED, red=ACTIVE/STORM), signal noise level
+- **N0NBH attribution** — Source and last-updated timestamp
 
-**How it works under the hood:** The `useBandConditions` hook takes the current SFI and K-index and applies a propagation model that considers each band's relationship with solar flux. Higher bands (10m, 12m, 15m) require higher SFI to open because their critical frequencies are higher. Lower bands (80m, 160m) are more affected by geomagnetic disturbance (high Kp) because auroral absorption hits lower frequencies harder on polar paths. Time of day at your location is also factored in — 10m doesn't open at night regardless of SFI.
+**How to use it:** Before tuning to a band, check its condition indicator here. Hover over any band tile to see the full day/night breakdown in a tooltip. The VHF section is especially useful for 6m operators watching for E-skip openings.
+
+**How it works under the hood:** The server fetches N0NBH's XML solar data feed (`hamqsl.com/solarxml.php`) via the `/api/n0nbh` endpoint with a 1-hour server-side cache (N0NBH updates every 3 hours). The `useBandConditions` hook maps N0NBH's grouped band ranges (80m-40m, 30m-20m, 17m-15m, 12m-10m) to individual bands, with separate day and night conditions. The current condition displayed is based on UTC time (day = 06:00-18:00 UTC).
 
 ---
 
@@ -321,7 +366,7 @@ HF propagation reliability predictions between your station (DE) and whatever DX
 
 **Standard mode:** Uses a built-in propagation model based on current SFI, SSN, Kp, great-circle path distance, solar zenith angle, geomagnetic latitude, and estimated MUF (Maximum Usable Frequency) for each band.
 
-**Advanced mode (ITURHFProp):** If you deploy the optional ITURHFProp microservice (in the `iturhfprop-service/` directory), propagation predictions use the full ITU-R P.533 recommendation model. This is the international standard for HF propagation prediction and provides significantly more accurate results. Set `ITURHFPROP_URL` in `.env` to enable this.
+**ITU-R P.533-14 predictions:** By default, all installs use the public OpenHamClock ITURHFProp prediction service for ITU-R P.533-14 propagation calculations — the international standard for HF propagation prediction. If you prefer to self-host, deploy the optional ITURHFProp microservice (in the `iturhfprop-service/` directory) and set `ITURHFPROP_URL` in `.env` to your own instance.
 
 **Hybrid correction:** When ionosonde data is available from `prop.kc2g.com`, the system applies real-time corrections based on actual measured ionospheric conditions rather than just modeled values. This can catch unusual propagation events that models miss.
 
@@ -421,25 +466,29 @@ WSJT-X sends data over UDP, which only works on a local network. For cloud deplo
 
 ---
 
-### Local Weather
+### Weather
 
-Current weather conditions at your station location, displayed in the header bar and the DE location panel.
+Current weather conditions at your station location, displayed in the header bar and the DE location panel and, optionally, weather at the currently selected DX target station.
 
-**What it shows:**
+**In the header:**
 
-- Temperature in both °F and °C (always shown in the header)
+- Weather description icon and temperature in both °F and °C
+
+**Below the DE and optionally DX Location panel:**
+- Temperature in either °F or °C with a toggle to select which one (note that the toggle affects both the DE and DX temperature display)
 - Weather description (clear, cloudy, rain, snow, etc.) with an emoji icon
 - Humidity and wind speed
 - Collapsible detail view in the DE panel (click to expand/collapse)
 
-**How to use it:** The weather is shown automatically based on your configured station coordinates. Click the weather line in the DE panel to expand full details or collapse to a one-line summary.
+**How to use it:** The weather is shown automatically based on your configured station coordinates and, optionally, at the currently selected DX target station. Click the weather line in the DE/DX panel to expand full details or collapse to a one-line summary.
 
 **Data sources:**
 
-- **Open-Meteo** (default) — Free weather API, no API key required. Uses your configured latitude/longitude.
-- **OpenWeatherMap** (optional) — Set `OPENWEATHER_API_KEY` in `.env` if you prefer OpenWeatherMap data. Get a free API key at [openweathermap.org/api](https://openweathermap.org/api).
+- **Open-Meteo** — Free weather API, no API key required. Fetched directly by each user's browser (rate limits are per-user, not per-server). Optional API key support in Settings for higher rate limits.
 
-**Refresh interval:** Every 15 minutes.
+No configuration needed — weather works automatically based on your station coordinates.
+
+**Refresh interval:** Every 2 hours (weather data is cached server-side).
 
 ---
 
@@ -462,6 +511,7 @@ Information panels for your station (DE) and the currently selected DX target st
 - DXCC entity, CQ zone, and ITU zone
 - Bearing (azimuth) and distance from your station
 - Sunrise and sunset times at the DX location
+- DX location weather (optional and collapsible)
 
 **How to use it:** The DX panel updates whenever you click a spot in the DX cluster, click a location on the map, or manually enter a callsign/grid in the DX panel. The bearing shown is useful for rotating a directional antenna.
 
@@ -482,6 +532,24 @@ The persistent bar across the top of the dashboard provides at-a-glance informat
 - **Donate** — Link to support the project.
 - **Settings** — Opens the settings modal.
 - **Fullscreen** — Toggle fullscreen mode (great for dedicated shack displays).
+
+---
+
+### Analog Clock
+
+A classic analog clock display showing local time with additional station information.
+
+**What it shows:**
+
+- **Clock face** — Round analog clock with hour, minute, and second hands. Major tick marks every 5 minutes, minor ticks every minute, with hour numbers 1-12.
+- **Day of week** — Displayed above the clock on the left (e.g., "Mon", "Tue").
+- **Date** — Displayed above the clock on the right (e.g., "Feb 5").
+- **Sunrise time** — Displayed below the clock on the left with a sun symbol.
+- **Sunset time** — Displayed below the clock on the right with a moon symbol.
+
+**How to use it:** The clock automatically sizes to fit whatever panel size you give it. In the dockable layout, you can add it via the "+" button and resize the panel as desired. A larger panel gives you a bigger, more readable clock face.
+
+**Availability:** Always available in the dockable layout via the "Add Panel" menu. In the classic layout, enable it by setting `CLASSIC_ANALOG_CLOCK=true` in your `.env` file (disabled by default to keep the classic layout compact).
 
 ---
 
@@ -538,17 +606,78 @@ Layer preferences persist in localStorage.
 
 ## Languages
 
-The interface is available in 8 languages, selectable in Settings:
+The interface is available in 10 languages, selectable in Settings:
 
-🇬🇧 English · 🇫🇷 Français · 🇪🇸 Español · 🇩🇪 Deutsch · 🇳🇱 Nederlands · 🇧🇷 Português · 🇯🇵 日本語 · 🇮🇹 Italiano
+🇬🇧 English · 🇫🇷 Français · 🇪🇸 Español · 🇩🇪 Deutsch · 🇳🇱 Nederlands · 🇧🇷 Português · 🇯🇵 日本語 · 🇰🇷 한국어 · 🇮🇹 Italiano · 🇸🇮 Slovenščina
 
 Language files are in `src/lang/`. Each is a JSON file with translation keys. Contributions of new translations are welcome — just copy `en.json`, translate the values, and submit a PR.
+
+---
+
+## Profiles
+
+Save and switch between named configuration profiles. Useful when multiple operators share a single HamClock, or when you want to quickly toggle between different personal setups (contest mode, field day, everyday).
+
+**What a profile captures:** Everything — your callsign, location, theme, layout, dock arrangement, map layers, DX filters, PSK filters, satellite filters, VOACAP preferences, temperature unit, time format, and all other `openhamclock_*` settings.
+
+**How to use it:**
+
+1. Open **Settings → Profiles** tab
+2. Enter a name (e.g., your callsign, "Contest", "Field Day") and click **Save**
+3. Your current state is captured as a named profile
+4. To switch profiles, click **▶ Load** on any saved profile — the page reloads with that configuration
+5. To update a profile with your current changes, click **↻** (update)
+6. To share a profile or move it between devices, click **⤓** (export) to download a JSON file, then use **Import Profile from File** on the other device
+
+**Profile actions:**
+- **▶ Load** — Restores the profile and reloads the page
+- **↻ Update** — Overwrites the saved profile with your current live state
+- **✎ Rename** — Inline rename
+- **⤓ Export** — Downloads as a `.json` file
+- **✕ Delete** — With confirmation
+
+Profiles are stored in your browser's localStorage. The currently active profile is shown with a green indicator.
+
+---
+
+## Auto-Refresh on Update
+
+When the server is updated with a new version (e.g., via `git pull` + restart, or a Railway deployment), all connected browsers automatically detect the change and reload. There is nothing to configure.
+
+**How it works:** The frontend polls `/api/version` every 60 seconds. When the returned version number changes, a toast notification appears at the bottom of the screen ("🔄 OpenHamClock Updated — v15.0.0 → v15.1.0 — Reloading...") and the page reloads after 3 seconds. The version is read from `package.json` as the single source of truth.
+
+---
+
+## Health Dashboard
+
+Visit `/api/health` in your browser for a real-time server status dashboard. The page auto-refreshes every 30 seconds.
+
+**What it shows:**
+- **Online Now** — Real-time concurrent user count (sessions expire after 5 minutes of inactivity)
+- **Peak Concurrent** — Highest simultaneous users since last restart
+- **Visitors Today / All-Time** — Unique IP counts with daily average
+- **Visitor Trend** — 14-day bar chart with week-over-week growth percentage
+- **Session Duration Analytics** — Average, median, 90th percentile, and max session durations. Duration distribution chart bucketed into <1m, 1-5m, 5-15m, 15-30m, 30m-1h, 1h+
+- **Active Users Table** — Current online users with anonymized IPs, session duration, and request count
+- **API Traffic Monitor** — Per-endpoint request counts, bandwidth usage, average response times, and estimated monthly egress
+
+The JSON API (`/api/health?format=json`) returns all the same data in structured JSON, including a 24-hour `recentTrend` array and the full `sessions` object.
+
+Visitor stats persist across restarts via file-based storage. Configure the storage location with `STATS_FILE` in `.env` (defaults to `./data/stats.json` locally or `/data/stats.json` on Railway volumes).
 
 ---
 
 ## Configuration Reference
 
 All configuration is done through the `.env` file. On first run, this file is auto-created from `.env.example`. You can also change most settings through the browser-based Settings panel.
+
+> **Can't find the `.env` file?** Files starting with a dot are hidden by default on Linux, Mac, and Raspberry Pi.
+> - **Terminal:** `ls -la` to see hidden files, or `nano .env` to edit directly
+> - **File manager (Pi/Linux):** Press `Ctrl+H` to toggle hidden files
+> - **Mac Finder:** Press `Cmd+Shift+.` to toggle hidden files
+> - **If the file doesn't exist yet:** Run `npm start` once and it will be auto-created, or copy it manually: `cp .env.example .env`
+>
+> The `.env` file is located in the root of your OpenHamClock directory (same folder as `server.js` and `package.json`).
 
 ### Station Settings
 
@@ -584,13 +713,15 @@ All configuration is done through the `.env` file. On first run, this file is au
 | `SHOW_POTA` | `true` | Show POTA activator markers on the map. |
 | `SHOW_SATELLITES` | `true` | Show satellite tracks on the map. |
 | `SHOW_DX_PATHS` | `true` | Show great-circle DX signal paths on the map. |
+| `SHOW_DX_WEATHER` | `true` | Show weather for the selected DX location. |
+| `CLASSIC_ANALOG_CLOCK` | `false` | Show analog clock panel in the classic layout. Always available in dockable layout. |
 
 ### External Services
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `OPENWEATHER_API_KEY` | *(none)* | OpenWeatherMap API key. Optional — Open-Meteo is used by default and requires no key. Get a free key at [openweathermap.org/api](https://openweathermap.org/api). |
-| `ITURHFPROP_URL` | *(none)* | URL of your ITURHFProp microservice for ITU-R P.533 propagation predictions. Only set this if you've deployed the `iturhfprop-service/`. |
+| `OPENWEATHER_API_KEY` | *(none)* | OpenWeatherMap API key. Only needed for the **Cloud Layer** map overlay — weather data uses Open-Meteo directly from each user's browser with no key. Get a free key at [openweathermap.org/api](https://openweathermap.org/api). Also set `VITE_OPENWEATHER_API_KEY` to the same value. |
+| `ITURHFPROP_URL` | Public service | URL for ITU-R P.533 propagation predictions. Defaults to the public OpenHamClock service. Override only if self-hosting the `iturhfprop-service/`. |
 | `DXSPIDER_PROXY_URL` | *(none)* | URL of your DX Spider proxy. A default proxy is provided, so you only need this if you're running your own. |
 
 ### WSJT-X Integration
@@ -812,6 +943,21 @@ sudo systemctl restart openhamclock
 ./restart.sh
 ```
 
+### Auto-update (Git installations):
+
+Enable automatic updates by setting the following in `.env`:
+
+```
+AUTO_UPDATE_ENABLED=true
+AUTO_UPDATE_INTERVAL_MINUTES=60
+AUTO_UPDATE_ON_START=false
+AUTO_UPDATE_EXIT_AFTER=true
+```
+
+When enabled, OpenHamClock periodically checks GitHub for updates and runs `./scripts/update.sh --auto`. After a successful update it exits so a supervisor (systemd/pm2) can restart it. If you're running in a terminal, you'll need to restart manually.
+
+On local installs, you can also click the **UPDATE** button in the header to start the update process on demand.
+
 ### Zip file installations:
 
 1. Back up your `.env` file
@@ -846,13 +992,14 @@ openhamclock/
 │   ├── App.jsx               # Main React application — state management, layout, component wiring
 │   ├── main.jsx              # React entry point
 │   ├── components/           # UI components (one per panel/feature)
-│   │   ├── WorldMap.jsx      # Leaflet map with all overlays (DX, POTA, satellites, paths)
+│   │   ├── WorldMap.jsx      # Leaflet map with all overlays (DX, POTA, WWFF, satellites, paths)
 │   │   ├── Header.jsx        # Top bar — callsign, clocks, weather, SFI/K/SSN, controls
 │   │   ├── DXClusterPanel.jsx    # DX spot list with band coloring and hover highlighting
 │   │   ├── DXFilterManager.jsx   # DX cluster filter modal (zones, bands, modes, watchlist, exclude)
 │   │   ├── PSKReporterPanel.jsx  # PSKReporter TX/RX tabs with signal reports
 │   │   ├── PSKFilterManager.jsx  # PSKReporter filter modal (bands, modes, time window)
 │   │   ├── POTAPanel.jsx         # POTA activators scrollable list with map toggle
+│   │   ├── WWFFPanel.jsx         # WWFF activators scrollable list with map toggle
 │   │   ├── SpaceWeatherPanel.jsx # SFI / K-index / SSN gauges
 │   │   ├── SolarPanel.jsx        # 4-view cycling: solar image, indices, x-ray flux, lunar phase
 │   │   ├── BandConditionsPanel.jsx # HF band open/closed indicators
@@ -868,6 +1015,7 @@ openhamclock/
 │   │   ├── useDXCluster.js       # DX Spider spots — polls every 5 seconds
 │   │   ├── usePSKReporter.js     # PSKReporter MQTT + HTTP fallback — real-time
 │   │   ├── usePOTASpots.js       # POTA activators — polls every 60 seconds
+│   │   ├── useWWFFSpots.js       # WWFF activators — polls every 60 seconds
 │   │   ├── useSpaceWeather.js    # NOAA SFI/Kp/SSN — polls every 5 minutes
 │   │   ├── useSolarIndices.js    # Extended solar data with history — polls every 15 minutes
 │   │   ├── useBandConditions.js  # Band conditions — recalculates when SFI/Kp change
@@ -877,7 +1025,7 @@ openhamclock/
 │   │   ├── useDXpeditions.js     # DXpedition list — polls every 30 minutes
 │   │   ├── useDXPaths.js         # DX spot paths for map — polls every 10 seconds
 │   │   ├── useMySpots.js         # Your callsign spotted by others — polls every 30 seconds
-│   │   ├── useLocalWeather.js    # Weather — polls every 15 minutes
+│   │   ├── useWeather.js         # Weather — polls every 15 minutes
 │   │   └── useWSJTX.js           # WSJT-X decoded messages — polls every 2 seconds
 │   ├── utils/
 │   │   ├── config.js             # App configuration (localStorage read/write, theme application)
@@ -890,7 +1038,7 @@ openhamclock/
 │   └── styles/
 │       └── main.css              # Theme CSS variables, base styles, responsive breakpoints
 ├── dxspider-proxy/           # DX Spider telnet proxy microservice
-├── iturhfprop-service/       # ITU-R P.533 propagation prediction microservice (optional)
+├── iturhfprop-service/       # ITU-R P.533 propagation prediction microservice (self-host alternative)
 ├── wsjtx-relay/              # WSJT-X UDP → HTTPS relay agent
 ├── electron/                 # Electron desktop app wrapper (experimental)
 ├── scripts/                  # Setup and update scripts
@@ -912,10 +1060,11 @@ All external API calls go through the Node.js backend, which caches responses to
 ```
 NOAA SWPC ──┐
 POTA API ───┤
+WWFF API ───┤
 SOTA API ───┤                              ┌─ WorldMap
 DX Spider ──┼──► Node.js Server ──► React ─┼─ DX Cluster Panel
 CelesTrak ──┤   (API proxy +              ├─ Space Weather Panel
-HamQSL ─────┤    data cache)              ├─ Band Conditions
+N0NBH ──────┤    data cache)              ├─ Band Conditions (N0NBH)
 HamQTH ─────┤                              ├─ Propagation Panel
 Contest Cal ┤                              └─ ... all other panels
 Ionosonde ──┘
@@ -936,7 +1085,10 @@ The backend exposes these REST endpoints. All data endpoints return JSON. Cache 
 | Endpoint | Description | Cache |
 |----------|-------------|-------|
 | `GET /api/config` | Server configuration (callsign, location, features, version) | — |
-| `GET /api/health` | Health check with uptime and version | — |
+| `GET /api/version` | Lightweight version check (for auto-refresh polling) | no-cache |
+| `GET /api/health` | Health dashboard with uptime, visitors, concurrent users, session analytics, API traffic | — |
+| `GET /api/n0nbh` | N0NBH band conditions (SFI, K, bands, VHF, geomag, signal noise, MUF) | 1 hr |
+| *(weather)* | Weather is fetched directly from Open-Meteo by each user's browser — no server endpoint needed | — |
 | `GET /api/dxcluster/spots` | Current DX cluster spots (array of spot objects) | 5 sec |
 | `GET /api/dxcluster/paths` | DX spots with resolved coordinates for map display | 5 sec |
 | `GET /api/dxcluster/sources` | Available DX cluster source backends | — |
@@ -949,6 +1101,7 @@ The backend exposes these REST endpoints. All data endpoints return JSON. Cache 
 | `GET /api/hamqsl/conditions` | HamQSL band conditions XML (parsed to JSON) | 30 min |
 | `GET /api/propagation` | HF propagation predictions (per-band reliability %) | 10 min |
 | `GET /api/pota/spots` | POTA activator spots from api.pota.app | 1 min |
+| `GET /api/wwff/spots` | WWFF activator spots from spots.wwff.co | 90 sec |
 | `GET /api/sota/spots` | SOTA activator spots from api2.sota.org.uk | 2 min |
 | `GET /api/satellites/tle` | Satellite TLE data from CelesTrak | 6 hr |
 | `GET /api/contests` | Contest calendar from contestcalendar.com | 30 min |
@@ -969,7 +1122,7 @@ The backend exposes these REST endpoints. All data endpoints return JSON. Cache 
 ## Frequently Asked Questions
 
 **Q: Do I need an amateur radio license to use OpenHamClock?**
-A: No. OpenHamClock is a receive-only dashboard. Anyone can view DX spots, space weather, and POTA activations. However, a callsign is needed for PSKReporter data (which tracks your transmitted signals) and for DX cluster login.
+A: No. OpenHamClock is a receive-only dashboard. Anyone can view DX spots, space weather, and POTA/WWFF activations. However, a callsign is needed for PSKReporter data (which tracks your transmitted signals) and for DX cluster login.
 
 **Q: How much bandwidth does OpenHamClock use?**
 A: Very little. All external API calls are cached server-side, and the backend serves compressed (gzip) responses. Typical usage is under 1 MB/minute. Most data sources update every 5–30 minutes.
@@ -984,7 +1137,7 @@ A: Check that: (1) Your callsign is set in `.env` — the DX Spider proxy uses i
 A: PSKReporter requires your callsign to be set correctly. If MQTT fails (some corporate firewalls block WebSocket connections), the system falls back to the HTTP API automatically. Check the panel footer to see which connection method is active.
 
 **Q: Can multiple people use the same server?**
-A: Yes. The web interface is stateless — each browser session gets its own filter settings, theme preferences, and DX target. The server caches all API responses, so additional users add zero extra load on upstream services.
+A: Yes. The web interface is stateless — each browser session gets its own filter settings, theme preferences, and DX target. The server caches all API responses, so additional users add zero extra load on upstream services. For shared stations where operators want different layouts and configurations, use the **Profiles** feature (Settings → Profiles tab) to save and switch between named profiles.
 
 **Q: How do I change the DX cluster source?**
 A: Open Settings → Station tab → DX Cluster Source dropdown. Or set `dxClusterSource` in the browser settings. The four options are: DX Spider Proxy (recommended), HamQTH, DXWatch, and Auto.
@@ -997,6 +1150,9 @@ A: A spot will appear in the panel list but not on the map if its coordinates co
 
 **Q: How do I get the Classic layout to look like the original HamClock?**
 A: Set `LAYOUT=classic` in `.env` (or select it in Settings). The Classic layout uses a black background with large colored number displays, matching the style of the original HamClock by WB0OEW.
+
+**Q: I can't find the `.env` file — where is it?**
+A: The `.env` file is in the root OpenHamClock directory (same folder as `server.js`). Files starting with `.` are hidden by default — use `ls -la` in a terminal to see it, or `Ctrl+H` in a Linux file manager. If it doesn't exist yet, run `npm start` once (it's auto-created from `.env.example`) or copy it manually: `cp .env.example .env`. Most settings can also be changed through the browser Settings panel without editing `.env` at all.
 
 ---
 
@@ -1026,7 +1182,9 @@ node server.js # Backend API server on http://localhost:3000
 - **Elwood Downey, WB0OEW (SK)** — Creator of the original HamClock that inspired this project
 - **Keith, G6NHU** — DX Spider cluster operator at dxspider.co.uk, provided direct support for cluster connections
 - **NOAA Space Weather Prediction Center** — Space weather data (SFI, Kp, SSN, X-ray flux, aurora)
+- **N0NBH (Paul Herrman)** — Real-time band conditions data feed sourced from NOAA
 - **POTA (Parks on the Air)** — Activator spot API
+- **WWFF (World Wide Flora and Fauna)** - Activator spot API
 - **SOTA (Summits on the Air)** — Activator spot API
 - **PSKReporter** — Digital mode reception report network
 - **Open-Meteo** — Free weather API

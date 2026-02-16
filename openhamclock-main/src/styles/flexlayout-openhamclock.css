@@ -1,0 +1,293 @@
+/**
+ * FlexLayout Custom Theme for OpenHamClock
+ * Matches the existing dark theme with cyan/amber/green accents
+ */
+
+/* Import base flexlayout styles */
+@import 'flexlayout-react/style/dark.css';
+
+/* ============================================
+   ROOT LAYOUT CONTAINER
+   ============================================ */
+.flexlayout__layout {
+  background: transparent !important;
+  --color-tabset-background: rgba(26, 32, 44, 0.95);
+  --color-tabset-header-background: rgba(26, 32, 44, 0.98);
+  --color-tab-selected-background: rgba(26, 32, 44, 1);
+  --color-tab-selected-border: #00ffcc;
+  --color-splitter: #2d3748;
+  --color-splitter-hover: #00ffcc;
+  --color-border: #2d3748;
+}
+
+/* ============================================
+   TABSET (Panel Container)
+   ============================================ */
+.flexlayout__tabset {
+  background: var(--color-tabset-background) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 6px !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
+.flexlayout__tabset_header {
+  background: var(--color-tabset-header-background) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  padding: 0 !important;
+  min-height: 32px !important;
+}
+
+.flexlayout__tabset_header_content {
+  display: flex;
+  align-items: center;
+  padding: 0 4px;
+}
+
+/* ============================================
+   TAB BUTTONS (Panel Headers)
+   ============================================ */
+.flexlayout__tab_button {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  color: #a0aec0 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  padding: 6px 12px !important;
+  margin: 0 2px !important;
+  border-radius: 4px 4px 0 0 !important;
+  transition: all 0.15s ease !important;
+}
+
+.flexlayout__tab_button:hover {
+  background: rgba(0, 255, 204, 0.1) !important;
+  color: #e2e8f0 !important;
+}
+
+.flexlayout__tab_button--selected {
+  background: rgba(0, 255, 204, 0.15) !important;
+  color: #00ffcc !important;
+  border-bottom: 2px solid #00ffcc !important;
+}
+
+.flexlayout__tab_button_content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Tab close button */
+.flexlayout__tab_button_trailing {
+  margin-left: 6px !important;
+  opacity: 0.5 !important;
+  transition: opacity 0.15s ease !important;
+}
+
+.flexlayout__tab_button:hover .flexlayout__tab_button_trailing {
+  opacity: 1 !important;
+}
+
+.flexlayout__tab_button_trailing:hover {
+  color: #ff6b6b !important;
+}
+
+/* ============================================
+   TAB CONTENT AREA
+   ============================================ */
+.flexlayout__tab {
+  background: transparent !important;
+  overflow: auto !important;
+}
+
+/* ============================================
+   SPLITTERS (Resize Handles)
+   ============================================ */
+.flexlayout__splitter {
+  background: var(--color-splitter) !important;
+  transition: background-color 0.15s ease !important;
+  z-index: 10 !important;
+}
+
+.flexlayout__splitter:hover {
+  background: var(--color-splitter-hover) !important;
+}
+
+.flexlayout__splitter_drag {
+  background: var(--color-splitter-hover) !important;
+  box-shadow: 0 0 8px rgba(0, 255, 204, 0.4) !important;
+}
+
+/* Horizontal splitter */
+.flexlayout__splitter_vert {
+  width: 6px !important;
+  cursor: col-resize !important;
+}
+
+/* Vertical splitter */
+.flexlayout__splitter_horz {
+  height: 6px !important;
+  cursor: row-resize !important;
+}
+
+/* ============================================
+   TOOLBAR BUTTONS
+   ============================================ */
+.flexlayout__tab_toolbar_button {
+  background: transparent !important;
+  border: none !important;
+  color: #a0aec0 !important;
+  padding: 4px 6px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.flexlayout__tab_toolbar_button:hover {
+  background: rgba(0, 255, 204, 0.15) !important;
+  color: #00ffcc !important;
+}
+
+/* Maximize button */
+.flexlayout__tab_toolbar_button-max {
+  font-size: 14px !important;
+}
+
+/* Sticky buttons (like + button) */
+.flexlayout__tab_toolbar_sticky_buttons_container {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding-right: 4px;
+}
+
+/* ============================================
+   DRAG OVERLAY
+   ============================================ */
+.flexlayout__drag_rect {
+  background: rgba(0, 255, 204, 0.2) !important;
+  border: 2px dashed #00ffcc !important;
+  border-radius: 6px !important;
+}
+
+.flexlayout__outline_rect {
+  border: 2px solid #00ffcc !important;
+  background: rgba(0, 255, 204, 0.1) !important;
+  border-radius: 6px !important;
+}
+
+.flexlayout__outline_rect_edge {
+  border: 2px solid #ffaa00 !important;
+  background: rgba(255, 170, 0, 0.1) !important;
+}
+
+/* ============================================
+   DROP INDICATORS
+   ============================================ */
+.flexlayout__tabset-selected {
+  outline: 2px solid #00ffcc !important;
+  outline-offset: -2px !important;
+}
+
+/* ============================================
+   EDGE INDICATORS (Dock Zones)
+   ============================================ */
+.flexlayout__edge_rect {
+  background: rgba(0, 255, 204, 0.3) !important;
+  border: 2px solid #00ffcc !important;
+}
+
+/* ============================================
+   MAXIMIZED STATE
+   ============================================ */
+.flexlayout__tabset_maximized {
+  z-index: 100 !important;
+}
+
+/* ============================================
+   POPUP MENU
+   ============================================ */
+.flexlayout__popup_menu {
+  background: rgba(26, 32, 44, 0.98) !important;
+  border: 1px solid #2d3748 !important;
+  border-radius: 6px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5) !important;
+  padding: 4px !important;
+}
+
+.flexlayout__popup_menu_item {
+  color: #e2e8f0 !important;
+  padding: 8px 12px !important;
+  border-radius: 4px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 12px !important;
+}
+
+.flexlayout__popup_menu_item:hover {
+  background: rgba(0, 255, 204, 0.15) !important;
+  color: #00ffcc !important;
+}
+
+/* ============================================
+   ERROR STATE
+   ============================================ */
+.flexlayout__error_boundary_container {
+  background: rgba(255, 107, 107, 0.1) !important;
+  border: 1px solid #ff6b6b !important;
+  color: #ff6b6b !important;
+  padding: 20px !important;
+  border-radius: 6px !important;
+  text-align: center !important;
+}
+
+/* ============================================
+   CUSTOM PANEL HEADER STYLES
+   ============================================ */
+.ohc-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid var(--border-color);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ohc-panel-header-icon {
+  font-size: 14px;
+}
+
+.ohc-panel-header-title {
+  color: var(--accent-cyan);
+}
+
+.ohc-panel-content {
+  padding: 12px;
+  height: calc(100% - 40px);
+  overflow: auto;
+}
+
+/* ============================================
+   SCROLLBAR STYLING
+   ============================================ */
+.flexlayout__tab::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.flexlayout__tab::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.flexlayout__tab::-webkit-scrollbar-thumb {
+  background: #4a5568;
+  border-radius: 4px;
+}
+
+.flexlayout__tab::-webkit-scrollbar-thumb:hover {
+  background: #00ffcc;
+}

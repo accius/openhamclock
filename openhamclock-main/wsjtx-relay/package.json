@@ -1,0 +1,14 @@
+{
+  "name": "openhamclock-wsjtx-relay",
+  "version": "1.0.0",
+  "description": "Relay WSJT-X UDP decodes to a remote OpenHamClock server",
+  "main": "relay.js",
+  "scripts": {
+    "start": "node relay.js"
+  },
+  "keywords": ["wsjt-x", "ham-radio", "ft8", "relay", "openhamclock"],
+  "license": "MIT",
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

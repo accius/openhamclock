@@ -1,0 +1,24 @@
+{
+  "server": {
+    "host": "0.0.0.0",
+    "port": 5555,
+    "cors": "*"
+  },
+  "radio": {
+    "type": "flrig",
+    "host": "127.0.0.1",
+    "port": 12345,
+    "pollInterval": 1000,
+    "timeout": 5000,
+    "tuneDelay": 3000,
+    "pttEnabled": false,
+    "_comment": "Set type to 'rigctld' (TCP), 'flrig' (XML-RPC), or 'mock' (Simulation)"
+  },
+  "rotator": {
+    "enabled": false,
+    "type": "rotctld",
+    "host": "127.0.0.1",
+    "port": 4533,
+    "pollInterval": 1000
+  }
+}

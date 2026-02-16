@@ -1,0 +1,108 @@
+# Builds OpenHamClock Rig Listener executables for Windows, macOS, and Linux.
+# Triggers on pushes that tag a rig-listener release, or manually via workflow_dispatch.
+#
+# Each platform builds on its native runner so the serialport native addon
+# is compiled correctly. The resulting executables are uploaded as artifacts
+# and attached to the GitHub Release.
+
+name: Build Rig Listener
+
+on:
+  push:
+    tags:
+      - 'rig-listener-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. 1.0.0)'
+        required: false
+        default: 'dev'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win
+            artifact: rig-listener-win-x64.exe
+            zip: rig-listener-win-x64
+          - os: macos-latest
+            platform: mac
+            artifact: rig-listener-mac-x64
+            zip: rig-listener-mac-x64
+          - os: ubuntu-latest
+            platform: linux
+            artifact: rig-listener-linux-x64
+            zip: rig-listener-linux-x64
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.platform }})
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        working-directory: rig-listener
+        run: npm install
+
+      - name: Build executable
+        working-directory: rig-listener
+        run: node build.js --platform ${{ matrix.platform }} --all
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.zip }}
+          path: rig-listener/dist/${{ matrix.zip }}*
+          retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/rig-listener-v')
+    name: Create Release
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: find artifacts -type f | head -20
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Rig Listener ${{ github.ref_name }}"
+          body: |
+            ## OpenHamClock Rig Listener
+
+            Download the file for your operating system, extract, and run.
+            No installation needed — the setup wizard walks you through connecting your radio.
+
+            **Windows:** Download `rig-listener-win-x64-*.zip`, extract, double-click the `.exe`
+            **macOS:** Download `rig-listener-mac-x64-*.zip`, extract, run from Terminal
+            **Linux:** Download `rig-listener-linux-x64-*.zip`, extract, `chmod +x` and run
+
+            ### In OpenHamClock Settings → Rig Control:
+            - ☑ Enable Rig Control
+            - Host: `http://localhost`
+            - Port: `5555`
+
+            See the [README](https://github.com/HAMDevs/openhamclock/blob/main/rig-listener/README.md) for full documentation.
+          files: |
+            artifacts/**/*.zip
+            artifacts/**/*.exe
+          draft: false
+          prerelease: false

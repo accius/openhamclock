@@ -1,0 +1,27 @@
+{
+  "name": "iturhfprop-service",
+  "version": "1.0.0",
+  "description": "REST API wrapper for ITURHFProp HF propagation prediction engine (ITU-R P.533-14)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "ham-radio",
+    "propagation",
+    "hf",
+    "itu-r-p533",
+    "voacap",
+    "iturhfprop"
+  ],
+  "author": "OpenHamClock Contributors",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -8,8 +8,11 @@
  * Each browser gets a unique session ID so relay data is per-user.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useVisibilityRefresh } from './useVisibilityRefresh';
+import { apiFetch } from '../utils/apiFetch';
 
-const POLL_INTERVAL = 2000; // Poll every 2 seconds for near-real-time feel
+const POLL_FAST = 2000;    // 2s when data is flowing
+const POLL_SLOW = 30000;   // 30s idle check — is anything connected?
 const API_URL = '/api/wsjtx';
 const DECODES_URL = '/api/wsjtx/decodes';
 
@@ -21,7 +24,9 @@ function getSessionId() {
   const generate = () => Math.random().toString(36).substring(2, 10);
   try {
     let id = localStorage.getItem(KEY);
-    if (id && id.length >= 8) return id;
+    // Must be 8-12 chars alphanumeric — reject old UUIDs (36 chars with dashes)
+    // which trigger Bitdefender false positives as "tracking tokens"
+    if (id && id.length >= 8 && id.length <= 12 && /^[a-z0-9]+$/.test(id)) return id;
     id = generate();
     localStorage.setItem(KEY, id);
     return id;
@@ -46,17 +51,27 @@ export function useWSJTX(enabled = true) {
   const [error, setError] = useState(null);
   const lastTimestamp = useRef(0);
   const fullFetchCounter = useRef(0);
+  const backoffUntil = useRef(0); // Rate-limit backoff timestamp
+  const hasDataFlowing = useRef(false); // True when relay/UDP is active
 
   // Lightweight poll - just new decodes since last check
   const pollDecodes = useCallback(async () => {
     if (!enabled) return;
+    // Skip if we're in a rate-limit backoff window
+    if (Date.now() < backoffUntil.current) return;
     try {
       const base = lastTimestamp.current 
         ? `${DECODES_URL}?since=${lastTimestamp.current}`
         : DECODES_URL;
       const sep = base.includes('?') ? '&' : '?';
       const url = `${base}${sep}session=${sessionId}`;
-      const res = await fetch(url);
+      const res = await apiFetch(url);
+      if (!res) return; // backed off globally
+      if (res.status === 429) {
+        // Back off for 30 seconds on rate limit
+        backoffUntil.current = Date.now() + 30000;
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       
@@ -67,7 +82,7 @@ export function useWSJTX(enabled = true) {
           const newDecodes = json.decodes.filter(d => !existing.has(d.id));
           if (newDecodes.length === 0) return prev;
           
-          const merged = [...prev.decodes, ...newDecodes].slice(-200);
+          const merged = [...prev.decodes, ...newDecodes].slice(-500);
           return { ...prev, decodes: merged, stats: { ...prev.stats, totalDecodes: merged.length } };
         });
       }
@@ -82,11 +97,24 @@ export function useWSJTX(enabled = true) {
   // Full fetch - get everything including status, QSOs, clients
   const fetchFull = useCallback(async () => {
     if (!enabled) return;
+    // Skip if we're in a rate-limit backoff window
+    if (Date.now() < backoffUntil.current) return;
     try {
-      const res = await fetch(`${API_URL}?session=${sessionId}`);
+      const res = await apiFetch(`${API_URL}?session=${sessionId}`);
+      if (!res) return; // backed off globally
+      if (res.status === 429) {
+        backoffUntil.current = Date.now() + 30000;
+        return;
+      }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setData(json);
+      // Data is flowing if there are active clients or recent decodes
+      hasDataFlowing.current = !!(json.enabled && (
+        (json.stats?.activeClients > 0) ||
+        (json.decodes?.length > 0) ||
+        (json.qsos?.length > 0)
+      ));
       lastTimestamp.current = Date.now();
       setLoading(false);
       setError(null);
@@ -101,22 +129,29 @@ export function useWSJTX(enabled = true) {
     if (enabled) fetchFull();
   }, [enabled, fetchFull]);
 
-  // Polling - mostly lightweight, full refresh every 15s
+  // Polling - adaptive: fast (2s) when data flows, slow (30s) when idle
   useEffect(() => {
     if (!enabled) return;
     
-    const interval = setInterval(() => {
+    let timer;
+    const tick = () => {
+      const interval = hasDataFlowing.current ? POLL_FAST : POLL_SLOW;
       fullFetchCounter.current++;
-      if (fullFetchCounter.current >= 8) { // Every ~16 seconds
+      if (fullFetchCounter.current >= 8) { // Full refresh every ~16s (fast) or ~240s (slow)
         fullFetchCounter.current = 0;
         fetchFull();
       } else {
         pollDecodes();
       }
-    }, POLL_INTERVAL);
+      timer = setTimeout(tick, interval);
+    };
+    timer = setTimeout(tick, POLL_SLOW); // Start slow, speed up if data arrives
     
-    return () => clearInterval(interval);
+    return () => clearTimeout(timer);
   }, [enabled, fetchFull, pollDecodes]);
+
+  // Refresh immediately when tab becomes visible (handles browser throttling)
+  useVisibilityRefresh(() => { if (enabled) fetchFull(); }, 5000);
 
   return {
     ...data,
