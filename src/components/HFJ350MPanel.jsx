@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 
 // Antenna data from the manual
@@ -180,9 +180,20 @@ export const HFJ350MPanel = () => {
     });
   };
 
+  // Load last input from localStorage on mount
+  useEffect(() => {
+    const savedInput = localStorage.getItem('hfj350m-last-input');
+    if (savedInput) {
+      setInput(savedInput);
+      calculate(savedInput);
+    }
+  }, []);
+
   const handleInputChange = (e) => {
-    setInput(e.target.value);
-    calculate(e.target.value);
+    const value = e.target.value;
+    setInput(value);
+    calculate(value);
+    localStorage.setItem('hfj350m-last-input', value);
   };
 
   const renderBar = (len, maxLen = 1266, color = "var(--accent-blue)") => {
