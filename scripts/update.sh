@@ -140,6 +140,12 @@ if [ -f "config.json" ]; then
     echo "   ✓ config.json → config.json.backup"
 fi
 
+# Backup rig control daemon config
+if [ -f "rig-control/rig-config.json" ]; then
+    cp rig-control/rig-config.json rig-control/rig-config.json.backup
+    echo "   ✓ rig-control/rig-config.json → rig-config.json.backup"
+fi
+
 echo ""
 echo "⬇️  Pulling latest changes..."
 
@@ -206,6 +212,16 @@ fi
 if [ -f "config.json.backup" ] && [ ! -f "config.json" ]; then
     cp config.json.backup config.json
     echo "   ✓ config.json restored from backup"
+fi
+
+# Restore rig control daemon config
+if [ -f "rig-control/rig-config.json.backup" ]; then
+    cp rig-control/rig-config.json.backup rig-control/rig-config.json
+    echo "   ✓ rig-control/rig-config.json restored from backup"
+elif [ ! -f "rig-control/rig-config.json" ] && [ -f "rig-control/rig-config.json.example" ]; then
+    # First-time setup: copy example to actual config
+    cp rig-control/rig-config.json.example rig-control/rig-config.json
+    echo "   ✓ rig-control/rig-config.json created from example template"
 fi
 
 # Patch kiosk.sh if present — fix --incognito flag that wipes localStorage on reboot

@@ -27,7 +27,7 @@ npm install
 
 ## Configuration
 
-Configuration is loaded from `rig-config.json`. A default file is provided:
+Configuration is loaded from `rig-config.json`. On first run, this file is automatically created from `rig-config.json.example`:
 
 ```json
 {
@@ -45,6 +45,8 @@ Configuration is loaded from `rig-config.json`. A default file is provided:
   }
 }
 ```
+
+**Important:** Your `rig-config.json` customizations are preserved during updates. The file is excluded from git tracking, so your local changes won't be overwritten when pulling new versions.
 
 ### Configuration Options
 
@@ -108,6 +110,23 @@ The daemon listens on port `5555` (configurable) and provides the following endp
 - **Check Connection**: Ensure `rigctld` or `flrig` is running and accessible.
 - **CORS Errors**: The daemon enables CORS for all origins by default (`*`) to allow local development.
 - **Port Conflicts**: If port 5555 is in use, change `server.port` in `rig-config.json`.
+
+### Mixed Content Issues (HTTPS → HTTP)
+
+**Problem:** If OpenHamClock is accessed via **HTTPS** (e.g., `https://yourdomain.com` or `https://openhamclock.com`), browsers will block HTTP requests to the rig daemon (`http://localhost:5555`) due to **Mixed Content** security policies.
+
+**Browser Behavior:**
+
+| Browser | Behavior | Workaround |
+|---------|----------|------------|
+| **Safari (macOS/iOS)** | ❌ **Strictly blocks** all mixed content. No override option. | No workaround available. Use Chrome/Firefox/Edge or run OpenHamClock locally via HTTP. |
+| **Chrome** | ⚠️ Blocks by default. Shows shield icon in address bar to allow insecure content. | Click shield icon → "Load unsafe scripts" |
+| **Firefox** | ⚠️ Blocks by default. Shows shield icon in address bar. | Click shield icon → "Disable protection for this session" |
+| **Edge** | ⚠️ Blocks by default. Similar to Chrome. | Click shield icon → Allow |
+
+**Recommendation:** For the best experience, run OpenHamClock locally using HTTP (e.g., `http://localhost:3000`) to avoid mixed content issues entirely. See the [User Guide](./UserGuide.md) for detailed setup instructions.
+
+
 
 ## Experimental Scripts
 

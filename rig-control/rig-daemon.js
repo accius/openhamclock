@@ -32,6 +32,18 @@ let CONFIG = {
 
 // Load Config File
 const configPath = path.join(__dirname, "rig-config.json");
+const exampleConfigPath = path.join(__dirname, "rig-config.json.example");
+
+// Auto-create config from example if it doesn't exist
+if (!fs.existsSync(configPath) && fs.existsSync(exampleConfigPath)) {
+  try {
+    fs.copyFileSync(exampleConfigPath, configPath);
+    console.log(`[Config] Created ${configPath} from example template`);
+  } catch (e) {
+    console.warn(`[Config] Could not create config from example: ${e.message}`);
+  }
+}
+
 if (fs.existsSync(configPath)) {
   try {
     const fileConfig = JSON.parse(fs.readFileSync(configPath, "utf8"));

@@ -13,7 +13,10 @@ const TABS = ['pota', 'sota'];
 export const PotaSotaPanel = ({
   potaData, potaLoading, showPOTA, onTogglePOTA,
   wwffData, wwffLoading, showWWFF, onToggleWWFF,
-  sotaData, sotaLoading, showSOTA, onToggleSOTA
+  sotaData, sotaLoading, showSOTA, onToggleSOTA,
+  onPOTASpotClick,
+  onWWFFSpotClick,
+  onSOTASpotClick
 }) => {
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -24,7 +27,7 @@ export const PotaSotaPanel = ({
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    try { localStorage.setItem('openhamclock_potaSotaTab', tab); } catch {}
+    try { localStorage.setItem('openhamclock_potaSotaTab', tab); } catch { }
   };
 
   const tabStyle = (tab) => ({
@@ -32,10 +35,10 @@ export const PotaSotaPanel = ({
     padding: '3px 0',
     background: activeTab === tab ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
     border: 'none',
-    borderBottom: activeTab === tab 
-      ? `2px solid ${tab === 'pota' ? '#44cc44' : '#ff9632'}` 
+    borderBottom: activeTab === tab
+      ? `2px solid ${tab === 'pota' ? '#44cc44' : '#ff9632'}`
       : '2px solid transparent',
-    color: activeTab === tab 
+    color: activeTab === tab
       ? (tab === 'pota' ? '#44cc44' : '#ff9632')
       : '#666',
     fontSize: '10px',
@@ -48,8 +51,8 @@ export const PotaSotaPanel = ({
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Tab bar */}
-      <div style={{ 
-        display: 'flex', 
+      <div style={{
+        display: 'flex',
         borderBottom: '1px solid var(--border-color)',
         flexShrink: 0
       }}>
@@ -72,6 +75,7 @@ export const PotaSotaPanel = ({
             loading={potaLoading}
             showOnMap={showPOTA}
             onToggleMap={onTogglePOTA}
+            onSpotClick={onPOTASpotClick}
           />
         ) : activeTab === 'sota' ? (
           <SOTAPanel
@@ -79,6 +83,7 @@ export const PotaSotaPanel = ({
             loading={sotaLoading}
             showOnMap={showSOTA}
             onToggleMap={onToggleSOTA}
+            onSpotClick={onSOTASpotClick}
           />
         ) : (
           <WWFFPanel
@@ -86,6 +91,7 @@ export const PotaSotaPanel = ({
             loading={wwffLoading}
             showOnMap={showWWFF}
             onToggleMap={onToggleWWFF}
+            onSpotClick={onWWFFSpotClick}
           />
         )}
       </div>

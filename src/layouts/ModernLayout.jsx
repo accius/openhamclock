@@ -88,6 +88,12 @@ export default function ModernLayout(props) {
 
   const { tuneTo } = useRig();
 
+  // Handler for POTA/WWFF/SOTA spot clicks
+  const handleParkSpotClick = (spot) => {
+    // tuneTo() in RigContext handles spot objects and all frequency conversions
+    tuneTo(spot);
+  };
+
   return (
     <div style={{
       width: scale < 1 ? `${100 / scale}vw` : '100vw',
@@ -404,6 +410,9 @@ export default function ModernLayout(props) {
                 wwffLoading={wwffSpots.loading}
                 showWWFF={mapLayers.showWWFF}
                 onToggleWWFF={toggleWWFF}
+                onPOTASpotClick={handleParkSpotClick}
+                onWWFFSpotClick={handleParkSpotClick}
+                onSOTASpotClick={handleParkSpotClick}
               />
             </div>
           )}

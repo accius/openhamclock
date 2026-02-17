@@ -2241,6 +2241,50 @@ app.get('/api/wwff/spots', async (req, res) => {
 // SOTA cache (2 minutes)
 let sotaCache = { data: null, timestamp: 0 };
 const SOTA_CACHE_TTL = 2 * 60 * 1000; // 2 minutes
+let sotaSummits = { data: null, timestamp: 0};
+const SOTASUMMITS_CACHE_TTL = 24 * 60 * 60 * 1000; // 1 day
+
+// SOTA Summits
+// SOTA publishes a CSV of the Summit detail every day. Save this into
+// a cache so we can look it up when loading the spots.
+
+async function checkSummitCache() {
+  const now = Date.now();
+  try {
+    if (sotaSummits.data && (now - sotaSummits.timestamp) < SOTASUMMITS_CACHE_TTL) {
+      return;
+    }
+    logDebug('[SOTA] Refreshing sotaSummits');
+    const response = await fetch('https://storage.sota.org.uk/summitslist.csv');
+    const data = await response.text();
+    const rows = data.trim().split('\n');
+    rows.shift(); // discard the title line
+    const headers = rows.shift().split(',').map(header => header.trim());
+    let summit = {};
+
+    rows.forEach(row => {
+      values = row.split(',').map(value => value.trim());
+      const obj = {};
+      headers.forEach((header, index) => {
+        obj[header] = values[index].replace(/"/g, '');
+      });
+      summit[obj['SummitCode']] = {
+        latitude: obj['Latitude'],
+        longitude: obj['Longitude'],
+        name: obj['SummitName'],
+        altM: obj['AltM'],
+        points: obj['Points']
+      };
+    });
+    sotaSummits = {
+      data: summit,
+      timestamp: now
+    }
+  } catch(error) {
+    logErrorOnce('[SOTA]', error.message);
+  }
+}
+checkSummitCache(); // Prime the sotaSummits cache
 
 // SOTA Spots
 app.get('/api/sota/spots', async (req, res) => {
@@ -2250,9 +2294,23 @@ app.get('/api/sota/spots', async (req, res) => {
       res.set('Cache-Control', 'public, max-age=90, s-maxage=90');
       return res.json(sotaCache.data);
     }
-    
+
+    checkSummitCache(); // Updates sotaSummits if required
+
     const response = await fetch('https://api2.sota.org.uk/api/spots/50/all');
     const data = await response.json();
+
+    if (sotaSummits.data) {
+      // If we have data in the sotaSummits cache, use it to populate summitDetails.
+      data.map(s => {
+        const summit = `${s.associationCode}/${s.summitCode}`;
+        s.summitDetails = sotaSummits.data[summit];
+      });
+    }
+    if (Array.isArray(data) && data.length > 0) {
+      const sample = data[0];
+      logDebug('[SOTA] API returned', data.length, 'spots. Sample fields:', Object.keys(sample).join(', '));
+    }
     
     // Cache the response
     sotaCache = { data, timestamp: Date.now() };
@@ -5604,7 +5662,6 @@ app.get('/api/wspr/heatmap', async (req, res) => {
   }
 });
 
-
 // ============================================
 // SATELLITE TRACKING API
 // ============================================
@@ -5620,8 +5677,8 @@ const HAM_SATELLITES = {
   'PO-101': { norad: 43678, name: 'PO-101 (Diwata-2)', color: '#ff3399', priority: 1, mode: 'FM' },
   
   // Weather Satellites - GOES & METEOR
-  //'GOES-18': { norad: 51850, name: 'GOES-18', color: '#66ff66', priority: 1, mode: 'GRB/HRIT/LRIT' },
-  //'GOES-19': { norad: 60133, name: 'GOES-19', color: '#33cc33', priority: 1, mode: 'GRB/HRIT/LRIT' },
+  'GOES-18': { norad: 51850, name: 'GOES-18', color: '#66ff66', priority: 1, mode: 'GRB/HRIT/LRIT' },
+  'GOES-19': { norad: 60133, name: 'GOES-19', color: '#33cc33', priority: 1, mode: 'GRB/HRIT/LRIT' },
   'METEOR-M2-3': { norad: 57166, name: 'METEOR M2-3', color: '#FF0000', priority: 1, mode: 'HRPT/LRPT' },
   'METEOR-M2-4': { norad: 59051, name: 'METEOR M2-4', color: '#FF0000', priority: 1, mode: 'HRPT/LRPT' },
   'SUOMI-NPP': { norad: 37849, name: 'SUOMI NPP', color: '#0000FF', priority: 2, mode: 'HRD/SMD' },
@@ -5681,18 +5738,34 @@ const HAM_SATELLITES = {
   'SSTV-ISS': { norad: 25544, name: 'ISS SSTV', color: '#00ffff', priority: 2, mode: 'SSTV' }
 };
 
-// Cache for TLE data (refresh every 6 hours)
 let tleCache = { data: null, timestamp: 0 };
 const TLE_CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
+const OFFLINE_MODE = false; // Set to false when you want live data again
 
 app.get('/api/satellites/tle', async (req, res) => {
   try {
     const now = Date.now();
-    // Return cached data if fresh (6-hour window)
+    const backupFilePath = path.join(__dirname, 'tle_backup.txt'); // Define this first
+
+    // 1. Return memory cache if fresh
     if (tleCache.data && (now - tleCache.timestamp) < TLE_CACHE_DURATION) {
       return res.json(tleCache.data);
     }
 
+    // 2. OFFLINE TESTING BLOCK
+    if (OFFLINE_MODE && fs.existsSync(backupFilePath)) {
+      logInfo('[Satellites] Loading OFFLINE cache from tle_backup.txt');
+      const fileContent = fs.readFileSync(backupFilePath, 'utf8');
+      const parsedData = JSON.parse(fileContent);
+      
+      tleCache = { data: parsedData, timestamp: now };
+      return res.json(parsedData);
+    }
+	
+	// C. Live Fetching (Only runs if OFFLINE_MODE is false or file is missing)
+    logDebug('[Satellites] Fetching fresh TLE data from CelesTrak...');
+	
+	// --- COMMENT OUT THE START OF THE FETCH LOGIC IF TESTING SO AS TO NOT PULL FROM CELSTRACK TOO OFTEN AND const OFFLINE_MODE = false; // Set to false when you want live data again ---
     logDebug('[Satellites] Fetching fresh TLE data from multiple groups...');
     const tleData = {}; // Declare this exactly once to avoid SyntaxErrors
     
@@ -5772,6 +5845,7 @@ app.get('/api/satellites/tle', async (req, res) => {
     }
 
     tleCache = { data: tleData, timestamp: now };
+	// --- END OF COMMENTED OUT FETCH LOGIC --- 
     res.json(tleData);
   } catch (error) {
     // Return stale cache or empty if everything fails

@@ -65,7 +65,17 @@ export const SOTAPanel = ({ data, loading, showOnMap, onToggleMap, onSpotClick }
                   {spot.ref}
                 </span>
                 <span style={{ color: 'var(--accent-cyan)', textAlign: 'right' }}>
-                  {spot.freq}
+                  {(() => {
+                    if (!spot.freq) return '?';
+                    const freqVal = parseFloat(spot.freq);
+                    if (freqVal > 1000) {
+                      // It's in kHz, convert to MHz
+                      return (freqVal / 1000).toFixed(3);
+                    } else {
+                      // Already in MHz
+                      return freqVal.toFixed(3);
+                    }
+                  })()}
                 </span>
                 <span style={{ color: 'var(--text-muted)', textAlign: 'right', fontSize: '9px' }}>
                   {spot.time}

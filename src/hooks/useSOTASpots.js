@@ -20,7 +20,13 @@ export const useSOTASpots = () => {
 
           // Map SOTA API response to our standard spot format
           const mapped = (Array.isArray(spots) ? spots : [])
-            .filter(s => s.activatorCallsign)
+            .filter(s => {
+              if (! (s.activatorCallsign && s.frequency)) return false;
+              // Filter out QRT (operator signed off)
+              const comments = (s.comments || '').toUpperCase().trim();
+              if (comments === 'QRT' || comments.startsWith('QRT ') || comments.startsWith('QRT,')) return false;
+              return true;
+            })
             .map(s => {
               // summitDetails often contains lat/lng from the SOTA DB
               const details = s.summitDetails || {};

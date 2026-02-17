@@ -3,8 +3,6 @@
  * Displays Parks on the Air activations with ON/OFF toggle
  */
 import React from 'react';
-import { detectMode } from '../utils/callsign.js';
-import { useRig } from '../contexts/RigContext.jsx';
 import CallsignLink from './CallsignLink.jsx';
 
 export const POTAPanel = ({
@@ -14,8 +12,8 @@ export const POTAPanel = ({
   onToggleMap,
   showLabelsOnMap = true,
   onToggleLabelsOnMap,
+  onSpotClick,
 }) => {
-  const { tuneTo, tuneEnabled } = useRig();
   return (
     <div className="panel" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div className="panel-header" style={{
@@ -84,15 +82,7 @@ export const POTAPanel = ({
                   cursor: 'pointer'
                 }}
                 onClick={() => {
-                  if (spot.freq) {
-                    const freqVal = parseFloat(spot.freq);
-                    let freqHz = freqVal;
-                    if (freqVal < 1000) freqHz = freqVal * 1000000;
-                    else if (freqVal < 100000) freqHz = freqVal * 1000;
-
-                    const mode = spot.mode || detectMode(spot.locationDesc || spot.comment || '');
-                    tuneTo(freqHz, mode);
-                  }
+                  onSpotClick?.(spot);
                 }}
               >
                 <span style={{ color: '#44cc44', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -102,7 +92,17 @@ export const POTAPanel = ({
                   {spot.locationDesc || spot.ref}
                 </span>
                 <span style={{ color: 'var(--accent-cyan)', textAlign: 'right' }}>
-                  {spot.freq}
+                  {(() => {
+                    if (!spot.freq) return '?';
+                    const freqVal = parseFloat(spot.freq);
+                    if (freqVal > 1000) {
+                      // It's in kHz, convert to MHz
+                      return (freqVal / 1000).toFixed(3);
+                    } else {
+                      // Already in MHz
+                      return freqVal.toFixed(3);
+                    }
+                  })()}
                 </span>
                 <span style={{ color: 'var(--text-muted)', textAlign: 'right', fontSize: '9px' }}>
                   {spot.time}

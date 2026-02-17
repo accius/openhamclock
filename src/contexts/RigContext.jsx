@@ -182,7 +182,17 @@ export const RigProvider = ({ children, rigConfig }) => {
       // Handle spot object (recursive call)
       if (typeof freqInput === 'object' && freqInput !== null) {
         const spot = freqInput;
-        const f = spot.freq || spot.freqMHz;
+        let f;
+
+        // WSJT-X decodes have dialFrequency (VFO frequency)
+        // The freq field is just the audio delta offset, not part of the tune frequency
+        if (spot.dialFrequency) {
+          f = spot.dialFrequency; // Use dial frequency directly
+        } else {
+          // For other spot types (DX Cluster, POTA, etc.)
+          f = spot.freq || spot.freqMHz;
+        }
+
         const m = spot.mode || modeInput;
         if (f) {
           tuneTo(f, m);

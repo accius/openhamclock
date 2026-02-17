@@ -67,6 +67,9 @@ config.local.js
 config.local.json
 config.json
 
+# Rig control daemon config (user-specific settings)
+rig-control/rig-config.json
+
 # Test files
 *.test.js.snap
 
