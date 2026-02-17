@@ -2390,6 +2390,47 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.5' }}>Built with the help of an amazing community of amateur radio operators contributing features, reporting bugs, and making OpenHamClock better every day.</div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>K0CJH / openhamclock.com</div>
             </div>
+
+            {/* Contributors */}
+            <div style={{ marginTop: '12px', padding: '14px 16px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--accent-amber)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', textAlign: 'center' }}>Contributors</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '10px' }}>Thank you to everyone who has contributed code, features, bug fixes, and ideas.</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
+                {[
+                  'creinemann', 'ceotjoe', 'alanhargreaves', 'dmazan', 'Delerius',
+                  'rfreedman', 'SebFox2011', 'infopcgood', 'thomas-schreck', 'echo-gravitas',
+                  'yuryja', 'Holyszewski', 'trancen', 'ThePangel', 'w8mej',
+                  'JoshuaNewport', 'denete', 'kmanwar89', 'KentenRoth', 's53zo',
+                  'theodeurne76', 'm1dst'
+                ].map(name => (
+                  <a
+                    key={name}
+                    href={`https://github.com/${name}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      display: 'inline-block',
+                      padding: '4px 10px',
+                      background: 'var(--bg-secondary)',
+                      borderRadius: '12px',
+                      fontSize: '11px',
+                      color: 'var(--text-secondary)',
+                      textDecoration: 'none',
+                      fontFamily: 'JetBrains Mono, monospace',
+                      border: '1px solid transparent',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--accent-cyan)'; e.currentTarget.style.color = 'var(--accent-cyan)'; }}
+                    onMouseOut={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                  >
+                    {name}
+                  </a>
+                ))}
+              </div>
+              <div style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '10px' }}>
+                Want to contribute? Check out our GitHub — issues, pull requests, and ideas are all welcome.
+              </div>
+            </div>
           </div>
         )}
 

@@ -10,6 +10,53 @@ import { useState, useEffect } from 'react';
 // Each entry: { version, date, heading, features: [...] }
 const CHANGELOG = [
   {
+    version: '15.5.3',
+    date: '2026-02-17',
+    heading: 'Satellites got smarter, SOTA got richer, and tuning just works.',
+    features: [
+      {
+        icon: '🛰️',
+        title: 'Satellite Tracker Overhaul',
+        desc: 'Completely redesigned satellite layer with a floating data window, blinking indicators for visible passes, pinned satellite tracking, and GOES-18/19 weather satellites re-enabled.'
+      },
+      {
+        icon: '⛰️',
+        title: 'SOTA Summit Details',
+        desc: 'SOTA spots now include full summit information — name, altitude, coordinates, and point values — pulled from the official SOTA summits database and refreshed daily.'
+      },
+      {
+        icon: '📻',
+        title: 'WSJT-X Rig Tuning Fix',
+        desc: 'Clicking a WSJT-X decode now sends the correct dial frequency to your radio instead of the audio offset. FT8/FT4 click-to-tune works properly.'
+      },
+      {
+        icon: '🎯',
+        title: 'POTA/WWFF Click-to-Tune',
+        desc: 'POTA and WWFF spots now properly trigger rig control when clicked — same one-click tuning that DX cluster spots have always had.'
+      },
+      {
+        icon: '📊',
+        title: 'Frequency Display Fix',
+        desc: 'POTA, SOTA, and WWFF panels now consistently display frequencies in MHz. No more confusion between kHz and MHz values across different data sources.'
+      },
+      {
+        icon: '🔇',
+        title: 'SOTA QRT Filtering',
+        desc: 'Operators who have signed off (QRT) are now automatically filtered out of the SOTA spots list — no more chasing stations that are already off the air.'
+      },
+      {
+        icon: '🔍',
+        title: 'SEO & Branding',
+        desc: 'New favicon, Open Graph social sharing cards, structured data for search engines, and a canonical URL to ensure openhamclock.com is always the top result.'
+      },
+      {
+        icon: '🤝',
+        title: 'Community Tab',
+        desc: 'New Community tab in Settings with links to GitHub, Facebook Group, and Reddit — plus a contributors wall thanking everyone who has helped build OpenHamClock.'
+      },
+    ]
+  },
+  {
     version: '15.5.1',
     date: '2026-02-15',
     heading: 'Better callsign lookups, better propagation maps.',
