@@ -1,222 +1,228 @@
 # Contributing to OpenHamClock
 
-Thank you for your interest in contributing! This document explains how to work with the modular codebase.
+Thank you for helping build OpenHamClock! Whether you're fixing a bug, adding a feature, improving docs, or translating — every contribution matters.
 
-## 📐 Architecture Overview
+**New here?** Start with [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a full codebase map.
 
-OpenHamClock uses a clean separation of concerns:
+## Quick Start
+
+```bash
+# 1. Fork and clone
+git clone https://github.com/YOUR_USERNAME/openhamclock.git
+cd openhamclock
+
+# 2. Install dependencies
+npm install
+
+# 3. Start the backend (Terminal 1)
+node server.js
+# → Server running on http://localhost:3001
+
+# 4. Start the frontend dev server (Terminal 2)
+npm run dev
+# → App running on http://localhost:3000 (proxies API to :3001)
+```
+
+Open `http://localhost:3000` — you should see the full dashboard with live data.
+
+### Docker Alternative
+
+```bash
+docker compose up
+# → App running on http://localhost:3001
+```
+
+## Project Structure
 
 ```
 src/
-├── components/    # React UI components
-├── hooks/         # Data fetching & state management
-├── utils/         # Pure utility functions
-└── styles/        # CSS with theme variables
+├── components/     # React UI panels (DXClusterPanel, SolarPanel, etc.)
+├── hooks/          # Data fetching hooks (useDXCluster, usePOTASpots, etc.)
+├── plugins/layers/ # Map layer plugins (satellites, VOACAP, RBN, etc.)
+├── layouts/        # Page layouts (Modern, Classic, Dockable)
+├── contexts/       # React contexts (RigContext)
+├── utils/          # Pure utility functions (callsign, geo, filters)
+├── lang/           # i18n translation files
+└── styles/         # CSS files
+
+server.js           # Express backend — all API routes, SSE, data proxying
+public/             # Static assets, favicon, PWA manifest
+rig-listener/       # Standalone USB rig control bridge
 ```
 
-## 🔧 Working on Components
+Full architecture details: **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)**
 
-Each component is self-contained in its own file. To modify a component:
+## How to Contribute
 
-1. Open the component file in `src/components/`
-2. Make your changes
-3. Test with `npm run dev`
-4. Ensure all three themes still work
+### Reporting Bugs
 
-### Component Guidelines
+1. Check [existing issues](https://github.com/accius/openhamclock/issues) first
+2. Open a new issue using the **Bug Report** template
+3. Include: browser, screen size, console errors, steps to reproduce
+
+### Requesting Features
+
+1. Open an issue using the **Feature Request** template
+2. Describe the use case — *why* is this useful for operators?
+3. Mockups and screenshots are welcome
+
+### Submitting Code
+
+1. **Fork** the repo and create a branch from `main`
+2. **Make your changes** — keep commits focused and descriptive
+3. **Test** across all three themes (dark, light, retro) and at different screen sizes
+4. **Open a PR** against `main` with a clear description of what changed and why
+
+#### Branch Naming
+
+```
+feature/my-new-panel
+fix/pota-frequency-display
+docs/update-readme
+```
+
+## Code Guidelines
+
+### Components
+
+Each panel is a self-contained React component in `src/components/`.
 
 ```jsx
-// Good component structure
-export const MyComponent = ({ prop1, prop2, onAction }) => {
-  // Hooks at the top
-  const [state, setState] = useState(initial);
-  
-  // Event handlers
-  const handleClick = () => {
-    onAction?.(state);
-  };
-  
-  // Early returns for loading/empty states
-  if (!prop1) return null;
-  
-  // Main render
+// src/components/MyPanel.jsx
+export const MyPanel = ({ data, loading, onSpotClick }) => {
+  if (loading) return <div>Loading...</div>;
+  if (!data?.length) return <div>No data</div>;
+
   return (
-    <div className="panel">
-      {/* Use CSS variables for colors */}
-      <div style={{ color: 'var(--accent-cyan)' }}>
-        {prop1}
-      </div>
+    <div style={{ color: 'var(--text-primary)' }}>
+      {data.map(item => (
+        <div key={item.id} onClick={() => onSpotClick?.(item)}>
+          {item.callsign} — {item.freq}
+        </div>
+      ))}
     </div>
   );
 };
 ```
 
-## 🪝 Working on Hooks
+### Hooks
 
-Hooks handle data fetching and state. Each hook:
-- Fetches from a specific API endpoint
-- Manages loading state
-- Handles errors gracefully
-- Returns consistent shape: `{ data, loading, error? }`
-
-### Hook Guidelines
+Each data source has a dedicated hook in `src/hooks/`.
 
 ```jsx
-// Good hook structure
-export const useMyData = (param) => {
+// src/hooks/useMyData.js
+export const useMyData = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!param) {
-      setLoading(false);
-      return;
-    }
-
     const fetchData = async () => {
       try {
-        const response = await fetch(`/api/endpoint/${param}`);
-        if (response.ok) {
-          const result = await response.json();
-          setData(result);
-        }
+        const res = await fetch('/api/mydata');
+        if (res.ok) setData(await res.json());
       } catch (err) {
-        console.error('MyData error:', err);
+        console.error('[MyData]', err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchData();
-    const interval = setInterval(fetchData, 30000); // 30 sec refresh
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
-  }, [param]);
+  }, []);
 
   return { data, loading };
 };
 ```
 
-## 🛠️ Working on Utilities
+### API Routes (server.js)
 
-Utilities are pure functions with no side effects:
+All external APIs are proxied through `server.js` with caching:
 
-```jsx
-// Good utility
-export const calculateSomething = (input1, input2) => {
-  // Pure calculation, no API calls or DOM access
-  return result;
+```js
+let myCache = { data: null, timestamp: 0 };
+const MY_TTL = 5 * 60 * 1000;
+
+app.get('/api/mydata', async (req, res) => {
+  const now = Date.now();
+  if (myCache.data && (now - myCache.timestamp) < MY_TTL) {
+    return res.json(myCache.data);
+  }
+  const data = await fetch('https://api.example.com/data').then(r => r.json());
+  myCache = { data, timestamp: now };
+  res.json(data);
+});
+```
+
+### Map Layer Plugins
+
+Create `src/plugins/layers/useMyLayer.js`:
+
+```js
+export const meta = {
+  name: 'my-layer',
+  label: 'My Layer',
+  description: 'What this layer shows',
+  defaultEnabled: false,
+};
+
+export const useLayer = ({ map, enabled, config }) => {
+  useEffect(() => {
+    if (!map || !enabled) return;
+    // Add your Leaflet layers here
+    return () => { /* cleanup */ };
+  }, [map, enabled]);
 };
 ```
 
-## 🎨 CSS & Theming
+The layer registry auto-discovers plugins — no manual registration needed. See `src/plugins/OpenHamClock-Plugin-Guide.md` for the full plugin API.
 
-Use CSS variables for all colors:
+### Theming
 
-```css
-/* ✅ Good - uses theme variable */
-.my-element {
-  color: var(--accent-cyan);
-  background: var(--bg-panel);
-  border: 1px solid var(--border-color);
-}
+Three themes: `dark`, `light`, `retro`. **Never hardcode colors** — always use CSS variables:
 
-/* ❌ Bad - hardcoded color */
-.my-element {
-  color: #00ddff;
-}
+```jsx
+// ✅ Good
+<div style={{ color: 'var(--accent-cyan)', background: 'var(--bg-panel)' }}>
+
+// ❌ Bad
+<div style={{ color: '#00ddff', background: '#1a1a2e' }}>
 ```
 
-Available theme variables:
-- `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-panel`
-- `--border-color`
-- `--text-primary`, `--text-secondary`, `--text-muted`
-- `--accent-amber`, `--accent-green`, `--accent-red`, `--accent-blue`, `--accent-cyan`, `--accent-purple`
+Key variables: `--bg-primary`, `--bg-secondary`, `--bg-tertiary`, `--bg-panel`, `--border-color`, `--text-primary`, `--text-secondary`, `--text-muted`, `--accent-amber`, `--accent-green`, `--accent-red`, `--accent-cyan`
 
-## 📝 Adding a New Feature
+## Testing Checklist
 
-### New Component
+Before submitting a PR, verify:
 
-1. Create `src/components/MyComponent.jsx`
-2. Export from `src/components/index.js`
-3. Import and use in `App.jsx`
-
-### New Hook
-
-1. Create `src/hooks/useMyHook.js`
-2. Export from `src/hooks/index.js`
-3. Import and use in component
-
-### New Utility
-
-1. Add function to appropriate file in `src/utils/`
-2. Export from `src/utils/index.js`
-3. Import where needed
-
-## 🧪 Testing Your Changes
+- [ ] App loads without console errors
+- [ ] Works in **Dark**, **Light**, and **Retro** themes
+- [ ] Responsive at different screen sizes
+- [ ] If touching `server.js`: memory-safe (caches have TTLs and size caps)
+- [ ] If adding an API route: includes caching and error handling
+- [ ] If adding a panel: wired into all three layouts (Modern, Classic, Dockable)
+- [ ] Existing features still work
 
 ```bash
-# Start dev servers
-node server.js  # Terminal 1
-npm run dev     # Terminal 2
+# Run tests
+npm test
 
-# Test checklist:
-# [ ] Component renders correctly
-# [ ] Works in Dark theme
-# [ ] Works in Light theme
-# [ ] Works in Legacy theme
-# [ ] Responsive on smaller screens
-# [ ] No console errors
-# [ ] Data fetches correctly
+# Run linting
+npm run lint
 ```
 
-## 📋 Pull Request Checklist
+## Important Notes
 
-- [ ] Code follows existing patterns
-- [ ] All themes work correctly
-- [ ] No console errors/warnings
-- [ ] Component is exported from index.js
-- [ ] Added JSDoc comments if needed
-- [ ] Tested on different screen sizes
+- **`server.js` handles 2,000+ concurrent connections** — be mindful of memory. Every cache needs a TTL and a size cap.
+- **`src/` is what production runs** — the built React app from Vite. `public/index-monolithic.html` is a legacy fallback.
+- **Don't commit** `.bak`, `.backup`, `.old`, `tle_backup.txt`, test scripts, or other debug files. They're in `.gitignore`.
+- **Frequencies**: POTA/SOTA use MHz, some APIs return kHz. Always normalize display to MHz.
+- **Rig control**: The `tuneTo()` function in `RigContext` handles all unit conversion. Pass the raw spot object.
 
-## 🐛 Reporting Bugs
-
-1. Check existing issues first
-2. Include browser and screen size
-3. Include console errors if any
-4. Include steps to reproduce
-
-## 💡 Feature Requests
-
-1. Describe the feature
-2. Explain the use case
-3. Show how it would work (mockups welcome)
-
-## 🏗️ Reference Implementation
-
-The original monolithic version is preserved at `public/index-monolithic.html` (5714 lines). Use it as reference for:
-
-- Line numbers for each feature section
-- Complete implementation details
-- Original styling decisions
-
-### Key Sections in Monolithic Version
-
-| Lines | Section |
-|-------|---------|
-| 30-335 | CSS styles & themes |
-| 340-640 | Config & map providers |
-| 438-636 | Utility functions (geo) |
-| 641-691 | useSpaceWeather |
-| 721-810 | useBandConditions |
-| 812-837 | usePOTASpots |
-| 839-1067 | DX cluster filters & helpers |
-| 1069-1696 | useDXCluster with filtering |
-| 2290-3022 | WorldMap component |
-| 3024-3190 | Header component |
-| 3195-3800 | DXFilterManager |
-| 3800-4200 | SettingsPanel |
-| 5019-5714 | Main App & rendering |
-
-## 📜 License
+## License
 
 By contributing, you agree that your contributions will be licensed under the MIT License.
+
+## Recognition
+
+All contributors are listed in the **Community** tab inside the app (Settings → Community) and linked to their GitHub profiles. When your PR is merged, we'll add you to the contributors wall. Thank you for helping build OpenHamClock — 73!

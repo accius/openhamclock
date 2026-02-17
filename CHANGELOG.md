@@ -2,6 +2,82 @@
 
 All notable changes to OpenHamClock will be documented in this file.
 
+## [15.5.3] - 2026-02-17
+
+### Added
+- **Satellite tracker overhaul** — Floating data window, blinking visibility indicators, pinned satellite tracking, GOES-18/19 weather satellites re-enabled
+- **SOTA summit details** — Spots now include full summit info (name, altitude, coordinates, points) from the official SOTA summits database, refreshed daily
+- **POTA/WWFF click-to-tune** — Park spots now properly trigger rig control when clicked
+- **Community tab** — New tab in Settings with GitHub, Facebook, and Reddit links plus a contributor wall
+- **SEO & branding** — Favicon, Open Graph social cards, JSON-LD structured data, canonical URL, robots.txt, sitemap.xml
+- **Contributors list** — 23 contributors recognized in the Community tab
+
+### Fixed
+- **WSJT-X rig tuning** — Click-to-tune now sends the dial frequency instead of the audio offset for FT8/FT4 decodes
+- **Frequency display** — POTA, SOTA, and WWFF panels now consistently show frequencies in MHz
+- **SOTA QRT filtering** — Operators who have signed off (QRT) are filtered out of the spots list
+- **Favicon not showing** — SEO and favicon tags were only in the monolithic fallback, not the Vite-built index.html that production serves
+
+### Removed
+- Nested duplicate `openhamclock-main/` directory (3.7MB waste)
+- Backup/debug files: `.jsxbak`, `.backup`, `.bak`, `tle_backup.txt`, test scripts, debug patches
+- Stale dev notes: `TODAYS_PLUGIN_UPDATES.md`, `PLUGIN_DOCUMENTATION_SUMMARY.md`, `RIG_CONTROL_COMPARISON.md`
+- Deprecated `rig-bridge/` and `rig-control/` directories (replaced by `rig-listener/`)
+- Duplicate `vite.config.js` (keeping only `vite.config.mjs`)
+- Duplicate `build-rig-listener.yml` workflow
+
+### Improved
+- New `docs/ARCHITECTURE.md` — full codebase map for contributors
+- Rewritten `CONTRIBUTING.md` — proper dev setup, code patterns, testing checklist
+- `.editorconfig` for consistent formatting across editors
+- `.gitignore` updated to prevent future cruft accumulation
+- Updated `CHANGELOG.md` with all missing versions (15.4.1 through 15.5.3)
+
+## [15.5.2] - 2026-02-16
+
+### Fixed
+- **Railway OOM crashes** — Memory leak investigation at 1800-2300 concurrent users:
+  - `callsignLocationCache` (RBN skimmers) had no cap — added 2000-entry limit with oldest-first eviction
+  - `geoIPCache` stored duplicate data in both a Map and a plain object — eliminated object, reconstruct only at save time
+  - Stats save interval reduced from 60s to 5 minutes to reduce GC pressure
+- **Memory logging** — Added periodic heap usage reporting for leak detection
+- **QRZ auth cooldown** — Suppressed BadRequestError spam during rate limiting
+- **Heap limit** increased to 2048MB for high-traffic deployments
+
+## [15.5.1] - 2026-02-15
+
+### Added
+- **cty.dat DXCC entity database** — Callsign identification now uses the full AD1C cty.dat database (~400 entities, thousands of prefixes). Replaces the old 120-entry prefix table.
+- **Smarter DX cluster filtering** — Spotter/spot continent/zone filtering uses cty.dat for accurate identification
+
+### Fixed
+- **MUF layer regression** — The ionosonde-based MUF overlay was missing from Map Layers; restored
+- **VOACAP power levels** — Changing TX power now produces dramatically different propagation maps as expected
+
+## [15.5.0] - 2026-02-15
+
+### Added
+- **Direct rig control** — Click any DX spot, POTA activation, or WSJT-X decode to tune your radio. Supports Yaesu, Kenwood, Elecraft, and Icom via USB serial.
+- **One-click rig listener download** — Download the Rig Listener for Windows, Mac, or Linux from Settings. Double-click to run — auto-installs everything.
+- **Interactive setup wizard** — Detects USB serial ports, asks radio brand/model, saves config, connects in 30 seconds.
+- **Live frequency & mode display** — Real-time frequency/mode shown on the dashboard, polling every 500ms.
+- **Night darkness slider** — Adjust nighttime shading intensity on the map.
+- **Hosted user cleanup** — Rotator panel and local-only features hidden for hosted users.
+
+## [15.4.1] - 2026-02-15
+
+### Added
+- **QRZ.com callsign lookups** — 3-tier waterfall: QRZ → HamQTH → prefix estimation
+- **Antenna rotator panel** — Real-time azimuth display and Shift+click map control
+- **Mouse wheel zoom sensitivity** — Adjustable scroll-to-zoom speed
+- **Map lock** — Prevent accidental panning/zooming
+- **Clickable QRZ callsigns** — Callsigns link to QRZ.com profiles across all panels
+- **Contest calendar links** — Contest names link to WA7BNM calendar
+- **World copy replication** — All markers replicate across three world copies
+- **RBN firehose fix** — No more lost spots from telnet buffer overflow
+- **VOACAP power reactivity** — Heatmap updates immediately on power/mode change
+- **PSK Reporter direction fix** — Map popups show correct remote station callsign
+
 ## [15.2.12] - 2026-02-12
 
 ### Fixed

@@ -2401,7 +2401,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   'rfreedman', 'SebFox2011', 'infopcgood', 'thomas-schreck', 'echo-gravitas',
                   'yuryja', 'Holyszewski', 'trancen', 'ThePangel', 'w8mej',
                   'JoshuaNewport', 'denete', 'kmanwar89', 'KentenRoth', 's53zo',
-                  'theodeurne76', 'm1dst'
+                  'theodeurne76', 'm1dst', 'brianbruff'
                 ].map(name => (
                   <a
                     key={name}

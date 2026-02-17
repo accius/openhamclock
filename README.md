@@ -2,7 +2,7 @@
 
 **A real-time amateur radio dashboard for the modern operator.**
 
-OpenHamClock brings DX cluster spots, space weather, propagation predictions, POTA activations, WWFF activations, PSKReporter, satellite tracking, WSJT-X integration, and more into a single browser-based interface. Run it locally on a Raspberry Pi, on your desktop, or access it from anywhere via a cloud deployment.
+OpenHamClock brings DX cluster spots, space weather, propagation predictions, POTA activations, SOTA activations, WWFF activations, PSKReporter, satellite tracking, WSJT-X integration, direct rig control, and more into a single browser-based interface. Run it locally on a Raspberry Pi, on your desktop, or access it from anywhere via a cloud deployment.
 
 **🌐 Live Site:** [openhamclock.com](https://openhamclock.com)
 
@@ -1158,42 +1158,57 @@ A: The `.env` file is in the root OpenHamClock directory (same folder as `server
 
 ## Contributing
 
-1. Fork the repository
-2. Pick a component or hook to improve
-3. Make changes in the appropriate file
-4. Test with all four themes and both layouts
-5. Submit a PR
+OpenHamClock is built by the ham radio community. We have 22+ contributors and growing — whether it's a bug fix, a new panel, a map layer plugin, or better docs, PRs are welcome.
 
-The codebase uses functional React components with hooks, CSS-in-JS for component-specific styles, and CSS custom properties for theming. Each data source has its own hook in `src/hooks/`, and each UI section has its own component in `src/components/`.
-
-For development:
+**Getting started:**
 
 ```bash
-npm run dev    # Vite dev server with hot reload on http://localhost:5173
-node server.js # Backend API server on http://localhost:3000
+git clone https://github.com/accius/openhamclock.git
+cd openhamclock && npm install
+node server.js   # Terminal 1 — Backend on :3001
+npm run dev      # Terminal 2 — Frontend on :3000
 ```
+
+**Read first:**
+- **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Full codebase map and key patterns
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** — Dev setup, code guidelines, testing checklist, PR workflow
+- **[src/plugins/OpenHamClock-Plugin-Guide.md](src/plugins/OpenHamClock-Plugin-Guide.md)** — Map layer plugin API
+
+**Community:**
+- [GitHub Issues](https://github.com/accius/openhamclock/issues) — Bug reports and feature requests
+- [Facebook Group](https://www.facebook.com/groups/1217043013897440) — Discussion and help
+- [Reddit r/OpenHamClock](https://www.reddit.com/r/OpenHamClock/) — Community discussion
+
+---
+
+## Contributors
+
+Thank you to everyone who has contributed code, features, bug fixes, and ideas:
+
+[creinemann](https://github.com/creinemann) · [ceotjoe](https://github.com/ceotjoe) · [alanhargreaves](https://github.com/alanhargreaves) · [dmazan](https://github.com/dmazan) · [Delerius](https://github.com/Delerius) · [rfreedman](https://github.com/rfreedman) · [SebFox2011](https://github.com/SebFox2011) · [infopcgood](https://github.com/infopcgood) · [thomas-schreck](https://github.com/thomas-schreck) · [echo-gravitas](https://github.com/echo-gravitas) · [yuryja](https://github.com/yuryja) · [Holyszewski](https://github.com/Holyszewski) · [trancen](https://github.com/trancen) · [ThePangel](https://github.com/ThePangel) · [w8mej](https://github.com/w8mej) · [JoshuaNewport](https://github.com/JoshuaNewport) · [denete](https://github.com/denete) · [kmanwar89](https://github.com/kmanwar89) · [KentenRoth](https://github.com/KentenRoth) · [s53zo](https://github.com/s53zo) · [theodeurne76](https://github.com/theodeurne76) · [m1dst](https://github.com/m1dst) · [brianbruff](https://github.com/brianbruff)
 
 ---
 
 ## Credits
 
-- **K0CJH (Chris)** — OpenHamClock creator and maintainer — [chris@cjhlighting.com](mailto:chris@cjhlighting.com)
-- **Claude AI (Anthropic)** — Accelerated development by assisting with bug fixes, code structure, and feature implementation that would have otherwise taken significantly longer to learn and build from scratch
+- **K0CJH (Chris Hetherington)** — Creator and maintainer — [chris@cjhlighting.com](mailto:chris@cjhlighting.com)
+- **Claude AI (Anthropic)** — Accelerated development by assisting with bug fixes, code structure, and feature implementation
 - **Elwood Downey, WB0OEW (SK)** — Creator of the original HamClock that inspired this project
-- **Keith, G6NHU** — DX Spider cluster operator at dxspider.co.uk, provided direct support for cluster connections
+- **Keith, G6NHU** — DX Spider cluster operator at dxspider.co.uk
 - **NOAA Space Weather Prediction Center** — Space weather data (SFI, Kp, SSN, X-ray flux, aurora)
-- **N0NBH (Paul Herrman)** — Real-time band conditions data feed sourced from NOAA
+- **N0NBH (Paul Herrman)** — Real-time band conditions data feed
 - **POTA (Parks on the Air)** — Activator spot API
-- **WWFF (World Wide Flora and Fauna)** - Activator spot API
-- **SOTA (Summits on the Air)** — Activator spot API
+- **SOTA (Summits on the Air)** — Activator spot API and summits database
+- **WWFF (World Wide Flora and Fauna)** — Activator spot API
 - **PSKReporter** — Digital mode reception report network
 - **Open-Meteo** — Free weather API
 - **Leaflet** — Open-source mapping library
-- **Contest Calendar** — Contest scheduling data
 - **CelesTrak** — Satellite TLE orbital data
 - **KC2G** — Ionospheric sounding data
+- **AD1C** — cty.dat DXCC entity database
 - **NG3K** — DXpedition listing
 - **DXNews.com** — DX news headlines
+- **WA7BNM** — Contest calendar data
 
 ---
 
