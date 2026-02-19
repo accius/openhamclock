@@ -3613,7 +3613,7 @@ export const SettingsPanel = ({
               <img
                 src="https://lh4.googleusercontent.com/proxy/Jbm18FgAfoi1d_4WUqqzp0YkXQJYCqoVL5PWvxIF5ejvX3nfzwthgiEpavjwlCd0ZaAYR_pIu0NiwVOdf0niZeGPRCLU-JdGocoExKATcxVV_NKWg6tvy0gmKrnBJNIzcAg_rSc2bQ"
                 alt="DX Engineering"
-                style={{ maxWidth: '280px', width: '100%', objectFit: 'contain', filter: 'brightness(0) invert(1)' }}
+                style={{ maxWidth: '280px', width: '100%', objectFit: 'contain' }}
               />
             </a>
 
