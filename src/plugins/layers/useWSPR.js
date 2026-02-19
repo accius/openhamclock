@@ -1174,12 +1174,19 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       if (!txStations.has(txKey)) {
         txStations.add(txKey);
         const txMarker = L.circleMarker([sLat, sLon], {
-          radius: 5,
+          radius: 8,
           fillColor: '#ff6600',
           color: '#ffffff',
-          weight: 1.5,
+          weight: 2,
           fillOpacity: pathOpacity * 0.9,
           opacity: pathOpacity,
+        });
+        // Add WSPR label icon
+        txMarker.bindTooltip('📡 WSPR', {
+          permanent: true,
+          direction: 'top',
+          className: 'wspr-marker-label',
+          offset: [0, -8],
         });
         // Build detailed tooltip for TX
         let txDetails = `
@@ -1241,12 +1248,19 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
       if (!rxStations.has(rxKey)) {
         rxStations.add(rxKey);
         const rxMarker = L.circleMarker([rLat, rLon], {
-          radius: 5,
+          radius: 8,
           fillColor: '#0088ff',
           color: '#ffffff',
-          weight: 1.5,
+          weight: 2,
           fillOpacity: pathOpacity * 0.9,
           opacity: pathOpacity,
+        });
+        // Add WSPR label icon
+        rxMarker.bindTooltip('📻 WSPR', {
+          permanent: true,
+          direction: 'top',
+          className: 'wspr-marker-label',
+          offset: [0, -8],
         });
         // Build detailed tooltip for RX
         let rxDetails = `
