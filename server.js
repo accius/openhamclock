@@ -12062,7 +12062,8 @@ function parseContestContactInfo(xml) {
   if (!dxCall) return null;
 
   const source = detectContestSource(xml);
-  const myCall = normalizeCallsign(getXmlTag(xml, 'mycall')) ||
+  const myCall =
+    normalizeCallsign(getXmlTag(xml, 'mycall')) ||
     normalizeCallsign(getXmlTag(xml, 'stationprefix')) ||
     CONFIG.callsign;
 

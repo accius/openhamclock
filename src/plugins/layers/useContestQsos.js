@@ -171,7 +171,8 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, mapBandFi
 
     if (!latestWithCoords) return;
 
-    const qsoId = latestWithCoords.id ||
+    const qsoId =
+      latestWithCoords.id ||
       `${latestWithCoords.dxCall || ''}-${latestWithCoords.timestamp || ''}-${latestWithCoords.lat}-${latestWithCoords.lon}`;
 
     if (!qsoId || qsoId === lastAutoDxQsoIdRef.current) return;
