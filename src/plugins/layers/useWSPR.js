@@ -1323,17 +1323,25 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, callsign,
     if (filterByGrid && gridFilter && gridFilter.length >= 2) {
       const gridLoc = gridToLatLon(gridFilter);
       if (gridLoc && isFinite(gridLoc.lat) && isFinite(gridLoc.lon)) {
+        // Larger marker with WSPR overlay
         const gridMarker = L.circleMarker([gridLoc.lat, gridLoc.lon], {
-          radius: 8,
+          radius: 12,
           fillColor: '#ff00ff',
           color: '#ffffff',
-          weight: 2,
+          weight: 3,
           opacity: 1,
-          fillOpacity: 0.8,
+          fillOpacity: 0.9,
+        });
+        // Add permanent WSPR label
+        gridMarker.bindTooltip('🎯 WSPR', {
+          permanent: true,
+          direction: 'top',
+          className: 'wspr-marker-label',
+          offset: [0, -12],
         });
         gridMarker.bindPopup(`
           <div style="font-family: 'JetBrains Mono', monospace; text-align: center;">
-            <b style="color: #ff00ff; font-size: 12px;">WSPR</b><br>
+            <b style="color: #ff00ff; font-size: 12px;">🎯 WSPR Filter</b><br>
             <span style="font-size: 11px;">Grid: ${gridFilter.toUpperCase()}</span><br>
             <span style="font-size: 10px; opacity: 0.7;">${gridLoc.lat.toFixed(2)}°, ${gridLoc.lon.toFixed(2)}°</span>
           </div>
