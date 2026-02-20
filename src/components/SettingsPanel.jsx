@@ -33,6 +33,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   const [dxClusterSource, setDxClusterSource] = useState(config?.dxClusterSource || 'dxspider-proxy');
   const [customDxCluster, setCustomDxCluster] = useState(config?.customDxCluster || { enabled: false, host: '', port: 7300 });
   const [lowMemoryMode, setLowMemoryMode] = useState(config?.lowMemoryMode || false);
+  const [preventSleep, setPreventSleep] = useState(config?.preventSleep || false);
   const [units, setUnits] = useState(config?.units || 'imperial');
   const [propMode, setPropMode] = useState(config?.propagation?.mode || 'SSB');
   const [propPower, setPropPower] = useState(config?.propagation?.power || 100);
@@ -116,6 +117,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       setDxClusterSource(config.dxClusterSource || 'dxspider-proxy');
       setCustomDxCluster(config.customDxCluster || { enabled: false, host: '', port: 7300 });
       setLowMemoryMode(config.lowMemoryMode || false);
+      setPreventSleep(config.preventSleep || false);
       setUnits(config.units || 'imperial');
       setPropMode(config.propagation?.mode || 'SSB');
       setPropMode(config.propagation?.mode || 'SSB');
@@ -343,6 +345,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       dxClusterSource,
       customDxCluster,
       lowMemoryMode,
+      preventSleep,
       units,
       propagation: { mode: propMode, power: parseFloat(propPower) || 100 },
       rigControl: { enabled: rigEnabled, host: rigHost, port: parseInt(rigPort) || 5555, tuneEnabled }
@@ -1261,6 +1264,48 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 {lowMemoryMode
                   ? '✓ Low Memory Mode: Reduced animations, fewer map markers, smaller spot limits. Recommended for systems with <8GB RAM.'
                   : 'Full Mode: All features enabled. Requires 8GB+ RAM for best performance.'}
+              </div>
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+                {t('station.settings.preventSleep')}
+              </label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => setPreventSleep(false)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: !preventSleep ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+                    border: `1px solid ${!preventSleep ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                    borderRadius: '6px',
+                    color: !preventSleep ? '#000' : 'var(--text-secondary)',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    fontWeight: !preventSleep ? '600' : '400'
+                  }}
+                >
+                  💤 {t('station.settings.preventSleep.off')}
+                </button>
+                <button
+                  onClick={() => setPreventSleep(true)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: preventSleep ? 'var(--accent-green)' : 'var(--bg-tertiary)',
+                    border: `1px solid ${preventSleep ? 'var(--accent-green)' : 'var(--border-color)'}`,
+                    borderRadius: '6px',
+                    color: preventSleep ? '#000' : 'var(--text-secondary)',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    fontWeight: preventSleep ? '600' : '400'
+                  }}
+                >
+                  🖥️ {t('station.settings.preventSleep.on')}
+                </button>
+              </div>
+              <div style={{ fontSize: '11px', color: preventSleep ? 'var(--accent-green)' : 'var(--text-muted)', marginTop: '6px' }}>
+                {t(preventSleep ? 'station.settings.preventSleep.describe.on' : 'station.settings.preventSleep.describe.off')}
               </div>
             </div>
             <div style={{ marginBottom: '20px' }}>
