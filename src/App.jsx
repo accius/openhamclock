@@ -40,6 +40,7 @@ import useFilters from './hooks/app/useFilters';
 import useSatellitesFilters from './hooks/app/useSatellitesFilters';
 import useTimeState from './hooks/app/useTimeState';
 import useFullscreen from './hooks/app/useFullscreen';
+import useScreenWakeLock from './hooks/app/useScreenWakeLock';
 import useResponsiveScale from './hooks/app/useResponsiveScale';
 import useLocalInstall from './hooks/app/useLocalInstall';
 import useVersionCheck from './hooks/app/useVersionCheck';
@@ -153,6 +154,7 @@ const App = () => {
   const { dxFilters, setDxFilters, pskFilters, setPskFilters, mapBandFilter, setMapBandFilter } = useFilters();
 
   const { isFullscreen, handleFullscreenToggle } = useFullscreen();
+  const { wakeLockStatus } = useScreenWakeLock(config);
   const scale = useResponsiveScale();
   const isLocalInstall = useLocalInstall();
   useVersionCheck();
@@ -372,6 +374,7 @@ const App = () => {
         onSatelliteFiltersChange={setSatelliteFilters}
         mapLayers={mapLayers}
         onToggleDXNews={toggleDXNews}
+        wakeLockStatus={wakeLockStatus}
       />
       <DXFilterManager
         filters={dxFilters}
