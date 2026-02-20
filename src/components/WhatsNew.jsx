@@ -10,6 +10,58 @@ import { useState, useEffect } from 'react';
 // Each entry: { version, date, heading, features: [...] }
 const CHANGELOG = [
   {
+    version: '15.5.9',
+    date: '2026-02-20',
+    heading: 'APRS tracking, wildfire & flood maps, full internationalization, and a stack of quality-of-life fixes.',
+    features: [
+      {
+        icon: '📡',
+        title: 'APRS-IS Live Tracking with Watchlist Groups',
+        desc: 'Full APRS integration via a server-side APRS-IS connection (rotate.aprs2.net). Stations are parsed in real-time and rendered on the map with position, course, speed, altitude, and symbol. A watchlist system lets you tag callsigns into named groups — perfect for EmComm nets, ARES/RACES events, or tracking a group of friends during Field Day. Filter the panel by group, see all members on the map, and click any station for full details.',
+      },
+      {
+        icon: '🔥',
+        title: 'Wildfire Map Layer',
+        desc: 'New map layer showing active wildfires worldwide, sourced from NASA EONET satellite detection data. Fire events are plotted as markers with size and color indicating severity. Data refreshes automatically and layers can be toggled in the Map Layers tab under Natural Hazards.',
+      },
+      {
+        icon: '🌊',
+        title: 'Floods & Storms Map Layer',
+        desc: 'New map layer showing active floods and severe storms worldwide via NASA EONET. Storm events display with category, coordinates, and timestamps. Both the wildfire and flood layers are grouped under the new Natural Hazards category in Settings.',
+      },
+      {
+        icon: '📻',
+        title: 'PSKReporter TX/RX Split View',
+        desc: 'The PSKReporter panel now separates spots into "Being Heard" (stations receiving your signal) and "Hearing" (stations you are receiving) with dedicated tabs showing counts for each direction. This replaces the old combined view and makes it immediately clear which direction the propagation path goes.',
+      },
+      {
+        icon: '📂',
+        title: 'Map Layers — Categorized & Sorted',
+        desc: 'The Map Layers tab in Settings now groups layers by category with clear emoji headers: 📡 Propagation, 📻 Amateur Radio, 🌤️ Weather, ☀️ Space Weather, ⚠️ Natural Hazards, 🪨 Geology, and 🗺️ Map Overlays. Within each category, layers are sorted alphabetically. No more hunting through an unsorted flat list.',
+      },
+      {
+        icon: '🌍',
+        title: '100% Translation Coverage — All 10 Languages',
+        desc: 'Every string in the dashboard is now fully translated across all 10 supported languages: German, Spanish, French, Italian, Japanese, Korean, Malay, Dutch, Portuguese, and Slovenian. Previously coverage ranged from 45% (Korean) to 61% (German) — 292 missing keys total. All weather conditions, wind compass directions, plugin layers, propagation views, PSKReporter/WSJT-X panels, station settings, satellite controls, and contest labels are now properly localized.',
+      },
+      {
+        icon: '🐛',
+        title: 'WSJT-X & PSK Reporter Duplicate Spots Fixed',
+        desc: 'Fixed #396 — WSJT-X decodes and QSOs appeared duplicated in the panel. Decode IDs were timestamp-based, so the same message with a 1ms time difference bypassed dedup. IDs are now content-based (time + freq + message). QSO logging checks for duplicate call + frequency + mode within 60 seconds. PSK Reporter MQTT spot ingestion now deduplicates by sender + receiver + band + frequency before buffering. Client-side merge in both hooks uses content-based matching as a final safety net.',
+      },
+      {
+        icon: '🪟',
+        title: 'Windows Update Mechanism Fixed',
+        desc: 'The in-app update button now works correctly on Windows deployments. Git operations use proper path resolution and the server restart sequence handles Windows process semantics.',
+      },
+      {
+        icon: '🕐',
+        title: 'DX Cluster Time Display Cleanup',
+        desc: 'DX cluster spot timestamps now display as relative time ("5m ago") with the original UTC time in parentheses, replacing the inconsistent raw timestamp formats from different cluster sources.',
+      },
+    ],
+  },
+  {
     version: '15.5.8',
     date: '2026-02-19',
     heading: 'Memory leak fixes, live Moon imagery, and a major stability patch.',
@@ -33,11 +85,6 @@ const CHANGELOG = [
         icon: '🔧',
         title: 'Merge Conflict Cleanup',
         desc: 'Fixed a cascade of merge artifacts from a stale-branch PR: duplicate zoom buttons in panel headers (A− A− A+ → A− A+), triplicated switch/case blocks in the panel factory, duplicate variable declarations in the Solar panel, and a broken server-side cache check that crashed Node on startup. All source files now pass automated syntax and brace-balance checks.',
-      },
-      {
-        icon: '🐛',
-        title: 'WSJT-X & PSK Reporter Duplicate Spots Fixed',
-        desc: 'Fixed #396 — WSJT-X decodes and QSOs appeared duplicated in the panel. Decode IDs were timestamp-based, so the same message with a 1ms time difference bypassed dedup. IDs are now content-based (time + freq + message). QSO logging checks for duplicate call + frequency + mode within 60 seconds. PSK Reporter MQTT spot ingestion now deduplicates by sender + receiver + band + frequency before buffering, preventing duplicate spots from being relayed to clients via SSE. Client-side merge in both hooks uses content-based matching as a final safety net.',
       },
     ],
   },
