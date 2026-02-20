@@ -5,11 +5,14 @@
  * Supports Windows, macOS, Linux, and Raspberry Pi
  */
 
-const { app, BrowserWindow, Menu, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, ipcMain, powerSaveBlocker } = require('electron');
 const path = require('path');
 
 // Keep a global reference to prevent garbage collection
 let mainWindow;
+
+// Power save blocker ID (-1 means inactive)
+let powerSaveBlockerId = -1;
 
 // Check if running in development
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
@@ -52,8 +55,8 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       enableRemoteModule: false,
-      // Preload script for any IPC communication
-      // preload: path.join(__dirname, 'preload.js')
+      // Preload script for IPC communication (e.g. screen wake lock)
+      preload: path.join(__dirname, 'preload.js'),
     },
     // Frame options
     frame: true,
@@ -248,6 +251,22 @@ function sendMapStyle(style) {
     `);
   }
 }
+
+// IPC: screen wake lock — renderer asks main process to enable/disable powerSaveBlocker
+ipcMain.on('set-prevent-sleep', (_event, enabled) => {
+  if (enabled) {
+    if (powerSaveBlockerId === -1) {
+      powerSaveBlockerId = powerSaveBlocker.start('prevent-display-sleep');
+      console.log('[PowerSave] Display sleep prevention enabled, id:', powerSaveBlockerId);
+    }
+  } else {
+    if (powerSaveBlockerId !== -1 && powerSaveBlocker.isStarted(powerSaveBlockerId)) {
+      powerSaveBlocker.stop(powerSaveBlockerId);
+      console.log('[PowerSave] Display sleep prevention disabled, id:', powerSaveBlockerId);
+    }
+    powerSaveBlockerId = -1;
+  }
+});
 
 // App ready
 app.whenReady().then(() => {
