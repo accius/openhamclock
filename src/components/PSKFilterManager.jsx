@@ -138,7 +138,9 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =
     return (
       <div>
         <div style={{ marginBottom: '15px' }}>
-          <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Map Direction Filter</span>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
+            Map Direction Filter
+          </span>
           <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
             Useful when WSJT-X is also enabled — avoids duplicate plots for the same stations.
           </div>
@@ -161,14 +163,30 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =
                 textAlign: 'left',
               }}
             >
-              <span style={{ fontSize: '13px', fontWeight: '600', color: direction === opt.value ? 'var(--accent-amber)' : 'var(--text-primary)' }}>
-                {direction === opt.value ? '● ' : '○ '}{opt.label}
+              <span
+                style={{
+                  fontSize: '13px',
+                  fontWeight: '600',
+                  color: direction === opt.value ? 'var(--accent-amber)' : 'var(--text-primary)',
+                }}
+              >
+                {direction === opt.value ? '● ' : '○ '}
+                {opt.label}
               </span>
               <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{opt.desc}</span>
             </button>
           ))}
         </div>
-        <div style={{ marginTop: '16px', padding: '10px 12px', background: 'var(--bg-tertiary)', borderRadius: '6px', fontSize: '11px', color: 'var(--text-muted)' }}>
+        <div
+          style={{
+            marginTop: '16px',
+            padding: '10px 12px',
+            background: 'var(--bg-tertiary)',
+            borderRadius: '6px',
+            fontSize: '11px',
+            color: 'var(--text-muted)',
+          }}
+        >
           <strong style={{ color: 'var(--text-secondary)' }}>Map Legend:</strong>
           <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
             <span>━━ TX (solid line, ● circle)</span>
