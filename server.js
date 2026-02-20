@@ -514,6 +514,38 @@ function logWarn(...args) {
 
 // Rate-limited error logging - prevents log spam when services are down
 const errorLogState = {};
+
+// Global log rate limiter — safety net for Railway/cloud log pipelines
+// Token bucket: allows bursts of 20, refills at 10 tokens/sec, drops excess silently
+const _logBucket = { tokens: 20, max: 20, rate: 10, lastRefill: Date.now(), dropped: 0 };
+function _logAllowed() {
+  const now = Date.now();
+  const elapsed = (now - _logBucket.lastRefill) / 1000;
+  _logBucket.tokens = Math.min(_logBucket.max, _logBucket.tokens + elapsed * _logBucket.rate);
+  _logBucket.lastRefill = now;
+  if (_logBucket.tokens >= 1) {
+    _logBucket.tokens--;
+    return true;
+  }
+  _logBucket.dropped++;
+  return false;
+}
+// Periodically report dropped messages (every 60s, if any were dropped)
+setInterval(() => {
+  if (_logBucket.dropped > 0) {
+    const d = _logBucket.dropped;
+    _logBucket.dropped = 0;
+    process.stderr.write(`[Log Throttle] Suppressed ${d} log messages in last 60s to stay within rate limits\n`);
+  }
+}, 60000);
+
+// Wrap console methods with rate limiter (preserves original for startup banner)
+const _origLog = console.log.bind(console);
+const _origWarn = console.warn.bind(console);
+const _origError = console.error.bind(console);
+console.log = (...args) => { if (_logAllowed()) _origLog(...args); };
+console.warn = (...args) => { if (_logAllowed()) _origWarn(...args); };
+console.error = (...args) => { if (_logAllowed()) _origError(...args); };
 const ERROR_LOG_INTERVAL = 5 * 60 * 1000; // Only log same error once per 5 minutes
 
 function logErrorOnce(category, message) {
@@ -1968,7 +2000,9 @@ app.get('/api/solar-indices', async (req, res) => {
 // NASA Dial-A-Moon — proxies photorealistic moon image from NASA SVS
 // Image changes hourly, cached for 1 hour to avoid hammering NASA
 let moonImageCache = { buffer: null, contentType: null, timestamp: 0 };
+let moonImageNegativeCache = 0; // Timestamp of last failed fetch — prevents retry storm
 const MOON_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const MOON_NEGATIVE_CACHE_TTL = 5 * 60 * 1000; // 5 min backoff on failure
 
 app.get('/api/moon-image', async (req, res) => {
   try {
@@ -1977,6 +2011,16 @@ app.get('/api/moon-image', async (req, res) => {
       res.set('Content-Type', moonImageCache.contentType);
       res.set('Cache-Control', 'public, max-age=3600');
       return res.send(moonImageCache.buffer);
+    }
+
+    // If NASA recently failed, return stale cache or 503 without retrying
+    if (Date.now() - moonImageNegativeCache < MOON_NEGATIVE_CACHE_TTL) {
+      if (moonImageCache.buffer) {
+        res.set('Content-Type', moonImageCache.contentType);
+        res.set('Cache-Control', 'public, max-age=300');
+        return res.send(moonImageCache.buffer);
+      }
+      return res.status(503).json({ error: 'Moon image temporarily unavailable' });
     }
 
     // Build UTC timestamp for Dial-A-Moon API (rounds to nearest hour)
@@ -2005,6 +2049,7 @@ app.get('/api/moon-image', async (req, res) => {
     res.set('Cache-Control', 'public, max-age=3600');
     res.send(buffer);
   } catch (error) {
+    moonImageNegativeCache = Date.now(); // Backoff for 5 min
     logErrorOnce('Moon Image', error.message);
     // Return stale cache on error
     if (moonImageCache.buffer) {
@@ -6314,7 +6359,7 @@ app.get('/api/pskreporter/stream/:callsign', (req, res) => {
     }
   }
 
-  console.log(
+  logInfo(
     `[PSK-MQTT] SSE client connected for ${callsign} (${pskMqtt.subscribers.get(callsign).size} clients, ${pskMqtt.subscribedCalls.size} callsigns total)`,
   );
 
@@ -6334,7 +6379,7 @@ app.get('/api/pskreporter/stream/:callsign', (req, res) => {
     const clients = pskMqtt.subscribers.get(callsign);
     if (clients) {
       clients.delete(res);
-      console.log(`[PSK-MQTT] SSE client disconnected for ${callsign} (${clients.size} remaining)`);
+      logInfo(`[PSK-MQTT] SSE client disconnected for ${callsign} (${clients.size} remaining)`);
 
       // If no more clients for this callsign, unsubscribe after a grace period
       if (clients.size === 0) {
@@ -6595,16 +6640,25 @@ setInterval(() => {
 async function enrichSpotWithLocation(spot) {
   const skimmerCall = spot.callsign;
 
-  // Check cache first
+  // Check cache first (includes negative cache entries)
   if (callsignLocationCache.has(skimmerCall)) {
     const location = callsignLocationCache.get(skimmerCall);
-    return {
-      ...spot,
-      grid: location.grid,
-      skimmerLat: location.lat,
-      skimmerLon: location.lon,
-      skimmerCountry: location.country,
-    };
+    // Negative cache entry — skip lookup unless expired
+    if (location._failed) {
+      if (location._expires && Date.now() > location._expires) {
+        callsignLocationCache.delete(skimmerCall); // Expired, allow retry
+      } else {
+        return spot;
+      }
+    } else {
+      return {
+        ...spot,
+        grid: location.grid,
+        skimmerLat: location.lat,
+        skimmerLon: location.lon,
+        skimmerCountry: location.country,
+      };
+    }
   }
 
   // Lookup location (don't block on failures)
@@ -6618,7 +6672,7 @@ async function enrichSpotWithLocation(spot) {
       const returnedCall = (locationData.callsign || '').toUpperCase();
       const requestedBase = extractBaseCallsign(skimmerCall);
       if (returnedCall && returnedCall !== requestedBase && returnedCall !== skimmerCall.toUpperCase()) {
-        console.warn(`[RBN] Callsign mismatch! Requested: ${skimmerCall}, Got: ${returnedCall} — discarding`);
+        logDebug(`[RBN] Callsign mismatch! Requested: ${skimmerCall}, Got: ${returnedCall} — discarding`);
         return spot;
       }
 
@@ -6639,7 +6693,7 @@ async function enrichSpotWithLocation(spot) {
             if (dist > 5000) {
               // Location is > 5000 km from where the callsign prefix says it should be
               // This is almost certainly wrong data — use prefix estimate instead
-              console.warn(
+              logDebug(
                 `[RBN] Location sanity check FAILED for ${skimmerCall}: lookup=${locationData.lat.toFixed(1)},${locationData.lon.toFixed(1)} vs prefix=${prefixCoords.lat.toFixed(1)},${prefixCoords.lon.toFixed(1)} (${Math.round(dist)} km apart) — using prefix`,
               );
               const grid = latLonToGrid(prefixCoords.lat, prefixCoords.lon);
@@ -6685,7 +6739,8 @@ async function enrichSpotWithLocation(spot) {
       }
     }
   } catch (err) {
-    // Silent fail
+    // Cache the failure for 10 min to prevent retry storm when QRZ/HamQTH is down
+    cacheCallsignLocation(skimmerCall, { _failed: true, _expires: Date.now() + 10 * 60 * 1000 });
   }
 
   return spot;
@@ -6732,7 +6787,7 @@ app.get('/api/rbn/spots', async (req, res) => {
     enrichedSpots.push(await enrichSpotWithLocation(spot));
   }
 
-  console.log(
+  logDebug(
     `[RBN] Returning ${enrichedSpots.length} spots for ${callsign} (last ${minutes} min, ${rbnSpotsByDX.size} DX stations tracked)`,
   );
 
@@ -6780,7 +6835,7 @@ app.get('/api/rbn/location/:callsign', async (req, res) => {
       return res.json(result);
     }
   } catch (err) {
-    console.warn(`[RBN] Failed to lookup ${callsign}: ${err.message}`);
+    logErrorOnce('RBN', `Failed to lookup ${callsign}: ${err.message}`);
   }
 
   res.status(404).json({ error: 'Location not found' });
@@ -6788,7 +6843,7 @@ app.get('/api/rbn/location/:callsign', async (req, res) => {
 
 // Legacy endpoint for compatibility (deprecated)
 app.get('/api/rbn', async (req, res) => {
-  console.log('[RBN] Warning: Using deprecated /api/rbn endpoint, use /api/rbn/spots instead');
+  logWarn('[RBN] Warning: Using deprecated /api/rbn endpoint, use /api/rbn/spots instead');
 
   const callsign = (req.query.callsign || '').toUpperCase().trim();
   const minutes = parseInt(req.query.minutes) || 30;
@@ -7092,7 +7147,7 @@ app.get('/api/wspr/heatmap', async (req, res) => {
           source: 'pskreporter',
           format: 'raw',
         };
-        console.log(`[WSPR Heatmap] Returning ${spots.length} raw spots (${minutes}min, band: ${band})`);
+        logDebug(`[WSPR Heatmap] Returning ${spots.length} raw spots (${minutes}min, band: ${band})`);
       } else {
         const aggregated = aggregateWSPRByGrid(spots);
         result = {
@@ -7103,7 +7158,7 @@ app.get('/api/wspr/heatmap', async (req, res) => {
           source: 'pskreporter',
           format: 'aggregated',
         };
-        console.log(
+        logDebug(
           `[WSPR Heatmap] Aggregated ${spots.length} spots → ${aggregated.uniqueGrids} grids, ${aggregated.paths.length} paths (${minutes}min, band: ${band})`,
         );
       }
