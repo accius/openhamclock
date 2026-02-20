@@ -137,6 +137,13 @@ const OpenHamClockConfig = {
     maxSpots: 10,
   },
 
+  wwbota: {
+    enabled: true,
+
+    // Maximum number of spots to show
+    maxSpots: 10,
+  },
+
   // ========================================
   // SPACE WEATHER DATA SOURCES
   // ========================================

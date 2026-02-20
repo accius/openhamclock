@@ -76,6 +76,7 @@ export const WorldMap = ({
   potaSpots,
   wwffSpots,
   sotaSpots,
+  wwbotaSpots,
   dxPaths,
   dxFilters,
   mapBandFilter,
@@ -92,6 +93,8 @@ export const WorldMap = ({
   showWWFFLabels = true,
   showSOTA,
   showSOTALabels = true,
+  showWWBOTA,
+  showWWBOTALabels = true,
   showPSKReporter,
   showWSJTX,
   showAPRS,
@@ -127,6 +130,7 @@ export const WorldMap = ({
   const potaMarkersRef = useRef([]);
   const wwffMarkersRef = useRef([]);
   const sotaMarkersRef = useRef([]);
+  const wwbotaMarkersRef = useRef([]);
   const dxPathsLinesRef = useRef([]);
   const dxPathsMarkersRef = useRef([]);
   const pskMarkersRef = useRef([]);
@@ -1295,6 +1299,62 @@ export const WorldMap = ({
     }
   }, [sotaSpots, showSOTA, showSOTALabels, bandPassesMapFilter]);
 
+  // Update WWBOTA markers
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    wwbotaMarkersRef.current?.forEach((m) => map.removeLayer(m));
+    wwbotaMarkersRef.current = [];
+
+    if (showWWBOTA && wwbotaSpots) {
+      wwbotaSpots.forEach((spot) => {
+        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
+        if (!bandPassesMapFilter(band)) return;
+
+        if (spot.lat && spot.lon) {
+          // Purple square marker for WWBOTA activators — replicate across world copies
+          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+            const squareIcon = L.divIcon({
+              className: '',
+              html: `<span style="display:inline-block;width:12px;height:12px;background:#8b7fff;border:1px solid rgba(0,0,0,0.4);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
+              iconSize: [12, 12],
+              iconAnchor: [6, 6],
+            });
+            const marker = L.marker([lat, lon], { icon: squareIcon })
+              .bindPopup(
+                `<b data-qrz-call="${esc(spot.call)}" style="color:#8b7fff; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span><br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
+              )
+              .addTo(map);
+
+            if (onSpotClick) {
+              marker.on('click', () => onSpotClick(spot));
+            }
+
+            wwbotaMarkersRef.current.push(marker);
+          });
+
+          // Only show callsign label when labels are enabled — replicate
+          if (showWWBOTALabels) {
+            const labelIcon = L.divIcon({
+              className: '',
+              html: `<span style="display:inline-block;background:#8b7fff;color:#fff;padding:2px 5px;border-radius:3px;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;border:1px solid rgba(0,0,0,0.5);box-shadow:0 1px 2px rgba(0,0,0,0.3);line-height:1.1;">${spot.call}</span>`,
+              iconSize: [0, 0],
+              iconAnchor: [0, -2],
+            });
+            replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+              const label = L.marker([lat, lon], {
+                icon: labelIcon,
+                interactive: false,
+              }).addTo(map);
+              wwbotaMarkersRef.current.push(label);
+            });
+          }
+        }
+      });
+    }
+  }, [wwbotaSpots, showWWBOTA, showWWBOTALabels, bandPassesMapFilter]);
+
   // Plugin layer system - properly load saved states
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -2063,6 +2123,21 @@ export const WorldMap = ({
                 }}
               >
                 ◆&nbsp;SOTA
+              </span>
+            </div>
+          )}
+          {showWWBOTA && (
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <span
+                style={{
+                  background: '#8b7fff',
+                  color: '#fff',
+                  padding: '2px 5px',
+                  borderRadius: '3px',
+                  fontWeight: '600',
+                }}
+              >
+                ■&nbsp;WWBOTA
               </span>
             </div>
           )}

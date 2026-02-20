@@ -1,14 +1,15 @@
 /**
  * PotaSotaPanel Component
- * Tabbed panel that switches between POTA, WWFF and SOTA views.
+ * Tabbed panel that switches between POTA, WWFF, SOTA and WWBOTA views.
  * Used in Classic and Modern layouts. In Dockable layout, each is a separate panel.
  */
 import React, { useState } from 'react';
 import { POTAPanel } from './POTAPanel.jsx';
 import { WWFFPanel } from './WWFFPanel.jsx';
 import { SOTAPanel } from './SOTAPanel.jsx';
+import { WWBOTAPanel } from './WWBOTAPanel.jsx';
 
-const TABS = ['pota', 'wwff', 'sota'];
+const TABS = ['pota', 'wwff', 'sota', 'wwbota'];
 
 export const PotaSotaPanel = ({
   potaData,
@@ -29,9 +30,16 @@ export const PotaSotaPanel = ({
   sotaLastChecked,
   showSOTA,
   onToggleSOTA,
+  wwbotaData,
+  wwbotaLoading,
+  wwbotaLastUpdated,
+  wwbotaConnected,
+  showWWBOTA,
+  onToggleWWBOTA,
   onPOTASpotClick,
   onWWFFSpotClick,
   onSOTASpotClick,
+  onWWBOTASpotClick,
 }) => {
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -56,7 +64,7 @@ export const PotaSotaPanel = ({
     border: 'none',
     borderBottom: activeTab === tab ? `2px solid ${tab === 'pota' ? '#44cc44' : '#ff9632'}` : '2px solid transparent',
     color: activeTab === tab ? (tab === 'pota' ? '#44cc44' : '#ff9632') : '#666',
-    fontSize: '10px',
+    fontSize: tab === 'wwbota' ? '9px' : '10px',
     fontFamily: 'JetBrains Mono, monospace',
     fontWeight: activeTab === tab ? '700' : '400',
     cursor: 'pointer',
@@ -100,6 +108,12 @@ export const PotaSotaPanel = ({
             <span style={{ color: sotaStaleMin >= 10 ? '#ff4444' : '#ffaa00' }}>{staleWarning(sotaStaleMin)}</span>
           )}
         </button>
+        <button style={tabStyle('wwbota')} onClick={() => handleTabChange('wwbota')}>
+          ☢️ WWBOTA {wwbotaData?.length > 0 ? `(${wwbotaData.length})` : ''}
+          <span style={{ color: wwbotaConnected ? '#44cc44' : '#ff4444', marginLeft: '4px' }}>
+            {wwbotaConnected ? '' : '✗'}
+          </span>
+        </button>
       </div>
 
       {/* Active panel */}
@@ -123,6 +137,16 @@ export const PotaSotaPanel = ({
             showOnMap={showSOTA}
             onToggleMap={onToggleSOTA}
             onSpotClick={onSOTASpotClick}
+          />
+        ) : activeTab === 'wwbota' ? (
+          <WWBOTAPanel
+            data={wwbotaData}
+            loading={wwbotaLoading}
+            lastUpdated={wwbotaLastUpdated}
+            connected={wwbotaConnected}
+            showOnMap={showWWBOTA}
+            onToggleMap={onToggleWWBOTA}
+            onSpotClick={onWWBOTASpotClick}
           />
         ) : (
           <WWFFPanel
