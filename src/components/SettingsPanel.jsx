@@ -31,6 +31,7 @@ export const SettingsPanel = ({
   onSatelliteFiltersChange,
   mapLayers,
   onToggleDXNews,
+  wakeLockStatus,
 }) => {
   const [callsign, setCallsign] = useState(config?.callsign || '');
   const [headerSize, setheaderSize] = useState(config?.headerSize || 1.0);
@@ -1510,7 +1511,16 @@ export const SettingsPanel = ({
               </div>
             </div>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 {t('station.settings.preventSleep')}
               </label>
               <div style={{ display: 'flex', gap: '10px' }}>
@@ -1525,7 +1535,7 @@ export const SettingsPanel = ({
                     color: !preventSleep ? '#000' : 'var(--text-secondary)',
                     fontSize: '13px',
                     cursor: 'pointer',
-                    fontWeight: !preventSleep ? '600' : '400'
+                    fontWeight: !preventSleep ? '600' : '400',
                   }}
                 >
                   💤 {t('station.settings.preventSleep.off')}
@@ -1541,14 +1551,52 @@ export const SettingsPanel = ({
                     color: preventSleep ? '#000' : 'var(--text-secondary)',
                     fontSize: '13px',
                     cursor: 'pointer',
-                    fontWeight: preventSleep ? '600' : '400'
+                    fontWeight: preventSleep ? '600' : '400',
                   }}
                 >
                   🖥️ {t('station.settings.preventSleep.on')}
                 </button>
               </div>
-              <div style={{ fontSize: '11px', color: preventSleep ? 'var(--accent-green)' : 'var(--text-muted)', marginTop: '6px' }}>
-                {t(preventSleep ? 'station.settings.preventSleep.describe.on' : 'station.settings.preventSleep.describe.off')}
+              <div style={{ marginTop: '8px' }}>
+                {/* Live status badge — only shown when the toggle is enabled */}
+                {preventSleep && wakeLockStatus && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontFamily: 'JetBrains Mono, monospace',
+                      fontWeight: '600',
+                      marginBottom: '6px',
+                      background: wakeLockStatus.active ? 'rgba(0,200,100,0.15)' : 'rgba(255,160,0,0.15)',
+                      border: `1px solid ${wakeLockStatus.active ? 'var(--accent-green)' : 'var(--accent-amber)'}`,
+                      color: wakeLockStatus.active ? 'var(--accent-green)' : 'var(--accent-amber)',
+                    }}
+                  >
+                    {wakeLockStatus.active ? '🔒' : '⚠'}
+                    {wakeLockStatus.active
+                      ? t('station.settings.preventSleep.status.active')
+                      : t(`station.settings.preventSleep.status.${wakeLockStatus.reason}`, {
+                          defaultValue: t('station.settings.preventSleep.status.error'),
+                        })}
+                  </div>
+                )}
+                {/* Contextual description below the badge */}
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: preventSleep && wakeLockStatus?.active ? 'var(--accent-green)' : 'var(--text-muted)',
+                  }}
+                >
+                  {t(
+                    preventSleep
+                      ? 'station.settings.preventSleep.describe.on'
+                      : 'station.settings.preventSleep.describe.off',
+                  )}
+                </div>
               </div>
             </div>
             <div style={{ marginBottom: '20px' }}>
@@ -2297,7 +2345,14 @@ export const SettingsPanel = ({
                       marginBottom: '12px',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '8px',
+                      }}
+                    >
                       <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
                         <input
                           type="checkbox"
@@ -2307,7 +2362,14 @@ export const SettingsPanel = ({
                         />
                         <span style={{ fontSize: '18px' }}>{layer.icon}</span>
                         <div>
-                          <div style={{ color: layer.enabled ? 'var(--accent-amber)' : 'var(--text-primary)', fontSize: '14px', fontWeight: '600', fontFamily: 'JetBrains Mono, monospace' }}>
+                          <div
+                            style={{
+                              color: layer.enabled ? 'var(--accent-amber)' : 'var(--text-primary)',
+                              fontSize: '14px',
+                              fontWeight: '600',
+                              fontFamily: 'JetBrains Mono, monospace',
+                            }}
+                          >
                             {layer.name.startsWith('plugins.') ? t(layer.name) : layer.name}
                           </div>
                           {layer.description && (
@@ -2321,7 +2383,16 @@ export const SettingsPanel = ({
 
                     {layer.enabled && (
                       <div style={{ paddingLeft: '38px', marginTop: '12px' }}>
-                        <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '11px',
+                            color: 'var(--text-muted)',
+                            marginBottom: '6px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
                           {t('station.settings.layers.opacity')}: {Math.round(layer.opacity * 100)}%
                         </label>
                         <input
@@ -2333,10 +2404,24 @@ export const SettingsPanel = ({
                           style={{ width: '100%', cursor: 'pointer' }}
                         />
                         {ctrlPressed &&
-                          ['lightning', 'wspr', 'rbn', 'grayline', 'n3fjp_logged_qsos', 'voacap-heatmap'].includes(layer.id) && (
+                          ['lightning', 'wspr', 'rbn', 'grayline', 'n3fjp_logged_qsos', 'voacap-heatmap'].includes(
+                            layer.id,
+                          ) && (
                             <button
                               onClick={() => resetPopupPositions(layer.id)}
-                              style={{ marginTop: '12px', padding: '8px 12px', background: 'var(--accent-red)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', width: '100%' }}
+                              style={{
+                                marginTop: '12px',
+                                padding: '8px 12px',
+                                background: 'var(--accent-red)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                textTransform: 'uppercase',
+                                width: '100%',
+                              }}
                             >
                               🔄 RESET POPUPS
                             </button>
@@ -2373,9 +2458,11 @@ export const SettingsPanel = ({
                   });
                 });
                 // Any uncategorized leftovers
-                nonSatLayers.filter((l) => !rendered.has(l.id)).forEach((layer) => {
-                  result.push(renderLayerCard(layer));
-                });
+                nonSatLayers
+                  .filter((l) => !rendered.has(l.id))
+                  .forEach((layer) => {
+                    result.push(renderLayerCard(layer));
+                  });
                 return result;
               })()
             ) : (

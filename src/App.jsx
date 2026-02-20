@@ -154,7 +154,7 @@ const App = () => {
   const { dxFilters, setDxFilters, pskFilters, setPskFilters, mapBandFilter, setMapBandFilter } = useFilters();
 
   const { isFullscreen, handleFullscreenToggle } = useFullscreen();
-  useScreenWakeLock(config);
+  const { wakeLockStatus } = useScreenWakeLock(config);
   const scale = useResponsiveScale();
   const isLocalInstall = useLocalInstall();
   useVersionCheck();
@@ -374,6 +374,7 @@ const App = () => {
         onSatelliteFiltersChange={setSatelliteFilters}
         mapLayers={mapLayers}
         onToggleDXNews={toggleDXNews}
+        wakeLockStatus={wakeLockStatus}
       />
       <DXFilterManager
         filters={dxFilters}
