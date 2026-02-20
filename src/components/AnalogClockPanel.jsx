@@ -34,7 +34,7 @@ export const AnalogClockPanel = ({ currentTime, sunTimes }) => {
   // Calculate hand angles
   const secondAngle = (seconds / 60) * 360;
   const minuteAngle = ((minutes + seconds / 60) / 60) * 360;
-  const hourAngle = ((hours % 12 + minutes / 60) / 12) * 360;
+  const hourAngle = (((hours % 12) + minutes / 60) / 12) * 360;
 
   // Format date info (already local)
   const dayOfWeek = time.toLocaleDateString([], { weekday: 'short' });
@@ -74,7 +74,7 @@ export const AnalogClockPanel = ({ currentTime, sunTimes }) => {
         stroke={isMajor ? 'var(--text-primary)' : 'var(--text-muted)'}
         strokeWidth={isMajor ? 2 : 1}
         strokeLinecap="round"
-      />
+      />,
     );
   }
 
@@ -97,7 +97,7 @@ export const AnalogClockPanel = ({ currentTime, sunTimes }) => {
         fontWeight="600"
       >
         {i}
-      </text>
+      </text>,
     );
   }
 
@@ -179,28 +179,13 @@ export const AnalogClockPanel = ({ currentTime, sunTimes }) => {
         </text>
 
         {/* Hour hand */}
-        <Hand
-          angle={hourAngle}
-          length={clockRadius * 0.5}
-          width={4}
-          color="var(--text-primary)"
-        />
+        <Hand angle={hourAngle} length={clockRadius * 0.5} width={4} color="var(--text-primary)" />
 
         {/* Minute hand */}
-        <Hand
-          angle={minuteAngle}
-          length={clockRadius * 0.7}
-          width={3}
-          color="var(--text-primary)"
-        />
+        <Hand angle={minuteAngle} length={clockRadius * 0.7} width={3} color="var(--text-primary)" />
 
         {/* Second hand */}
-        <Hand
-          angle={secondAngle}
-          length={clockRadius * 0.8}
-          width={1.5}
-          color="var(--accent-red, #ef4444)"
-        />
+        <Hand angle={secondAngle} length={clockRadius * 0.8} width={1.5} color="var(--accent-red, #ef4444)" />
 
         {/* Center dot */}
         <circle cx={center} cy={center} r={4} fill="var(--accent-red, #ef4444)" />

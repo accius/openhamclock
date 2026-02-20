@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
  * OpenHamClock WSJT-X Relay Agent
- * 
+ *
  * Captures WSJT-X UDP datagrams on your local machine and relays
  * decoded messages to a remote OpenHamClock instance (e.g. openhamclock.com).
- * 
+ *
  * WSJT-X sends UDP only on the local network — this bridge lets your
  * cloud-hosted dashboard see your decodes in real time.
- * 
+ *
  * Zero dependencies — uses only Node.js built-in modules.
- * 
+ *
  * Usage:
  *   node relay.js --url https://openhamclock.com --key YOUR_RELAY_KEY
- *   
+ *
  *   Or with environment variables:
  *   OPENHAMCLOCK_URL=https://openhamclock.com RELAY_KEY=abc123 node relay.js
- * 
+ *
  * In WSJT-X: Settings → Reporting → UDP Server
  *   Address: 127.0.0.1   Port: 2237
  */
@@ -39,16 +39,35 @@ function parseArgs() {
     batchInterval: parseInt(process.env.BATCH_INTERVAL || '2000'),
     verbose: process.env.VERBOSE === 'true',
   };
-  
+
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case '--url': case '-u': config.url = args[++i]; break;
-      case '--key': case '-k': config.key = args[++i]; break;
-      case '--session': case '-s': config.session = args[++i]; break;
-      case '--port': case '-p': config.port = parseInt(args[++i]); break;
-      case '--interval': case '-i': config.batchInterval = parseInt(args[++i]); break;
-      case '--verbose': case '-v': config.verbose = true; break;
-      case '--help': case '-h':
+      case '--url':
+      case '-u':
+        config.url = args[++i];
+        break;
+      case '--key':
+      case '-k':
+        config.key = args[++i];
+        break;
+      case '--session':
+      case '-s':
+        config.session = args[++i];
+        break;
+      case '--port':
+      case '-p':
+        config.port = parseInt(args[++i]);
+        break;
+      case '--interval':
+      case '-i':
+        config.batchInterval = parseInt(args[++i]);
+        break;
+      case '--verbose':
+      case '-v':
+        config.verbose = true;
+        break;
+      case '--help':
+      case '-h':
         console.log(`
 OpenHamClock WSJT-X Relay Agent
 
@@ -78,7 +97,7 @@ Example:
         process.exit(0);
     }
   }
-  
+
   return config;
 }
 
@@ -111,30 +130,48 @@ const relayEndpoint = `${serverUrl}/api/wsjtx/relay`;
 // WSJT-X BINARY PROTOCOL PARSER
 // ============================================
 
-const WSJTX_MAGIC = 0xADBCCBDA;
+const WSJTX_MAGIC = 0xadbccbda;
 
 const WSJTX_MSG = {
-  HEARTBEAT: 0, STATUS: 1, DECODE: 2, CLEAR: 3,
-  REPLY: 4, QSO_LOGGED: 5, CLOSE: 6, REPLAY: 7,
-  HALT_TX: 8, FREE_TEXT: 9, WSPR_DECODE: 10,
-  LOCATION: 11, LOGGED_ADIF: 12,
+  HEARTBEAT: 0,
+  STATUS: 1,
+  DECODE: 2,
+  CLEAR: 3,
+  REPLY: 4,
+  QSO_LOGGED: 5,
+  CLOSE: 6,
+  REPLAY: 7,
+  HALT_TX: 8,
+  FREE_TEXT: 9,
+  WSPR_DECODE: 10,
+  LOCATION: 11,
+  LOGGED_ADIF: 12,
 };
 
 class WSJTXReader {
-  constructor(buffer) { this.buf = buffer; this.offset = 0; }
-  remaining() { return this.buf.length - this.offset; }
-  
+  constructor(buffer) {
+    this.buf = buffer;
+    this.offset = 0;
+  }
+  remaining() {
+    return this.buf.length - this.offset;
+  }
+
   readUInt8() {
     if (this.remaining() < 1) return null;
     return this.buf.readUInt8(this.offset++);
   }
   readInt32() {
     if (this.remaining() < 4) return null;
-    const v = this.buf.readInt32BE(this.offset); this.offset += 4; return v;
+    const v = this.buf.readInt32BE(this.offset);
+    this.offset += 4;
+    return v;
   }
   readUInt32() {
     if (this.remaining() < 4) return null;
-    const v = this.buf.readUInt32BE(this.offset); this.offset += 4; return v;
+    const v = this.buf.readUInt32BE(this.offset);
+    this.offset += 4;
+    return v;
   }
   readUInt64() {
     if (this.remaining() < 8) return null;
@@ -143,18 +180,24 @@ class WSJTXReader {
     this.offset += 8;
     return hi * 0x100000000 + lo;
   }
-  readBool() { const v = this.readUInt8(); return v === null ? null : v !== 0; }
+  readBool() {
+    const v = this.readUInt8();
+    return v === null ? null : v !== 0;
+  }
   readDouble() {
     if (this.remaining() < 8) return null;
-    const v = this.buf.readDoubleBE(this.offset); this.offset += 8; return v;
+    const v = this.buf.readDoubleBE(this.offset);
+    this.offset += 8;
+    return v;
   }
   readUtf8() {
     const len = this.readUInt32();
-    if (len === null || len === 0xFFFFFFFF) return null;
+    if (len === null || len === 0xffffffff) return null;
     if (len === 0) return '';
     if (this.remaining() < len) return null;
     const str = this.buf.toString('utf8', this.offset, this.offset + len);
-    this.offset += len; return str;
+    this.offset += len;
+    return str;
   }
   readQTime() {
     const ms = this.readUInt32();
@@ -162,8 +205,13 @@ class WSJTXReader {
     const h = Math.floor(ms / 3600000);
     const m = Math.floor((ms % 3600000) / 60000);
     const s = Math.floor((ms % 60000) / 1000);
-    return { ms, hours: h, minutes: m, seconds: s,
-      formatted: `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` };
+    return {
+      ms,
+      hours: h,
+      minutes: m,
+      seconds: s,
+      formatted: `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`,
+    };
   }
   readQDateTime() {
     const julianDay = this.readUInt64();
@@ -178,14 +226,14 @@ function parseWSJTXMessage(buffer) {
   const reader = new WSJTXReader(buffer);
   const magic = reader.readUInt32();
   if (magic !== WSJTX_MAGIC) return null;
-  
+
   const schema = reader.readUInt32();
   const type = reader.readUInt32();
   const id = reader.readUtf8();
   if (type === null || id === null) return null;
-  
+
   const msg = { type, id, schema, timestamp: Date.now() };
-  
+
   try {
     switch (type) {
       case WSJTX_MSG.HEARTBEAT:
@@ -269,8 +317,10 @@ function parseWSJTXMessage(buffer) {
       default:
         return null;
     }
-  } catch (e) { return null; }
-  
+  } catch (e) {
+    return null;
+  }
+
   return msg;
 }
 
@@ -285,13 +335,18 @@ let totalSent = 0;
 let totalDecodes = 0;
 
 const MSG_TYPE_NAMES = {
-  0: 'Heartbeat', 1: 'Status', 2: 'Decode', 3: 'Clear',
-  5: 'QSO Logged', 6: 'Close', 10: 'WSPR',
+  0: 'Heartbeat',
+  1: 'Status',
+  2: 'Decode',
+  3: 'Clear',
+  5: 'QSO Logged',
+  6: 'Close',
+  10: 'WSPR',
 };
 
 function queueMessage(msg) {
   messageQueue.push(msg);
-  
+
   if (config.verbose && msg.type === WSJTX_MSG.DECODE) {
     const snr = msg.snr != null ? (msg.snr >= 0 ? `+${msg.snr}` : msg.snr) : '?';
     console.log(`  📻 ${msg.time?.formatted || '??'} ${snr}dB ${msg.deltaFreq}Hz ${msg.message}`);
@@ -300,14 +355,14 @@ function queueMessage(msg) {
 
 function sendBatch() {
   if (sendInFlight || messageQueue.length === 0) return;
-  
+
   const batch = messageQueue.splice(0, messageQueue.length);
   sendInFlight = true;
-  
+
   const body = JSON.stringify({ messages: batch, session: config.session });
   const parsed = new URL(relayEndpoint);
   const transport = parsed.protocol === 'https:' ? https : http;
-  
+
   const reqOpts = {
     hostname: parsed.hostname,
     port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
@@ -316,25 +371,27 @@ function sendBatch() {
     headers: {
       'Content-Type': 'application/json',
       'Content-Length': Buffer.byteLength(body),
-      'Authorization': `Bearer ${config.key}`,
+      Authorization: `Bearer ${config.key}`,
       'X-Relay-Version': RELAY_VERSION,
-      'Connection': 'close',
+      Connection: 'close',
     },
     timeout: 10000,
   };
-  
+
   const req = transport.request(reqOpts, (res) => {
     let data = '';
-    res.on('data', (chunk) => data += chunk);
+    res.on('data', (chunk) => (data += chunk));
     res.on('end', () => {
       sendInFlight = false;
-      
+
       if (res.statusCode === 200) {
         consecutiveErrors = 0;
         totalSent += batch.length;
-        const decodes = batch.filter(m => m.type === WSJTX_MSG.DECODE).length;
+        const decodes = batch.filter((m) => m.type === WSJTX_MSG.DECODE).length;
         if (decodes > 0 || config.verbose) {
-          process.stdout.write(`  ✅ Relayed ${batch.length} msg${batch.length > 1 ? 's' : ''} (${decodes} decode${decodes !== 1 ? 's' : ''}) — total: ${totalSent}\r`);
+          process.stdout.write(
+            `  ✅ Relayed ${batch.length} msg${batch.length > 1 ? 's' : ''} (${decodes} decode${decodes !== 1 ? 's' : ''}) — total: ${totalSent}\r`,
+          );
         }
       } else if (res.statusCode === 401 || res.statusCode === 403) {
         console.error(`\n  ❌ Authentication failed (${res.statusCode}) — check your relay key`);
@@ -348,13 +405,13 @@ function sendBatch() {
       }
     });
   });
-  
+
   req.on('error', (err) => {
     sendInFlight = false;
     consecutiveErrors++;
     // Re-queue on network error
     messageQueue.unshift(...batch);
-    
+
     if (consecutiveErrors <= 3 || consecutiveErrors % 10 === 0) {
       console.error(`\n  ⚠️  Connection error (attempt ${consecutiveErrors}): ${err.message}`);
       if (consecutiveErrors === 1 && err.message.includes('ECONNRESET')) {
@@ -366,14 +423,14 @@ function sendBatch() {
       }
     }
   });
-  
+
   req.on('timeout', () => {
     req.destroy();
     sendInFlight = false;
     consecutiveErrors++;
     messageQueue.unshift(...batch);
   });
-  
+
   req.write(body);
   req.end();
 }
@@ -404,12 +461,13 @@ const socket = dgram.createSocket('udp4');
 socket.on('message', (buf, rinfo) => {
   const msg = parseWSJTXMessage(buf);
   if (!msg) return;
-  
+
   // Track decodes for local stats
   if (msg.type === WSJTX_MSG.DECODE && msg.isNew) totalDecodes++;
-  
+
   // Queue for relay — skip REPLAY type (bulk replay request)
-  if (msg.type !== 7) { // REPLAY
+  if (msg.type !== 7) {
+    // REPLAY
     queueMessage(msg);
   }
 });
@@ -428,7 +486,7 @@ socket.on('error', (err) => {
 
 socket.on('listening', () => {
   const addr = socket.address();
-  
+
   console.log('');
   console.log('╔══════════════════════════════════════════════════╗');
   console.log(`║  OpenHamClock WSJT-X Relay Agent v${RELAY_VERSION}         ║`);
@@ -445,10 +503,10 @@ socket.on('listening', () => {
   console.log('');
   console.log('  Waiting for WSJT-X packets...');
   console.log('');
-  
+
   // Start batch relay loop
   scheduleBatch();
-  
+
   // Send relay heartbeat immediately, then every 30s
   // This tells the server the relay is alive even before WSJT-X sends any packets
   let heartbeatOk = false;
@@ -456,7 +514,7 @@ socket.on('listening', () => {
     const body = JSON.stringify({ relay: true, version: RELAY_VERSION, port: config.port, session: config.session });
     const parsed = new URL(relayEndpoint);
     const transport = parsed.protocol === 'https:' ? https : http;
-    
+
     const reqOpts = {
       hostname: parsed.hostname,
       port: parsed.port || (parsed.protocol === 'https:' ? 443 : 80),
@@ -465,16 +523,16 @@ socket.on('listening', () => {
       headers: {
         'Content-Type': 'application/json',
         'Content-Length': Buffer.byteLength(body),
-        'Authorization': `Bearer ${config.key}`,
+        Authorization: `Bearer ${config.key}`,
         'X-Relay-Heartbeat': 'true',
-        'Connection': 'close',
+        Connection: 'close',
       },
       timeout: 10000,
     };
-    
+
     const req = transport.request(reqOpts, (res) => {
       let data = '';
-      res.on('data', (chunk) => data += chunk);
+      res.on('data', (chunk) => (data += chunk));
       res.on('end', () => {
         if (res.statusCode === 200) {
           if (!heartbeatOk) {
@@ -514,11 +572,11 @@ socket.on('listening', () => {
     req.write(body);
     req.end();
   }
-  
+
   // Pre-flight check: verify server is reachable with a simple GET before starting relay
   const healthUrl = new URL(`${serverUrl}/api/health`);
   const healthTransport = healthUrl.protocol === 'https:' ? https : http;
-  const healthReq = healthTransport.get(healthUrl.href, { timeout: 10000, headers: { 'Connection': 'close' } }, (res) => {
+  const healthReq = healthTransport.get(healthUrl.href, { timeout: 10000, headers: { Connection: 'close' } }, (res) => {
     res.resume();
     if (res.statusCode === 200) {
       console.log(`  ✅ Server reachable (${serverUrl})`);
@@ -546,14 +604,14 @@ socket.on('listening', () => {
     console.error('     Will retry heartbeat anyway...');
     sendHeartbeat();
   });
-  
+
   setInterval(sendHeartbeat, 30000);
-  
+
   // Periodic health check — verify server is reachable
   setInterval(() => {
     const parsed = new URL(`${serverUrl}/api/wsjtx`);
     const transport = parsed.protocol === 'https:' ? https : http;
-    const req = transport.get(parsed.href, { timeout: 5000, headers: { 'Connection': 'close' } }, (res) => {
+    const req = transport.get(parsed.href, { timeout: 5000, headers: { Connection: 'close' } }, (res) => {
       if (res.statusCode === 200 && consecutiveErrors > 0) {
         console.log('\n  ✅ Server connection restored');
         consecutiveErrors = 0;

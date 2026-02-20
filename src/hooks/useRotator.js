@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * useRotator (V2)
@@ -14,15 +14,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
  *  ageMs: number
  *  available: boolean  — whether a rotator is configured server-side
  */
-export default function useRotator({
-  endpointUrl,
-  pollMs = 2000,
-  staleMs = 5000,
-  mock = false,
-} = {}) {
+export default function useRotator({ endpointUrl, pollMs = 2000, staleMs = 5000, mock = false } = {}) {
   const [azimuth, setAzimuth] = useState(null);
   const [lastGoodAzimuth, setLastGoodAzimuth] = useState(null);
-  const [source, setSource] = useState(mock ? "mock" : "unknown");
+  const [source, setSource] = useState(mock ? 'mock' : 'unknown');
   const [lastUpdate, setLastUpdate] = useState(0);
   const [available, setAvailable] = useState(false);
 
@@ -46,7 +41,7 @@ export default function useRotator({
     }
 
     if (mock) {
-      setSource("mock");
+      setSource('mock');
       setAvailable(true);
       setAzimuth((prev) => (prev == null ? 22 : prev));
       setLastGoodAzimuth((prev) => (prev == null ? 22 : prev));
@@ -75,7 +70,7 @@ export default function useRotator({
       if (disabledRef.current) return;
 
       try {
-        const res = await fetch(endpointUrl, { cache: "no-store" });
+        const res = await fetch(endpointUrl, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();

@@ -1,18 +1,18 @@
 /**
  * useWSJTX Hook
  * Polls the server for WSJT-X UDP data (decoded messages, status, QSOs)
- * 
+ *
  * WSJT-X sends decoded FT8/FT4/JT65/WSPR messages over UDP.
  * The server listens on the configured port and this hook fetches the results.
- * 
+ *
  * Each browser gets a unique session ID so relay data is per-user.
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useVisibilityRefresh } from './useVisibilityRefresh';
 import { apiFetch } from '../utils/apiFetch';
 
-const POLL_FAST = 2000;    // 2s when data is flowing
-const POLL_SLOW = 30000;   // 30s idle check — is anything connected?
+const POLL_FAST = 2000; // 2s when data is flowing
+const POLL_SLOW = 30000; // 30s idle check — is anything connected?
 const API_URL = '/api/wsjtx';
 const DECODES_URL = '/api/wsjtx/decodes';
 
@@ -60,9 +60,7 @@ export function useWSJTX(enabled = true) {
     // Skip if we're in a rate-limit backoff window
     if (Date.now() < backoffUntil.current) return;
     try {
-      const base = lastTimestamp.current 
-        ? `${DECODES_URL}?since=${lastTimestamp.current}`
-        : DECODES_URL;
+      const base = lastTimestamp.current ? `${DECODES_URL}?since=${lastTimestamp.current}` : DECODES_URL;
       const sep = base.includes('?') ? '&' : '?';
       const url = `${base}${sep}session=${sessionId}`;
       const res = await apiFetch(url);
@@ -74,19 +72,29 @@ export function useWSJTX(enabled = true) {
       }
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
-      
+
       if (json.decodes?.length > 0) {
-        setData(prev => {
-          // Merge new decodes, dedup by id, keep last 200
-          const existing = new Set(prev.decodes.map(d => d.id));
-          const newDecodes = json.decodes.filter(d => !existing.has(d.id));
+        setData((prev) => {
+          // Merge new decodes, dedup by id AND by content (time+freq+message)
+          const existingIds = new Set(prev.decodes.map((d) => d.id));
+          const existingKeys = new Set(
+            prev.decodes.map((d) => `${d.time}-${d.freq}-${(d.message || '').replace(/\s+/g, '')}`),
+          );
+          const newDecodes = json.decodes.filter((d) => {
+            if (existingIds.has(d.id)) return false;
+            const contentKey = `${d.time}-${d.freq}-${(d.message || '').replace(/\s+/g, '')}`;
+            if (existingKeys.has(contentKey)) return false;
+            existingIds.add(d.id);
+            existingKeys.add(contentKey);
+            return true;
+          });
           if (newDecodes.length === 0) return prev;
-          
+
           const merged = [...prev.decodes, ...newDecodes].slice(-500);
           return { ...prev, decodes: merged, stats: { ...prev.stats, totalDecodes: merged.length } };
         });
       }
-      
+
       lastTimestamp.current = json.timestamp || Date.now();
       setError(null);
     } catch (e) {
@@ -110,11 +118,10 @@ export function useWSJTX(enabled = true) {
       const json = await res.json();
       setData(json);
       // Data is flowing if there are active clients or recent decodes
-      hasDataFlowing.current = !!(json.enabled && (
-        (json.stats?.activeClients > 0) ||
-        (json.decodes?.length > 0) ||
-        (json.qsos?.length > 0)
-      ));
+      hasDataFlowing.current = !!(
+        json.enabled &&
+        (json.stats?.activeClients > 0 || json.decodes?.length > 0 || json.qsos?.length > 0)
+      );
       lastTimestamp.current = Date.now();
       setLoading(false);
       setError(null);
@@ -132,12 +139,13 @@ export function useWSJTX(enabled = true) {
   // Polling - adaptive: fast (2s) when data flows, slow (30s) when idle
   useEffect(() => {
     if (!enabled) return;
-    
+
     let timer;
     const tick = () => {
       const interval = hasDataFlowing.current ? POLL_FAST : POLL_SLOW;
       fullFetchCounter.current++;
-      if (fullFetchCounter.current >= 8) { // Full refresh every ~16s (fast) or ~240s (slow)
+      if (fullFetchCounter.current >= 8) {
+        // Full refresh every ~16s (fast) or ~240s (slow)
         fullFetchCounter.current = 0;
         fetchFull();
       } else {
@@ -146,12 +154,14 @@ export function useWSJTX(enabled = true) {
       timer = setTimeout(tick, interval);
     };
     timer = setTimeout(tick, POLL_SLOW); // Start slow, speed up if data arrives
-    
+
     return () => clearTimeout(timer);
   }, [enabled, fetchFull, pollDecodes]);
 
   // Refresh immediately when tab becomes visible (handles browser throttling)
-  useVisibilityRefresh(() => { if (enabled) fetchFull(); }, 5000);
+  useVisibilityRefresh(() => {
+    if (enabled) fetchFull();
+  }, 5000);
 
   return {
     ...data,

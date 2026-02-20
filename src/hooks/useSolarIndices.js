@@ -23,7 +23,7 @@ export const useSolarIndices = () => {
         setLoading(false);
       }
     };
-    
+
     fetchData();
     // Refresh every 15 minutes
     const interval = setInterval(fetchData, 15 * 60 * 1000);

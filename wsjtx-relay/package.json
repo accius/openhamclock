@@ -6,7 +6,13 @@
   "scripts": {
     "start": "node relay.js"
   },
-  "keywords": ["wsjt-x", "ham-radio", "ft8", "relay", "openhamclock"],
+  "keywords": [
+    "wsjt-x",
+    "ham-radio",
+    "ft8",
+    "relay",
+    "openhamclock"
+  ],
   "license": "MIT",
   "engines": {
     "node": ">=14.0.0"

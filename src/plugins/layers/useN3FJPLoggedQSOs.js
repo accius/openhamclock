@@ -9,46 +9,49 @@ export const metadata = {
   localOnly: true,
   defaultEnabled: false,
   defaultOpacity: 0.9,
-  version: '0.2.0'
+  version: '0.2.0',
 };
 
 const POLL_MS = 2000;
 
-  // --- User settings (persisted) ---
+// --- User settings (persisted) ---
 const STORAGE_MINUTES_KEY = 'n3fjp_display_minutes';
 const STORAGE_COLOR_KEY = 'n3fjp_line_color';
 
 // Make control draggable with CTRL+drag
+// Registry so a second call for the same storageKey cancels the previous listeners.
+const _makeDraggableControllers = {};
+
 function makeDraggable(element, storageKey, skipPositionLoad = false) {
   if (!element) return;
-  
-  // Load saved position only if not already loaded
+
+  // Cancel any previous listener set attached to this storageKey (e.g. after layout change)
+  if (_makeDraggableControllers[storageKey]) {
+    _makeDraggableControllers[storageKey].abort();
+  }
+  const controller = new AbortController();
+  const signal = controller.signal;
+  _makeDraggableControllers[storageKey] = controller;
+
+  // Load saved position
   if (!skipPositionLoad) {
     const saved = localStorage.getItem(storageKey);
     if (saved) {
       try {
         const data = JSON.parse(saved);
         element.style.position = 'fixed';
-        
-        // Check if saved as percentage (new format) or pixels (old format)
         if (data.topPercent !== undefined && data.leftPercent !== undefined) {
-          // Use percentage-based positioning (scales with zoom)
           element.style.top = data.topPercent + '%';
           element.style.left = data.leftPercent + '%';
         } else {
-          // Legacy pixel format - convert to percentage
-          const topPercent = (data.top / window.innerHeight) * 100;
-          const leftPercent = (data.left / window.innerWidth) * 100;
-          element.style.top = topPercent + '%';
-          element.style.left = leftPercent + '%';
+          element.style.top = (data.top / window.innerHeight) * 100 + '%';
+          element.style.left = (data.left / window.innerWidth) * 100 + '%';
         }
-        
         element.style.right = 'auto';
         element.style.bottom = 'auto';
         element.style.transform = 'none';
       } catch (e) {}
     } else {
-      // Convert from Leaflet control position to fixed
       const rect = element.getBoundingClientRect();
       element.style.position = 'fixed';
       element.style.top = rect.top + 'px';
@@ -57,93 +60,98 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
       element.style.bottom = 'auto';
     }
   }
-  
+
   element.title = 'Hold CTRL and drag to reposition';
-  
+
   let isDragging = false;
   let startX, startY, startLeft, startTop;
-  
+
   const updateCursor = (e) => {
-    if (e.ctrlKey) {
-      element.style.cursor = 'grab';
-    } else {
-      element.style.cursor = 'default';
-    }
+    element.style.cursor = e.ctrlKey ? 'grab' : 'default';
   };
-  
-  element.addEventListener('mouseenter', updateCursor);
-  element.addEventListener('mousemove', updateCursor);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Control') updateCursor(e);
-  });
-  document.addEventListener('keyup', (e) => {
-    if (e.key === 'Control') updateCursor(e);
-  });
-  
-  element.addEventListener('mousedown', function(e) {
-    if (!e.ctrlKey) return;
-    if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') {
-      return;
-    }
-    
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    startLeft = element.offsetLeft;
-    startTop = element.offsetTop;
-    
-    element.style.cursor = 'grabbing';
-    element.style.opacity = '0.8';
-    e.preventDefault();
-  });
-  
-  document.addEventListener('mousemove', function(e) {
-    if (!isDragging) return;
-    
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    
-    element.style.left = (startLeft + dx) + 'px';
-    element.style.top = (startTop + dy) + 'px';
-  });
-  
-  document.addEventListener('mouseup', function(e) {
-    if (isDragging) {
+
+  element.addEventListener('mouseenter', updateCursor, { signal });
+  element.addEventListener('mousemove', updateCursor, { signal });
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key === 'Control') updateCursor(e);
+    },
+    { signal },
+  );
+  document.addEventListener(
+    'keyup',
+    (e) => {
+      if (e.key === 'Control') updateCursor(e);
+    },
+    { signal },
+  );
+
+  element.addEventListener(
+    'mousedown',
+    function (e) {
+      if (!e.ctrlKey) return;
+      if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') return;
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      startLeft = element.offsetLeft;
+      startTop = element.offsetTop;
+      element.style.cursor = 'grabbing';
+      element.style.opacity = '0.8';
+      e.preventDefault();
+    },
+    { signal },
+  );
+
+  document.addEventListener(
+    'mousemove',
+    function (e) {
+      if (!isDragging) return;
+      element.style.left = startLeft + (e.clientX - startX) + 'px';
+      element.style.top = startTop + (e.clientY - startY) + 'px';
+    },
+    { signal },
+  );
+
+  document.addEventListener(
+    'mouseup',
+    function (e) {
+      if (!isDragging) return;
       isDragging = false;
       element.style.opacity = '1';
       updateCursor(e);
-      
-      // Save position as percentage of viewport for zoom compatibility
       const topPercent = (element.offsetTop / window.innerHeight) * 100;
       const leftPercent = (element.offsetLeft / window.innerWidth) * 100;
-      
-      const position = {
-        topPercent,
-        leftPercent,
-        // Keep pixel values for backward compatibility
-        top: element.offsetTop,
-        left: element.offsetLeft
-      };
-      localStorage.setItem(storageKey, JSON.stringify(position));
-    }
-  });
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          topPercent,
+          leftPercent,
+          top: element.offsetTop,
+          left: element.offsetLeft,
+        }),
+      );
+    },
+    { signal },
+  );
 }
 
 // Add minimize/maximize toggle
 function addMinimizeToggle(element, storageKey) {
   if (!element) return;
-  
+
   const minimizeKey = storageKey + '-minimized';
   const header = element.firstElementChild;
   if (!header) return;
-  
+
   // Wrap content
   const content = Array.from(element.children).slice(1);
   const contentWrapper = document.createElement('div');
   contentWrapper.className = 'n3fjp-panel-content';
-  content.forEach(child => contentWrapper.appendChild(child));
+  content.forEach((child) => contentWrapper.appendChild(child));
   element.appendChild(contentWrapper);
-  
+
   // Add minimize button
   const minimizeBtn = document.createElement('span');
   minimizeBtn.className = 'n3fjp-minimize-btn';
@@ -159,19 +167,19 @@ function addMinimizeToggle(element, storageKey) {
     transition: opacity 0.2s;
   `;
   minimizeBtn.title = 'Minimize/Maximize';
-  
+
   minimizeBtn.addEventListener('mouseenter', () => {
     minimizeBtn.style.opacity = '1';
   });
   minimizeBtn.addEventListener('mouseleave', () => {
     minimizeBtn.style.opacity = '0.7';
   });
-  
+
   header.style.display = 'flex';
   header.style.justifyContent = 'space-between';
   header.style.alignItems = 'center';
   header.appendChild(minimizeBtn);
-  
+
   // Load saved state
   const isMinimized = localStorage.getItem(minimizeKey) === 'true';
   if (isMinimized) {
@@ -179,13 +187,13 @@ function addMinimizeToggle(element, storageKey) {
     minimizeBtn.innerHTML = '▶';
     element.style.cursor = 'pointer';
   }
-  
+
   // Toggle function
   const toggle = (e) => {
     if (e && e.ctrlKey) return;
-    
+
     const isCurrentlyMinimized = contentWrapper.style.display === 'none';
-    
+
     if (isCurrentlyMinimized) {
       contentWrapper.style.display = 'block';
       minimizeBtn.innerHTML = '▼';
@@ -198,7 +206,7 @@ function addMinimizeToggle(element, storageKey) {
       localStorage.setItem(minimizeKey, 'true');
     }
   };
-  
+
   minimizeBtn.addEventListener('click', toggle);
   header.addEventListener('click', (e) => {
     if (e.target !== minimizeBtn) toggle(e);
@@ -275,23 +283,23 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
   useEffect(() => {
     if (!map || typeof L === 'undefined') return;
 
-	// --- Preserve open popup across redraws ---
-	// Use our own ref as the source of truth (map._popup can be fickle during redraws)
-	const openDxCall = (!suppressReopenRef.current && lastOpenDxCallRef.current)
-	  ? lastOpenDxCallRef.current
-	  : null;
-	
-	// Remove old layers
-	layersRef.forEach(layer => {
-	  try { map.removeLayer(layer); } catch {}
-	});
-	setLayersRef([]);
+    // --- Preserve open popup across redraws ---
+    // Use our own ref as the source of truth (map._popup can be fickle during redraws)
+    const openDxCall = !suppressReopenRef.current && lastOpenDxCallRef.current ? lastOpenDxCallRef.current : null;
 
-	if (!enabled || !qsos.length) return;
+    // Remove old layers
+    layersRef.forEach((layer) => {
+      try {
+        map.removeLayer(layer);
+      } catch {}
+    });
+    setLayersRef([]);
+
+    if (!enabled || !qsos.length) return;
 
     // ---- CLIENT-SIDE FILTER: Show only QSOs newer than X minutes ----
-    const cutoff = Date.now() - (displayMinutes * 60 * 1000);
-    const recent = qsos.filter(q => {
+    const cutoff = Date.now() - displayMinutes * 60 * 1000;
+    const recent = qsos.filter((q) => {
       const t = Date.parse(q.ts_utc || q.ts || '');
       return !Number.isNaN(t) && t >= cutoff;
     });
@@ -343,7 +351,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
     }
 
     // Plot each QSO using qso.lat/qso.lon
-    recent.forEach(q => {
+    recent.forEach((q) => {
       const lat = q.lat;
       const lon = q.lon;
       if (typeof lat !== 'number' || typeof lon !== 'number') return;
@@ -365,23 +373,23 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
 
       // Tag marker so we can re-open its popup after a redraw
       dxMarker.__dxCall = dxCall;
-       // User intent: keep THIS call's popup open across redraws
-		dxMarker.on("click", () => {
-		  lastOpenDxCallRef.current = dxCall;
-		  suppressReopenRef.current = false;
-		});
+      // User intent: keep THIS call's popup open across redraws
+      dxMarker.on('click', () => {
+        lastOpenDxCallRef.current = dxCall;
+        suppressReopenRef.current = false;
+      });
 
-    dxMarker.on("popupclose", () => {
-	  // If the marker was removed from the map (our redraw does this every POLL_MS),
-	  // Leaflet will close the popup. That's NOT a user close.
-	  if (!map || !map.hasLayer(dxMarker)) return;
+      dxMarker.on('popupclose', () => {
+        // If the marker was removed from the map (our redraw does this every POLL_MS),
+        // Leaflet will close the popup. That's NOT a user close.
+        if (!map || !map.hasLayer(dxMarker)) return;
 
-	  // This is a real user close (clicked X or clicked map/another marker)
-	  if (lastOpenDxCallRef.current === dxCall) {
-		suppressReopenRef.current = true;
-		lastOpenDxCallRef.current = null;
-	  }
-	});
+        // This is a real user close (clicked X or clicked map/another marker)
+        if (lastOpenDxCallRef.current === dxCall) {
+          suppressReopenRef.current = true;
+          lastOpenDxCallRef.current = null;
+        }
+      });
 
       dxMarker.bindPopup(
         `<div style="font-family: JetBrains Mono, monospace;">
@@ -393,7 +401,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
           ${q.loc_source ? `Loc: ${q.loc_source}<br/>` : ''}
           ${q.dx_grid ? `Grid: ${q.dx_grid}<br/>` : ''}
           <span style="opacity:0.7;">Retention: ${retentionMinutes} min</span>
-        </div>`
+        </div>`,
       );
 
       newLayers.push(dxMarker);
@@ -401,32 +409,39 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
       // If this was the popup that was open before redraw, re-open it now
       if (!suppressReopenRef.current && openDxCall && dxCall === openDxCall) {
         setTimeout(() => {
-          try { dxMarker.openPopup(); } catch {}
+          try {
+            dxMarker.openPopup();
+          } catch {}
         }, 0);
       }
 
       // Draw line from station -> DX if we have station coords
       if (station) {
         const line = L.polyline(
-          [[station.lat, station.lon], [lat, lon]],
-          { opacity, color: lineColor }
+          [
+            [station.lat, station.lon],
+            [lat, lon],
+          ],
+          { opacity, color: lineColor },
         ).addTo(map);
         newLayers.push(line);
       }
     });
 
     setLayersRef(newLayers);
-	
+
     // Cleanup
     return () => {
-      newLayers.forEach(layer => {
-        try { map.removeLayer(layer); } catch {}
+      newLayers.forEach((layer) => {
+        try {
+          map.removeLayer(layer);
+        } catch {}
       });
     };
   }, [enabled, qsos, map, opacity, retentionMinutes, displayMinutes, lineColor]);
 
   return {
     qsoCount: qsos.length,
-    retentionMinutes
+    retentionMinutes,
   };
 }

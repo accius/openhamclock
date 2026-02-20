@@ -23,13 +23,11 @@ const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
 
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 const HTTP_PORT_DEFAULT = 5555;
 
 // Config lives NEXT TO the executable (or cwd for dev), NOT inside the pkg snapshot
-const CONFIG_DIR = process.pkg
-  ? path.dirname(process.execPath)
-  : __dirname;
+const CONFIG_DIR = process.pkg ? path.dirname(process.execPath) : __dirname;
 const CONFIG_FILE = path.join(CONFIG_DIR, 'rig-listener-config.json');
 
 // ============================================
@@ -48,8 +46,13 @@ let sseClients = [];
 
 function broadcast(data) {
   const msg = `data: ${JSON.stringify(data)}\n\n`;
-  sseClients = sseClients.filter(c => {
-    try { c.write(msg); return true; } catch { return false; }
+  sseClients = sseClients.filter((c) => {
+    try {
+      c.write(msg);
+      return true;
+    } catch {
+      return false;
+    }
   });
 }
 
@@ -65,13 +68,21 @@ function updateState(prop, value) {
 // FT-991A, FT-891, FT-710, FT-DX10, FT-DX101, FT-450D, etc.
 // ============================================
 const YAESU_MODES = {
-  '1': 'LSB', '2': 'USB', '3': 'CW', '4': 'FM', '5': 'AM',
-  '6': 'RTTY-LSB', '7': 'CW-R', '8': 'DATA-LSB', '9': 'RTTY-USB',
-  'A': 'DATA-FM', 'B': 'FM-N', 'C': 'DATA-USB', 'D': 'AM-N',
+  1: 'LSB',
+  2: 'USB',
+  3: 'CW',
+  4: 'FM',
+  5: 'AM',
+  6: 'RTTY-LSB',
+  7: 'CW-R',
+  8: 'DATA-LSB',
+  9: 'RTTY-USB',
+  A: 'DATA-FM',
+  B: 'FM-N',
+  C: 'DATA-USB',
+  D: 'AM-N',
 };
-const YAESU_MODES_REV = Object.fromEntries(
-  Object.entries(YAESU_MODES).map(([k, v]) => [v, k])
-);
+const YAESU_MODES_REV = Object.fromEntries(Object.entries(YAESU_MODES).map(([k, v]) => [v, k]));
 
 const YaesuProtocol = {
   buffer: '',
@@ -89,7 +100,9 @@ const YaesuProtocol = {
       this.buffer = this.buffer.substring(idx + 1);
     }
     for (const cmd of commands) {
-      if (cmd.startsWith('FA') && cmd.length >= 11) {
+      if (cmd === '?;') {
+        console.log('[Yaesu] Radio returned error (?;) — command not recognised or radio busy');
+      } else if (cmd.startsWith('FA') && cmd.length >= 11) {
         const freq = parseInt(cmd.substring(2, cmd.length - 1));
         if (freq > 0) updateState('freq', freq);
       } else if (cmd.startsWith('MD0') && cmd.length >= 4) {
@@ -126,12 +139,16 @@ const YaesuProtocol = {
 // KENWOOD / ELECRAFT PROTOCOL
 // ============================================
 const KENWOOD_MODES = {
-  '1': 'LSB', '2': 'USB', '3': 'CW', '4': 'FM', '5': 'AM',
-  '6': 'FSK', '7': 'CW-R', '9': 'FSK-R',
+  1: 'LSB',
+  2: 'USB',
+  3: 'CW',
+  4: 'FM',
+  5: 'AM',
+  6: 'FSK',
+  7: 'CW-R',
+  9: 'FSK-R',
 };
-const KENWOOD_MODES_REV = Object.fromEntries(
-  Object.entries(KENWOOD_MODES).map(([k, v]) => [v, k])
-);
+const KENWOOD_MODES_REV = Object.fromEntries(Object.entries(KENWOOD_MODES).map(([k, v]) => [v, k]));
 
 const KenwoodProtocol = {
   buffer: '',
@@ -149,7 +166,9 @@ const KenwoodProtocol = {
       this.buffer = this.buffer.substring(idx + 1);
     }
     for (const cmd of commands) {
-      if (cmd.startsWith('FA') && cmd.length >= 13) {
+      if (cmd === '?;') {
+        console.log('[Kenwood] Radio returned error (?;) — command not recognised or radio busy');
+      } else if (cmd.startsWith('FA') && cmd.length >= 13) {
         const freq = parseInt(cmd.substring(2, cmd.length - 1));
         if (freq > 0) updateState('freq', freq);
       } else if (cmd.startsWith('MD') && cmd.length >= 3) {
@@ -184,42 +203,56 @@ const KenwoodProtocol = {
 // ICOM CI-V PROTOCOL (binary)
 // ============================================
 const ICOM_MODES = {
-  0x00: 'LSB', 0x01: 'USB', 0x02: 'AM', 0x03: 'CW', 0x04: 'RTTY',
-  0x05: 'FM', 0x06: 'WFM', 0x07: 'CW-R', 0x08: 'RTTY-R', 0x17: 'DV',
+  0x00: 'LSB',
+  0x01: 'USB',
+  0x02: 'AM',
+  0x03: 'CW',
+  0x04: 'RTTY',
+  0x05: 'FM',
+  0x06: 'WFM',
+  0x07: 'CW-R',
+  0x08: 'RTTY-R',
+  0x17: 'DV',
 };
-const ICOM_MODES_REV = Object.fromEntries(
-  Object.entries(ICOM_MODES).map(([k, v]) => [v, parseInt(k)])
-);
+const ICOM_MODES_REV = Object.fromEntries(Object.entries(ICOM_MODES).map(([k, v]) => [v, parseInt(k)]));
 const ICOM_ADDRESSES = {
-  'IC-7300': 0x94, 'IC-7610': 0x98, 'IC-705': 0xA4,
-  'IC-9700': 0xA2, 'IC-7100': 0x88, 'IC-7851': 0x8E,
-  'IC-7600': 0x7A, 'IC-746': 0x56, 'IC-718': 0x5E,
+  'IC-7300': 0x94,
+  'IC-7610': 0x98,
+  'IC-705': 0xa4,
+  'IC-9700': 0xa2,
+  'IC-7100': 0x88,
+  'IC-7851': 0x8e,
+  'IC-7600': 0x7a,
+  'IC-746': 0x56,
+  'IC-718': 0x5e,
 };
 
 const IcomProtocol = {
   buffer: Buffer.alloc(0),
   civAddr: 0x94,
-  controllerAddr: 0xE0,
+  controllerAddr: 0xe0,
 
   buildPollCommands() {
-    return [
-      this._frame([0x03]),
-      this._frame([0x04]),
-      this._frame([0x1C, 0x00]),
-    ];
+    return [this._frame([0x03]), this._frame([0x04]), this._frame([0x1c, 0x00])];
   },
 
   _frame(payload) {
-    return Buffer.from([0xFE, 0xFE, this.civAddr, this.controllerAddr, ...payload, 0xFD]);
+    return Buffer.from([0xfe, 0xfe, this.civAddr, this.controllerAddr, ...payload, 0xfd]);
   },
 
   parseResponse(chunk) {
     this.buffer = Buffer.concat([this.buffer, typeof chunk === 'string' ? Buffer.from(chunk, 'binary') : chunk]);
     while (true) {
-      const start = this.buffer.indexOf(Buffer.from([0xFE, 0xFE]));
-      if (start === -1) { this.buffer = Buffer.alloc(0); return; }
-      const endIdx = this.buffer.indexOf(0xFD, start + 2);
-      if (endIdx === -1) { this.buffer = this.buffer.subarray(start); return; }
+      const start = this.buffer.indexOf(Buffer.from([0xfe, 0xfe]));
+      if (start === -1) {
+        this.buffer = Buffer.alloc(0);
+        return;
+      }
+      const endIdx = this.buffer.indexOf(0xfd, start + 2);
+      if (endIdx === -1) {
+        this.buffer = this.buffer.subarray(start);
+        return;
+      }
 
       const frame = this.buffer.subarray(start, endIdx + 1);
       this.buffer = this.buffer.subarray(endIdx + 1);
@@ -234,17 +267,20 @@ const IcomProtocol = {
         if (freq > 0) updateState('freq', freq);
       } else if ((cmd === 0x04 || cmd === 0x01) && data.length >= 1) {
         updateState('mode', ICOM_MODES[data[0]] || `MODE_${data[0].toString(16)}`);
-      } else if (cmd === 0x1C && data.length >= 2 && data[0] === 0x00) {
+      } else if (cmd === 0x1c && data.length >= 2 && data[0] === 0x00) {
         updateState('ptt', data[1] === 0x01);
       }
     }
   },
 
   _bcdToFreq(data) {
-    let freq = 0, mult = 1;
+    let freq = 0,
+      mult = 1;
     for (let i = 0; i < Math.min(data.length, 5); i++) {
-      freq += (data[i] & 0x0F) * mult; mult *= 10;
-      freq += ((data[i] >> 4) & 0x0F) * mult; mult *= 10;
+      freq += (data[i] & 0x0f) * mult;
+      mult *= 10;
+      freq += ((data[i] >> 4) & 0x0f) * mult;
+      mult *= 10;
     }
     return freq;
   },
@@ -253,8 +289,10 @@ const IcomProtocol = {
     const buf = Buffer.alloc(5);
     let f = Math.round(hz);
     for (let i = 0; i < 5; i++) {
-      const lo = f % 10; f = Math.floor(f / 10);
-      const hi = f % 10; f = Math.floor(f / 10);
+      const lo = f % 10;
+      f = Math.floor(f / 10);
+      const hi = f % 10;
+      f = Math.floor(f / 10);
       buf[i] = (hi << 4) | lo;
     }
     return buf;
@@ -270,7 +308,7 @@ const IcomProtocol = {
   },
 
   setPttCmd(on) {
-    return this._frame([0x1C, 0x00, on ? 0x01 : 0x00]);
+    return this._frame([0x1c, 0x00, on ? 0x01 : 0x00]);
   },
 };
 
@@ -278,11 +316,19 @@ const IcomProtocol = {
 // MOCK PROTOCOL
 // ============================================
 const MockProtocol = {
-  buildPollCommands() { return []; },
+  buildPollCommands() {
+    return [];
+  },
   parseResponse() {},
-  setFreqCmd() { return null; },
-  setModeCmd() { return null; },
-  setPttCmd() { return null; },
+  setFreqCmd() {
+    return null;
+  },
+  setModeCmd() {
+    return null;
+  },
+  setPttCmd() {
+    return null;
+  },
 };
 
 // ============================================
@@ -299,9 +345,19 @@ async function initSerial(cfg) {
 
   if (brand === 'yaesu') protocol = YaesuProtocol;
   else if (brand === 'kenwood' || brand === 'elecraft') protocol = KenwoodProtocol;
-  else if (brand === 'icom') { protocol = IcomProtocol; IcomProtocol.civAddr = cfg.radio.civAddress || 0x94; }
-  else if (brand === 'mock') { protocol = MockProtocol; state.connected = true; state.freq = 14074000; state.mode = 'USB'; return; }
-  else { console.error(`[Error] Unknown brand: ${brand}`); process.exit(1); }
+  else if (brand === 'icom') {
+    protocol = IcomProtocol;
+    IcomProtocol.civAddr = cfg.radio.civAddress || 0x94;
+  } else if (brand === 'mock') {
+    protocol = MockProtocol;
+    state.connected = true;
+    state.freq = 14074000;
+    state.mode = 'USB';
+    return;
+  } else {
+    console.error(`[Error] Unknown brand: ${brand}`);
+    process.exit(1);
+  }
 
   let SerialPort;
   try {
@@ -323,6 +379,7 @@ async function initSerial(cfg) {
       stopBits: cfg.serial.stopBits || 2,
       parity: cfg.serial.parity || 'none',
       autoOpen: false,
+      hupcl: false, // Don't drop DTR/RTS when port closes — prevents re-init issues on Windows
     });
   } catch (e) {
     console.error(`[Serial] Failed to create port: ${e.message}`);
@@ -334,12 +391,33 @@ async function initSerial(cfg) {
     state.connected = true;
     broadcast({ type: 'update', prop: 'connected', value: true });
 
-    pollTimer = setInterval(() => {
+    // Assert DTR HIGH so the radio's USB interface will send responses back.
+    // Windows USB-serial drivers (CP210x, FTDI) default DTR to LOW on open;
+    // terminal programs like PuTTY assert it HIGH, which is why they work out
+    // of the box.  Without DTR the radio accepts commands but returns nothing —
+    // connected shows true but freq/mode/ptt all stay at 0 (FT-DX10, FT-991A,
+    // and other Yaesu/Icom radios with CP210x USB chips exhibit this symptom).
+    serialPort.set({ dtr: true, rts: false }, (err) => {
+      if (err) console.log(`[Serial] Warning: could not set DTR: ${err.message}`);
+    });
+
+    // Wait 300 ms before starting polls — on Windows the CP210x/FTDI USB driver
+    // needs a moment after open before the receive path is fully active.  Without
+    // this delay the first several responses from the radio are silently dropped,
+    // leaving the listener in a permanently-stale state.
+    setTimeout(() => {
       if (!serialPort?.isOpen) return;
-      for (const cmd of protocol.buildPollCommands()) {
-        try { serialPort.write(cmd); } catch {}
-      }
-    }, cfg.radio.pollInterval || 500);
+      pollTimer = setInterval(() => {
+        if (!serialPort?.isOpen) return;
+        for (const cmd of protocol.buildPollCommands()) {
+          try {
+            serialPort.write(cmd);
+          } catch (e) {
+            console.log(`[Serial] Write error: ${e.message}`);
+          }
+        }
+      }, cfg.radio.pollInterval || 500);
+    }, 300);
   });
 
   serialPort.on('data', (data) => {
@@ -367,10 +445,8 @@ async function initSerial(cfg) {
       console.error('  Troubleshooting:');
       console.error('    • Is the USB cable connected?');
       console.error('    • Is another program using this port? (flrig, WSJT-X, etc.)');
-      if (process.platform === 'linux')
-        console.error('    • Try: sudo usermod -a -G dialout $USER  (then log out/in)');
-      if (process.platform === 'win32')
-        console.error('    • Check Device Manager → Ports for correct COM port');
+      if (process.platform === 'linux') console.error('    • Try: sudo usermod -a -G dialout $USER  (then log out/in)');
+      if (process.platform === 'win32') console.error('    • Check Device Manager → Ports for correct COM port');
       console.error('');
       setTimeout(() => reconnect(cfg), 5000);
     }
@@ -378,15 +454,25 @@ async function initSerial(cfg) {
 }
 
 function reconnect(cfg) {
-  if (serialPort) { try { serialPort.close(); } catch {} serialPort = null; }
+  if (serialPort) {
+    try {
+      serialPort.close();
+    } catch {}
+    serialPort = null;
+  }
   console.log(`[Serial] Reconnecting to ${cfg.serial.port}...`);
   initSerial(cfg);
 }
 
 function sendToRadio(data) {
   if (!serialPort?.isOpen) return false;
-  try { serialPort.write(data); return true; }
-  catch (e) { console.error(`[Serial] Write error: ${e.message}`); return false; }
+  try {
+    serialPort.write(data);
+    return true;
+  } catch (e) {
+    console.error(`[Serial] Write error: ${e.message}`);
+    return false;
+  }
 }
 
 // ============================================
@@ -397,65 +483,126 @@ function startServer(port) {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+    if (req.method === 'OPTIONS') {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
 
     const pathname = new URL(req.url, `http://${req.headers.host}`).pathname;
 
     if (req.method === 'GET' && pathname === '/status') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ connected: state.connected, freq: state.freq, mode: state.mode, width: state.width, ptt: state.ptt, timestamp: state.lastUpdate }));
+      res.end(
+        JSON.stringify({
+          connected: state.connected,
+          freq: state.freq,
+          mode: state.mode,
+          width: state.width,
+          ptt: state.ptt,
+          timestamp: state.lastUpdate,
+        }),
+      );
     } else if (req.method === 'GET' && pathname === '/stream') {
-      res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'Access-Control-Allow-Origin': '*' });
-      res.write(`data: ${JSON.stringify({ type: 'init', connected: state.connected, freq: state.freq, mode: state.mode, width: state.width, ptt: state.ptt })}\n\n`);
+      res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+        'Access-Control-Allow-Origin': '*',
+      });
+      res.write(
+        `data: ${JSON.stringify({ type: 'init', connected: state.connected, freq: state.freq, mode: state.mode, width: state.width, ptt: state.ptt })}\n\n`,
+      );
       sseClients.push(res);
-      req.on('close', () => { sseClients = sseClients.filter(c => c !== res); });
+      req.on('close', () => {
+        sseClients = sseClients.filter((c) => c !== res);
+      });
     } else if (req.method === 'POST' && pathname === '/freq') {
       parseBody(req, (body) => {
-        if (!body?.freq) { res.writeHead(400); res.end('{"error":"Missing freq"}'); return; }
+        if (!body?.freq) {
+          res.writeHead(400);
+          res.end('{"error":"Missing freq"}');
+          return;
+        }
         const cmd = protocol.setFreqCmd(body.freq);
-        if (cmd) { console.log(`[CMD] Freq → ${body.freq} Hz`); sendToRadio(cmd); }
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"success":true}');
+        if (cmd) {
+          console.log(`[CMD] Freq → ${body.freq} Hz`);
+          sendToRadio(cmd);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{"success":true}');
       });
     } else if (req.method === 'POST' && pathname === '/mode') {
       parseBody(req, (body) => {
-        if (!body?.mode) { res.writeHead(400); res.end('{"error":"Missing mode"}'); return; }
+        if (!body?.mode) {
+          res.writeHead(400);
+          res.end('{"error":"Missing mode"}');
+          return;
+        }
         const cmd = protocol.setModeCmd(body.mode);
-        if (cmd) { console.log(`[CMD] Mode → ${body.mode}`); sendToRadio(cmd); }
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"success":true}');
+        if (cmd) {
+          console.log(`[CMD] Mode → ${body.mode}`);
+          sendToRadio(cmd);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{"success":true}');
       });
     } else if (req.method === 'POST' && pathname === '/ptt') {
       parseBody(req, (body) => {
-        if (!config?.radio?.pttEnabled && body?.ptt) { res.writeHead(403); res.end('{"error":"PTT disabled"}'); return; }
+        if (!config?.radio?.pttEnabled && body?.ptt) {
+          res.writeHead(403);
+          res.end('{"error":"PTT disabled"}');
+          return;
+        }
         const cmd = protocol.setPttCmd(!!body?.ptt);
-        if (cmd) { console.log(`[CMD] PTT → ${body.ptt ? 'ON' : 'OFF'}`); sendToRadio(cmd); }
-        res.writeHead(200, { 'Content-Type': 'application/json' }); res.end('{"success":true}');
+        if (cmd) {
+          console.log(`[CMD] PTT → ${body.ptt ? 'ON' : 'OFF'}`);
+          sendToRadio(cmd);
+        }
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end('{"success":true}');
       });
     } else if (req.method === 'GET' && pathname === '/') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ name: 'OpenHamClock Rig Listener', version: VERSION, connected: state.connected }));
     } else {
-      res.writeHead(404); res.end('{"error":"Not found"}');
+      res.writeHead(404);
+      res.end('{"error":"Not found"}');
     }
   });
 
-  server.listen(port, '0.0.0.0', () => { console.log(`[HTTP] Listening on port ${port}`); });
+  server.listen(port, '0.0.0.0', () => {
+    console.log(`[HTTP] Listening on port ${port}`);
+  });
   server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') { console.error(`\n  ❌ Port ${port} already in use.\n`); process.exit(1); }
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n  ❌ Port ${port} already in use.\n`);
+      process.exit(1);
+    }
   });
 }
 
 function parseBody(req, cb) {
   let d = '';
-  req.on('data', c => d += c);
-  req.on('end', () => { try { cb(JSON.parse(d)); } catch { cb(null); } });
+  req.on('data', (c) => (d += c));
+  req.on('end', () => {
+    try {
+      cb(JSON.parse(d));
+    } catch {
+      cb(null);
+    }
+  });
 }
 
 // ============================================
 // LIST SERIAL PORTS
 // ============================================
 async function listPorts() {
-  try { return await require('serialport').SerialPort.list(); }
-  catch { return []; }
+  try {
+    return await require('serialport').SerialPort.list();
+  } catch {
+    return [];
+  }
 }
 
 // ============================================
@@ -463,7 +610,7 @@ async function listPorts() {
 // ============================================
 async function runWizard() {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  const ask = (q) => new Promise(r => rl.question(q, r));
+  const ask = (q) => new Promise((r) => rl.question(q, r));
 
   console.log('');
   console.log('  ┌──────────────────────────────────────────────┐');
@@ -490,11 +637,15 @@ async function runWizard() {
   if (ports.length > 0) {
     const choice = await ask(`  Select port (1-${ports.length}, or type path): `);
     const idx = parseInt(choice) - 1;
-    selectedPort = (idx >= 0 && idx < ports.length) ? ports[idx].path : choice.trim();
+    selectedPort = idx >= 0 && idx < ports.length ? ports[idx].path : choice.trim();
   } else {
     selectedPort = (await ask('  Enter serial port (e.g. COM3 or /dev/ttyUSB0): ')).trim();
   }
-  if (!selectedPort) { console.log('\n  ❌ No port selected.\n'); rl.close(); process.exit(1); }
+  if (!selectedPort) {
+    console.log('\n  ❌ No port selected.\n');
+    rl.close();
+    process.exit(1);
+  }
   console.log(`\n  ✅ Port: ${selectedPort}\n`);
 
   console.log('  📻 Radio brand:\n');
@@ -504,7 +655,7 @@ async function runWizard() {
   console.log('     4) Icom      (IC-7300, IC-7610, IC-705, IC-9700)');
   console.log('');
   const brandChoice = (await ask('  Select brand (1-4): ')).trim();
-  const brand = { '1': 'yaesu', '2': 'kenwood', '3': 'elecraft', '4': 'icom' }[brandChoice] || 'yaesu';
+  const brand = { 1: 'yaesu', 2: 'kenwood', 3: 'elecraft', 4: 'icom' }[brandChoice] || 'yaesu';
   console.log(`\n  ✅ Brand: ${brand}\n`);
 
   const model = (await ask('  Radio model (optional, e.g. FT-991A): ')).trim();
@@ -525,7 +676,8 @@ async function runWizard() {
     if (civInput) civAddress = parseInt(civInput, 16) || civAddress;
   }
 
-  const httpPort = parseInt((await ask(`\n  HTTP port for OpenHamClock [${HTTP_PORT_DEFAULT}]: `)).trim()) || HTTP_PORT_DEFAULT;
+  const httpPort =
+    parseInt((await ask(`\n  HTTP port for OpenHamClock [${HTTP_PORT_DEFAULT}]: `)).trim()) || HTTP_PORT_DEFAULT;
   rl.close();
 
   const cfg = {
@@ -548,13 +700,28 @@ function parseCLI() {
   const o = {};
   for (let i = 0; i < args.length; i++) {
     switch (args[i]) {
-      case '--port': case '-p': o.serialPort = args[++i]; break;
-      case '--baud': case '-b': o.baudRate = parseInt(args[++i]); break;
-      case '--brand': o.brand = args[++i]; break;
-      case '--http-port': o.httpPort = parseInt(args[++i]); break;
-      case '--mock': o.mock = true; break;
-      case '--wizard': o.forceWizard = true; break;
-      case '--help': case '-h':
+      case '--port':
+      case '-p':
+        o.serialPort = args[++i];
+        break;
+      case '--baud':
+      case '-b':
+        o.baudRate = parseInt(args[++i]);
+        break;
+      case '--brand':
+        o.brand = args[++i];
+        break;
+      case '--http-port':
+        o.httpPort = parseInt(args[++i]);
+        break;
+      case '--mock':
+        o.mock = true;
+        break;
+      case '--wizard':
+        o.forceWizard = true;
+        break;
+      case '--help':
+      case '-h':
         console.log(`
 OpenHamClock Rig Listener v${VERSION}
 
@@ -596,17 +763,26 @@ async function main() {
 
   if (cli.mock) {
     config = { radio: { brand: 'mock', pttEnabled: false }, server: { port: cli.httpPort || HTTP_PORT_DEFAULT } };
-    protocol = MockProtocol; state.connected = true; state.freq = 14074000; state.mode = 'USB';
+    protocol = MockProtocol;
+    state.connected = true;
+    state.freq = 14074000;
+    state.mode = 'USB';
     console.log('  📻 Simulation mode — no radio needed\n');
-    startServer(config.server.port); printInstructions(config.server.port); return;
+    startServer(config.server.port);
+    printInstructions(config.server.port);
+    return;
   }
 
   let cfg;
   if (cli.forceWizard || !fs.existsSync(CONFIG_FILE)) {
     cfg = await runWizard();
   } else {
-    try { cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8')); console.log(`  📂 Loaded: ${CONFIG_FILE}`); }
-    catch { cfg = await runWizard(); }
+    try {
+      cfg = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+      console.log(`  📂 Loaded: ${CONFIG_FILE}`);
+    } catch {
+      cfg = await runWizard();
+    }
   }
 
   if (cli.serialPort) cfg.serial.port = cli.serialPort;
@@ -614,7 +790,10 @@ async function main() {
   if (cli.brand) cfg.radio.brand = cli.brand;
   if (cli.httpPort) cfg.server.port = cli.httpPort;
 
-  if (!cfg.serial.port) { console.error('  ❌ No serial port. Run with --wizard\n'); process.exit(1); }
+  if (!cfg.serial.port) {
+    console.error('  ❌ No serial port. Run with --wizard\n');
+    process.exit(1);
+  }
 
   console.log(`  📻 Radio: ${cfg.radio.brand.toUpperCase()} ${cfg.radio.model || ''}`);
   console.log(`  🔌 Port:  ${cfg.serial.port} @ ${cfg.serial.baudRate} baud`);
@@ -641,9 +820,19 @@ function printInstructions(port) {
 process.on('SIGINT', () => {
   console.log('\n  Shutting down...');
   if (pollTimer) clearInterval(pollTimer);
-  if (serialPort?.isOpen) { serialPort.close(() => { console.log('  73!'); process.exit(0); }); }
-  else { console.log('  73!'); process.exit(0); }
+  if (serialPort?.isOpen) {
+    serialPort.close(() => {
+      console.log('  73!');
+      process.exit(0);
+    });
+  } else {
+    console.log('  73!');
+    process.exit(0);
+  }
 });
 process.on('SIGTERM', () => process.emit('SIGINT'));
 
-main().catch(err => { console.error(`\n❌ ${err.message}\n`); process.exit(1); });
+main().catch((err) => {
+  console.error(`\n❌ ${err.message}\n`);
+  process.exit(1);
+});

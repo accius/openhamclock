@@ -34,11 +34,7 @@ function deduplicateSpots(spots, maxSpots) {
 }
 
 export const usePSKReporter = (callsign, options = {}) => {
-  const {
-    minutes = 30,
-    enabled = true,
-    maxSpots = 500
-  } = options;
+  const { minutes = 30, enabled = true, maxSpots = 500 } = options;
 
   const [txReports, setTxReports] = useState([]);
   const [rxReports, setRxReports] = useState([]);
@@ -55,48 +51,50 @@ export const usePSKReporter = (callsign, options = {}) => {
   const eventSourceRef = useRef(null);
 
   // Clean old spots
-  const cleanOldSpots = useCallback((spots, maxAgeMinutes) => {
-    const cutoff = Date.now() - (maxAgeMinutes * 60 * 1000);
-    return spots.filter(s => s.timestamp > cutoff).slice(0, maxSpots);
-  }, [maxSpots]);
+  const cleanOldSpots = useCallback(
+    (spots, maxAgeMinutes) => {
+      const cutoff = Date.now() - maxAgeMinutes * 60 * 1000;
+      return spots.filter((s) => s.timestamp > cutoff).slice(0, maxSpots);
+    },
+    [maxSpots],
+  );
 
   // Process an array of spots (from SSE batch or initial payload)
-  const processSpots = useCallback((spots) => {
-    if (!mountedRef.current || !spots || spots.length === 0) return;
+  const processSpots = useCallback(
+    (spots) => {
+      if (!mountedRef.current || !spots || spots.length === 0) return;
 
-    const upperCallsign = callsign?.toUpperCase();
-    if (!upperCallsign) return;
+      const upperCallsign = callsign?.toUpperCase();
+      if (!upperCallsign) return;
 
-    let txChanged = false;
-    let rxChanged = false;
+      let txChanged = false;
+      let rxChanged = false;
 
-    for (const spot of spots) {
-      const now = Date.now();
-      spot.age = spot.timestamp ? Math.floor((now - spot.timestamp) / 60000) : 0;
+      for (const spot of spots) {
+        const now = Date.now();
+        spot.age = spot.timestamp ? Math.floor((now - spot.timestamp) / 60000) : 0;
 
-      if (spot.direction === 'tx') {
-        txReportsRef.current = deduplicateSpots(
-          [spot, ...txReportsRef.current], maxSpots
-        );
-        txChanged = true;
-      } else if (spot.direction === 'rx') {
-        rxReportsRef.current = deduplicateSpots(
-          [spot, ...rxReportsRef.current], maxSpots
-        );
-        rxChanged = true;
+        if (spot.direction === 'tx') {
+          txReportsRef.current = deduplicateSpots([spot, ...txReportsRef.current], maxSpots);
+          txChanged = true;
+        } else if (spot.direction === 'rx') {
+          rxReportsRef.current = deduplicateSpots([spot, ...rxReportsRef.current], maxSpots);
+          rxChanged = true;
+        }
       }
-    }
 
-    if (txChanged) {
-      setTxReports(cleanOldSpots([...txReportsRef.current], minutes));
-    }
-    if (rxChanged) {
-      setRxReports(cleanOldSpots([...rxReportsRef.current], minutes));
-    }
-    if (txChanged || rxChanged) {
-      setLastUpdate(new Date());
-    }
-  }, [callsign, minutes, maxSpots, cleanOldSpots]);
+      if (txChanged) {
+        setTxReports(cleanOldSpots([...txReportsRef.current], minutes));
+      }
+      if (rxChanged) {
+        setRxReports(cleanOldSpots([...rxReportsRef.current], minutes));
+      }
+      if (txChanged || rxChanged) {
+        setLastUpdate(new Date());
+      }
+    },
+    [callsign, minutes, maxSpots, cleanOldSpots],
+  );
 
   // Connect to SSE stream
   useEffect(() => {
@@ -133,7 +131,9 @@ export const usePSKReporter = (callsign, options = {}) => {
       if (!mountedRef.current) return;
       try {
         const data = JSON.parse(e.data);
-        console.log(`[PSKReporter SSE] Connected! MQTT ${data.mqttConnected ? 'up' : 'pending'}, ${data.recentSpots?.length || 0} recent spots`);
+        console.log(
+          `[PSKReporter SSE] Connected! MQTT ${data.mqttConnected ? 'up' : 'pending'}, ${data.recentSpots?.length || 0} recent spots`,
+        );
         setConnected(true);
         setLoading(false);
         setSource('sse');
@@ -189,16 +189,23 @@ export const usePSKReporter = (callsign, options = {}) => {
     const interval = setInterval(() => {
       const now = Date.now();
 
-      setTxReports(prev => prev.map(r => ({
-        ...r,
-        age: Math.floor((now - r.timestamp) / 60000)
-      })).filter(r => r.age <= minutes));
+      setTxReports((prev) =>
+        prev
+          .map((r) => ({
+            ...r,
+            age: Math.floor((now - r.timestamp) / 60000),
+          }))
+          .filter((r) => r.age <= minutes),
+      );
 
-      setRxReports(prev => prev.map(r => ({
-        ...r,
-        age: Math.floor((now - r.timestamp) / 60000)
-      })).filter(r => r.age <= minutes));
-
+      setRxReports((prev) =>
+        prev
+          .map((r) => ({
+            ...r,
+            age: Math.floor((now - r.timestamp) / 60000),
+          }))
+          .filter((r) => r.age <= minutes),
+      );
     }, 30000);
 
     return () => clearInterval(interval);
@@ -217,7 +224,7 @@ export const usePSKReporter = (callsign, options = {}) => {
     setLoading(true);
     setSource('reconnecting');
     setError(null);
-    setReconnectKey(k => k + 1);
+    setReconnectKey((k) => k + 1);
   }, []);
 
   // Reconnect SSE when tab becomes visible if connection was lost (browser throttling)
@@ -240,7 +247,7 @@ export const usePSKReporter = (callsign, options = {}) => {
     connected,
     source,
     lastUpdate,
-    refresh
+    refresh,
   };
 };
 

@@ -29,7 +29,8 @@ import {
   useSatellites,
   useSolarIndices,
   usePSKReporter,
-  useWSJTX
+  useWSJTX,
+  useAPRS,
 } from './hooks';
 
 import useAppConfig from './hooks/app/useAppConfig';
@@ -53,34 +54,41 @@ const App = () => {
   const { t } = useTranslation();
 
   // Core config/state
-  const {
-    config,
-    configLoaded,
-    showDxWeather,
-    classicAnalogClock,
-    handleSaveConfig
-  } = useAppConfig();
+  const { config, configLoaded, showDxWeather, classicAnalogClock, handleSaveConfig } = useAppConfig();
 
   const [showSettings, setShowSettings] = useState(false);
   const [showDXFilters, setShowDXFilters] = useState(false);
   const [showPSKFilters, setShowPSKFilters] = useState(false);
   const [layoutResetKey, setLayoutResetKey] = useState(0);
+  const [, setBandColorChangeVersion] = useState(0);
   const [tempUnit, setTempUnit] = useState(() => {
-    try { return localStorage.getItem('openhamclock_tempUnit') || 'F'; } catch { return 'F'; }
+    try {
+      return localStorage.getItem('openhamclock_tempUnit') || 'F';
+    } catch {
+      return 'F';
+    }
   });
   const [updateInProgress, setUpdateInProgress] = useState(false);
+
+  useEffect(() => {
+    const onBandColorsChange = () => {
+      setBandColorChangeVersion((v) => v + 1);
+    };
+    window.addEventListener('openhamclock-band-colors-change', onBandColorsChange);
+    return () => window.removeEventListener('openhamclock-band-colors-change', onBandColorsChange);
+  }, []);
 
   useEffect(() => {
     if (!configLoaded) return;
     const hasLocalStorage = localStorage.getItem('openhamclock_config');
     if (!hasLocalStorage && config.callsign === 'N0CALL') {
       setShowSettings(true);
-      
+
       // Auto-detect mobile/tablet on first visit and set appropriate layout
       const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
       const isSmallScreen = window.innerWidth <= 768;
       const isTabletSize = window.innerWidth > 768 && window.innerWidth <= 1200;
-      
+
       if (isTouchDevice && isSmallScreen) {
         // Phone → compact layout
         handleSaveConfig({ ...config, layout: 'compact' });
@@ -93,7 +101,7 @@ const App = () => {
 
   const handleResetLayout = useCallback(() => {
     resetLayout();
-    setLayoutResetKey(prev => prev + 1);
+    setLayoutResetKey((prev) => prev + 1);
   }, []);
 
   const handleUpdateClick = useCallback(async () => {
@@ -104,13 +112,21 @@ const App = () => {
     try {
       const res = await fetch('/api/update', { method: 'POST' });
       let payload = {};
-      try { payload = await res.json(); } catch { /* ignore */ }
+      try {
+        payload = await res.json();
+      } catch {
+        /* ignore */
+      }
       if (!res.ok) {
         throw new Error(payload.error || t('app.update.failedToStart'));
       }
       alert(t('app.update.started'));
       setTimeout(() => {
-        try { window.location.reload(); } catch { /* ignore */ }
+        try {
+          window.location.reload();
+        } catch {
+          /* ignore */
+        }
       }, 15000);
     } catch (err) {
       setUpdateInProgress(false);
@@ -119,12 +135,7 @@ const App = () => {
   }, [updateInProgress, t]);
 
   // Location & map state
-  const {
-    dxLocation,
-    dxLocked,
-    handleToggleDxLock,
-    handleDXChange
-  } = useDXLocation(config.defaultDX);
+  const { dxLocation, dxLocked, handleToggleDxLock, handleDXChange } = useDXLocation(config.defaultDX);
 
   const {
     mapLayers,
@@ -136,15 +147,11 @@ const App = () => {
     toggleSatellites,
     togglePSKReporter,
     toggleWSJTX,
-    toggleDXNews
+    toggleDXNews,
+    toggleAPRS,
   } = useMapLayers();
 
-  const {
-    dxFilters,
-    setDxFilters,
-    pskFilters,
-    setPskFilters
-  } = useFilters();
+  const { dxFilters, setDxFilters, pskFilters, setPskFilters, mapBandFilter, setMapBandFilter } = useFilters();
 
   const { isFullscreen, handleFullscreenToggle } = useFullscreen();
   useScreenWakeLock(config);
@@ -170,15 +177,12 @@ const App = () => {
   const pskReporter = usePSKReporter(config.callsign, {
     minutes: config.lowMemoryMode ? 5 : 30,
     enabled: config.callsign !== 'N0CALL',
-    maxSpots: config.lowMemoryMode ? 50 : 500
+    maxSpots: config.lowMemoryMode ? 50 : 500,
   });
   const wsjtx = useWSJTX();
+  const aprsData = useAPRS();
 
-  const {
-    satelliteFilters,
-    setSatelliteFilters,
-    filteredSatellites
-  } = useSatellitesFilters(satellites.data);
+  const { satelliteFilters, setSatelliteFilters, filteredSatellites } = useSatellitesFilters(satellites.data);
 
   const {
     currentTime,
@@ -192,15 +196,24 @@ const App = () => {
     deGrid,
     dxGrid,
     deSunTimes,
-    dxSunTimes
+    dxSunTimes,
   } = useTimeState(config.location, dxLocation, config.timezone);
 
   const filteredPskSpots = useMemo(() => {
-    const allSpots = [...(pskReporter.txReports || []), ...(pskReporter.rxReports || [])];
+    // Apply direction filter: 'tx' = only my transmissions, 'rx' = only what I hear, default = both
+    const dir = pskFilters?.direction;
+    let allSpots;
+    if (dir === 'tx') {
+      allSpots = [...(pskReporter.txReports || [])];
+    } else if (dir === 'rx') {
+      allSpots = [...(pskReporter.rxReports || [])];
+    } else {
+      allSpots = [...(pskReporter.txReports || []), ...(pskReporter.rxReports || [])];
+    }
     if (!pskFilters?.bands?.length && !pskFilters?.grids?.length && !pskFilters?.modes?.length) {
       return allSpots;
     }
-    return allSpots.filter(spot => {
+    return allSpots.filter((spot) => {
       if (pskFilters?.bands?.length && !pskFilters.bands.includes(spot.band)) return false;
       if (pskFilters?.modes?.length && !pskFilters.modes.includes(spot.mode)) return false;
       if (pskFilters?.grids?.length) {
@@ -216,23 +229,27 @@ const App = () => {
   const wsjtxMapSpots = useMemo(() => {
     // Apply same age filter as panel (stored in localStorage)
     let ageMinutes = 30;
-    try { ageMinutes = parseInt(localStorage.getItem('ohc_wsjtx_age')) || 30; } catch {}
+    try {
+      ageMinutes = parseInt(localStorage.getItem('ohc_wsjtx_age')) || 30;
+    } catch {}
     const ageCutoff = Date.now() - ageMinutes * 60 * 1000;
-    
+
     // Map all decodes with resolved coordinates (CQ, QSO exchanges, prefix estimates)
     // WorldMap deduplicates by callsign, keeping most recent
-    return wsjtx.decodes.filter(d => d.lat && d.lon && d.timestamp >= ageCutoff);
+    return wsjtx.decodes.filter((d) => d.lat && d.lon && d.timestamp >= ageCutoff);
   }, [wsjtx.decodes]);
 
   // Map hover
   const [hoveredSpot, setHoveredSpot] = useState(null);
 
   // Sidebar visibility & layout (used by some layouts)
-  const leftSidebarVisible = config.panels?.deLocation?.visible !== false ||
+  const leftSidebarVisible =
+    config.panels?.deLocation?.visible !== false ||
     config.panels?.dxLocation?.visible !== false ||
     config.panels?.solar?.visible !== false ||
     config.panels?.propagation?.visible !== false;
-  const rightSidebarVisible = config.panels?.dxCluster?.visible !== false ||
+  const rightSidebarVisible =
+    config.panels?.dxCluster?.visible !== false ||
     config.panels?.pskReporter?.visible !== false ||
     config.panels?.dxpeditions?.visible !== false ||
     config.panels?.pota?.visible !== false ||
@@ -294,10 +311,13 @@ const App = () => {
     satellites,
     pskReporter,
     wsjtx,
+    aprsData,
     filteredPskSpots,
     wsjtxMapSpots,
     dxFilters,
     setDxFilters,
+    mapBandFilter,
+    setMapBandFilter,
     pskFilters,
     setPskFilters,
     mapLayers,
@@ -310,37 +330,35 @@ const App = () => {
     togglePSKReporter,
     toggleWSJTX,
     toggleDXNews,
+    toggleAPRS,
     hoveredSpot,
     setHoveredSpot,
     filteredSatellites,
     leftSidebarVisible,
     rightSidebarVisible,
     getGridTemplateColumns,
-    scale
+    scale,
   };
 
   return (
-    <div style={{
-      width: '100vw',
-      height: '100vh',
-      background: 'var(--bg-primary)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      overflow: 'hidden'
-    }}>
+    <div
+      style={{
+        width: '100vw',
+        height: '100vh',
+        background: 'var(--bg-primary)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        overflow: 'hidden',
+      }}
+    >
       <RigProvider rigConfig={config.rigControl || { enabled: false, host: 'http://localhost', port: 5555 }}>
         {config.layout === 'dockable' ? (
-          <DockableLayout
-            key={layoutResetKey}
-            {...layoutProps}
-          />
-        ) : (config.layout === 'classic' || config.layout === 'tablet' || config.layout === 'compact') ? (
+          <DockableLayout key={layoutResetKey} {...layoutProps} />
+        ) : config.layout === 'classic' || config.layout === 'tablet' || config.layout === 'compact' ? (
           <ClassicLayout {...layoutProps} />
         ) : (
-          <ModernLayout
-            {...layoutProps}
-          />
+          <ModernLayout {...layoutProps} />
         )}
       </RigProvider>
 

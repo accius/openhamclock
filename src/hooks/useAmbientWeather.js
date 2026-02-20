@@ -15,14 +15,14 @@
 import { useEffect, useMemo, useState } from 'react';
 
 // --- unit conversion helpers (raw base is US) ---
-const fToC = (f) => (f - 32) * 5 / 9;
+const fToC = (f) => ((f - 32) * 5) / 9;
 const mphToKmh = (mph) => mph * 1.609344;
 const inToMm = (inch) => inch * 25.4;
 const inHgToHpa = (inHg) => inHg * 33.8638866667;
 
 function windDirection(deg) {
   if (deg == null) return '';
-  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
   return dirs[Math.round(deg / 22.5) % 16];
 }
 
@@ -63,10 +63,10 @@ export const useAmbientWeather = (tempUnit = 'F') => {
 
   useEffect(() => {
     if (!apiKey || !appKey) {
-	  setLoading(false);
-	  setError({ code: "missing_credentials", message: "Ambient keys not configured" });
-	  return;
-	}
+      setLoading(false);
+      setError({ code: 'missing_credentials', message: 'Ambient keys not configured' });
+      return;
+    }
 
     let mounted = true;
 
@@ -81,13 +81,13 @@ export const useAmbientWeather = (tempUnit = 'F') => {
         const json = await resp.json();
 
         // Ambient may return an array; be defensive if a single object is returned.
-        const devices = Array.isArray(json) ? json : (json ? [json] : []);
+        const devices = Array.isArray(json) ? json : json ? [json] : [];
 
         if (devices.length === 0) throw new Error('No devices returned');
 
         let chosen = devices[0];
         if (deviceMac) {
-          const match = devices.find(d => String(d.macAddress || '').toLowerCase() === deviceMac);
+          const match = devices.find((d) => String(d.macAddress || '').toLowerCase() === deviceMac);
           if (match) chosen = match;
         }
 
@@ -96,7 +96,7 @@ export const useAmbientWeather = (tempUnit = 'F') => {
 
         if (mounted) setRawDevice(chosen);
       } catch (e) {
-	   if (mounted) setError({ code: "fetch_error", message: e?.message || "Ambient fetch error" });
+        if (mounted) setError({ code: 'fetch_error', message: e?.message || 'Ambient fetch error' });
       } finally {
         if (mounted) setLoading(false);
       }
@@ -140,15 +140,15 @@ export const useAmbientWeather = (tempUnit = 'F') => {
     const convPressure = (inHg) => {
       const n = safeNum(inHg);
       if (n == null) return null;
-      return isMetric ? (inHgToHpa(n)).toFixed(1) : n.toFixed(3);
+      return isMetric ? inHgToHpa(n).toFixed(1) : n.toFixed(3);
     };
 
     return {
-	  lastUpdated: updatedAtMs ? new Date(updatedAtMs).toISOString() : null,
+      lastUpdated: updatedAtMs ? new Date(updatedAtMs).toISOString() : null,
 
-	  // common aliases for UI
-	  barometer: convPressure(ld.baromrelin ?? ld.baromabsin),
-	  rainRate: convRain(ld.rainratein),  // may be undefined on some stations -> null	
+      // common aliases for UI
+      barometer: convPressure(ld.baromrelin ?? ld.baromabsin),
+      rainRate: convRain(ld.rainratein), // may be undefined on some stations -> null
       // meta
       name: rawDevice.info?.name || 'Ambient Station',
       macAddress: rawDevice.macAddress, // consider not using in UI

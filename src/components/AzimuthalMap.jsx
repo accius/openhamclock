@@ -6,15 +6,17 @@
  * Used when mapStyle === 'azimuthal' in WorldMap.
  */
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { getBandColor } from '../utils/callsign.js';
+import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
 import { calculateGridSquare } from '../utils/geo.js';
 
 // ── Projection Math ────────────────────────────────────────
 const DEG = Math.PI / 180;
 
 function project(lat, lon, lat0, lon0) {
-  const φ = lat * DEG, λ = lon * DEG;
-  const φ0 = lat0 * DEG, λ0 = lon0 * DEG;
+  const φ = lat * DEG,
+    λ = lon * DEG;
+  const φ0 = lat0 * DEG,
+    λ0 = lon0 * DEG;
   const cosC = Math.sin(φ0) * Math.sin(φ) + Math.cos(φ0) * Math.cos(φ) * Math.cos(λ - λ0);
   const c = Math.acos(Math.max(-1, Math.min(1, cosC)));
   if (c < 1e-10) return { x: 0, y: 0, dist: 0 };
@@ -22,16 +24,18 @@ function project(lat, lon, lat0, lon0) {
   return {
     x: k * Math.cos(φ) * Math.sin(λ - λ0),
     y: -(k * (Math.cos(φ0) * Math.sin(φ) - Math.sin(φ0) * Math.cos(φ) * Math.cos(λ - λ0))),
-    dist: c * 6371 // distance in km
+    dist: c * 6371, // distance in km
   };
 }
 
 function unproject(x, y, lat0, lon0) {
-  const φ0 = lat0 * DEG, λ0 = lon0 * DEG;
+  const φ0 = lat0 * DEG,
+    λ0 = lon0 * DEG;
   const ρ = Math.sqrt(x * x + y * y);
   if (ρ < 1e-10) return { lat: lat0, lon: lon0 };
   const c = ρ; // azimuthal equidistant: ρ = c
-  const sinC = Math.sin(c), cosC = Math.cos(c);
+  const sinC = Math.sin(c),
+    cosC = Math.cos(c);
   const lat = Math.asin(cosC * Math.sin(φ0) + (-y * sinC * Math.cos(φ0)) / ρ) / DEG;
   const lon = (λ0 + Math.atan2(x * sinC, ρ * Math.cos(φ0) * cosC + y * Math.sin(φ0) * sinC)) / DEG;
   return { lat, lon: ((lon + 540) % 360) - 180 };
@@ -44,7 +48,9 @@ async function fetchLand() {
   try {
     const res = await fetch('https://cdn.jsdelivr.net/gh/johan/world.geo.json@master/countries.geo.json');
     geoCache = await res.json();
-  } catch { geoCache = { features: [] }; }
+  } catch {
+    geoCache = { features: [] };
+  }
   return geoCache;
 }
 
@@ -53,6 +59,22 @@ function esc(str) {
   if (str == null) return '';
   return String(str);
 }
+
+const normalizeBandKey = (band) => {
+  if (band == null) return null;
+  const raw = String(band).trim().toLowerCase();
+  if (!raw || raw === 'other') return null;
+  if (raw.endsWith('cm') || raw.endsWith('m')) return raw;
+  if (/^\d+(\.\d+)?$/.test(raw)) return `${raw}m`;
+  return raw;
+};
+
+const bandFromAnyFrequency = (freq) => {
+  if (freq == null || freq === '') return null;
+  const n = parseFloat(freq);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return normalizeBandKey(getBandFromFreq(n));
+};
 
 // ── Component ──────────────────────────────────────────────
 export default function AzimuthalMap({
@@ -65,6 +87,7 @@ export default function AzimuthalMap({
   sotaSpots,
   dxPaths,
   dxFilters,
+  mapBandFilter,
   pskReporterSpots,
   wsjtxSpots,
   showDXPaths,
@@ -87,19 +110,31 @@ export default function AzimuthalMap({
   const dragRef = useRef(null);
   const [tooltip, setTooltip] = useState(null);
 
+  const selectedMapBands = Array.isArray(mapBandFilter)
+    ? new Set(mapBandFilter.map((b) => normalizeBandKey(b)).filter(Boolean))
+    : new Set();
+  const hasMapBandFilter = selectedMapBands.size > 0;
+  const bandPassesMapFilter = (band) => {
+    if (!hasMapBandFilter) return true;
+    const key = normalizeBandKey(band);
+    return !!key && selectedMapBands.has(key);
+  };
+
   const lat0 = deLocation?.lat || 0;
   const lon0 = deLocation?.lon || 0;
 
   // Load GeoJSON once
   useEffect(() => {
-    fetchLand().then(geo => { geoRef.current = geo; });
+    fetchLand().then((geo) => {
+      geoRef.current = geo;
+    });
   }, []);
 
   // Resize observer
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(entries => {
+    const ro = new ResizeObserver((entries) => {
       const { width, height } = entries[0].contentRect;
       setSize({ w: Math.round(width), h: Math.round(height) });
     });
@@ -108,23 +143,29 @@ export default function AzimuthalMap({
   }, []);
 
   // ── Coordinate conversion ────────────────────────────────
-  const toCanvas = useCallback((lat, lon) => {
-    const p = project(lat, lon, lat0, lon0);
-    const scale = (Math.min(size.w, size.h) / 2 - 20) * zoom / Math.PI;
-    return {
-      x: size.w / 2 + p.x * scale + pan.x,
-      y: size.h / 2 + p.y * scale + pan.y,
-      dist: p.dist
-    };
-  }, [lat0, lon0, size.w, size.h, zoom, pan.x, pan.y]);
+  const toCanvas = useCallback(
+    (lat, lon) => {
+      const p = project(lat, lon, lat0, lon0);
+      const scale = ((Math.min(size.w, size.h) / 2 - 20) * zoom) / Math.PI;
+      return {
+        x: size.w / 2 + p.x * scale + pan.x,
+        y: size.h / 2 + p.y * scale + pan.y,
+        dist: p.dist,
+      };
+    },
+    [lat0, lon0, size.w, size.h, zoom, pan.x, pan.y],
+  );
 
-  const fromCanvas = useCallback((cx, cy) => {
-    const scale = (Math.min(size.w, size.h) / 2 - 20) * zoom / Math.PI;
-    const x = (cx - size.w / 2 - pan.x) / scale;
-    const y = (cy - size.h / 2 - pan.y) / scale;
-    if (Math.sqrt(x * x + y * y) > Math.PI) return null;
-    return unproject(x, y, lat0, lon0);
-  }, [lat0, lon0, size.w, size.h, zoom, pan.x, pan.y]);
+  const fromCanvas = useCallback(
+    (cx, cy) => {
+      const scale = ((Math.min(size.w, size.h) / 2 - 20) * zoom) / Math.PI;
+      const x = (cx - size.w / 2 - pan.x) / scale;
+      const y = (cy - size.h / 2 - pan.y) / scale;
+      if (Math.sqrt(x * x + y * y) > Math.PI) return null;
+      return unproject(x, y, lat0, lon0);
+    },
+    [lat0, lon0, size.w, size.h, zoom, pan.x, pan.y],
+  );
 
   // ── Render ───────────────────────────────────────────────
   useEffect(() => {
@@ -160,14 +201,14 @@ export default function AzimuthalMap({
       ctx.strokeStyle = '#2a3a4a';
       ctx.lineWidth = 0.5;
 
-      geo.features.forEach(feature => {
+      geo.features.forEach((feature) => {
         const geom = feature.geometry;
         if (!geom) return;
-        const rings = geom.type === 'Polygon' ? [geom.coordinates] :
-                      geom.type === 'MultiPolygon' ? geom.coordinates : [];
+        const rings =
+          geom.type === 'Polygon' ? [geom.coordinates] : geom.type === 'MultiPolygon' ? geom.coordinates : [];
 
-        rings.forEach(polygon => {
-          polygon.forEach(ring => {
+        rings.forEach((polygon) => {
+          polygon.forEach((ring) => {
             if (ring.length < 3) return;
             ctx.beginPath();
             let started = false;
@@ -176,8 +217,10 @@ export default function AzimuthalMap({
               const p = project(lat, lon, lat0, lon0);
               const px = cx + p.x * scale;
               const py = cy + p.y * scale;
-              if (!started) { ctx.moveTo(px, py); started = true; }
-              else ctx.lineTo(px, py);
+              if (!started) {
+                ctx.moveTo(px, py);
+                started = true;
+              } else ctx.lineTo(px, py);
             }
             ctx.closePath();
             ctx.fill();
@@ -192,7 +235,7 @@ export default function AzimuthalMap({
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 8]);
     const ringDistances = [2000, 5000, 10000, 15000, 20000]; // km
-    ringDistances.forEach(km => {
+    ringDistances.forEach((km) => {
       const angularDist = km / 6371; // radians
       const r = angularDist * scale;
       if (r > 2 && r < R * 1.5) {
@@ -236,8 +279,11 @@ export default function AzimuthalMap({
 
     // ── DX Cluster paths ─────────────────────────────────
     if (showDXPaths && dxPaths?.length > 0) {
-      dxPaths.forEach(path => {
+      dxPaths.forEach((path) => {
         if (!path.dxLat || !path.dxLon) return;
+        const band = bandFromAnyFrequency(path.freq);
+        if (!bandPassesMapFilter(band)) return;
+
         const freq = parseFloat(path.freq);
         const color = getBandColor(freq);
         const isHovered = hoveredSpot?.call?.toUpperCase() === path.dxCall?.toUpperCase();
@@ -257,18 +303,27 @@ export default function AzimuthalMap({
             const lat = path.spotterLat + (path.dxLat - path.spotterLat) * t;
             const lon = path.spotterLon + (path.dxLon - path.spotterLon) * t;
             // Proper great circle interpolation
-            const d = Math.acos(Math.max(-1, Math.min(1,
-              Math.sin(path.spotterLat * DEG) * Math.sin(path.dxLat * DEG) +
-              Math.cos(path.spotterLat * DEG) * Math.cos(path.dxLat * DEG) *
-              Math.cos((path.dxLon - path.spotterLon) * DEG)
-            )));
+            const d = Math.acos(
+              Math.max(
+                -1,
+                Math.min(
+                  1,
+                  Math.sin(path.spotterLat * DEG) * Math.sin(path.dxLat * DEG) +
+                    Math.cos(path.spotterLat * DEG) *
+                      Math.cos(path.dxLat * DEG) *
+                      Math.cos((path.dxLon - path.spotterLon) * DEG),
+                ),
+              ),
+            );
             if (d < 1e-6) continue;
             const A = Math.sin((1 - t) * d) / Math.sin(d);
             const B = Math.sin(t * d) / Math.sin(d);
-            const x = A * Math.cos(path.spotterLat * DEG) * Math.cos(path.spotterLon * DEG) +
-                      B * Math.cos(path.dxLat * DEG) * Math.cos(path.dxLon * DEG);
-            const y = A * Math.cos(path.spotterLat * DEG) * Math.sin(path.spotterLon * DEG) +
-                      B * Math.cos(path.dxLat * DEG) * Math.sin(path.dxLon * DEG);
+            const x =
+              A * Math.cos(path.spotterLat * DEG) * Math.cos(path.spotterLon * DEG) +
+              B * Math.cos(path.dxLat * DEG) * Math.cos(path.dxLon * DEG);
+            const y =
+              A * Math.cos(path.spotterLat * DEG) * Math.sin(path.spotterLon * DEG) +
+              B * Math.cos(path.dxLat * DEG) * Math.sin(path.dxLon * DEG);
             const z = A * Math.sin(path.spotterLat * DEG) + B * Math.sin(path.dxLat * DEG);
             const iLat = Math.atan2(z, Math.sqrt(x * x + y * y)) / DEG;
             const iLon = Math.atan2(y, x) / DEG;
@@ -295,11 +350,14 @@ export default function AzimuthalMap({
 
     // ── PSK Reporter spots ───────────────────────────────
     if (showPSKReporter && pskReporterSpots?.length > 0) {
-      pskReporterSpots.forEach(spot => {
+      pskReporterSpots.forEach((spot) => {
         const lat = parseFloat(spot.lat);
         const lon = parseFloat(spot.lon);
         if (isNaN(lat) || isNaN(lon)) return;
         const freqMHz = spot.freqMHz || (spot.freq ? spot.freq / 1e6 : 0);
+        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(freqMHz || spot.freq);
+        if (!bandPassesMapFilter(band)) return;
+
         const color = getBandColor(parseFloat(freqMHz));
         const p = toCanvas(lat, lon);
 
@@ -326,14 +384,17 @@ export default function AzimuthalMap({
     // ── WSJT-X spots ─────────────────────────────────────
     if (showWSJTX && wsjtxSpots?.length > 0) {
       const seen = new Map();
-      wsjtxSpots.forEach(s => {
+      wsjtxSpots.forEach((s) => {
         const call = s.caller || s.dxCall || '';
         if (call && (!seen.has(call) || s.timestamp > seen.get(call).timestamp)) seen.set(call, s);
       });
-      seen.forEach(spot => {
+      seen.forEach((spot) => {
         const lat = parseFloat(spot.lat);
         const lon = parseFloat(spot.lon);
         if (isNaN(lat) || isNaN(lon)) return;
+        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.dialFrequency || spot.freq);
+        if (!bandPassesMapFilter(band)) return;
+
         const p = toCanvas(lat, lon);
         const isEst = spot.gridSource === 'prefix';
 
@@ -362,8 +423,11 @@ export default function AzimuthalMap({
 
     // ── POTA spots ───────────────────────────────────────
     if (showPOTA && potaSpots?.length > 0) {
-      potaSpots.forEach(spot => {
+      potaSpots.forEach((spot) => {
         if (!spot.lat || !spot.lon) return;
+        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
+        if (!bandPassesMapFilter(band)) return;
+
         const p = toCanvas(spot.lat, spot.lon);
         // Green triangle
         ctx.beginPath();
@@ -381,8 +445,11 @@ export default function AzimuthalMap({
 
     // ── WWFF spots ───────────────────────────────────────
     if (showWWFF && wwffSpots?.length > 0) {
-      wwffSpots.forEach(spot => {
+      wwffSpots.forEach((spot) => {
         if (!spot.lat || !spot.lon) return;
+        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
+        if (!bandPassesMapFilter(band)) return;
+
         const p = toCanvas(spot.lat, spot.lon);
         // Light green inverted triangle
         ctx.beginPath();
@@ -400,8 +467,11 @@ export default function AzimuthalMap({
 
     // ── SOTA spots ───────────────────────────────────────
     if (showSOTA && sotaSpots?.length > 0) {
-      sotaSpots.forEach(spot => {
+      sotaSpots.forEach((spot) => {
         if (!spot.lat || !spot.lon) return;
+        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
+        if (!bandPassesMapFilter(band)) return;
+
         const p = toCanvas(spot.lat, spot.lon);
         // Orange diamond
         ctx.save();
@@ -470,68 +540,101 @@ export default function AzimuthalMap({
       const grid = calculateGridSquare(lat0, lon0);
       ctx.fillText(`Azimuthal Equidistant · ${grid} · ${lat0.toFixed(2)}°, ${lon0.toFixed(2)}°`, 14, size.h - 19);
     }
-
-  }, [size, zoom, pan, lat0, lon0, deLocation, dxLocation,
-      dxPaths, dxFilters, showDXPaths, hoveredSpot,
-      potaSpots, showPOTA, wwffSpots, showWWFF,
-      sotaSpots, showSOTA,
-      pskReporterSpots, showPSKReporter,
-      wsjtxSpots, showWSJTX,
-      hideOverlays, toCanvas]);
+  }, [
+    size,
+    zoom,
+    pan,
+    lat0,
+    lon0,
+    deLocation,
+    dxLocation,
+    dxPaths,
+    dxFilters,
+    mapBandFilter,
+    showDXPaths,
+    hoveredSpot,
+    potaSpots,
+    showPOTA,
+    wwffSpots,
+    showWWFF,
+    sotaSpots,
+    showSOTA,
+    pskReporterSpots,
+    showPSKReporter,
+    wsjtxSpots,
+    showWSJTX,
+    hideOverlays,
+    toCanvas,
+  ]);
 
   // ── Mouse handlers ───────────────────────────────────────
   const handleWheel = useCallback((e) => {
     e.preventDefault();
-    setZoom(prev => Math.max(0.5, Math.min(8, prev * (e.deltaY < 0 ? 1.15 : 0.87))));
+    setZoom((prev) => Math.max(0.5, Math.min(8, prev * (e.deltaY < 0 ? 1.15 : 0.87))));
   }, []);
 
-  const handleMouseDown = useCallback((e) => {
-    if (e.button === 0) {
-      dragRef.current = { startX: e.clientX - pan.x, startY: e.clientY - pan.y };
-    }
-  }, [pan]);
+  const handleMouseDown = useCallback(
+    (e) => {
+      if (e.button === 0) {
+        dragRef.current = { startX: e.clientX - pan.x, startY: e.clientY - pan.y };
+      }
+    },
+    [pan],
+  );
 
-  const handleMouseMove = useCallback((e) => {
-    if (dragRef.current) {
-      setPan({ x: e.clientX - dragRef.current.startX, y: e.clientY - dragRef.current.startY });
-      return;
-    }
-    // Tooltip
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    const pos = fromCanvas(mx, my);
-    if (pos) {
-      const bearing = ((Math.atan2(
-        Math.sin((pos.lon - lon0) * DEG) * Math.cos(pos.lat * DEG),
-        Math.cos(lat0 * DEG) * Math.sin(pos.lat * DEG) - Math.sin(lat0 * DEG) * Math.cos(pos.lat * DEG) * Math.cos((pos.lon - lon0) * DEG)
-      ) / DEG) + 360) % 360;
-      const p = project(pos.lat, pos.lon, lat0, lon0);
-      setTooltip({
-        x: mx, y: my,
-        text: `${pos.lat.toFixed(1)}°, ${pos.lon.toFixed(1)}°  ${calculateGridSquare(pos.lat, pos.lon)}  ${Math.round(p.dist)} km  ${Math.round(bearing)}°`
-      });
-    } else {
-      setTooltip(null);
-    }
-  }, [fromCanvas, lat0, lon0]);
+  const handleMouseMove = useCallback(
+    (e) => {
+      if (dragRef.current) {
+        setPan({ x: e.clientX - dragRef.current.startX, y: e.clientY - dragRef.current.startY });
+        return;
+      }
+      // Tooltip
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      const pos = fromCanvas(mx, my);
+      if (pos) {
+        const bearing =
+          (Math.atan2(
+            Math.sin((pos.lon - lon0) * DEG) * Math.cos(pos.lat * DEG),
+            Math.cos(lat0 * DEG) * Math.sin(pos.lat * DEG) -
+              Math.sin(lat0 * DEG) * Math.cos(pos.lat * DEG) * Math.cos((pos.lon - lon0) * DEG),
+          ) /
+            DEG +
+            360) %
+          360;
+        const p = project(pos.lat, pos.lon, lat0, lon0);
+        setTooltip({
+          x: mx,
+          y: my,
+          text: `${pos.lat.toFixed(1)}°, ${pos.lon.toFixed(1)}°  ${calculateGridSquare(pos.lat, pos.lon)}  ${Math.round(p.dist)} km  ${Math.round(bearing)}°`,
+        });
+      } else {
+        setTooltip(null);
+      }
+    },
+    [fromCanvas, lat0, lon0],
+  );
 
-  const handleMouseUp = useCallback((e) => {
-    const wasDrag = dragRef.current && (
-      Math.abs(e.clientX - (dragRef.current.startX + pan.x)) > 3 ||
-      Math.abs(e.clientY - (dragRef.current.startY + pan.y)) > 3
-    );
-    dragRef.current = null;
-    if (wasDrag) return; // was a drag, not a click
+  const handleMouseUp = useCallback(
+    (e) => {
+      const wasDrag =
+        dragRef.current &&
+        (Math.abs(e.clientX - (dragRef.current.startX + pan.x)) > 3 ||
+          Math.abs(e.clientY - (dragRef.current.startY + pan.y)) > 3);
+      dragRef.current = null;
+      if (wasDrag) return; // was a drag, not a click
 
-    // Click → set DX
-    if (dxLocked || !onDXChange) return;
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const pos = fromCanvas(e.clientX - rect.left, e.clientY - rect.top);
-    if (pos) onDXChange(pos);
-  }, [dxLocked, onDXChange, fromCanvas, pan]);
+      // Click → set DX
+      if (dxLocked || !onDXChange) return;
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const pos = fromCanvas(e.clientX - rect.left, e.clientY - rect.top);
+      if (pos) onDXChange(pos);
+    },
+    [dxLocked, onDXChange, fromCanvas, pan],
+  );
 
   const handleMouseLeave = useCallback(() => {
     dragRef.current = null;
@@ -541,7 +644,14 @@ export default function AzimuthalMap({
   return (
     <div
       ref={containerRef}
-      style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', borderRadius: '8px', background: '#0a0f1a' }}
+      style={{
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+        borderRadius: '8px',
+        background: '#0a0f1a',
+      }}
     >
       <canvas
         ref={canvasRef}
@@ -557,38 +667,55 @@ export default function AzimuthalMap({
 
       {/* Tooltip */}
       {tooltip && (
-        <div style={{
-          position: 'absolute',
-          left: tooltip.x + 14,
-          top: tooltip.y - 28,
-          background: 'rgba(0, 0, 0, 0.85)',
-          border: '1px solid #444',
-          borderRadius: '4px',
-          padding: '3px 8px',
-          color: '#00ffcc',
-          fontSize: '11px',
-          fontFamily: '"JetBrains Mono", monospace',
-          pointerEvents: 'none',
-          whiteSpace: 'nowrap',
-          zIndex: 2000,
-        }}>
+        <div
+          style={{
+            position: 'absolute',
+            left: tooltip.x + 14,
+            top: tooltip.y - 28,
+            background: 'rgba(0, 0, 0, 0.85)',
+            border: '1px solid #444',
+            borderRadius: '4px',
+            padding: '3px 8px',
+            color: '#00ffcc',
+            fontSize: '11px',
+            fontFamily: '"JetBrains Mono", monospace',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            zIndex: 2000,
+          }}
+        >
           {tooltip.text}
         </div>
       )}
 
       {/* Zoom controls */}
-      <div style={{
-        position: 'absolute',
-        top: '10px',
-        left: '10px',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '2px',
-        zIndex: 1000,
-      }}>
-        <button onClick={() => setZoom(z => Math.min(8, z * 1.4))} style={zoomBtnStyle}>+</button>
-        <button onClick={() => setZoom(z => Math.max(0.5, z / 1.4))} style={zoomBtnStyle}>−</button>
-        <button onClick={() => { setZoom(1); setPan({ x: 0, y: 0 }); }} title="Reset view" style={{ ...zoomBtnStyle, fontSize: '10px' }}>⌂</button>
+      <div
+        style={{
+          position: 'absolute',
+          top: '10px',
+          left: '10px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '2px',
+          zIndex: 1000,
+        }}
+      >
+        <button onClick={() => setZoom((z) => Math.min(8, z * 1.4))} style={zoomBtnStyle}>
+          +
+        </button>
+        <button onClick={() => setZoom((z) => Math.max(0.5, z / 1.4))} style={zoomBtnStyle}>
+          −
+        </button>
+        <button
+          onClick={() => {
+            setZoom(1);
+            setPan({ x: 0, y: 0 });
+          }}
+          title="Reset view"
+          style={{ ...zoomBtnStyle, fontSize: '10px' }}
+        >
+          ⌂
+        </button>
       </div>
     </div>
   );

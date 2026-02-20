@@ -17,31 +17,35 @@ The Global Clouds plugin provides a real-time satellite-derived cloud cover over
 ## 🌟 Features
 
 ### Core Capabilities
-* **Real-time Cloud Overlay**: High-resolution global cloud imagery updated every 10–15 minutes.
-* **Global Coverage**: Seamless cloud data for all continents and oceans.
-* **Transparency Control**: Adjustable opacity (0-100%) to view underlying satellite imagery or map features.
-* **API Integration**: Securely utilizes your personal **OpenWeatherMap API key** from the `.env` configuration.
+
+- **Real-time Cloud Overlay**: High-resolution global cloud imagery updated every 10–15 minutes.
+- **Global Coverage**: Seamless cloud data for all continents and oceans.
+- **Transparency Control**: Adjustable opacity (0-100%) to view underlying satellite imagery or map features.
+- **API Integration**: Securely utilizes your personal **OpenWeatherMap API key** from the `.env` configuration.
 
 ### Data Visualization
-* **Cloud Density**: Translucent white overlays representing current cloud formations.
-* **Integration**: Designed to overlay perfectly on top of **MODIS Terra** or **Dark** map styles.
-* **Dynamic UI**: Toggle visibility directly from the **Map Layers** settings.
+
+- **Cloud Density**: Translucent white overlays representing current cloud formations.
+- **Integration**: Designed to overlay perfectly on top of **MODIS Terra** or **Dark** map styles.
+- **Dynamic UI**: Toggle visibility directly from the **Map Layers** settings.
 
 ---
 
 ## 📊 Data Details
 
 ### Data Source
-* **Provider**: OpenWeatherMap (OWM)
-* **Service**: Weather Maps 1.0
-* **URL**: `https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png`
-* **Update Frequency**: Approximately every 10 minutes.
-* **Data Latency**: Near real-time satellite processing.
+
+- **Provider**: OpenWeatherMap (OWM)
+- **Service**: Weather Maps 1.0
+- **URL**: `https://tile.openweathermap.org/map/clouds_new/{z}/{x}/{y}.png`
+- **Update Frequency**: Approximately every 10 minutes.
+- **Data Latency**: Near real-time satellite processing.
 
 ### Cloud Product
-* **Product Code**: `clouds_new` (Modern Tiled API)
-* **Resolution**: Global tiled coverage.
-* **Z-Index**: 1000 (Placed above base maps, below markers and terminator).
+
+- **Product Code**: `clouds_new` (Modern Tiled API)
+- **Resolution**: Global tiled coverage.
+- **Z-Index**: 1000 (Placed above base maps, below markers and terminator).
 
 ---
 
@@ -57,6 +61,7 @@ The Global Clouds plugin provides a real-time satellite-derived cloud cover over
 ## 🔧 Usage
 
 ### Basic Setup
+
 1. **Configure API Key**: Ensure `VITE_OPENWEATHER_API_KEY=` is set in your `.env` file. Same as your standard OPEN Weather API KEY
 2. **Enable Plugin**: Open **Settings** → **Map Layers** and toggle **☁️ Global Clouds**.
 3. **Adjust Opacity**: Use the **Opacity** slider to find the right balance (Default: 50%).
@@ -66,6 +71,7 @@ The Global Clouds plugin provides a real-time satellite-derived cloud cover over
 ## ⚙️ Configuration
 
 ### Default Settings
+
 ```json
 {
   "id": "owm-clouds",
@@ -74,3 +80,4 @@ The Global Clouds plugin provides a real-time satellite-derived cloud cover over
   "category": "weather",
   "zIndex": 1000
 }
+```

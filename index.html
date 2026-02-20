@@ -1,141 +1,156 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>OpenHamClock - Amateur Radio Dashboard | Live DX Cluster, Propagation, Band Conditions</title>
-  
-  <!-- SEO Meta -->
-  <meta name="description" content="OpenHamClock is a free, real-time amateur radio dashboard with live DX cluster spots, PSK Reporter, Reverse Beacon Network, POTA/SOTA tracking, propagation predictions, solar indices, band conditions, satellite passes, and an interactive world map. Runs on any browser — desktop, Raspberry Pi, tablet, or phone. No login, no ads, no subscription.">
-  <meta name="keywords" content="ham clock, hamclock, openhamclock, open ham clock, amateur radio dashboard, ham radio dashboard, DX cluster, DX spots, PSK Reporter, Reverse Beacon Network, RBN, POTA tracker, SOTA tracker, propagation prediction, band conditions, solar flux, K-index, sunspot number, space weather, ham radio map, great circle map, satellite tracker, amateur radio, ham radio, shortwave, HF propagation, MUF map, gray line, greyline, VOACAP, ham radio tools, free ham radio software, web ham clock, raspberry pi ham clock">
-  <meta name="author" content="Chris Hetherington, K0CJH">
-  <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://openhamclock.com/">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <title>OpenHamClock - Amateur Radio Dashboard | Live DX Cluster, Propagation, Band Conditions</title>
 
-  <!-- Open Graph (Facebook, Discord, iMessage, etc.) -->
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://openhamclock.com/">
-  <meta property="og:title" content="OpenHamClock - Free Amateur Radio Dashboard">
-  <meta property="og:description" content="Live DX cluster spots, PSK Reporter, RBN skimmer data, POTA/SOTA tracking, propagation predictions, solar indices, band conditions, satellite passes, and an interactive world map — all in one free browser-based dashboard. No login, no ads.">
-  <meta property="og:image" content="https://openhamclock.com/icons/og-image.png">
-  <meta property="og:image:width" content="1200">
-  <meta property="og:image:height" content="630">
-  <meta property="og:site_name" content="OpenHamClock">
-  <meta property="og:locale" content="en_US">
+    <!-- SEO Meta -->
+    <meta
+      name="description"
+      content="OpenHamClock is a free, real-time amateur radio dashboard with live DX cluster spots, PSK Reporter, Reverse Beacon Network, POTA/SOTA tracking, propagation predictions, solar indices, band conditions, satellite passes, and an interactive world map. Runs on any browser — desktop, Raspberry Pi, tablet, or phone. No login, no ads, no subscription."
+    />
+    <meta
+      name="keywords"
+      content="ham clock, hamclock, openhamclock, open ham clock, amateur radio dashboard, ham radio dashboard, DX cluster, DX spots, PSK Reporter, Reverse Beacon Network, RBN, POTA tracker, SOTA tracker, propagation prediction, band conditions, solar flux, K-index, sunspot number, space weather, ham radio map, great circle map, satellite tracker, amateur radio, ham radio, shortwave, HF propagation, MUF map, gray line, greyline, VOACAP, ham radio tools, free ham radio software, web ham clock, raspberry pi ham clock"
+    />
+    <meta name="author" content="Chris Hetherington, K0CJH" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://openhamclock.com/" />
 
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="OpenHamClock - Free Amateur Radio Dashboard">
-  <meta name="twitter:description" content="Live DX spots, PSK Reporter, RBN, POTA/SOTA, propagation, solar data, satellites, and world map — free for every ham. No login, no ads.">
-  <meta name="twitter:image" content="https://openhamclock.com/icons/og-image.png">
+    <!-- Open Graph (Facebook, Discord, iMessage, etc.) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://openhamclock.com/" />
+    <meta property="og:title" content="OpenHamClock - Free Amateur Radio Dashboard" />
+    <meta
+      property="og:description"
+      content="Live DX cluster spots, PSK Reporter, RBN skimmer data, POTA/SOTA tracking, propagation predictions, solar indices, band conditions, satellite passes, and an interactive world map — all in one free browser-based dashboard. No login, no ads."
+    />
+    <meta property="og:image" content="https://openhamclock.com/icons/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:site_name" content="OpenHamClock" />
+    <meta property="og:locale" content="en_US" />
 
-  <!-- Favicons (cache-bust with version) -->
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2">
-  <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2">
-  <link rel="shortcut icon" href="/favicon.ico?v=2">
-  <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png?v=2">
-  <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=2">
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="OpenHamClock - Free Amateur Radio Dashboard" />
+    <meta
+      name="twitter:description"
+      content="Live DX spots, PSK Reporter, RBN, POTA/SOTA, propagation, solar data, satellites, and world map — free for every ham. No login, no ads."
+    />
+    <meta name="twitter:image" content="https://openhamclock.com/icons/og-image.png" />
 
-  <!-- JSON-LD Structured Data -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "WebApplication",
-    "name": "OpenHamClock",
-    "alternateName": ["Ham Clock", "HamClock", "Open Ham Clock", "Open HamClock"],
-    "url": "https://openhamclock.com",
-    "description": "Free, real-time amateur radio operations dashboard with live DX cluster spots, PSK Reporter decodes, Reverse Beacon Network data, POTA/SOTA activator tracking, satellite passes, propagation predictions, solar indices, band conditions, space weather, and an interactive world map with great circle paths.",
-    "applicationCategory": "UtilitiesApplication",
-    "operatingSystem": "Any (Web Browser)",
-    "browserRequirements": "Requires a modern web browser",
-    "offers": {
-      "@type": "Offer",
-      "price": "0",
-      "priceCurrency": "USD"
-    },
-    "author": {
-      "@type": "Person",
-      "name": "Chris Hetherington",
-      "callSign": "K0CJH"
-    },
-    "sameAs": [
-      "https://github.com/accius/openhamclock",
-      "https://www.facebook.com/groups/1217043013897440",
-      "https://www.reddit.com/r/OpenHamClock/"
-    ],
-    "isAccessibleForFree": true,
-    "keywords": "ham clock, amateur radio dashboard, DX cluster, PSK Reporter, propagation, band conditions, POTA, SOTA, ham radio map"
-  }
-  </script>
-  
-  <!-- PWA -->
-  <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#0a0e14">
-  <meta name="color-scheme" content="dark light">
-  
-  <!-- iOS PWA (Add to Home Screen → fullscreen standalone) -->
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="OpenHamClock">
-  <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=2">
-  
-  <!-- Android -->
-  <meta name="mobile-web-app-capable" content="yes">
-  
-  <!-- Fonts (self-hosted for privacy — run: bash scripts/vendor-download.sh) -->
-  <link href="/vendor/fonts/fonts.css" rel="stylesheet">
-  
-  <!-- Leaflet CSS (self-hosted) -->
-  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
-  
-  <!-- Leaflet JS (self-hosted) -->
-  <script src="/vendor/leaflet/leaflet.js"></script>
-</head>
-<body>
-  <div id="root"></div>
-  <script>
-    // Detect stale JS chunks after an update and force-reload once.
-    // After a server update, browsers may have old hashed JS cached.
-    // Old chunks import new chunks (or vice versa) → module error → blank screen.
-    // This catches that and reloads to get the fresh index.html + new chunk URLs.
-    window.addEventListener('error', function(e) {
-      var msg = (e.message || '') + ' ' + ((e.filename || '') + '');
-      if (
-        msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
-        msg.indexOf('Importing a module script failed') !== -1 ||
-        msg.indexOf('error loading dynamically imported module') !== -1 ||
-        msg.indexOf('ChunkLoadError') !== -1 ||
-        msg.indexOf('Loading chunk') !== -1 ||
-        (e.filename && e.filename.indexOf('/assets/') !== -1 && msg.indexOf('SyntaxError') !== -1)
-      ) {
-        // Only auto-reload once to prevent infinite loops
-        if (!sessionStorage.getItem('ohc_chunk_reload')) {
-          sessionStorage.setItem('ohc_chunk_reload', '1');
-          console.warn('[OpenHamClock] Stale JS detected after update — reloading...');
-          window.location.reload();
-        }
+    <!-- Favicons (cache-bust with version) -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png?v=2" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=2" />
+    <link rel="shortcut icon" href="/favicon.ico?v=2" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/icons/icon-512.png?v=2" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png?v=2" />
+
+    <!-- JSON-LD Structured Data -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "OpenHamClock",
+        "alternateName": ["Ham Clock", "HamClock", "Open Ham Clock", "Open HamClock"],
+        "url": "https://openhamclock.com",
+        "description": "Free, real-time amateur radio operations dashboard with live DX cluster spots, PSK Reporter decodes, Reverse Beacon Network data, POTA/SOTA activator tracking, satellite passes, propagation predictions, solar indices, band conditions, space weather, and an interactive world map with great circle paths.",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Any (Web Browser)",
+        "browserRequirements": "Requires a modern web browser",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "author": {
+          "@type": "Person",
+          "name": "Chris Hetherington",
+          "callSign": "K0CJH"
+        },
+        "sameAs": [
+          "https://github.com/accius/openhamclock",
+          "https://www.facebook.com/groups/1217043013897440",
+          "https://www.reddit.com/r/OpenHamClock/"
+        ],
+        "isAccessibleForFree": true,
+        "keywords": "ham clock, amateur radio dashboard, DX cluster, PSK Reporter, propagation, band conditions, POTA, SOTA, ham radio map"
       }
-    });
-    // Clear the reload flag on successful load
-    window.addEventListener('load', function() {
-      sessionStorage.removeItem('ohc_chunk_reload');
-    });
-    // Also catch dynamic import() failures (rejected promises)
-    window.addEventListener('unhandledrejection', function(e) {
-      var msg = (e.reason && e.reason.message) || '';
-      if (
-        msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
-        msg.indexOf('Importing a module script failed') !== -1 ||
-        msg.indexOf('error loading dynamically imported module') !== -1
-      ) {
-        if (!sessionStorage.getItem('ohc_chunk_reload')) {
-          sessionStorage.setItem('ohc_chunk_reload', '1');
-          console.warn('[OpenHamClock] Stale module detected — reloading...');
-          window.location.reload();
+    </script>
+
+    <!-- PWA -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0a0e14" />
+    <meta name="color-scheme" content="dark light" />
+
+    <!-- iOS PWA (Add to Home Screen → fullscreen standalone) -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="OpenHamClock" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png?v=2" />
+
+    <!-- Android -->
+    <meta name="mobile-web-app-capable" content="yes" />
+
+    <!-- Fonts (self-hosted for privacy — run: bash scripts/vendor-download.sh) -->
+    <link href="/vendor/fonts/fonts.css" rel="stylesheet" />
+
+    <!-- Leaflet CSS (self-hosted) -->
+    <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+
+    <!-- Leaflet JS (self-hosted) -->
+    <script src="/vendor/leaflet/leaflet.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Detect stale JS chunks after an update and force-reload once.
+      // After a server update, browsers may have old hashed JS cached.
+      // Old chunks import new chunks (or vice versa) → module error → blank screen.
+      // This catches that and reloads to get the fresh index.html + new chunk URLs.
+      window.addEventListener('error', function (e) {
+        var msg = (e.message || '') + ' ' + ((e.filename || '') + '');
+        if (
+          msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+          msg.indexOf('Importing a module script failed') !== -1 ||
+          msg.indexOf('error loading dynamically imported module') !== -1 ||
+          msg.indexOf('ChunkLoadError') !== -1 ||
+          msg.indexOf('Loading chunk') !== -1 ||
+          (e.filename && e.filename.indexOf('/assets/') !== -1 && msg.indexOf('SyntaxError') !== -1)
+        ) {
+          // Only auto-reload once to prevent infinite loops
+          if (!sessionStorage.getItem('ohc_chunk_reload')) {
+            sessionStorage.setItem('ohc_chunk_reload', '1');
+            console.warn('[OpenHamClock] Stale JS detected after update — reloading...');
+            window.location.reload();
+          }
         }
-      }
-    });
-  </script>
-  <script type="module" src="/src/main.jsx"></script>
-</body>
+      });
+      // Clear the reload flag on successful load
+      window.addEventListener('load', function () {
+        sessionStorage.removeItem('ohc_chunk_reload');
+      });
+      // Also catch dynamic import() failures (rejected promises)
+      window.addEventListener('unhandledrejection', function (e) {
+        var msg = (e.reason && e.reason.message) || '';
+        if (
+          msg.indexOf('Failed to fetch dynamically imported module') !== -1 ||
+          msg.indexOf('Importing a module script failed') !== -1 ||
+          msg.indexOf('error loading dynamically imported module') !== -1
+        ) {
+          if (!sessionStorage.getItem('ohc_chunk_reload')) {
+            sessionStorage.setItem('ohc_chunk_reload', '1');
+            console.warn('[OpenHamClock] Stale module detected — reloading...');
+            window.location.reload();
+          }
+        }
+      });
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
 </html>

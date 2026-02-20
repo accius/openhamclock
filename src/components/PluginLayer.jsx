@@ -4,32 +4,33 @@
  */
 import React from 'react';
 
-export const PluginLayer = ({ 
-  plugin, 
-  enabled, 
-  opacity, 
-  map, 
-  callsign, 
-  locator, 
+export const PluginLayer = ({
+  plugin,
+  enabled,
+  opacity,
+  map,
+  mapBandFilter,
+  callsign,
+  locator,
   lowMemoryMode,
   satellites,
   units,
-  config
+  config,
 }) => {
-  
   const layerFunc = plugin.useLayer || plugin.hook;
 
   if (typeof layerFunc === 'function') {
-    layerFunc({ 
-      map, 
-      enabled, 
-      opacity, 
-      callsign, 
-      locator, 
-      lowMemoryMode, 
-      satellites, 
+    layerFunc({
+      map,
+      enabled,
+      opacity,
+      callsign,
+      locator,
+      mapBandFilter,
+      lowMemoryMode,
+      satellites,
       units,
-      config
+      config,
     });
   }
 

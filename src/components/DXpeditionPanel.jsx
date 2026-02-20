@@ -18,13 +18,16 @@ export const DXpeditionPanel = ({ data, loading }) => {
 
   return (
     <div className="panel" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div className="panel-header" style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        marginBottom: '6px',
-        fontSize: '11px'
-      }}>
+      <div
+        className="panel-header"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '6px',
+          fontSize: '11px',
+        }}
+      >
         <span>⊕ DXPEDITIONS</span>
         {data && (
           <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
@@ -32,7 +35,7 @@ export const DXpeditionPanel = ({ data, loading }) => {
           </span>
         )}
       </div>
-      
+
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {loading ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '10px' }}>
@@ -42,24 +45,23 @@ export const DXpeditionPanel = ({ data, loading }) => {
           data.dxpeditions.slice(0, 4).map((exp, idx) => {
             const style = getStatusStyle(exp);
             return (
-              <div key={idx} style={{ 
-                padding: '4px 6px',
-                marginBottom: '3px',
-                background: style.bg,
-                borderLeft: `2px solid ${style.border}`,
-                borderRadius: '3px',
-                fontSize: '11px',
-                fontFamily: 'JetBrains Mono, monospace'
-              }}>
+              <div
+                key={idx}
+                style={{
+                  padding: '4px 6px',
+                  marginBottom: '3px',
+                  background: style.bg,
+                  borderLeft: `2px solid ${style.border}`,
+                  borderRadius: '3px',
+                  fontSize: '11px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <CallsignLink call={exp.callsign} color="var(--accent-amber)" fontWeight="700" />
-                  <span style={{ color: style.color, fontSize: '9px' }}>
-                    {exp.isActive ? '● NOW' : 'SOON'}
-                  </span>
+                  <span style={{ color: style.color, fontSize: '9px' }}>{exp.isActive ? '● NOW' : 'SOON'}</span>
                 </div>
-                <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
-                  {exp.entity}
-                </div>
+                <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{exp.entity}</div>
               </div>
             );
           })

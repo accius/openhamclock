@@ -9,9 +9,9 @@ export default defineConfig({
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
-        changeOrigin: true
-      }
-    }
+        changeOrigin: true,
+      },
+    },
   },
   resolve: {
     alias: {
@@ -19,15 +19,15 @@ export default defineConfig({
       '@components': path.resolve(__dirname, './src/components'),
       '@hooks': path.resolve(__dirname, './src/hooks'),
       '@utils': path.resolve(__dirname, './src/utils'),
-      '@styles': path.resolve(__dirname, './src/styles')
-    }
+      '@styles': path.resolve(__dirname, './src/styles'),
+    },
   },
   define: {
     // mqtt.js needs these for browser
     global: 'globalThis',
   },
   optimizeDeps: {
-    include: ['mqtt']
+    include: ['mqtt'],
   },
   build: {
     outDir: 'dist',
@@ -37,9 +37,9 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           satellite: ['satellite.js'],
-          mqtt: ['mqtt']
-        }
-      }
-    }
-  }
+          mqtt: ['mqtt'],
+        },
+      },
+    },
+  },
 });

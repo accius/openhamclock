@@ -13,7 +13,7 @@ export const metadata = {
   category: 'propagation',
   defaultEnabled: false,
   defaultOpacity: 0.8,
-  version: '1.0.0'
+  version: '1.0.0',
 };
 
 /**
@@ -56,10 +56,9 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
 
     const check = () => {
       const { de, dx } = readLocations();
-      setLocations(prev => {
+      setLocations((prev) => {
         if (!de || !dx) return prev;
-        if (prev.de?.lat === de.lat && prev.de?.lon === de.lon &&
-            prev.dx?.lat === dx.lat && prev.dx?.lon === dx.lon) {
+        if (prev.de?.lat === de.lat && prev.de?.lon === de.lon && prev.dx?.lat === dx.lat && prev.dx?.lon === dx.lon) {
           return prev;
         }
         return { de, dx };
@@ -76,8 +75,10 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
     if (!map || typeof L === 'undefined') return;
 
     // Remove old layers
-    layersRef.current.forEach(l => {
-      try { map.removeLayer(l); } catch (e) {}
+    layersRef.current.forEach((l) => {
+      try {
+        map.removeLayer(l);
+      } catch (e) {}
     });
     layersRef.current = [];
 
@@ -107,7 +108,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
 
     // Short path — solid cyan line (replicated across world copies)
     const spPoints = getGreatCirclePoints(de.lat, de.lon, dx.lat, dx.lon, 100);
-    replicatePath(spPoints).forEach(copy => {
+    replicatePath(spPoints).forEach((copy) => {
       const spLine = L.polyline(copy, {
         color: '#00d4ff',
         weight: 2.5,
@@ -122,7 +123,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
     // Long path — dashed purple line (replicated across world copies)
     const lpPoints = getLongPathPoints(de.lat, de.lon, dx.lat, dx.lon);
     if (lpPoints.length > 0) {
-      replicatePath(lpPoints).forEach(copy => {
+      replicatePath(lpPoints).forEach((copy) => {
         const lpLine = L.polyline(copy, {
           color: '#b388ff',
           weight: 1.5,
@@ -137,8 +138,10 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
     }
 
     return () => {
-      layersRef.current.forEach(l => {
-        try { map.removeLayer(l); } catch (e) {}
+      layersRef.current.forEach((l) => {
+        try {
+          map.removeLayer(l);
+        } catch (e) {}
       });
       layersRef.current = [];
     };
@@ -147,8 +150,10 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
   // Cleanup on disable
   useEffect(() => {
     if (!enabled && map) {
-      layersRef.current.forEach(l => {
-        try { map.removeLayer(l); } catch (e) {}
+      layersRef.current.forEach((l) => {
+        try {
+          map.removeLayer(l);
+        } catch (e) {}
       });
       layersRef.current = [];
     }

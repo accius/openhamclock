@@ -7,6 +7,8 @@ import * as WXRadarPlugin from './layers/useWXRadar.js';
 import * as OWMCloudsPlugin from './layers/useOWMClouds.js';
 import * as CityLightsPlugin from './layers/useCityLights.js';
 import * as EarthquakesPlugin from './layers/useEarthquakes.js';
+import * as WildfiresPlugin from './layers/useWildfires.js';
+import * as FloodsPlugin from './layers/useFloods.js';
 import * as AuroraPlugin from './layers/useAurora.js';
 import * as WSPRPlugin from './layers/useWSPR.js';
 import * as GrayLinePlugin from './layers/useGrayLine.js';
@@ -24,6 +26,8 @@ const layerPlugins = [
   SatellitePlugin,
   WXRadarPlugin,
   EarthquakesPlugin,
+  WildfiresPlugin,
+  FloodsPlugin,
   AuroraPlugin,
   WSPRPlugin,
   GrayLinePlugin,
@@ -41,10 +45,10 @@ let cachedLayers = null;
 
 export function getAllLayers() {
   if (cachedLayers) return cachedLayers;
-  
+
   cachedLayers = layerPlugins
-    .filter(plugin => plugin.metadata && plugin.useLayer)
-    .map(plugin => ({
+    .filter((plugin) => plugin.metadata && plugin.useLayer)
+    .map((plugin) => ({
       id: plugin.metadata.id,
       name: plugin.metadata.name,
       description: plugin.metadata.description,
@@ -53,13 +57,13 @@ export function getAllLayers() {
       defaultOpacity: plugin.metadata.defaultOpacity || 0.6,
       category: plugin.metadata.category || 'overlay',
       localOnly: plugin.metadata.localOnly || false,
-      hook: plugin.useLayer
+      hook: plugin.useLayer,
     }));
-  
+
   return cachedLayers;
 }
 
 export function getLayerById(layerId) {
   const layers = getAllLayers();
-  return layers.find(layer => layer.id === layerId) || null;
+  return layers.find((layer) => layer.id === layerId) || null;
 }

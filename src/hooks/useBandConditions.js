@@ -12,7 +12,7 @@ const BAND_RANGE_MAP = {
   '80m-40m': ['80m', '60m', '40m'],
   '30m-20m': ['30m', '20m'],
   '17m-15m': ['17m', '15m'],
-  '12m-10m': ['12m', '10m']
+  '12m-10m': ['12m', '10m'],
 };
 
 // Normalize condition strings from N0NBH (they use title case)
@@ -37,44 +37,46 @@ export const useBandConditions = () => {
         if (!response) return; // backed off
         if (!response.ok) throw new Error(`N0NBH API error: ${response.status}`);
         const n0nbh = await response.json();
-        
+
         // Build lookup: { 'day': { '80m-40m': 'Good', ... }, 'night': { ... } }
         const conditionMap = { day: {}, night: {} };
-        for (const bc of (n0nbh.bandConditions || [])) {
+        for (const bc of n0nbh.bandConditions || []) {
           conditionMap[bc.time] = conditionMap[bc.time] || {};
           conditionMap[bc.time][bc.name] = normalizeCondition(bc.condition);
         }
-        
+
         // Determine if it's currently day or night (UTC-based, simplified)
         const hour = new Date().getUTCHours();
         const isDaytime = hour >= 6 && hour <= 18;
         const currentTime = isDaytime ? 'day' : 'night';
-        
+
         // Expand grouped ranges into individual bands with day and night conditions
         const bands = [];
         for (const [range, individualBands] of Object.entries(BAND_RANGE_MAP)) {
           const dayCondition = conditionMap.day?.[range] || 'FAIR';
           const nightCondition = conditionMap.night?.[range] || 'FAIR';
-          
+
           for (const band of individualBands) {
             bands.push({
               band,
               condition: currentTime === 'day' ? dayCondition : nightCondition,
               day: dayCondition,
-              night: nightCondition
+              night: nightCondition,
             });
           }
         }
-        
+
         setData(bands);
-        
+
         // VHF conditions
-        setVhfConditions((n0nbh.vhfConditions || []).map(v => ({
-          name: v.name,
-          location: v.location,
-          condition: v.condition
-        })));
-        
+        setVhfConditions(
+          (n0nbh.vhfConditions || []).map((v) => ({
+            name: v.name,
+            location: v.location,
+            condition: v.condition,
+          })),
+        );
+
         // Extra solar/geomag data from N0NBH
         setExtras({
           aIndex: n0nbh.solarData?.aIndex,
@@ -91,9 +93,8 @@ export const useBandConditions = () => {
           signalNoise: n0nbh.signalNoise,
           muf: n0nbh.solarData?.muf,
           updated: n0nbh.updated,
-          source: 'N0NBH'
+          source: 'N0NBH',
         });
-        
       } catch (err) {
         console.error('[BandConditions] N0NBH fetch error:', err);
       } finally {

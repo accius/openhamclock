@@ -18,7 +18,9 @@ As a rapidly evolving open-source project, we primarily support the latest versi
 ## 2. Scope
 
 ### 2.1 In Scope
+
 The following are within the scope of this vulnerability disclosure policy:
+
 - OpenHamClock application code (frontend and backend)
 - Configuration defaults and deployment artifacts in this repository
 - Build, packaging, and update mechanisms owned by this repository
@@ -26,7 +28,9 @@ The following are within the scope of this vulnerability disclosure policy:
 - Installation and update scripts (`setup-*.sh`, `update.sh`)
 
 ### 2.2 Out of Scope
+
 The following are generally **not** in scope but may be considered on a case-by-case basis:
+
 - Third-party services and APIs consumed by OpenHamClock (report to the respective vendor)
 - Vulnerabilities in upstream dependencies that do not materially affect this project's usage
 - Issues requiring physical access to the user's device (unless remote access was enabled in an unsafe manner by default configuration)
@@ -34,11 +38,12 @@ The following are generally **not** in scope but may be considered on a case-by-
 - Issues in end-of-life or unsupported versions
 
 ### 2.3 Scope Questions
+
 If you're unsure whether something is in scope, **please report it anyway** and clearly mark it as a **"scope question"** in your submission. We will provide guidance.
 
 ---
 
-## 3. Security Contact 
+## 3. Security Contact
 
 For vulnerability reports, please use one of the **private channels** below. The maintainer acts as the primary security contact and may engage additional community members under NDA for remediation when necessary.
 
@@ -51,17 +56,20 @@ For vulnerability reports, please use one of the **private channels** below. The
 ### 4.1 Reporting Channels (in order of preference)
 
 #### Primary: GitHub Private Vulnerability Reporting
+
 - **URL**: https://github.com/accius/openhamclock/security/advisories/new
 - **Advantages**: Structured submission, built-in secure communication, CVE assignment support
 - **Expected acknowledgment**: Automated immediate, human review within 7 days
 
 #### Secondary: Encrypted Email
+
 - **Address**: chris@cjhlighting.com
 - **PGP Key**: Available at https://github.com/accius.gpg (or keybase.io/accius)
 - **Fingerprint**: `[Will be added - use PGP key for sensitive communications]`
 - **Use when**: GitHub reporting is unavailable or for highly sensitive disclosures
 
 #### Tertiary: Direct Message
+
 - **Platform**: Twitter/X DM to @[handle] (if urgent and other channels fail)
 - **Note**: Less secure; use only for initial contact, then switch to encrypted channel
 
@@ -70,6 +78,7 @@ For vulnerability reports, please use one of the **private channels** below. The
 A complete vulnerability report should include:
 
 **Required**:
+
 - **Vulnerability type** (e.g., SQL injection, XSS, authentication bypass, RCE, information disclosure)
 - **Affected component(s)** (e.g., `server.js`, auto-update mechanism, Docker configuration)
 - **Affected version(s)** (commit hash or version tag)
@@ -78,6 +87,7 @@ A complete vulnerability report should include:
 - **Impact assessment** (what can an attacker achieve?)
 
 **Optional but helpful**:
+
 - **Severity assessment** (your opinion: Critical/High/Medium/Low)
 - **Suggested remediation** or mitigation approach
 - **Disclosure preferences** (embargo duration, credit preferences)
@@ -86,6 +96,7 @@ A complete vulnerability report should include:
 ### 4.3 Sensitive Data Handling
 
 To protect operator privacy, **please avoid including**:
+
 - Real amateur radio callsigns (use `K0XXX` or `W1ABC` as placeholders)
 - Actual grid locators (use `AA00aa` as placeholder)
 - Production IP addresses (use RFC5737 documentation addresses: `192.0.2.0/24`)
@@ -93,11 +104,13 @@ To protect operator privacy, **please avoid including**:
 - Personal information of operators (names, addresses, email addresses)
 
 If sensitive data is **absolutely necessary** for reproduction:
+
 - Redact or pseudonymize it
 - Clearly explain what was redacted and why it's needed
 - Offer to provide actual data over a secure side-channel if essential
 
 ### 4.4 Language
+
 Reports may be submitted in **English** (preferred) or other languages. We will make reasonable efforts to work with non-English reporters but may experience delays in processing.
 
 ---
@@ -108,15 +121,15 @@ Reports may be submitted in **English** (preferred) or other languages. We will 
 
 Each reported vulnerability is assigned a unique **case identifier** (format: `OHC-YYYY-NNNN`, e.g., `OHC-2026-0001`) and progresses through these states:
 
-| State | Description | Typical Duration |
-|-------|-------------|------------------|
-| **RECEIVED** | Report received, awaiting initial review | 0-7 days |
-| **ASSIGNED** | Case assigned to handler, analysis started | 1-14 days |
-| **CONFIRMED** | Vulnerability validated and reproduced | - |
-| **REMEDIATION** | Fix in development and testing | 7-90 days |
-| **VENDOR-FIX** | Fix ready, coordinating disclosure | 0-14 days |
-| **PUBLIC** | Vulnerability and fix publicly disclosed | Terminal state |
-| **REJECTED** | Not a vulnerability or out of scope | Terminal state |
+| State           | Description                                | Typical Duration |
+| --------------- | ------------------------------------------ | ---------------- |
+| **RECEIVED**    | Report received, awaiting initial review   | 0-7 days         |
+| **ASSIGNED**    | Case assigned to handler, analysis started | 1-14 days        |
+| **CONFIRMED**   | Vulnerability validated and reproduced     | -                |
+| **REMEDIATION** | Fix in development and testing             | 7-90 days        |
+| **VENDOR-FIX**  | Fix ready, coordinating disclosure         | 0-14 days        |
+| **PUBLIC**      | Vulnerability and fix publicly disclosed   | Terminal state   |
+| **REJECTED**    | Not a vulnerability or out of scope        | Terminal state   |
 
 **Status transitions** will be communicated to the reporter via the reporting channel.
 
@@ -125,7 +138,7 @@ Each reported vulnerability is assigned a unique **case identifier** (format: `O
 We commit to the following response targets:
 
 - **Initial acknowledgment**: Within **7 calendar days** of receipt
-- **Preliminary assessment**: Within **14 calendar days** of receipt  
+- **Preliminary assessment**: Within **14 calendar days** of receipt
 - **Regular updates**: At least every **14 calendar days** while case is active
 - **Target remediation**: Within **90 days** for Critical/High severity issues
 
@@ -135,18 +148,19 @@ We commit to the following response targets:
 
 We use CVSS v3.1 base scores to classify severity:
 
-| Severity | CVSS Score | Response Priority | Typical Fix Timeline |
-|----------|-----------|-------------------|---------------------|
-| **Critical** | 9.0 - 10.0 | Immediate | 7-30 days |
-| **High** | 7.0 - 8.9 | Urgent | 30-60 days |
-| **Medium** | 4.0 - 6.9 | Normal | 60-90 days |
-| **Low** | 0.1 - 3.9 | Best effort | Next release cycle |
+| Severity     | CVSS Score | Response Priority | Typical Fix Timeline |
+| ------------ | ---------- | ----------------- | -------------------- |
+| **Critical** | 9.0 - 10.0 | Immediate         | 7-30 days            |
+| **High**     | 7.0 - 8.9  | Urgent            | 30-60 days           |
+| **Medium**   | 4.0 - 6.9  | Normal            | 60-90 days           |
+| **Low**      | 0.1 - 3.9  | Best effort       | Next release cycle   |
 
 Reporters are encouraged to provide their own CVSS assessment, but the PSIRT makes the final determination.
 
 ### 5.4 Remediation Development (ISO/IEC 30111 §7.5)
 
 Remediation may take the form of:
+
 1. **Code fix**: Patch applied to the codebase
 2. **Configuration change**: Secure defaults or documentation update
 3. **Workaround**: Interim mitigation until a full fix is available
@@ -170,6 +184,7 @@ By default, we follow a **90-day coordinated disclosure** timeline from initial 
 ### 6.2 Early Disclosure
 
 We may disclose **earlier than 90 days** if:
+
 - Fix is ready and tested
 - No multi-party coordination is required
 - Reporter agrees to early disclosure
@@ -178,6 +193,7 @@ We may disclose **earlier than 90 days** if:
 ### 6.3 Embargo Extensions
 
 The 90-day timeline may be **extended** if:
+
 - Complexity requires additional development time (negotiated with reporter)
 - Multi-party coordination is in progress (see §7)
 - Affected component is in a third-party dependency awaiting upstream fix
@@ -187,6 +203,7 @@ The 90-day timeline may be **extended** if:
 ### 6.4 Emergency Disclosure
 
 If we become aware of **active exploitation** or **imminent public disclosure**, we may:
+
 1. Immediately publish a security advisory with available mitigations
 2. Notify affected parties via established channels
 3. Release a patch or workaround, even if incomplete
@@ -196,6 +213,7 @@ We will make reasonable efforts to notify the reporter before emergency disclosu
 ### 6.5 Public Disclosure Content (ISO/IEC 29147 §7.5.3)
 
 Our security advisories include:
+
 - Vulnerability description (non-technical summary + technical details)
 - Affected versions and components
 - CVE identifier (if assigned)
@@ -206,6 +224,7 @@ Our security advisories include:
 - Timeline of disclosure
 
 **Disclosure channels**:
+
 - GitHub Security Advisory (primary)
 - CHANGELOG.md and release notes
 - Project README / documentation
@@ -218,6 +237,7 @@ Our security advisories include:
 ### 7.1 When Multi-Party Coordination is Needed
 
 We initiate multi-party coordination when a vulnerability:
+
 - Affects **upstream dependencies** (e.g., Express, Node.js, npm packages)
 - Impacts **downstream projects** (forks, derivatives, or integrations)
 - Is present in **multiple projects** sharing similar code
@@ -237,6 +257,7 @@ When multi-party coordination is required:
 ### 7.3 Coordinator Roles
 
 We may request assistance from:
+
 - **CERT/CC** (cert.org) for high-impact vulnerabilities affecting multiple vendors
 - **MITRE** (cve.org) for CVE assignment and management
 - **GitHub Security Lab** for coordination within the GitHub ecosystem
@@ -245,6 +266,7 @@ We may request assistance from:
 ### 7.4 Information Sharing Restrictions
 
 When participating in multi-party coordination:
+
 - All parties operate under **confidentiality** until the agreed disclosure date
 - Information may be shared with:
   - Directly affected vendors/projects (on need-to-know basis)
@@ -258,6 +280,7 @@ When participating in multi-party coordination:
 ### 7.5 Disclosure Date Negotiation
 
 Target disclosure date is determined by:
+
 - Complexity of remediation across all parties
 - Criticality and exploit likelihood
 - Default 90-day window (may be shorter or longer by agreement)
@@ -280,11 +303,12 @@ We recognize and credit security researchers who responsibly disclose vulnerabil
 ### 8.2 Hall of Fame
 
 We may maintain a **Security Researchers Hall of Fame** in this repository recognizing:
+
 - Researchers who have reported valid vulnerabilities
 - Year of report and severity classification
 - Link to public advisory (if applicable)
 
-*This section will be created when the first qualifying report is received.*
+_This section will be created when the first qualifying report is received._
 
 ### 8.3 Bug Bounty Program
 
@@ -320,6 +344,7 @@ When testing for vulnerabilities:
 ### 9.3 Responsible Disclosure Commitment
 
 If you follow this policy, we commit to:
+
 - Not pursue legal action related to your research
 - Work with you to understand and validate the issue
 - Acknowledge your contribution publicly (unless you prefer anonymity)
@@ -368,6 +393,7 @@ To reduce your vulnerability surface:
 
 3. **Update regularly**  
    Subscribe to security advisories and apply updates promptly:
+
    ```bash
    git pull
    npm install
@@ -378,7 +404,7 @@ To reduce your vulnerability surface:
 4. **Run with least privilege**  
    Use a dedicated non-root user for the application. If using Docker, ensure the container runs as non-root.
 
-5. **Enable security features**  
+5. **Enable security features**
    - Set `NODE_ENV=production`
    - Configure `AUTO_UPDATE_ENABLED=false` if you prefer manual updates
    - Use HTTPS (TLS) for all connections
@@ -395,12 +421,14 @@ To reduce your vulnerability surface:
 ## 12. Policy Review and Updates
 
 This policy will be reviewed and updated:
+
 - **Annually** (or more frequently as needed)
 - When processes change materially
 - After significant security incidents
 - To align with evolving ISO/IEC standards
 
 **History**:
+
 - **v1.1** (2026-02-12): Enhanced ISO/IEC compliance, added multi-party coordination, severity classification, case lifecycle
 - **v1.0** (Initial): Basic vulnerability disclosure policy
 
@@ -409,6 +437,7 @@ This policy will be reviewed and updated:
 ## 13. Contact and Questions
 
 For questions about this policy (not vulnerability reports):
+
 - **General security questions**: Open a public Discussion on GitHub
 - **Policy clarifications**: Email chris@cjhlighting.com (non-confidential)
 
@@ -423,8 +452,9 @@ Thank you to the security research community for helping make OpenHamClock safer
 ## Metadata
 
 This policy aligns with international standards for vulnerability disclosure and handling:
+
 - **ISO/IEC 29147:2018** - Vulnerability disclosure
-- **ISO/IEC 30111:2019** - Vulnerability handling processes  
+- **ISO/IEC 30111:2019** - Vulnerability handling processes
 - **ISO/IEC TR 5895:2022** - Multi-party coordinated vulnerability disclosure and handling
 
 **Document version**: 1.1  

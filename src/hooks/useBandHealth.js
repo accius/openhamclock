@@ -8,12 +8,10 @@
  * Input is an array of DX cluster spots (from useDXClusterData().spots).
  */
 
-import { useMemo } from "react";
-import { getBandFromFreq, detectMode } from "../utils/callsign.js";
+import { useMemo } from 'react';
+import { getBandFromFreq, detectMode } from '../utils/callsign.js';
 
-const DEFAULT_BANDS = [
-  "160m","80m","60m","40m","30m","20m","17m","15m","12m","10m","6m","2m","70cm"
-];
+const DEFAULT_BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 
@@ -25,8 +23,8 @@ const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 // - Be conservative and explainable.
 // - Provide a confidence value for potential weighting.
 
-const CONF_HIGH = "high";
-const CONF_MED = "medium";
+const CONF_HIGH = 'high';
+const CONF_MED = 'medium';
 
 function freqToMHz(rawFreq) {
   const f = parseFloat(rawFreq);
@@ -40,23 +38,23 @@ function freqToMHz(rawFreq) {
 const ISLAND_TOL_MHZ = 0.003; // ~3 kHz
 const ISLANDS = [
   // FT8
-  { mhz: 3.573,  mode: "FT8" },
-  { mhz: 7.074,  mode: "FT8" },
-  { mhz: 10.136, mode: "FT8" },
-  { mhz: 14.074, mode: "FT8" },
-  { mhz: 18.100, mode: "FT8" },
-  { mhz: 21.074, mode: "FT8" },
-  { mhz: 24.915, mode: "FT8" },
-  { mhz: 28.074, mode: "FT8" },
+  { mhz: 3.573, mode: 'FT8' },
+  { mhz: 7.074, mode: 'FT8' },
+  { mhz: 10.136, mode: 'FT8' },
+  { mhz: 14.074, mode: 'FT8' },
+  { mhz: 18.1, mode: 'FT8' },
+  { mhz: 21.074, mode: 'FT8' },
+  { mhz: 24.915, mode: 'FT8' },
+  { mhz: 28.074, mode: 'FT8' },
   // FT4
-  { mhz: 3.575,  mode: "FT4" },
-  { mhz: 7.0475, mode: "FT4" },
-  { mhz: 10.140, mode: "FT4" },
-  { mhz: 14.080, mode: "FT4" },
-  { mhz: 18.104, mode: "FT4" },
-  { mhz: 21.080, mode: "FT4" },
-  { mhz: 24.919, mode: "FT4" },
-  { mhz: 28.080, mode: "FT4" },
+  { mhz: 3.575, mode: 'FT4' },
+  { mhz: 7.0475, mode: 'FT4' },
+  { mhz: 10.14, mode: 'FT4' },
+  { mhz: 14.08, mode: 'FT4' },
+  { mhz: 18.104, mode: 'FT4' },
+  { mhz: 21.08, mode: 'FT4' },
+  { mhz: 24.919, mode: 'FT4' },
+  { mhz: 28.08, mode: 'FT4' },
 ];
 
 function inferModeFromFrequency(rawFreq) {
@@ -66,7 +64,7 @@ function inferModeFromFrequency(rawFreq) {
   // 1) High-confidence islands
   for (const isl of ISLANDS) {
     if (Math.abs(mhz - isl.mhz) <= ISLAND_TOL_MHZ) {
-      return { mode: isl.mode, confidence: CONF_HIGH, inferredBy: "band-plan" };
+      return { mode: isl.mode, confidence: CONF_HIGH, inferredBy: 'band-plan' };
     }
   }
 
@@ -75,51 +73,51 @@ function inferModeFromFrequency(rawFreq) {
   if (!band) return null;
 
   switch (band) {
-    case "160m":
-      if (mhz >= 1.8 && mhz < 1.84) return { mode: "CW", confidence: CONF_MED, inferredBy: "band-plan" };
-      if (mhz >= 1.84 && mhz <= 2.0) return { mode: "SSB", confidence: CONF_MED, inferredBy: "band-plan" };
+    case '160m':
+      if (mhz >= 1.8 && mhz < 1.84) return { mode: 'CW', confidence: CONF_MED, inferredBy: 'band-plan' };
+      if (mhz >= 1.84 && mhz <= 2.0) return { mode: 'SSB', confidence: CONF_MED, inferredBy: 'band-plan' };
       return null;
 
-    case "80m":
-      if (mhz >= 3.5 && mhz < 3.6) return { mode: "CW", confidence: CONF_MED, inferredBy: "band-plan" };
-      if (mhz >= 3.6 && mhz <= 4.0) return { mode: "SSB", confidence: CONF_MED, inferredBy: "band-plan" };
+    case '80m':
+      if (mhz >= 3.5 && mhz < 3.6) return { mode: 'CW', confidence: CONF_MED, inferredBy: 'band-plan' };
+      if (mhz >= 3.6 && mhz <= 4.0) return { mode: 'SSB', confidence: CONF_MED, inferredBy: 'band-plan' };
       return null;
 
-    case "40m":
-      if (mhz >= 7.0 && mhz < 7.05) return { mode: "CW", confidence: CONF_MED, inferredBy: "band-plan" };
-      if (mhz >= 7.05 && mhz <= 7.3) return { mode: "SSB", confidence: CONF_MED, inferredBy: "band-plan" };
+    case '40m':
+      if (mhz >= 7.0 && mhz < 7.05) return { mode: 'CW', confidence: CONF_MED, inferredBy: 'band-plan' };
+      if (mhz >= 7.05 && mhz <= 7.3) return { mode: 'SSB', confidence: CONF_MED, inferredBy: 'band-plan' };
       return null;
 
-    case "30m":
+    case '30m':
       // 30m is mixed CW/digital; only islands are high-confidence.
-      if (mhz >= 10.1 && mhz <= 10.15) return { mode: "CW", confidence: CONF_MED, inferredBy: "band-plan" };
+      if (mhz >= 10.1 && mhz <= 10.15) return { mode: 'CW', confidence: CONF_MED, inferredBy: 'band-plan' };
       return null;
 
-    case "20m":
-      if (mhz >= 14.0 && mhz < 14.07) return { mode: "CW", confidence: CONF_MED, inferredBy: "band-plan" };
-      if (mhz >= 14.07 && mhz <= 14.35) return { mode: "SSB", confidence: CONF_MED, inferredBy: "band-plan" };
+    case '20m':
+      if (mhz >= 14.0 && mhz < 14.07) return { mode: 'CW', confidence: CONF_MED, inferredBy: 'band-plan' };
+      if (mhz >= 14.07 && mhz <= 14.35) return { mode: 'SSB', confidence: CONF_MED, inferredBy: 'band-plan' };
       return null;
 
-    case "17m":
-      if (mhz >= 18.068 && mhz < 18.095) return { mode: "CW", confidence: CONF_MED, inferredBy: "band-plan" };
-      if (mhz >= 18.11 && mhz <= 18.168) return { mode: "SSB", confidence: CONF_MED, inferredBy: "band-plan" };
+    case '17m':
+      if (mhz >= 18.068 && mhz < 18.095) return { mode: 'CW', confidence: CONF_MED, inferredBy: 'band-plan' };
+      if (mhz >= 18.11 && mhz <= 18.168) return { mode: 'SSB', confidence: CONF_MED, inferredBy: 'band-plan' };
       // 18.095–18.110 is intentionally left ambiguous (digital/other)
       return null;
 
-    case "15m":
-      if (mhz >= 21.0 && mhz < 21.07) return { mode: "CW", confidence: CONF_MED, inferredBy: "band-plan" };
-      if (mhz >= 21.07 && mhz <= 21.45) return { mode: "SSB", confidence: CONF_MED, inferredBy: "band-plan" };
+    case '15m':
+      if (mhz >= 21.0 && mhz < 21.07) return { mode: 'CW', confidence: CONF_MED, inferredBy: 'band-plan' };
+      if (mhz >= 21.07 && mhz <= 21.45) return { mode: 'SSB', confidence: CONF_MED, inferredBy: 'band-plan' };
       return null;
 
-    case "12m":
-      if (mhz >= 24.89 && mhz < 24.915) return { mode: "CW", confidence: CONF_MED, inferredBy: "band-plan" };
-      if (mhz >= 24.93 && mhz <= 24.99) return { mode: "SSB", confidence: CONF_MED, inferredBy: "band-plan" };
+    case '12m':
+      if (mhz >= 24.89 && mhz < 24.915) return { mode: 'CW', confidence: CONF_MED, inferredBy: 'band-plan' };
+      if (mhz >= 24.93 && mhz <= 24.99) return { mode: 'SSB', confidence: CONF_MED, inferredBy: 'band-plan' };
       // 24.915–24.93 left ambiguous
       return null;
 
-    case "10m":
-      if (mhz >= 28.0 && mhz < 28.07) return { mode: "CW", confidence: CONF_MED, inferredBy: "band-plan" };
-      if (mhz >= 28.3 && mhz <= 29.7) return { mode: "SSB", confidence: CONF_MED, inferredBy: "band-plan" };
+    case '10m':
+      if (mhz >= 28.0 && mhz < 28.07) return { mode: 'CW', confidence: CONF_MED, inferredBy: 'band-plan' };
+      if (mhz >= 28.3 && mhz <= 29.7) return { mode: 'SSB', confidence: CONF_MED, inferredBy: 'band-plan' };
       // 28.07–28.3 left ambiguous (digital/other)
       return null;
 
@@ -137,7 +135,7 @@ function inferModeFromFrequency(rawFreq) {
  */
 export function classifySpotMode(spot) {
   const explicit = normalizeMode(detectMode(spot?.comment) || null);
-  if (explicit && explicit !== "ALL") {
+  if (explicit && explicit !== 'ALL') {
     return { mode: explicit, inferred: false, confidence: null, inferredBy: null };
   }
 
@@ -150,9 +148,9 @@ export function classifySpotMode(spot) {
 }
 
 function normalizeMode(mode) {
-  if (!mode) return "ALL";
+  if (!mode) return 'ALL';
   const m = String(mode).toUpperCase();
-  return m === "ALL" ? "ALL" : m;
+  return m === 'ALL' ? 'ALL' : m;
 }
 
 function scoreToLevel(baseLevel, { diversity, trend }) {
@@ -164,27 +162,27 @@ function scoreToLevel(baseLevel, { diversity, trend }) {
   if (diversity < 0.35 && baseLevel >= 2) level -= 1;
 
   // Trend nudges one step
-  if (trend === "rising") level += 1;
-  if (trend === "falling") level -= 1;
+  if (trend === 'rising') level += 1;
+  if (trend === 'falling') level -= 1;
 
   return clamp(level, 0, 4);
 }
 
 // level 0..4
 const LEVELS = [
-  { key: "closed",    label: "CLOSED"    },
-  { key: "quiet",     label: "QUIET"     },
-  { key: "usable",    label: "USABLE"    },
-  { key: "good",      label: "GOOD"      },
-  { key: "excellent", label: "EXCELLENT" },
+  { key: 'closed', label: 'CLOSED' },
+  { key: 'quiet', label: 'QUIET' },
+  { key: 'usable', label: 'USABLE' },
+  { key: 'good', label: 'GOOD' },
+  { key: 'excellent', label: 'EXCELLENT' },
 ];
 
 function baseLevelFromCount(spots) {
-  if (spots <= 0) return 0;     // closed
-  if (spots < 5)  return 1;     // quiet
-  if (spots < 15) return 2;     // usable
-  if (spots < 40) return 3;     // good
-  return 4;                     // excellent
+  if (spots <= 0) return 0; // closed
+  if (spots < 5) return 1; // quiet
+  if (spots < 15) return 2; // usable
+  if (spots < 40) return 3; // good
+  return 4; // excellent
 }
 
 function computeTrend(spots, now, windowMs) {
@@ -198,19 +196,15 @@ function computeTrend(spots, now, windowMs) {
     else newer++;
   }
 
-  if (older === 0 && newer === 0) return "steady";
+  if (older === 0 && newer === 0) return 'steady';
   // Rising if second half is 25%+ higher, falling if 25%+ lower
-  if (newer > older * 1.25) return "rising";
-  if (older > newer * 1.25) return "falling";
-  return "steady";
+  if (newer > older * 1.25) return 'rising';
+  if (older > newer * 1.25) return 'falling';
+  return 'steady';
 }
 
 export function useBandHealth(dxSpots = [], options = {}) {
-  const {
-    mode = "ALL",
-    windowMinutes = 15,
-    bands = DEFAULT_BANDS
-  } = options;
+  const { mode = 'ALL', windowMinutes = 15, bands = DEFAULT_BANDS } = options;
 
   return useMemo(() => {
     const now = Date.now();
@@ -227,7 +221,7 @@ export function useBandHealth(dxSpots = [], options = {}) {
       const ts = s?.timestamp || now;
       if (ts < cutoff) continue;
 
-      if (desiredMode === "ALL") {
+      if (desiredMode === 'ALL') {
         filtered.push({ spot: s, weight: 1, inferred: false });
         continue;
       }
@@ -258,7 +252,7 @@ export function useBandHealth(dxSpots = [], options = {}) {
     }
 
     // Build result for each band (always include all bands, even if 0)
-    const results = bands.map(band => {
+    const results = bands.map((band) => {
       const items = byBand.get(band) || [];
       const rawCount = items.length;
 
@@ -294,7 +288,7 @@ export function useBandHealth(dxSpots = [], options = {}) {
         trend,
         level,
         activity: LEVELS[level].key,
-        label: LEVELS[level].label
+        label: LEVELS[level].label,
       };
     });
 
@@ -302,7 +296,7 @@ export function useBandHealth(dxSpots = [], options = {}) {
       updatedAt: now,
       mode: desiredMode,
       windowMinutes: Math.round(windowMs / 60000),
-      bands: results
+      bands: results,
     };
   }, [dxSpots, mode, windowMinutes, bands]);
 }

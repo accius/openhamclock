@@ -1,7 +1,15 @@
 'use strict';
 
 import { useState, useEffect } from 'react';
-import { loadConfig, saveConfig, applyTheme, fetchServerConfig, fetchServerSettings, syncAllSettingsToServer, installSettingsSyncInterceptor } from '../../utils';
+import {
+  loadConfig,
+  saveConfig,
+  applyTheme,
+  fetchServerConfig,
+  fetchServerSettings,
+  syncAllSettingsToServer,
+  installSettingsSyncInterceptor,
+} from '../../utils';
 
 export default function useAppConfig() {
   const [config, setConfig] = useState(loadConfig);
@@ -17,14 +25,14 @@ export default function useAppConfig() {
         setShowDxWeather(serverCfg.showDxWeather !== false);
         setClassicAnalogClock(serverCfg.classicAnalogClock === true);
       }
-      
+
       // 2. If server-side settings sync is enabled (self-hosted/Pi), load settings from server
       const syncEnabled = serverCfg?.features?.settingsSync === true;
       if (syncEnabled) {
         const hadServerSettings = await fetchServerSettings();
         // Install interceptor: any future localStorage write to openhamclock_* auto-syncs to server
         installSettingsSyncInterceptor();
-        
+
         // If first device with no server settings, push current state to server
         if (!hadServerSettings) {
           syncAllSettingsToServer();
@@ -63,6 +71,6 @@ export default function useAppConfig() {
     setShowDxWeather,
     classicAnalogClock,
     setClassicAnalogClock,
-    handleSaveConfig
+    handleSaveConfig,
   };
 }

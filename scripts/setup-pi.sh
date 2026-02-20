@@ -113,7 +113,9 @@ install_nodejs() {
 install_dependencies() {
     echo -e "${BLUE}>>> Installing system dependencies...${NC}"
     
-    PACKAGES="git"
+    # fonts-noto-color-emoji: required for emoji icons to render in Chromium on Linux/Pi.
+    # Without this package, weather symbols, band indicators, and other emoji display as blank boxes.
+    PACKAGES="git fonts-noto-color-emoji"
     
     if [ "$SERVER_MODE" = false ]; then
         # Note: Package is 'chromium' on Raspberry Pi OS Bookworm+, 'chromium-browser' on older versions

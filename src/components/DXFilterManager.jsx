@@ -9,7 +9,6 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
   const [newWatchlistCall, setNewWatchlistCall] = useState('');
   const [newDXExcludeCall, setNewDXExcludeCall] = useState('');
   const [newDEExcludeCall, setNewDEExcludeCall] = useState('');
-  
 
   if (!isOpen) return null;
 
@@ -20,7 +19,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
     { code: 'AF', name: 'Africa' },
     { code: 'AS', name: 'Asia' },
     { code: 'OC', name: 'Oceania' },
-    { code: 'AN', name: 'Antarctica' }
+    { code: 'AN', name: 'Antarctica' },
   ];
 
   const bands = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '11m', '10m', '6m', '2m', '70cm'];
@@ -29,9 +28,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
   // noinspection DuplicatedCode
   const toggleArrayItem = (key, item) => {
     const current = filters[key] || [];
-    const newArray = current.includes(item)
-      ? current.filter(x => x !== item)
-      : [...current, item];
+    const newArray = current.includes(item) ? current.filter((x) => x !== item) : [...current, item];
     onFilterChange({ ...filters, [key]: newArray.length ? newArray : undefined });
   };
 
@@ -76,7 +73,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
     fontSize: '13px',
     cursor: 'pointer',
     fontFamily: 'inherit',
-    fontWeight: active ? '600' : '400'
+    fontWeight: active ? '600' : '400',
   });
 
   const chipStyle = (selected) => ({
@@ -88,7 +85,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
     fontSize: '12px',
     cursor: 'pointer',
     fontFamily: 'JetBrains Mono, monospace',
-    fontWeight: selected ? '600' : '400'
+    fontWeight: selected ? '600' : '400',
   });
 
   const zoneButtonStyle = (selected) => ({
@@ -104,7 +101,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
     fontSize: '12px',
     cursor: 'pointer',
     fontFamily: 'JetBrains Mono, monospace',
-    fontWeight: selected ? '600' : '400'
+    fontWeight: selected ? '600' : '400',
   });
 
   const addToWatchlist = () => {
@@ -126,7 +123,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
       setNewDXExcludeCall('');
     }
   };
-  
+
   const addToDEExcludeCalls = () => {
     if (newDEExcludeCall.trim()) {
       const current = filters?.excludeDECallList || [];
@@ -135,7 +132,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
       }
       setNewDEExcludeCall('');
     }
-  };  
+  };
 
   const renderZonesTab = () => (
     <div>
@@ -148,7 +145,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
           Shows spots FROM these continents reporting DX OUTSIDE these continents
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-          {continents.map(c => (
+          {continents.map((c) => (
             <button
               key={c.code}
               onClick={() => toggleArrayItem('continents', c.code)}
@@ -163,14 +160,43 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
       {/* CQ Zones */}
       <div style={{ marginBottom: '20px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Spotter (DE) CQ Zones</span>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
+            Spotter (DE) CQ Zones
+          </span>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button onClick={() => selectAll('cqZones', Array.from({length: 40}, (_, i) => i + 1))} style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '12px', cursor: 'pointer' }}>Select All</button>
-            <button onClick={() => clearFilter('cqZones')} style={{ background: 'none', border: 'none', color: 'var(--accent-red)', fontSize: '12px', cursor: 'pointer' }}>Clear</button>
+            <button
+              onClick={() =>
+                selectAll(
+                  'cqZones',
+                  Array.from({ length: 40 }, (_, i) => i + 1),
+                )
+              }
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-cyan)',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              Select All
+            </button>
+            <button
+              onClick={() => clearFilter('cqZones')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-red)',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              Clear
+            </button>
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: '4px' }}>
-          {Array.from({ length: 40 }, (_, i) => i + 1).map(zone => (
+          {Array.from({ length: 40 }, (_, i) => i + 1).map((zone) => (
             <button
               key={zone}
               onClick={() => toggleArrayItem('cqZones', zone)}
@@ -185,14 +211,43 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
       {/* ITU Zones */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-          <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Spotter (DE) ITU Zones</span>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
+            Spotter (DE) ITU Zones
+          </span>
           <div style={{ display: 'flex', gap: '12px' }}>
-            <button onClick={() => selectAll('ituZones', Array.from({length: 90}, (_, i) => i + 1))} style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '12px', cursor: 'pointer' }}>Select All</button>
-            <button onClick={() => clearFilter('ituZones')} style={{ background: 'none', border: 'none', color: 'var(--accent-red)', fontSize: '12px', cursor: 'pointer' }}>Clear</button>
+            <button
+              onClick={() =>
+                selectAll(
+                  'ituZones',
+                  Array.from({ length: 90 }, (_, i) => i + 1),
+                )
+              }
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-cyan)',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              Select All
+            </button>
+            <button
+              onClick={() => clearFilter('ituZones')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-red)',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              Clear
+            </button>
           </div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: '4px' }}>
-          {Array.from({ length: 90 }, (_, i) => i + 1).map(zone => (
+          {Array.from({ length: 90 }, (_, i) => i + 1).map((zone) => (
             <button
               key={zone}
               onClick={() => toggleArrayItem('ituZones', zone)}
@@ -209,14 +264,38 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
   const renderBandsTab = () => (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Include HF/VHF/UHF Bands</span>
+        <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
+          Include HF/VHF/UHF Bands
+        </span>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button onClick={() => selectAll('bands', bands)} style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '12px', cursor: 'pointer' }}>Select All</button>
-          <button onClick={() => clearFilter('bands')} style={{ background: 'none', border: 'none', color: 'var(--accent-red)', fontSize: '12px', cursor: 'pointer' }}>Clear</button>
+          <button
+            onClick={() => selectAll('bands', bands)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--accent-cyan)',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            Select All
+          </button>
+          <button
+            onClick={() => clearFilter('bands')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--accent-red)',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            Clear
+          </button>
         </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {bands.map(band => (
+        {bands.map((band) => (
           <button
             key={band}
             onClick={() => toggleArrayItem('bands', band)}
@@ -232,14 +311,38 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
   const renderModesTab = () => (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-        <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Include Operating Modes</span>
+        <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
+          Include Operating Modes
+        </span>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <button onClick={() => selectAll('modes', modes)} style={{ background: 'none', border: 'none', color: 'var(--accent-cyan)', fontSize: '12px', cursor: 'pointer' }}>Select All</button>
-          <button onClick={() => clearFilter('modes')} style={{ background: 'none', border: 'none', color: 'var(--accent-red)', fontSize: '12px', cursor: 'pointer' }}>Clear</button>
+          <button
+            onClick={() => selectAll('modes', modes)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--accent-cyan)',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            Select All
+          </button>
+          <button
+            onClick={() => clearFilter('modes')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--accent-red)',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+          >
+            Clear
+          </button>
         </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {modes.map(mode => (
+        {modes.map((mode) => (
           <button
             key={mode}
             onClick={() => toggleArrayItem('modes', mode)}
@@ -273,22 +376,56 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
               borderRadius: '4px',
               color: 'var(--text-primary)',
               fontSize: '13px',
-              fontFamily: 'JetBrains Mono'
+              fontFamily: 'JetBrains Mono',
             }}
           />
-          <button onClick={addToWatchlist} style={{ padding: '8px 16px', background: 'var(--accent-cyan)', border: 'none', borderRadius: '4px', color: '#000', fontWeight: '600', cursor: 'pointer' }}>Add</button>
+          <button
+            onClick={addToWatchlist}
+            style={{
+              padding: '8px 16px',
+              background: 'var(--accent-cyan)',
+              border: 'none',
+              borderRadius: '4px',
+              color: '#000',
+              fontWeight: '600',
+              cursor: 'pointer',
+            }}
+          >
+            Add
+          </button>
         </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {(filters?.watchlist || []).map(call => (
+        {(filters?.watchlist || []).map((call) => (
           <div key={call} style={{ ...chipStyle(true), display: 'flex', alignItems: 'center', gap: '8px' }}>
             {call}
-            <button onClick={() => toggleArrayItem('watchlist', call)} style={{ background: 'none', border: 'none', color: 'var(--accent-red)', cursor: 'pointer', padding: 0, fontSize: '14px' }}>×</button>
+            <button
+              onClick={() => toggleArrayItem('watchlist', call)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-red)',
+                cursor: 'pointer',
+                padding: 0,
+                fontSize: '14px',
+              }}
+            >
+              ×
+            </button>
           </div>
         ))}
       </div>
       <div style={{ marginTop: '16px' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-secondary)', fontSize: '12px', cursor: 'pointer' }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: 'var(--text-secondary)',
+            fontSize: '12px',
+            cursor: 'pointer',
+          }}
+        >
           <input
             type="checkbox"
             checked={filters?.watchlistOnly || false}
@@ -300,261 +437,319 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
     </div>
   );
 
-
-const renderExcludeTab = () => (
+  const renderExcludeTab = () => (
     <div>
-        {/* Exclude DX (spot) Continents */}
-        <div style={{marginBottom: '20px'}}>
-            <div style={{fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '10px'}}>
-                Exclude Spots (DX) by Continent
-            </div>
-            <div style={{display: 'flex', flexWrap: 'wrap', gap: '8px'}}>
-                {continents.map(c => (
-                    <button
-                        key={c.code}
-                        onClick={() => toggleArrayItem('excludeContinents', c.code)}
-                        style={chipStyle(filters?.excludeContinents?.includes(c.code))}
-                    >
-                        {c.code} - {c.name}
-                    </button>
-                ))}
-            </div>
+      {/* Exclude DX (spot) Continents */}
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '10px' }}>
+          Exclude Spots (DX) by Continent
         </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {continents.map((c) => (
+            <button
+              key={c.code}
+              onClick={() => toggleArrayItem('excludeContinents', c.code)}
+              style={chipStyle(filters?.excludeContinents?.includes(c.code))}
+            >
+              {c.code} - {c.name}
+            </button>
+          ))}
+        </div>
+      </div>
 
+      {/* Exclude DX (spot) CQ Zones */}
+      <div style={{ marginBottom: '20px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '10px',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '13px',
+              fontWeight: '600',
+              color: 'var(--text-primary)',
+            }}
+          >
+            Exclude Spots (DX) by CQ Zone
+          </span>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() =>
+                selectAll(
+                  'excludeCqZones',
+                  Array.from({ length: 40 }, (_, i) => i + 1),
+                )
+              }
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-cyan)',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              Select All
+            </button>
+            <button
+              onClick={() => clearFilter('excludeCqZones')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-red)',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: '4px' }}>
+          {Array.from({ length: 40 }, (_, i) => i + 1).map((zone) => (
+            <button
+              key={zone}
+              onClick={() => toggleArrayItem('excludeCqZones', zone)}
+              style={zoneButtonStyle(filters?.excludeCqZones?.includes(zone))}
+            >
+              {zone}
+            </button>
+          ))}
+        </div>
+      </div>
 
-        {/* Exclude DX (spot) CQ Zones */}
-        <div style={{marginBottom: '20px'}}>
-            <div style={{
+      {/* Exclude DX (spot) ITU Zones */}
+      <div style={{ marginBottom: '20px' }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '10px',
+          }}
+        >
+          <span
+            style={{
+              fontSize: '13px',
+              fontWeight: '600',
+              color: 'var(--text-primary)',
+            }}
+          >
+            Exclude Spots (DX) by ITU Zone
+          </span>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              onClick={() =>
+                selectAll(
+                  'excludeItuZones',
+                  Array.from({ length: 90 }, (_, i) => i + 1),
+                )
+              }
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-cyan)',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              Select All
+            </button>
+            <button
+              onClick={() => clearFilter('excludeItuZones')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--accent-red)',
+                fontSize: '12px',
+                cursor: 'pointer',
+              }}
+            >
+              Clear
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: '4px' }}>
+          {Array.from({ length: 90 }, (_, i) => i + 1).map((zone) => (
+            <button
+              key={zone}
+              onClick={() => toggleArrayItem('excludeItuZones', zone)}
+              style={zoneButtonStyle(filters?.excludeItuZones?.includes(zone))}
+            >
+              {zone}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Exclude DX (spot) callsigns */}
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <div
+            style={{
+              fontSize: '13px',
+              fontWeight: '600',
+              color: 'var(--text-primary)',
+              marginBottom: '8px',
+            }}
+          >
+            Exclude Spot (DX) Callsigns - Hide callsigns beginning with:
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              value={newDXExcludeCall}
+              onChange={(e) => setNewDXExcludeCall(e.target.value.toUpperCase())}
+              onKeyPress={(e) => e.key === 'Enter' && addToDXExcludeCalls()}
+              placeholder="Enter callsign..."
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                color: 'var(--text-primary)',
+                fontSize: '13px',
+                fontFamily: 'JetBrains Mono',
+              }}
+            />
+            <button
+              onClick={addToDXExcludeCalls}
+              style={{
+                padding: '8px 16px',
+                background: 'var(--accent-red)',
+                border: 'none',
+                borderRadius: '4px',
+                color: '#fff',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {(filters?.excludeDXCallList || []).map((call) => (
+            <div
+              key={call}
+              style={{
+                ...chipStyle(false),
+                background: 'rgba(255, 68, 68, 0.2)',
+                borderColor: 'var(--accent-red)',
+                color: 'var(--accent-red)',
                 display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '10px'
-            }}>
-                <span style={{
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    color: 'var(--text-primary)'
-                }}>Exclude Spots (DX) by CQ Zone</span>
-                <div style={{display: 'flex', gap: '12px'}}>
-                    <button onClick={() => selectAll('excludeCqZones', Array.from({length: 40}, (_, i) => i + 1))} style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--accent-cyan)',
-                        fontSize: '12px',
-                        cursor: 'pointer'
-                    }}>Select All
-                    </button>
-                    <button onClick={() => clearFilter('excludeCqZones')} style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--accent-red)',
-                        fontSize: '12px',
-                        cursor: 'pointer'
-                    }}>Clear
-                    </button>
-                </div>
+                gap: '8px',
+              }}
+            >
+              {call}
+              <button
+                onClick={() => toggleArrayItem('excludeDXCallList', call)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-red)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontSize: '14px',
+                }}
+              >
+                ×
+              </button>
             </div>
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: '4px'}}>
-                {Array.from({length: 40}, (_, i) => i + 1).map(zone => (
-                    <button
-                        key={zone}
-                        onClick={() => toggleArrayItem('excludeCqZones', zone)}
-                        style={zoneButtonStyle(filters?.excludeCqZones?.includes(zone))}
-                    >
-                        {zone}
-                    </button>
-                ))}
-            </div>
+          ))}
         </div>
+      </div>
 
-        {/* Exclude DX (spot) ITU Zones */}
-        <div style={{marginBottom: '20px'}}>
-            <div style={{
+      {/* Exclude DE (spotter) callsigns */}
+      <div>
+        <div style={{ marginBottom: '16px' }}>
+          <div
+            style={{
+              fontSize: '13px',
+              fontWeight: '600',
+              color: 'var(--text-primary)',
+              marginBottom: '8px',
+            }}
+          >
+            Exclude Spotter (DE) Callsigns - Hide callsigns beginning with:
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <input
+              type="text"
+              value={newDEExcludeCall}
+              onChange={(e) => setNewDEExcludeCall(e.target.value.toUpperCase())}
+              onKeyPress={(e) => e.key === 'Enter' && addToDEExcludeCalls()}
+              placeholder="Enter callsign..."
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                color: 'var(--text-primary)',
+                fontSize: '13px',
+                fontFamily: 'JetBrains Mono',
+              }}
+            />
+            <button
+              onClick={addToDEExcludeCalls}
+              style={{
+                padding: '8px 16px',
+                background: 'var(--accent-red)',
+                border: 'none',
+                borderRadius: '4px',
+                color: '#fff',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+            >
+              Add
+            </button>
+          </div>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+          {(filters?.excludeDECallList || []).map((call) => (
+            <div
+              key={call}
+              style={{
+                ...chipStyle(false),
+                background: 'rgba(255, 68, 68, 0.2)',
+                borderColor: 'var(--accent-red)',
+                color: 'var(--accent-red)',
                 display: 'flex',
-                justifyContent: 'space-between',
                 alignItems: 'center',
-                marginBottom: '10px'
-            }}>
-                <span style={{
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    color: 'var(--text-primary)'
-                }}>Exclude Spots (DX) by ITU Zone</span>
-                <div style={{display: 'flex', gap: '12px'}}>
-                    <button onClick={() => selectAll('excludeItuZones', Array.from({length: 90}, (_, i) => i + 1))}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--accent-cyan)',
-                                fontSize: '12px',
-                                cursor: 'pointer'
-                            }}>Select All
-                    </button>
-                    <button onClick={() => clearFilter('excludeItuZones')} style={{
-                        background: 'none',
-                        border: 'none',
-                        color: 'var(--accent-red)',
-                        fontSize: '12px',
-                        cursor: 'pointer'
-                    }}>Clear
-                    </button>
-                </div>
+                gap: '8px',
+              }}
+            >
+              {call}
+              <button
+                onClick={() => toggleArrayItem('excludeDECallList', call)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--accent-red)',
+                  cursor: 'pointer',
+                  padding: 0,
+                  fontSize: '14px',
+                }}
+              >
+                ×
+              </button>
             </div>
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(15, 1fr)', gap: '4px'}}>
-                {Array.from({length: 90}, (_, i) => i + 1).map(zone => (
-                    <button
-                        key={zone}
-                        onClick={() => toggleArrayItem('excludeItuZones', zone)}
-                        style={zoneButtonStyle(filters?.excludeItuZones?.includes(zone))}
-                    >
-                        {zone}
-                    </button>
-                ))}
-            </div>
+          ))}
         </div>
-
-        {/* Exclude DX (spot) callsigns */}
-        <div style={{marginBottom: '20px'}}>
-            <div style={{marginBottom: '16px'}}>
-                <div style={{
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    color: 'var(--text-primary)',
-                    marginBottom: '8px'
-                }}>
-                    Exclude Spot (DX) Callsigns - Hide callsigns beginning with:
-                </div>
-                <div style={{display: 'flex', gap: '8px'}}>
-                    <input
-                        type="text"
-                        value={newDXExcludeCall}
-                        onChange={(e) => setNewDXExcludeCall(e.target.value.toUpperCase())}
-                        onKeyPress={(e) => e.key === 'Enter' && addToDXExcludeCalls()}
-                        placeholder="Enter callsign..."
-                        style={{
-                            flex: 1,
-                            padding: '8px 12px',
-                            background: 'var(--bg-tertiary)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '4px',
-                            color: 'var(--text-primary)',
-                            fontSize: '13px',
-                            fontFamily: 'JetBrains Mono'
-                        }}
-                    />
-                    <button onClick={addToDXExcludeCalls} style={{
-                        padding: '8px 16px',
-                        background: 'var(--accent-red)',
-                        border: 'none',
-                        borderRadius: '4px',
-                        color: '#fff',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                    }}>Add
-                    </button>
-                </div>
-            </div>
-            <div style={{display: 'flex', flexWrap: 'wrap', gap: '8px'}}>
-                {(filters?.excludeDXCallList || []).map(call => (
-                    <div key={call} style={{
-                        ...chipStyle(false),
-                        background: 'rgba(255, 68, 68, 0.2)',
-                        borderColor: 'var(--accent-red)',
-                        color: 'var(--accent-red)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        {call}
-                        <button onClick={() => toggleArrayItem('excludeDXCallList', call)}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--accent-red)',
-                                cursor: 'pointer',
-                                padding: 0,
-                                fontSize: '14px'
-                            }}>×
-                        </button>
-                    </div>
-                ))}
-            </div>
-        </div>
-
-        {/* Exclude DE (spotter) callsigns */}
-        <div>
-            <div style={{marginBottom: '16px'}}>
-                <div style={{
-                    fontSize: '13px',
-                    fontWeight: '600',
-                    color: 'var(--text-primary)',
-                    marginBottom: '8px'
-                }}>
-                    Exclude Spotter (DE) Callsigns - Hide callsigns beginning with:
-                </div>
-                <div style={{display: 'flex', gap: '8px'}}>
-                    <input
-                        type="text"
-                        value={newDEExcludeCall}
-                        onChange={(e) => setNewDEExcludeCall(e.target.value.toUpperCase())}
-                        onKeyPress={(e) => e.key === 'Enter' && addToDEExcludeCalls()}
-                        placeholder="Enter callsign..."
-                        style={{
-                            flex: 1,
-                            padding: '8px 12px',
-                            background: 'var(--bg-tertiary)',
-                            border: '1px solid var(--border-color)',
-                            borderRadius: '4px',
-                            color: 'var(--text-primary)',
-                            fontSize: '13px',
-                            fontFamily: 'JetBrains Mono'
-                        }}
-                    />
-                    <button onClick={addToDEExcludeCalls} style={{
-                        padding: '8px 16px',
-                        background: 'var(--accent-red)',
-                        border: 'none',
-                        borderRadius: '4px',
-                        color: '#fff',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                    }}>Add
-                    </button>
-                </div>
-            </div>
-            <div style={{display: 'flex', flexWrap: 'wrap', gap: '8px'}}>
-                {(filters?.excludeDECallList || []).map(call => (
-                    <div key={call} style={{
-                        ...chipStyle(false),
-                        background: 'rgba(255, 68, 68, 0.2)',
-                        borderColor: 'var(--accent-red)',
-                        color: 'var(--accent-red)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                    }}>
-                        {call}
-                        <button onClick={() => toggleArrayItem('excludeDECallList', call)}
-                            style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--accent-red)',
-                                cursor: 'pointer',
-                                padding: 0,
-                                fontSize: '14px'
-                            }}>×
-                        </button>
-                    </div>
-                ))}
-            </div>
-        </div>
+      </div>
     </div>
-);
-
+  );
 
   const renderSettingsTab = () => {
     const retentionMinutes = filters?.spotRetentionMinutes || 30;
-    
+
     return (
       <div>
         <div style={{ marginBottom: '24px' }}>
@@ -574,21 +769,31 @@ const renderExcludeTab = () => (
               onChange={(e) => onFilterChange({ ...filters, spotRetentionMinutes: parseInt(e.target.value) })}
               style={{ flex: 1, cursor: 'pointer' }}
             />
-            <div style={{ 
-              minWidth: '80px', 
-              textAlign: 'center',
-              padding: '8px 12px',
-              background: 'var(--bg-tertiary)',
-              borderRadius: '4px',
-              fontFamily: 'JetBrains Mono',
-              fontSize: '14px',
-              fontWeight: '600',
-              color: 'var(--accent-cyan)'
-            }}>
+            <div
+              style={{
+                minWidth: '80px',
+                textAlign: 'center',
+                padding: '8px 12px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '4px',
+                fontFamily: 'JetBrains Mono',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: 'var(--accent-cyan)',
+              }}
+            >
               {retentionMinutes} min
             </div>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '8px', fontSize: '11px', color: 'var(--text-muted)' }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginTop: '8px',
+              fontSize: '11px',
+              color: 'var(--text-muted)',
+            }}
+          >
             <span>5 min (freshest)</span>
             <span>30 min (default)</span>
           </div>
@@ -599,7 +804,7 @@ const renderExcludeTab = () => (
             Quick Presets
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
-            {[5, 10, 15, 20, 30].map(mins => (
+            {[5, 10, 15, 20, 30].map((mins) => (
               <button
                 key={mins}
                 onClick={() => onFilterChange({ ...filters, spotRetentionMinutes: mins })}
@@ -611,7 +816,7 @@ const renderExcludeTab = () => (
                   color: retentionMinutes === mins ? 'var(--accent-cyan)' : 'var(--text-secondary)',
                   fontSize: '13px',
                   cursor: 'pointer',
-                  fontFamily: 'JetBrains Mono'
+                  fontFamily: 'JetBrains Mono',
                 }}
               >
                 {mins} min
@@ -624,39 +829,43 @@ const renderExcludeTab = () => (
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.8)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 10000
-    }}>
-      <div style={{
-        background: 'var(--bg-secondary)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '12px',
-        width: '700px',
-        maxHeight: '95vh',
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.8)',
         display: 'flex',
-        flexDirection: 'column'
-      }}>
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 10000,
+      }}
+    >
+      <div
+        style={{
+          background: 'var(--bg-secondary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '12px',
+          width: '700px',
+          maxHeight: '95vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         {/* Header */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          padding: '16px 20px',
-          borderBottom: '1px solid var(--border-color)'
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '16px 20px',
+            borderBottom: '1px solid var(--border-color)',
+          }}
+        >
           <div>
-            <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--accent-cyan)' }}>
-              ⊘ DX Cluster Filters
-            </div>
+            <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--accent-cyan)' }}>⊘ DX Cluster Filters</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
               {getActiveFilterCount()} filters active
             </div>
@@ -671,7 +880,7 @@ const renderExcludeTab = () => (
                 borderRadius: '6px',
                 color: 'var(--accent-red)',
                 fontSize: '13px',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               Clear All
@@ -686,7 +895,7 @@ const renderExcludeTab = () => (
                 color: 'var(--text-primary)',
                 fontSize: '13px',
                 fontWeight: '600',
-                cursor: 'pointer'
+                cursor: 'pointer',
               }}
             >
               Done
@@ -696,12 +905,24 @@ const renderExcludeTab = () => (
 
         {/* Tabs */}
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
-          <button onClick={() => setActiveTab('zones')} style={tabStyle(activeTab === 'zones')}>Zones</button>
-          <button onClick={() => setActiveTab('bands')} style={tabStyle(activeTab === 'bands')}>Bands</button>
-          <button onClick={() => setActiveTab('modes')} style={tabStyle(activeTab === 'modes')}>Modes</button>
-          <button onClick={() => setActiveTab('watchlist')} style={tabStyle(activeTab === 'watchlist')}>Watchlist</button>
-          <button onClick={() => setActiveTab('exclude')} style={tabStyle(activeTab === 'exclude')}>Exclude</button>
-          <button onClick={() => setActiveTab('settings')} style={tabStyle(activeTab === 'settings')}>⊙ Settings</button>
+          <button onClick={() => setActiveTab('zones')} style={tabStyle(activeTab === 'zones')}>
+            Zones
+          </button>
+          <button onClick={() => setActiveTab('bands')} style={tabStyle(activeTab === 'bands')}>
+            Bands
+          </button>
+          <button onClick={() => setActiveTab('modes')} style={tabStyle(activeTab === 'modes')}>
+            Modes
+          </button>
+          <button onClick={() => setActiveTab('watchlist')} style={tabStyle(activeTab === 'watchlist')}>
+            Watchlist
+          </button>
+          <button onClick={() => setActiveTab('exclude')} style={tabStyle(activeTab === 'exclude')}>
+            Exclude
+          </button>
+          <button onClick={() => setActiveTab('settings')} style={tabStyle(activeTab === 'settings')}>
+            ⊙ Settings
+          </button>
         </div>
 
         {/* Tab Content */}

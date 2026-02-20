@@ -4,7 +4,7 @@
  * International weather: fetched directly from Open-Meteo by each user's browser
  *   — distributes rate limits across all users instead of concentrating on server.
  *   — optional API key support via localStorage ('ohc_openmeteo_apikey')
- * 
+ *
  * Always fetches in metric (Celsius, km/h, mm) and converts client-side.
  */
 import { useState, useEffect, useRef } from 'react';
@@ -38,7 +38,7 @@ const WEATHER_CODES = {
   86: { desc: 'Heavy snow showers', icon: '❄️' },
   95: { desc: 'Thunderstorm', icon: '⛈️' },
   96: { desc: 'Thunderstorm w/ slight hail', icon: '⛈️' },
-  99: { desc: 'Thunderstorm w/ heavy hail', icon: '⛈️' }
+  99: { desc: 'Thunderstorm w/ heavy hail', icon: '⛈️' },
 };
 
 // Wind direction from degrees
@@ -63,7 +63,7 @@ function normalizeLat(lat) {
 }
 
 // Conversion helpers — always from Celsius/metric base
-const cToF = (c) => c * 9 / 5 + 32;
+const cToF = (c) => (c * 9) / 5 + 32;
 const kmhToMph = (k) => k * 0.621371;
 const mmToInch = (mm) => mm * 0.0393701;
 const kmToMi = (km) => km * 0.621371;
@@ -82,8 +82,8 @@ export function convertWeatherData(rawData, tempUnit = 'F') {
   const code = current.weather_code;
   const weather = WEATHER_CODES[code] || { desc: 'Unknown', icon: '🌡️' };
 
-  const convTemp = (c) => c == null ? null : Math.round(isMetric ? c : cToF(c));
-  const convWind = (k) => k == null ? null : Math.round(isMetric ? k : kmhToMph(k));
+  const convTemp = (c) => (c == null ? null : Math.round(isMetric ? c : cToF(c)));
+  const convWind = (k) => (k == null ? null : Math.round(isMetric ? k : kmhToMph(k)));
 
   // Build hourly forecast (next 24h in 3h intervals)
   const hourlyForecast = [];
@@ -112,7 +112,7 @@ export function convertWeatherData(rawData, tempUnit = 'F') {
         low: convTemp(daily.temperature_2m_min?.[i]),
         precipProb: daily.precipitation_probability_max?.[i] || 0,
         precipSum: isMetric
-          ? (daily.precipitation_sum?.[i] || 0)
+          ? daily.precipitation_sum?.[i] || 0
           : parseFloat(mmToInch(daily.precipitation_sum?.[i] || 0).toFixed(2)),
         icon: dWeather.icon,
         desc: dWeather.desc,
@@ -137,9 +137,7 @@ export function convertWeatherData(rawData, tempUnit = 'F') {
     windDir: windDirection(current.wind_direction_10m),
     windDirDeg: current.wind_direction_10m || 0,
     windGusts: convWind(current.wind_gusts_10m),
-    precipitation: isMetric
-      ? (current.precipitation || 0)
-      : parseFloat(mmToInch(current.precipitation || 0).toFixed(2)),
+    precipitation: isMetric ? current.precipitation || 0 : parseFloat(mmToInch(current.precipitation || 0).toFixed(2)),
     uvIndex: current.uv_index || 0,
     visibility: current.visibility
       ? isMetric
@@ -169,7 +167,9 @@ const POLL_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours — matches server cache TT
 // Each user's browser makes its own request — rate limits are per-IP, not per-server
 async function fetchOpenMeteoDirect(lat, lon) {
   let apiKey = '';
-  try { apiKey = localStorage.getItem('ohc_openmeteo_apikey') || ''; } catch {}
+  try {
+    apiKey = localStorage.getItem('ohc_openmeteo_apikey') || '';
+  } catch {}
 
   const params = [
     `latitude=${lat}`,
@@ -224,7 +224,7 @@ export const useWeather = (location, tempUnit = 'F') => {
         retryCountRef.current++;
         setError({
           message: err.message === 'Rate limited' ? 'Weather service busy' : 'Weather unavailable',
-          retryIn: Math.round(delay / 1000)
+          retryIn: Math.round(delay / 1000),
         });
         retryRef.current = setTimeout(fetchWeather, delay);
       } finally {

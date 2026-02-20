@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
  * Build helper — creates a standalone executable for the current platform.
- * 
+ *
  * Usage:
  *   node build.js              Build for current OS
  *   node build.js --all        Build for all platforms (from GitHub Actions)
- * 
+ *
  * Requires: npm install (serialport must be installed first)
  * Uses: @yao-pkg/pkg (auto-downloaded via npx)
  */

@@ -55,7 +55,9 @@ export default function useVersionCheck() {
       clearTimeout(initialTimer);
       if (timer) clearInterval(timer);
       if (toastRef.current) {
-        try { document.body.removeChild(toastRef.current); } catch {}
+        try {
+          document.body.removeChild(toastRef.current);
+        } catch {}
       }
     };
   }, []);
@@ -63,7 +65,9 @@ export default function useVersionCheck() {
   function showUpdateToast(oldVer, newVer) {
     // Remove existing toast if any
     if (toastRef.current) {
-      try { document.body.removeChild(toastRef.current); } catch {}
+      try {
+        document.body.removeChild(toastRef.current);
+      } catch {}
     }
 
     const toast = document.createElement('div');

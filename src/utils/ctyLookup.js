@@ -17,7 +17,7 @@
 import { apiFetch } from './apiFetch';
 
 let prefixes = null; // { PREFIX: { entity, dxcc, cq, itu, cont, lat, lon } }
-let exact = null;    // { CALLSIGN: { ... } }
+let exact = null; // { CALLSIGN: { ... } }
 let loaded = false;
 let loading = false;
 
@@ -74,14 +74,27 @@ export function ctyLookup(call) {
     const parts = upper.split('/');
     const suffixes = ['P', 'M', 'MM', 'AM', 'QRP', 'A', 'B', 'LH', 'R'];
     if (parts.length === 2) {
-      if (suffixes.includes(parts[1]) || /^\d$/.test(parts[1])) {
-        lookupBase = parts[0];
-      } else if (parts[0].length <= 4 && parts[1].length > 4) {
-        lookupBase = parts[0]; // prefix/call: DL/W1ABC → DL
-      } else if (parts[1].length <= 4 && parts[0].length > 4) {
-        lookupBase = parts[1]; // call/prefix: W1ABC/DL → DL
+      const [left, right] = parts;
+
+      // Modifier or single-digit district → entity is the callsign part
+      if (suffixes.includes(right) || /^\d$/.test(right)) {
+        lookupBase = left;
       } else {
-        lookupBase = parts[0];
+        // Identify the operating entity prefix vs the home callsign.
+        // A full callsign ends with letters after a digit: W9WI, OZ6ABL, AA7BQ.
+        // A DXCC prefix ends with a digit (PJ2, 5Z4) or is pure letters (DL, VK).
+        // The entity to look up is the part that is NOT a full callsign.
+        const isFullCall = (s) => /^[A-Z]{1,3}\d{1,4}[A-Z]{1,4}$/.test(s);
+        const leftFull = isFullCall(left);
+        const rightFull = isFullCall(right);
+
+        if (rightFull && !leftFull) {
+          lookupBase = left; // PJ2/W9WI → PJ2, DL/W1ABC → DL
+        } else if (leftFull && !rightFull) {
+          lookupBase = right; // W1ABC/DL → DL
+        } else {
+          lookupBase = left; // default: use left part
+        }
       }
     }
   }

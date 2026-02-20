@@ -23,9 +23,9 @@ export const usePropagation = (deLocation, dxLocation, propagationConfig = {}) =
           dxLat: dxLocation.lat,
           dxLon: dxLocation.lon,
           mode,
-          power
+          power,
         });
-        
+
         const response = await fetch(`/api/propagation?${params}`);
         if (response.ok) {
           const result = await response.json();

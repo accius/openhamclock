@@ -8,7 +8,9 @@ export default function useSatellitesFilters(satellitesData) {
     try {
       const saved = localStorage.getItem('openhamclock_satelliteFilters');
       return saved ? JSON.parse(saved) : [];
-    } catch (e) { return []; }
+    } catch (e) {
+      return [];
+    }
   });
 
   useEffect(() => {
@@ -22,13 +24,13 @@ export default function useSatellitesFilters(satellitesData) {
     // If no satellites are selected in the filter, show NONE (empty array)
     // Only show satellites that are explicitly selected
     return satelliteFilters.length > 0
-      ? (satellitesData || []).filter(sat => satelliteFilters.includes(sat.name))
+      ? (satellitesData || []).filter((sat) => satelliteFilters.includes(sat.name))
       : [];
   }, [satelliteFilters, satellitesData]);
 
   return {
     satelliteFilters,
     setSatelliteFilters,
-    filteredSatellites
+    filteredSatellites,
   };
 }

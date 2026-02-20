@@ -22,12 +22,12 @@ export const calculateGridSquare = (lat, lon) => {
  * Calculate bearing between two points
  */
 export const calculateBearing = (lat1, lon1, lat2, lon2) => {
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
   const y = Math.sin(Δλ) * Math.cos(φ2);
   const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  return ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360;
 };
 
 /**
@@ -35,12 +35,12 @@ export const calculateBearing = (lat1, lon1, lat2, lon2) => {
  */
 export const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371;
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(Δφ/2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
 /**
@@ -62,7 +62,7 @@ export const formatDistance = (km, units) => {
  */
 export const getSunPosition = (date) => {
   const dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
-  const declination = -23.45 * Math.cos((360/365) * (dayOfYear + 10) * Math.PI / 180);
+  const declination = -23.45 * Math.cos(((360 / 365) * (dayOfYear + 10) * Math.PI) / 180);
   const hours = date.getUTCHours() + date.getUTCMinutes() / 60;
   const longitude = (12 - hours) * 15;
   return { lat: declination, lon: longitude };
@@ -75,66 +75,70 @@ export const getMoonPosition = (date) => {
   // Julian date calculation
   const JD = date.getTime() / 86400000 + 2440587.5;
   const T = (JD - 2451545.0) / 36525; // Julian centuries from J2000
-  
+
   // Moon's mean longitude
   const L0 = (218.316 + 481267.8813 * T) % 360;
-  
+
   // Moon's mean anomaly
   const M = (134.963 + 477198.8676 * T) % 360;
-  const MRad = M * Math.PI / 180;
-  
+  const MRad = (M * Math.PI) / 180;
+
   // Moon's mean elongation
-  const D = (297.850 + 445267.1115 * T) % 360;
-  const DRad = D * Math.PI / 180;
-  
+  const D = (297.85 + 445267.1115 * T) % 360;
+  const DRad = (D * Math.PI) / 180;
+
   // Sun's mean anomaly
   const Ms = (357.529 + 35999.0503 * T) % 360;
-  const MsRad = Ms * Math.PI / 180;
-  
+  const MsRad = (Ms * Math.PI) / 180;
+
   // Moon's argument of latitude
   const F = (93.272 + 483202.0175 * T) % 360;
-  const FRad = F * Math.PI / 180;
-  
+  const FRad = (F * Math.PI) / 180;
+
   // Longitude corrections (simplified)
-  const dL = 6.289 * Math.sin(MRad)
-           + 1.274 * Math.sin(2 * DRad - MRad)
-           + 0.658 * Math.sin(2 * DRad)
-           + 0.214 * Math.sin(2 * MRad)
-           - 0.186 * Math.sin(MsRad)
-           - 0.114 * Math.sin(2 * FRad);
-  
+  const dL =
+    6.289 * Math.sin(MRad) +
+    1.274 * Math.sin(2 * DRad - MRad) +
+    0.658 * Math.sin(2 * DRad) +
+    0.214 * Math.sin(2 * MRad) -
+    0.186 * Math.sin(MsRad) -
+    0.114 * Math.sin(2 * FRad);
+
   // Moon's ecliptic longitude
-  const moonLon = ((L0 + dL) % 360 + 360) % 360;
-  
+  const moonLon = (((L0 + dL) % 360) + 360) % 360;
+
   // Moon's ecliptic latitude (simplified)
-  const moonLat = 5.128 * Math.sin(FRad)
-                + 0.281 * Math.sin(MRad + FRad)
-                + 0.278 * Math.sin(MRad - FRad);
-  
+  const moonLat = 5.128 * Math.sin(FRad) + 0.281 * Math.sin(MRad + FRad) + 0.278 * Math.sin(MRad - FRad);
+
   // Convert ecliptic to equatorial coordinates
   const obliquity = 23.439 - 0.0000004 * (JD - 2451545.0);
-  const oblRad = obliquity * Math.PI / 180;
-  const moonLonRad = moonLon * Math.PI / 180;
-  const moonLatRad = moonLat * Math.PI / 180;
-  
+  const oblRad = (obliquity * Math.PI) / 180;
+  const moonLonRad = (moonLon * Math.PI) / 180;
+  const moonLatRad = (moonLat * Math.PI) / 180;
+
   // Right ascension
-  const RA = Math.atan2(
-    Math.sin(moonLonRad) * Math.cos(oblRad) - Math.tan(moonLatRad) * Math.sin(oblRad),
-    Math.cos(moonLonRad)
-  ) * 180 / Math.PI;
-  
+  const RA =
+    (Math.atan2(
+      Math.sin(moonLonRad) * Math.cos(oblRad) - Math.tan(moonLatRad) * Math.sin(oblRad),
+      Math.cos(moonLonRad),
+    ) *
+      180) /
+    Math.PI;
+
   // Declination
-  const dec = Math.asin(
-    Math.sin(moonLatRad) * Math.cos(oblRad) + 
-    Math.cos(moonLatRad) * Math.sin(oblRad) * Math.sin(moonLonRad)
-  ) * 180 / Math.PI;
-  
+  const dec =
+    (Math.asin(
+      Math.sin(moonLatRad) * Math.cos(oblRad) + Math.cos(moonLatRad) * Math.sin(oblRad) * Math.sin(moonLonRad),
+    ) *
+      180) /
+    Math.PI;
+
   // Greenwich Mean Sidereal Time
   const GMST = (280.46061837 + 360.98564736629 * (JD - 2451545.0)) % 360;
-  
+
   // Sublunar point longitude
-  const sublunarLon = ((RA - GMST) % 360 + 540) % 360 - 180;
-  
+  const sublunarLon = ((((RA - GMST) % 360) + 540) % 360) - 180;
+
   return { lat: dec, lon: sublunarLon };
 };
 
@@ -144,7 +148,7 @@ export const getMoonPosition = (date) => {
 export const getMoonPhase = (date) => {
   const JD = date.getTime() / 86400000 + 2440587.5;
   const T = (JD - 2451545.0) / 36525;
-  const D = (297.850 + 445267.1115 * T) % 360; // Mean elongation: 0=new, 180=full
+  const D = (297.85 + 445267.1115 * T) % 360; // Mean elongation: 0=new, 180=full
   // Normalize to 0-1 range (0=new, 0.5=full)
   const phase = (((D % 360) + 360) % 360) / 360;
   return phase;
@@ -170,8 +174,8 @@ export const getMoonPhaseEmoji = (phase) => {
  * Uses NOAA solar calculator algorithm for accuracy
  */
 export const calculateSunTimes = (lat, lon, date) => {
-  const toRad = d => d * Math.PI / 180;
-  const toDeg = r => r * 180 / Math.PI;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const toDeg = (r) => (r * 180) / Math.PI;
 
   // Julian date calculation
   const year = date.getUTCFullYear();
@@ -181,7 +185,14 @@ export const calculateSunTimes = (lat, lon, date) => {
   const a = Math.floor((14 - month) / 12);
   const y = year + 4800 - a;
   const m = month + 12 * a - 3;
-  const jd = day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+  const jd =
+    day +
+    Math.floor((153 * m + 2) / 5) +
+    365 * y +
+    Math.floor(y / 4) -
+    Math.floor(y / 100) +
+    Math.floor(y / 400) -
+    32045;
 
   // Julian century from J2000.0
   const jc = (jd - 2451545) / 36525;
@@ -196,9 +207,10 @@ export const calculateSunTimes = (lat, lon, date) => {
   const e = 0.016708634 - jc * (0.000042037 + 0.0000001267 * jc);
 
   // Sun's equation of center
-  const C = Math.sin(toRad(M)) * (1.914602 - jc * (0.004817 + 0.000014 * jc))
-          + Math.sin(toRad(2 * M)) * (0.019993 - 0.000101 * jc)
-          + Math.sin(toRad(3 * M)) * 0.000289;
+  const C =
+    Math.sin(toRad(M)) * (1.914602 - jc * (0.004817 + 0.000014 * jc)) +
+    Math.sin(toRad(2 * M)) * (0.019993 - 0.000101 * jc) +
+    Math.sin(toRad(3 * M)) * 0.000289;
 
   // Sun's true longitude
   const sunLon = L0 + C;
@@ -216,13 +228,15 @@ export const calculateSunTimes = (lat, lon, date) => {
 
   // Equation of time (minutes)
   const y2 = Math.tan(toRad(obliq / 2)) ** 2;
-  const eqTime = 4 * toDeg(
-    y2 * Math.sin(2 * toRad(L0))
-    - 2 * e * Math.sin(toRad(M))
-    + 4 * e * y2 * Math.sin(toRad(M)) * Math.cos(2 * toRad(L0))
-    - 0.5 * y2 * y2 * Math.sin(4 * toRad(L0))
-    - 1.25 * e * e * Math.sin(2 * toRad(M))
-  );
+  const eqTime =
+    4 *
+    toDeg(
+      y2 * Math.sin(2 * toRad(L0)) -
+        2 * e * Math.sin(toRad(M)) +
+        4 * e * y2 * Math.sin(toRad(M)) * Math.cos(2 * toRad(L0)) -
+        0.5 * y2 * y2 * Math.sin(4 * toRad(L0)) -
+        1.25 * e * e * Math.sin(2 * toRad(M)),
+    );
 
   // Hour angle for sunrise/sunset (accounting for atmospheric refraction and sun's radius)
   // Standard altitude is -0.833 degrees (refraction + sun radius)
@@ -273,39 +287,43 @@ export const WORLD_COPY_OFFSETS = [-360, 0, 360];
  * Use replicatePath() to create copies for all visible world copies.
  */
 export const getGreatCirclePoints = (lat1, lon1, lat2, lon2, n = 100) => {
-  const toRad = d => d * Math.PI / 180;
-  const toDeg = r => r * 180 / Math.PI;
-  
-  const φ1 = toRad(lat1), λ1 = toRad(lon1);
-  const φ2 = toRad(lat2), λ2 = toRad(lon2);
-  
-  const d = 2 * Math.asin(Math.sqrt(
-    Math.sin((φ1-φ2)/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin((λ1-λ2)/2)**2
-  ));
-  
+  const toRad = (d) => (d * Math.PI) / 180;
+  const toDeg = (r) => (r * 180) / Math.PI;
+
+  const φ1 = toRad(lat1),
+    λ1 = toRad(lon1);
+  const φ2 = toRad(lat2),
+    λ2 = toRad(lon2);
+
+  const d =
+    2 * Math.asin(Math.sqrt(Math.sin((φ1 - φ2) / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin((λ1 - λ2) / 2) ** 2));
+
   // If distance is essentially zero, return just the two points
   if (d < 0.0001) {
-    return [[lat1, lon1], [lat2, lon2]];
+    return [
+      [lat1, lon1],
+      [lat2, lon2],
+    ];
   }
-  
+
   const rawPoints = [];
   for (let i = 0; i <= n; i++) {
     const f = i / n;
-    const A = Math.sin((1-f)*d) / Math.sin(d);
-    const B = Math.sin(f*d) / Math.sin(d);
-    const x = A*Math.cos(φ1)*Math.cos(λ1) + B*Math.cos(φ2)*Math.cos(λ2);
-    const y = A*Math.cos(φ1)*Math.sin(λ1) + B*Math.cos(φ2)*Math.sin(λ2);
-    const z = A*Math.sin(φ1) + B*Math.sin(φ2);
-    rawPoints.push([toDeg(Math.atan2(z, Math.sqrt(x*x+y*y))), toDeg(Math.atan2(y, x))]);
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+    const x = A * Math.cos(φ1) * Math.cos(λ1) + B * Math.cos(φ2) * Math.cos(λ2);
+    const y = A * Math.cos(φ1) * Math.sin(λ1) + B * Math.cos(φ2) * Math.sin(λ2);
+    const z = A * Math.sin(φ1) + B * Math.sin(φ2);
+    rawPoints.push([toDeg(Math.atan2(z, Math.sqrt(x * x + y * y))), toDeg(Math.atan2(y, x))]);
   }
-  
+
   // Unwrap longitudes to be continuous (no jumps > 180°)
   // This lets Leaflet draw smoothly across the antimeridian and world copies
   for (let i = 1; i < rawPoints.length; i++) {
-    while (rawPoints[i][1] - rawPoints[i-1][1] > 180) rawPoints[i][1] -= 360;
-    while (rawPoints[i][1] - rawPoints[i-1][1] < -180) rawPoints[i][1] += 360;
+    while (rawPoints[i][1] - rawPoints[i - 1][1] > 180) rawPoints[i][1] -= 360;
+    while (rawPoints[i][1] - rawPoints[i - 1][1] < -180) rawPoints[i][1] += 360;
   }
-  
+
   return rawPoints;
 };
 
@@ -319,15 +337,15 @@ export const replicatePath = (path) => {
   if (!path || path.length === 0) return [];
 
   const segments = [[]];
-  
+
   // 1. Detect Date Line jumps and split into separate line segments
   for (let i = 0; i < path.length; i++) {
     const current = path[i];
     const prev = path[i - 1];
-    
+
     // If the longitude jump is > 180 degrees, the satellite crossed the edge.
     if (prev && Math.abs(current[1] - prev[1]) > 180) {
-      segments.push([]); 
+      segments.push([]);
     }
     segments[segments.length - 1].push(current);
   }
@@ -336,11 +354,11 @@ export const replicatePath = (path) => {
   const wrappedWorlds = [];
   const offsets = [0, 360, -360];
 
-  segments.forEach(segment => {
+  segments.forEach((segment) => {
     if (segment.length < 2) return;
-    
-    offsets.forEach(offset => {
-      wrappedWorlds.push(segment.map(p => [p[0], p[1] + offset]));
+
+    offsets.forEach((offset) => {
+      wrappedWorlds.push(segment.map((p) => [p[0], p[1] + offset]));
     });
   });
 
@@ -353,7 +371,46 @@ export const replicatePath = (path) => {
  */
 export const replicatePoint = (lat, lon) => {
   const nLon = normalizeLon(lon);
-  return WORLD_COPY_OFFSETS.map(offset => [lat, nLon + offset]);
+  return WORLD_COPY_OFFSETS.map((offset) => [lat, nLon + offset]);
+};
+
+export const calculateSolarElevation = (lat, lon, date = new Date()) => {
+  if (lat == null || lon == null) return null;
+
+  const rad = Math.PI / 180;
+  const φ = lat * rad;
+
+  // Day of year (UTC)
+  const start = Date.UTC(date.getUTCFullYear(), 0, 0);
+  const diff = date.getTime() - start;
+  const day = Math.floor(diff / 86400000);
+
+  // Fractional UTC hour
+  const utcHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600;
+
+  // Approx solar declination (radians)
+  const δ = 23.44 * rad * Math.sin(((2 * Math.PI) / 365) * (day - 81));
+
+  // Local solar time approximation
+  const lst = utcHours + lon / 15;
+
+  // Hour angle (radians)
+  const H = 15 * (lst - 12) * rad;
+
+  // Solar elevation (radians)
+  const sinAlt = Math.sin(φ) * Math.sin(δ) + Math.cos(φ) * Math.cos(δ) * Math.cos(H);
+  const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+
+  return alt / rad; // degrees
+};
+
+export const classifyTwilight = (solarElevationDeg) => {
+  if (solarElevationDeg == null) return 'unknown';
+  if (solarElevationDeg > 0) return 'day';
+  if (solarElevationDeg > -6) return 'civil';
+  if (solarElevationDeg > -12) return 'nautical';
+  if (solarElevationDeg > -18) return 'astronomical';
+  return 'night';
 };
 
 export default {
@@ -369,5 +426,7 @@ export default {
   replicatePath,
   replicatePoint,
   normalizeLon,
-  WORLD_COPY_OFFSETS
+  calculateSolarElevation,
+  classifyTwilight,
+  WORLD_COPY_OFFSETS,
 };

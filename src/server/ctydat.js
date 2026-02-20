@@ -11,12 +11,16 @@
  *           continent/zone mapping, prefix-estimated coordinates.
  */
 let fetch;
-try { fetch = require('node-fetch'); } catch { fetch = globalThis.fetch; }
+try {
+  fetch = require('node-fetch');
+} catch {
+  fetch = globalThis.fetch;
+}
 
 const CTY_URL = 'https://www.country-files.com/bigcty/cty.dat';
 const REFRESH_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
-let ctyCache = null;   // { prefixes: {}, exact: {}, entities: [], timestamp }
+let ctyCache = null; // { prefixes: {}, exact: {}, entities: [], timestamp }
 let fetchTimer = null;
 
 /**
@@ -35,9 +39,9 @@ let fetchTimer = null;
  *   <nn/nn> — lat/lon override (rare)
  */
 function parseCtyDat(text) {
-  const prefixes = {};   // prefix string → entity info
-  const exact = {};      // exact callsign → entity info
-  const entities = [];   // list of all entities
+  const prefixes = {}; // prefix string → entity info
+  const exact = {}; // exact callsign → entity info
+  const entities = []; // list of all entities
 
   // Normalize line endings and split into entity blocks.
   // Each block starts at column 0 (header) and continues with
@@ -46,7 +50,7 @@ function parseCtyDat(text) {
 
   // Join continuation lines: alias lines are indented (start with space/tab)
   // Combine into blocks separated by semicolons
-  const blocks = raw.split(';').filter(b => b.trim());
+  const blocks = raw.split(';').filter((b) => b.trim());
 
   for (const block of blocks) {
     const lines = block.split('\n');
@@ -68,7 +72,7 @@ function parseCtyDat(text) {
     if (!headerLine) continue;
 
     // Parse header: split by colon
-    const parts = headerLine.split(':').map(s => s.trim());
+    const parts = headerLine.split(':').map((s) => s.trim());
     if (parts.length < 8) continue;
 
     const entityName = parts[0];
@@ -101,8 +105,8 @@ function parseCtyDat(text) {
     // Parse alias prefixes
     const aliasList = aliasText
       .split(',')
-      .map(s => s.trim())
-      .filter(s => s.length > 0);
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
 
     for (const alias of aliasList) {
       // Parse modifiers: (cq)[itu]{cont}<lat/lon>

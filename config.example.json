@@ -1,25 +1,25 @@
 {
   "_comment": "OpenHamClock User Configuration",
   "_instructions": "Copy this file to config.json and customize for your station. Your config.json will NOT be overwritten by git updates.",
-  
+
   "callsign": "N0CALL",
   "locator": "FN31",
-  
+
   "location": {
-    "lat": 40.0150,
+    "lat": 40.015,
     "lon": -105.2705
   },
-  
+
   "defaultDX": {
     "lat": 35.6762,
     "lon": 139.6503
   },
-  
+
   "units": "imperial",
   "timeFormat": "12",
   "theme": "dark",
   "layout": "modern",
-  
+
   "features": {
     "showPOTA": true,
     "showSatellites": true,
@@ -27,12 +27,12 @@
     "showContests": true,
     "showDXpeditions": true
   },
-  
+
   "dxCluster": {
     "spotRetentionMinutes": 30,
     "source": "auto"
   },
-  
+
   "refreshIntervals": {
     "spaceWeather": 300000,
     "bandConditions": 300000,

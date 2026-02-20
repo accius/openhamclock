@@ -2,12 +2,12 @@ import { useState, useEffect, useRef } from 'react';
 
 /**
  * MUF (Maximum Usable Frequency) Map Layer v1.0.0
- * 
+ *
  * Renders a real-time MUF heatmap across the world using ionosonde station
  * data from the KC2G/GIRO network. Station MUF(3000) readings are spatially
  * interpolated using Inverse Distance Weighting to produce a smooth
  * color-coded overlay showing current HF propagation conditions.
- * 
+ *
  * Color scale:
  *   ≤3 MHz  — dark purple  (no usable HF)
  *   5 MHz   — blue         (80m only)
@@ -16,7 +16,7 @@ import { useState, useEffect, useRef } from 'react';
  *   21 MHz  — yellow       (15m open)
  *   28 MHz  — orange       (10m open)
  *   ≥35 MHz — red/magenta  (6m / sporadic-E)
- * 
+ *
  * Data source: /api/ionosonde (server-proxied from prop.kc2g.com)
  * Update interval: 10 minutes
  */
@@ -29,7 +29,7 @@ export const metadata = {
   category: 'propagation',
   defaultEnabled: false,
   defaultOpacity: 0.4,
-  version: '1.0.0'
+  version: '1.0.0',
 };
 
 // ── Color scale: MUF frequency → RGBA ──────────────────────────────
@@ -45,39 +45,39 @@ function mufColor(mhz) {
   if (f < 5) {
     // 2–5 MHz: dark purple → blue
     const t = (f - 2) / 3;
-    r = Math.round(60 + t * (-10));   // 60 → 50
-    g = Math.round(0 + t * 40);       // 0 → 40
-    b = Math.round(120 + t * 95);     // 120 → 215
+    r = Math.round(60 + t * -10); // 60 → 50
+    g = Math.round(0 + t * 40); // 0 → 40
+    b = Math.round(120 + t * 95); // 120 → 215
   } else if (f < 10) {
     // 5–10 MHz: blue → cyan
     const t = (f - 5) / 5;
-    r = Math.round(50 * (1 - t));     // 50 → 0
-    g = Math.round(40 + t * 200);     // 40 → 240
-    b = Math.round(215 + t * 25);     // 215 → 240
+    r = Math.round(50 * (1 - t)); // 50 → 0
+    g = Math.round(40 + t * 200); // 40 → 240
+    b = Math.round(215 + t * 25); // 215 → 240
   } else if (f < 15) {
     // 10–15 MHz: cyan → green
     const t = (f - 10) / 5;
-    r = Math.round(0 + t * 30);       // 0 → 30
-    g = Math.round(240 - t * 20);     // 240 → 220
-    b = Math.round(240 * (1 - t));    // 240 → 0
+    r = Math.round(0 + t * 30); // 0 → 30
+    g = Math.round(240 - t * 20); // 240 → 220
+    b = Math.round(240 * (1 - t)); // 240 → 0
   } else if (f < 21) {
     // 15–21 MHz: green → yellow
     const t = (f - 15) / 6;
-    r = Math.round(30 + t * 225);     // 30 → 255
-    g = Math.round(220 + t * 35);     // 220 → 255
+    r = Math.round(30 + t * 225); // 30 → 255
+    g = Math.round(220 + t * 35); // 220 → 255
     b = 0;
   } else if (f < 28) {
     // 21–28 MHz: yellow → orange
     const t = (f - 21) / 7;
     r = 255;
-    g = Math.round(255 - t * 140);    // 255 → 115
+    g = Math.round(255 - t * 140); // 255 → 115
     b = 0;
   } else {
     // 28–40 MHz: orange → red-magenta
     const t = Math.min((f - 28) / 12, 1);
     r = 255;
-    g = Math.round(115 - t * 115);    // 115 → 0
-    b = Math.round(t * 80);           // 0 → 80
+    g = Math.round(115 - t * 115); // 115 → 0
+    b = Math.round(t * 80); // 0 → 80
   }
 
   return { r, g, b };
@@ -108,21 +108,21 @@ function haversine(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * 0.017453293;
   const dLon = (lon2 - lon1) * 0.017453293;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-            Math.cos(lat1 * 0.017453293) * Math.cos(lat2 * 0.017453293) *
-            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * 0.017453293) * Math.cos(lat2 * 0.017453293) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 // ── Build canvas overlay from station data ─────────────────────────
 // Creates equirectangular projection image -180..180 lon, -90..90 lat
-const GRID_W = 360;  // 1° per pixel longitude
-const GRID_H = 181;  // 1° per pixel latitude
+const GRID_W = 360; // 1° per pixel longitude
+const GRID_H = 181; // 1° per pixel latitude
 const CANVAS_SCALE = 2; // 2x upscale for smooth rendering
 
 function buildMUFCanvas(stations) {
   // Pre-filter valid stations
-  const valid = stations.filter(s => s.mufd > 0 && s.lat != null && s.lon != null);
+  const valid = stations.filter((s) => s.mufd > 0 && s.lat != null && s.lon != null);
   if (valid.length < 3) return null;
 
   const canvas = document.createElement('canvas');
@@ -149,7 +149,7 @@ function buildMUFCanvas(stations) {
       if (!color) continue;
 
       const idx = (y * GRID_W + x) * 4;
-      pixels[idx]     = color.r;
+      pixels[idx] = color.r;
       pixels[idx + 1] = color.g;
       pixels[idx + 2] = color.b;
       pixels[idx + 3] = 180; // Base alpha (opacity handled by Leaflet)
@@ -171,8 +171,20 @@ function buildMUFCanvas(stations) {
 }
 
 // ── Draggable + minimize helpers (shared with VOACAP) ──────────────
+// Registry so a second call for the same storageKey cancels the previous listeners.
+const _makeDraggableControllers = {};
+
 function makeDraggable(el, storageKey) {
   if (!el) return;
+
+  // Cancel any previous listener set for this storageKey (e.g. after layout change)
+  if (_makeDraggableControllers[storageKey]) {
+    _makeDraggableControllers[storageKey].abort();
+  }
+  const controller = new AbortController();
+  const signal = controller.signal;
+  _makeDraggableControllers[storageKey] = controller;
+
   const saved = localStorage.getItem(storageKey);
   if (saved) {
     try {
@@ -182,8 +194,8 @@ function makeDraggable(el, storageKey) {
         el.style.top = d.topPercent + '%';
         el.style.left = d.leftPercent + '%';
       } else {
-        el.style.top = ((d.top / window.innerHeight) * 100) + '%';
-        el.style.left = ((d.left / window.innerWidth) * 100) + '%';
+        el.style.top = (d.top / window.innerHeight) * 100 + '%';
+        el.style.left = (d.left / window.innerWidth) * 100 + '%';
       }
       el.style.right = 'auto';
       el.style.bottom = 'auto';
@@ -197,30 +209,70 @@ function makeDraggable(el, storageKey) {
     el.style.right = 'auto';
     el.style.bottom = 'auto';
   }
+
   el.title = 'Hold CTRL and drag to reposition';
-  let dragging = false, sx, sy, sl, st;
-  el.addEventListener('mouseenter', e => { el.style.cursor = e.ctrlKey ? 'grab' : 'default'; });
-  el.addEventListener('mousemove', e => { el.style.cursor = e.ctrlKey ? 'grab' : 'default'; });
-  el.addEventListener('mousedown', e => {
-    if (!e.ctrlKey) return;
-    dragging = true; sx = e.clientX; sy = e.clientY;
-    sl = parseInt(el.style.left) || 0; st = parseInt(el.style.top) || 0;
-    el.style.cursor = 'grabbing'; e.preventDefault(); e.stopPropagation();
-  });
-  document.addEventListener('mousemove', e => {
-    if (!dragging) return;
-    el.style.left = (sl + e.clientX - sx) + 'px';
-    el.style.top = (st + e.clientY - sy) + 'px';
-  });
-  document.addEventListener('mouseup', () => {
-    if (!dragging) return;
-    dragging = false; el.style.cursor = 'default';
-    localStorage.setItem(storageKey, JSON.stringify({
-      topPercent: (el.offsetTop / window.innerHeight) * 100,
-      leftPercent: (el.offsetLeft / window.innerWidth) * 100,
-      top: el.offsetTop, left: el.offsetLeft
-    }));
-  });
+  let dragging = false,
+    sx,
+    sy,
+    sl,
+    st;
+
+  el.addEventListener(
+    'mouseenter',
+    (e) => {
+      el.style.cursor = e.ctrlKey ? 'grab' : 'default';
+    },
+    { signal },
+  );
+  el.addEventListener(
+    'mousemove',
+    (e) => {
+      el.style.cursor = e.ctrlKey ? 'grab' : 'default';
+    },
+    { signal },
+  );
+  el.addEventListener(
+    'mousedown',
+    (e) => {
+      if (!e.ctrlKey) return;
+      dragging = true;
+      sx = e.clientX;
+      sy = e.clientY;
+      sl = parseInt(el.style.left) || 0;
+      st = parseInt(el.style.top) || 0;
+      el.style.cursor = 'grabbing';
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    { signal },
+  );
+  document.addEventListener(
+    'mousemove',
+    (e) => {
+      if (!dragging) return;
+      el.style.left = sl + e.clientX - sx + 'px';
+      el.style.top = st + e.clientY - sy + 'px';
+    },
+    { signal },
+  );
+  document.addEventListener(
+    'mouseup',
+    () => {
+      if (!dragging) return;
+      dragging = false;
+      el.style.cursor = 'default';
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          topPercent: (el.offsetTop / window.innerHeight) * 100,
+          leftPercent: (el.offsetLeft / window.innerWidth) * 100,
+          top: el.offsetTop,
+          left: el.offsetLeft,
+        }),
+      );
+    },
+    { signal },
+  );
 }
 
 function addMinimizeToggle(container, storageKey) {
@@ -232,7 +284,7 @@ function addMinimizeToggle(container, storageKey) {
     content.style.display = 'none';
     btn.textContent = '▶';
   }
-  btn.addEventListener('click', e => {
+  btn.addEventListener('click', (e) => {
     e.stopPropagation();
     const hidden = content.style.display === 'none';
     content.style.display = hidden ? 'block' : 'none';
@@ -246,7 +298,7 @@ export function useLayer({ map, enabled, opacity }) {
   const [stations, setStations] = useState(null);
   const [loading, setLoading] = useState(false);
   const [fetchTime, setFetchTime] = useState(null);
-  const overlaysRef = useRef([]);      // Array of L.imageOverlay (3 world copies)
+  const overlaysRef = useRef([]); // Array of L.imageOverlay (3 world copies)
   const controlRef = useRef(null);
   const fetchingRef = useRef(false);
   const intervalRef = useRef(null);
@@ -261,7 +313,11 @@ export function useLayer({ map, enabled, opacity }) {
       setLoading(true);
       try {
         const res = await fetch('/api/ionosonde');
-        if (res.status === 429) { fetchingRef.current = false; setLoading(false); return; }
+        if (res.status === 429) {
+          fetchingRef.current = false;
+          setLoading(false);
+          return;
+        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         if (json.stations?.length > 0) {
@@ -278,7 +334,9 @@ export function useLayer({ map, enabled, opacity }) {
 
     fetchData();
     intervalRef.current = setInterval(fetchData, 10 * 60 * 1000); // 10 min
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [enabled]);
 
   // ── Render overlay on map ─────────────────────────────────────
@@ -286,7 +344,11 @@ export function useLayer({ map, enabled, opacity }) {
     if (!map || typeof L === 'undefined') return;
 
     // Clear previous overlays
-    overlaysRef.current.forEach(ov => { try { map.removeLayer(ov); } catch (e) {} });
+    overlaysRef.current.forEach((ov) => {
+      try {
+        map.removeLayer(ov);
+      } catch (e) {}
+    });
     overlaysRef.current = [];
 
     if (!enabled || !stations || stations.length < 3) return;
@@ -300,13 +362,16 @@ export function useLayer({ map, enabled, opacity }) {
       for (const lonOffset of [-360, 0, 360]) {
         const overlay = L.imageOverlay(
           dataUrl,
-          [[-90, -180 + lonOffset], [90, 180 + lonOffset]],
+          [
+            [-90, -180 + lonOffset],
+            [90, 180 + lonOffset],
+          ],
           {
             opacity: opacity,
             zIndex: 200,
             interactive: false,
-            className: 'muf-map-overlay'
-          }
+            className: 'muf-map-overlay',
+          },
         );
         overlay.addTo(map);
         newOverlays.push(overlay);
@@ -317,14 +382,20 @@ export function useLayer({ map, enabled, opacity }) {
     }
 
     return () => {
-      overlaysRef.current.forEach(ov => { try { map.removeLayer(ov); } catch (e) {} });
+      overlaysRef.current.forEach((ov) => {
+        try {
+          map.removeLayer(ov);
+        } catch (e) {}
+      });
     };
   }, [enabled, stations, map]);
 
   // ── Update opacity ────────────────────────────────────────────
   useEffect(() => {
-    overlaysRef.current.forEach(ov => {
-      try { ov.setOpacity(opacity); } catch (e) {}
+    overlaysRef.current.forEach((ov) => {
+      try {
+        ov.setOpacity(opacity);
+      } catch (e) {}
     });
   }, [opacity]);
 
@@ -333,7 +404,9 @@ export function useLayer({ map, enabled, opacity }) {
     if (!map || typeof L === 'undefined') return;
 
     if (controlRef.current) {
-      try { map.removeControl(controlRef.current); } catch (e) {}
+      try {
+        map.removeControl(controlRef.current);
+      } catch (e) {}
       controlRef.current = null;
     }
 
@@ -397,7 +470,7 @@ export function useLayer({ map, enabled, opacity }) {
           </div>
         `;
         return container;
-      }
+      },
     });
 
     controlRef.current = new MUFControl();
@@ -409,7 +482,6 @@ export function useLayer({ map, enabled, opacity }) {
       makeDraggable(container, 'muf-map-position');
       addMinimizeToggle(container, 'muf-map-position');
     }, 150);
-
   }, [enabled, map, stations, loading]);
 
   // ── Update status text ────────────────────────────────────────
@@ -427,10 +499,16 @@ export function useLayer({ map, enabled, opacity }) {
   useEffect(() => {
     if (!enabled && map) {
       if (controlRef.current) {
-        try { map.removeControl(controlRef.current); } catch (e) {}
+        try {
+          map.removeControl(controlRef.current);
+        } catch (e) {}
         controlRef.current = null;
       }
-      overlaysRef.current.forEach(ov => { try { map.removeLayer(ov); } catch (e) {} });
+      overlaysRef.current.forEach((ov) => {
+        try {
+          map.removeLayer(ov);
+        } catch (e) {}
+      });
       overlaysRef.current = [];
     }
   }, [enabled, map]);

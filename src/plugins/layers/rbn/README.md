@@ -15,6 +15,7 @@ The Reverse Beacon Network (RBN) Plugin shows **who's hearing YOUR signal** in r
 ## What is RBN?
 
 The Reverse Beacon Network is a worldwide network of automated receiving stations (skimmers) that continuously monitor amateur radio bands for CW and digital signals. When they hear your callsign, they automatically post a "spot" showing:
+
 - Where you were heard (skimmer location)
 - Signal strength (SNR in dB)
 - Frequency and band
@@ -29,12 +30,14 @@ This gives you **instant feedback** on your antenna performance, propagation con
 ### ✅ v1.0.0 - Initial Release (Latest)
 
 #### **Real-Time Signal Monitoring**
+
 - Shows all skimmers currently hearing your callsign
 - Updates automatically every 2 minutes
 - Configurable time window (10-120 minutes)
 - Color-coded by signal strength (SNR)
 
 #### **Visual Elements**
+
 - **Circle Markers** at each skimmer location
   - Size scales with signal strength
   - Color indicates SNR level (Red=weak, Green=strong)
@@ -54,7 +57,9 @@ This gives you **instant feedback** on your antenna performance, propagation con
   - Average SNR across all spots
 
 #### **Signal Strength Color Coding**
+
 SNR-based color scale:
+
 - 🔴 **Red** (< 0 dB): Weak signal
 - 🟠 **Orange** (0-10 dB): Fair signal
 - 🟡 **Yellow** (10-20 dB): Good signal
@@ -62,6 +67,7 @@ SNR-based color scale:
 - 💚 **Bright Green** (30+ dB): Excellent signal
 
 #### **Marker Sizing**
+
 - < 0 dB: 6px radius (smallest)
 - 0-10 dB: 8px radius
 - 10-20 dB: 10px radius
@@ -69,7 +75,9 @@ SNR-based color scale:
 - 30+ dB: 14px radius (largest)
 
 #### **Interactive Popups**
+
 Click any skimmer marker to see:
+
 - Skimmer callsign
 - Your callsign (being heard)
 - Signal-to-noise ratio (SNR in dB)
@@ -79,6 +87,7 @@ Click any skimmer marker to see:
 - Timestamp
 
 #### **Performance Features**
+
 - 2-minute caching to reduce API load
 - Automatic cleanup of old layers
 - Efficient great circle path calculations
@@ -109,23 +118,27 @@ Click any skimmer marker to see:
 ### Using the Control Panel
 
 #### **Band Selector**
+
 - **All Bands**: Shows spots from all bands (default)
 - **Specific Band**: Filter to 160m, 80m, 40m, 30m, 20m, 17m, 15m, 12m, 10m, or 6m
 - Useful for checking propagation on contest bands
 
 #### **Time Window Slider**
+
 - **Range**: 10 to 120 minutes
 - **Default**: 30 minutes
 - **Purpose**: How far back to look for spots
 - Longer windows show more spots but may include stale data
 
 #### **Min SNR Threshold**
+
 - **Range**: -30 to +30 dB
 - **Default**: -10 dB
 - **Purpose**: Filter out weak signals
 - Increase to see only strong reports
 
 #### **Show Paths Toggle**
+
 - **ON**: Display dashed lines from your station to each skimmer
 - **OFF**: Show only skimmer markers
 - Useful for reducing map clutter
@@ -134,7 +147,7 @@ Click any skimmer marker to see:
 
 **Spots**: Total number of times you've been heard  
 **Skimmers**: Number of unique receiving stations  
-**Avg SNR**: Average signal strength across all reports  
+**Avg SNR**: Average signal strength across all reports
 
 Higher SNR = stronger signal = better propagation!
 
@@ -156,10 +169,12 @@ Higher SNR = stronger signal = better propagation!
 **Endpoint**: `/api/rbn`
 
 **Query Parameters**:
+
 - `callsign` (required): Your callsign (e.g., "VE3TOS", "K0CJH")
 - `limit` (optional): Max spots to return (default: 100)
 
 **Response Format**:
+
 ```json
 [
   {
@@ -177,6 +192,7 @@ Higher SNR = stronger signal = better propagation!
 ```
 
 **Response Fields**:
+
 - `callsign`: Skimmer that heard you
 - `frequency`: Frequency in Hz
 - `band`: Band (160m, 80m, etc.)
@@ -192,6 +208,7 @@ Higher SNR = stronger signal = better propagation!
 ## 🚀 Use Cases
 
 ### 1. **Antenna Testing**
+
 - Make a quick CW/digital transmission
 - Wait 2-5 minutes for plugin to update
 - See where your signal is being heard
@@ -199,24 +216,28 @@ Higher SNR = stronger signal = better propagation!
 - Track SNR improvements from antenna changes
 
 ### 2. **Propagation Checking**
+
 - Quick "am I getting out?" check before contest
 - See which bands are open in real-time
 - Identify skip zones and dead spots
 - Monitor propagation throughout the day
 
 ### 3. **Signal Reports**
+
 - Get objective SNR measurements from skimmers
 - Compare your signal strength to other stations
 - Validate local noise issues (low SNR everywhere)
 - Identify directional antenna patterns
 
 ### 4. **Contest Strategy**
+
 - Check which bands are working to needed multipliers
 - See signal strength to different continents
 - Identify best times for specific paths
 - Monitor band openings in real-time
 
 ### 5. **QRP Validation**
+
 - Running QRP (low power)?
 - RBN shows if anyone is hearing you
 - Objective proof of propagation
@@ -272,18 +293,19 @@ Higher SNR = stronger signal = better propagation!
 
 ### Comparing with Other Plugins
 
-| Plugin | What It Shows | Use Case |
-|--------|---------------|----------|
-| **RBN** | Who hears YOU | Antenna testing, signal reports |
-| **WSPR** | Global propagation | General band conditions |
-| **PSKReporter** | Who you hear | Reception analysis |
-| **DX Cluster** | Active DX stations | Chasing rare stations |
+| Plugin          | What It Shows      | Use Case                        |
+| --------------- | ------------------ | ------------------------------- |
+| **RBN**         | Who hears YOU      | Antenna testing, signal reports |
+| **WSPR**        | Global propagation | General band conditions         |
+| **PSKReporter** | Who you hear       | Reception analysis              |
+| **DX Cluster**  | Active DX stations | Chasing rare stations           |
 
 ---
 
 ## 🎨 Technical Implementation
 
 ### File Structure
+
 ```
 src/plugins/layers/
 ├── useRBN.js           # Main plugin file
@@ -292,12 +314,14 @@ src/plugins/layers/
 ```
 
 ### Architecture
+
 - **React Hooks-based**: Uses `useState`, `useEffect`, `useRef`
 - **Leaflet Integration**: Direct Leaflet.js API usage
 - **Zero Core Changes**: Plugin is completely self-contained
 - **Follows Plugin Pattern**: Matches existing plugins
 
 ### Key Functions
+
 - `gridToLatLon(grid)`: Converts Maidenhead grid to coordinates
 - `getSNRColor(snr)`: Maps SNR to color gradient
 - `getMarkerSize(snr)`: Maps SNR to marker size
@@ -306,6 +330,7 @@ src/plugins/layers/
 - `useLayer()`: Main plugin hook
 
 ### Dependencies
+
 - **React**: Component framework
 - **Leaflet**: Map rendering (`L.circleMarker`, `L.polyline`)
 - **Backend API**: `/api/rbn` endpoint
@@ -315,12 +340,14 @@ src/plugins/layers/
 ## 🐛 Troubleshooting
 
 ### Plugin Not Appearing
+
 - Check that `RBNPlugin` is imported in `layerRegistry.js`
 - Verify `metadata` export exists in `useRBN.js`
 - Check browser console for import errors
 - Rebuild: `npm run build`
 
 ### No Spots Displayed
+
 - **Check your callsign**: Must be configured in settings
 - **Default callsign**: "N0CALL" won't fetch data
 - **Transmit**: RBN only hears you when you transmit
@@ -328,17 +355,20 @@ src/plugins/layers/
 - **Check console**: Open DevTools → Console for errors
 
 ### Incorrect Marker Locations
+
 - RBN provides grid squares for skimmer locations
 - Grid-to-lat/lon conversion is approximate (±0.5°)
 - This is normal and expected behavior
 
 ### API Errors
+
 - RBN API may have rate limits
 - 2-minute cache reduces load
 - Try again in a few minutes
 - Check `/api/rbn?callsign=YOURCALL` directly
 
 ### Performance Issues
+
 - Reduce time window to 10-15 minutes
 - Increase SNR threshold to filter weak spots
 - Disable path lines (toggle off)
@@ -349,24 +379,28 @@ src/plugins/layers/
 ## 🚀 Future Enhancements (Roadmap)
 
 ### v1.1.0 - Enhanced Visualization (Planned)
+
 - [ ] **Signal Strength Heatmap**: Density map of strong reports
 - [ ] **Directional Pattern**: Polar plot showing signal distribution
 - [ ] **Historical Tracking**: Time-slider to replay past spots
 - [ ] **Best Reports Highlighting**: Auto-highlight strongest signals
 
 ### v1.2.0 - Advanced Filters (Planned)
+
 - [ ] **Mode Filter**: Filter by CW, RTTY, PSK, etc.
 - [ ] **Continent Filter**: Show only specific continents
 - [ ] **Distance Filter**: Show skimmers within X km range
 - [ ] **WPM Filter**: Filter CW by speed (for CW operators)
 
 ### v1.3.0 - Analytics (Planned)
+
 - [ ] **Coverage Map**: Grid square coverage visualization
 - [ ] **SNR Chart**: Historical SNR trends over time
 - [ ] **Band Comparison**: Side-by-side band performance
 - [ ] **Antenna Comparison**: Save/compare antenna configs
 
 ### v1.4.0 - Alerts & Notifications (Planned)
+
 - [ ] **New Continent Alert**: Notify when heard on new continent
 - [ ] **SNR Threshold Alert**: Alert when SNR exceeds threshold
 - [ ] **Band Opening Alert**: Notify when specific band opens
@@ -381,6 +415,7 @@ src/plugins/layers/
 **Want to help?** Pick an item from "Future Enhancements" above.
 
 ### Coding Standards
+
 - Follow existing plugin patterns
 - Keep code self-contained in plugin file
 - Add comments for complex logic
@@ -419,33 +454,43 @@ MIT License - Same as OpenHamClock project
 ## 📖 Frequently Asked Questions (FAQ)
 
 ### Q: Why don't I see any spots?
+
 **A:** You must be transmitting for RBN skimmers to hear you. Make some CQ calls or participate in a contest, then wait 2-5 minutes for the plugin to update.
 
 ### Q: Do I need to register with RBN?
+
 **A:** No registration required! RBN automatically detects and reports all amateur radio callsigns.
 
 ### Q: What modes does RBN support?
+
 **A:** CW (Morse code), RTTY, PSK31, PSK63, FT8, FT4, and other digital modes. Check reversebeacon.net for the full list.
 
 ### Q: Why are some markers far from their actual location?
+
 **A:** RBN provides grid squares (e.g., "FN31"), which are converted to approximate lat/lon. This is accurate to within about 70km.
 
 ### Q: Can I see spots from multiple callsigns?
+
 **A:** Currently, the plugin shows spots for your configured callsign only. Multi-callsign support may be added in future versions.
 
 ### Q: How accurate is the SNR measurement?
+
 **A:** SNR is measured by the skimmer's receiver and is quite accurate. However, different skimmers may use slightly different measurement methods.
 
 ### Q: Does this work for all bands?
+
 **A:** Yes! RBN covers all HF bands from 160m to 6m. Most activity is on CW contest bands (160m, 80m, 40m, 20m, 15m, 10m).
 
 ### Q: Can I use this to find my signal reports?
+
 **A:** Yes! RBN provides objective signal reports in dB. This is more accurate than the traditional RST system.
 
 ### Q: Why do paths look curved?
+
 **A:** Paths use great circle routes (shortest distance on a sphere), which appear curved on a flat map projection.
 
 ### Q: How often does RBN update?
+
 **A:** The plugin checks for new spots every 2 minutes. RBN skimmers report spots in real-time (within seconds of hearing you).
 
 ---
@@ -456,6 +501,6 @@ MIT License - Same as OpenHamClock project
 
 ---
 
-*73 de OpenHamClock Contributors! 📡*
+_73 de OpenHamClock Contributors! 📡_
 
-*"See your signal around the world!"* 🌍
+_"See your signal around the world!"_ 🌍

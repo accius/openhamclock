@@ -2,7 +2,7 @@
   {
     "min": 1800,
     "max": 1840,
-    "mode": "LSB",
+    "mode": "CW",
     "desc": "160m CW"
   },
   {
@@ -14,7 +14,7 @@
   {
     "min": 3500,
     "max": 3600,
-    "mode": "LSB",
+    "mode": "CW",
     "desc": "80m CW"
   },
   {
@@ -32,7 +32,7 @@
   {
     "min": 7000,
     "max": 7040,
-    "mode": "LSB",
+    "mode": "CW",
     "desc": "40m CW"
   },
   {
@@ -44,25 +44,25 @@
   {
     "min": 10100,
     "max": 10130,
-    "mode": "USB",
+    "mode": "CW",
     "desc": "30m CW"
   },
   {
     "min": 10130,
     "max": 10150,
-    "mode": "USB",
+    "mode": "DATA",
     "desc": "30m Data"
   },
   {
     "min": 14000,
     "max": 14070,
-    "mode": "USB",
+    "mode": "CW",
     "desc": "20m CW"
   },
   {
     "min": 14070,
     "max": 14100,
-    "mode": "USB",
+    "mode": "DATA",
     "desc": "20m Data"
   },
   {
@@ -74,7 +74,7 @@
   {
     "min": 18068,
     "max": 18110,
-    "mode": "USB",
+    "mode": "CW",
     "desc": "17m CW"
   },
   {
@@ -86,7 +86,7 @@
   {
     "min": 21000,
     "max": 21070,
-    "mode": "USB",
+    "mode": "CW",
     "desc": "15m CW"
   },
   {
@@ -98,7 +98,7 @@
   {
     "min": 24890,
     "max": 24915,
-    "mode": "USB",
+    "mode": "CW",
     "desc": "12m CW"
   },
   {
@@ -110,7 +110,7 @@
   {
     "min": 28000,
     "max": 28070,
-    "mode": "USB",
+    "mode": "CW",
     "desc": "10m CW"
   },
   {
@@ -128,7 +128,7 @@
   {
     "min": 50000,
     "max": 50100,
-    "mode": "USB",
+    "mode": "CW",
     "desc": "6m CW"
   },
   {
@@ -146,7 +146,7 @@
   {
     "min": 144000,
     "max": 144100,
-    "mode": "USB",
+    "mode": "CW",
     "desc": "2m CW"
   },
   {
@@ -164,7 +164,7 @@
   {
     "min": 432000,
     "max": 432100,
-    "mode": "USB",
+    "mode": "CW",
     "desc": "70cm CW"
   },
   {

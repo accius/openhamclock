@@ -1,7 +1,8 @@
 /* ============================================
    THEME: DARK (Default)
    ============================================ */
-:root, [data-theme="dark"] {
+:root,
+[data-theme='dark'] {
   --bg-primary: #0a0e14;
   --bg-secondary: #111820;
   --bg-tertiary: #1a2332;
@@ -25,7 +26,7 @@
 /* ============================================
    THEME: LIGHT
    ============================================ */
-[data-theme="light"] {
+[data-theme='light'] {
   --bg-primary: #f5f7fa;
   --bg-secondary: #ffffff;
   --bg-tertiary: #e8ecf0;
@@ -49,7 +50,7 @@
 /* ============================================
    THEME: LEGACY (Green Terminal Style)
    ============================================ */
-[data-theme="legacy"] {
+[data-theme='legacy'] {
   --bg-primary: #000000;
   --bg-secondary: #0a0a0a;
   --bg-tertiary: #151515;
@@ -73,7 +74,7 @@
 /* ============================================
    THEME: RETRO (90s Windows Style)
    ============================================ */
-[data-theme="retro"] {
+[data-theme='retro'] {
   --bg-primary: #008080;
   --bg-secondary: #c0c0c0;
   --bg-tertiary: #dfdfdf;
@@ -98,7 +99,11 @@
   --scanline-opacity: 0;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
 body {
   font-family: 'Space Grotesk', sans-serif;
@@ -106,18 +111,20 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
-  transition: background 0.3s, color 0.3s;
+  transition:
+    background 0.3s,
+    color 0.3s;
 }
 
 /* Legacy theme uses monospace font */
-[data-theme="legacy"] body,
-[data-theme="legacy"] * {
+[data-theme='legacy'] body,
+[data-theme='legacy'] * {
   font-family: 'JetBrains Mono', monospace !important;
 }
 
 /* Classic theme uses system fonts */
-[data-theme="retro"] body,
-[data-theme="retro"] * {
+[data-theme='retro'] body,
+[data-theme='retro'] * {
   font-family: 'Tahoma', 'MS Sans Serif', 'Arial', sans-serif !important;
 }
 
@@ -125,8 +132,17 @@ body {
 body::before {
   content: '';
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,var(--scanline-opacity)) 2px, rgba(0,0,0,var(--scanline-opacity)) 4px);
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, var(--scanline-opacity)) 2px,
+    rgba(0, 0, 0, var(--scanline-opacity)) 4px
+  );
   pointer-events: none;
   z-index: 9999;
 }
@@ -136,11 +152,11 @@ body::before {
    ============================================ */
 
 /* 3D Beveled border effect for classic theme */
-[data-theme="retro"] .panel {
+[data-theme='retro'] .panel {
   background: #c0c0c0 !important;
   border: none !important;
   border-radius: 0 !important;
-  box-shadow: 
+  box-shadow:
     inset -1px -1px 0 #404040,
     inset 1px 1px 0 #ffffff,
     inset -2px -2px 0 #808080,
@@ -149,8 +165,8 @@ body::before {
 }
 
 /* Classic window title bar style */
-[data-theme="retro"] .panel-header,
-[data-theme="retro"] .panel > div:first-child {
+[data-theme='retro'] .panel-header,
+[data-theme='retro'] .panel > div:first-child {
   background: linear-gradient(90deg, #000080, #1084d0) !important;
   color: #ffffff !important;
   font-weight: bold !important;
@@ -160,13 +176,13 @@ body::before {
 }
 
 /* Classic buttons */
-[data-theme="retro"] button,
-[data-theme="retro"] .map-style-btn {
+[data-theme='retro'] button,
+[data-theme='retro'] .map-style-btn {
   background: #c0c0c0 !important;
   color: #000000 !important;
   border: none !important;
   border-radius: 0 !important;
-  box-shadow: 
+  box-shadow:
     inset -1px -1px 0 #404040,
     inset 1px 1px 0 #ffffff,
     inset -2px -2px 0 #808080,
@@ -176,15 +192,15 @@ body::before {
   padding: 4px 12px !important;
 }
 
-[data-theme="retro"] button:hover,
-[data-theme="retro"] .map-style-btn:hover {
+[data-theme='retro'] button:hover,
+[data-theme='retro'] .map-style-btn:hover {
   background: #dfdfdf !important;
 }
 
-[data-theme="retro"] button:active,
-[data-theme="retro"] .map-style-btn:active,
-[data-theme="retro"] .map-style-btn.active {
-  box-shadow: 
+[data-theme='retro'] button:active,
+[data-theme='retro'] .map-style-btn:active,
+[data-theme='retro'] .map-style-btn.active {
+  box-shadow:
     inset 1px 1px 0 #404040,
     inset -1px -1px 0 #ffffff,
     inset 2px 2px 0 #808080,
@@ -192,13 +208,13 @@ body::before {
 }
 
 /* Classic inputs */
-[data-theme="retro"] input,
-[data-theme="retro"] select {
+[data-theme='retro'] input,
+[data-theme='retro'] select {
   background: #ffffff !important;
   color: #000000 !important;
   border: none !important;
   border-radius: 0 !important;
-  box-shadow: 
+  box-shadow:
     inset 1px 1px 0 #404040,
     inset -1px -1px 0 #ffffff,
     inset 2px 2px 0 #808080,
@@ -209,35 +225,37 @@ body::before {
 }
 
 /* Classic scrollbars */
-[data-theme="retro"] ::-webkit-scrollbar {
+[data-theme='retro'] ::-webkit-scrollbar {
   width: 16px;
   height: 16px;
 }
 
-[data-theme="retro"] ::-webkit-scrollbar-track {
+[data-theme='retro'] ::-webkit-scrollbar-track {
   background: #c0c0c0;
-  background-image: 
-    linear-gradient(45deg, #808080 25%, transparent 25%),
-    linear-gradient(-45deg, #808080 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #808080 75%),
-    linear-gradient(-45deg, transparent 75%, #808080 75%);
+  background-image:
+    linear-gradient(45deg, #808080 25%, transparent 25%), linear-gradient(-45deg, #808080 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #808080 75%), linear-gradient(-45deg, transparent 75%, #808080 75%);
   background-size: 4px 4px;
-  background-position: 0 0, 0 2px, 2px -2px, -2px 0px;
+  background-position:
+    0 0,
+    0 2px,
+    2px -2px,
+    -2px 0px;
 }
 
-[data-theme="retro"] ::-webkit-scrollbar-thumb {
+[data-theme='retro'] ::-webkit-scrollbar-thumb {
   background: #c0c0c0;
   border-radius: 0;
-  box-shadow: 
+  box-shadow:
     inset -1px -1px 0 #404040,
     inset 1px 1px 0 #ffffff,
     inset -2px -2px 0 #808080,
     inset 2px 2px 0 #dfdfdf;
 }
 
-[data-theme="retro"] ::-webkit-scrollbar-button {
+[data-theme='retro'] ::-webkit-scrollbar-button {
   background: #c0c0c0;
-  box-shadow: 
+  box-shadow:
     inset -1px -1px 0 #404040,
     inset 1px 1px 0 #ffffff;
   width: 16px;
@@ -245,88 +263,128 @@ body::before {
 }
 
 /* Classic links */
-[data-theme="retro"] a {
+[data-theme='retro'] a {
   color: #0000ff !important;
   text-decoration: underline !important;
 }
 
-[data-theme="retro"] a:visited {
+[data-theme='retro'] a:visited {
   color: #800080 !important;
 }
 
 /* Classic header styling */
-[data-theme="retro"] [style*="gridColumn: '1 / -1'"] {
+[data-theme='retro'] [style*="gridColumn: '1 / -1'"] {
   background: #c0c0c0 !important;
 }
 
 /* Classic text colors override */
-[data-theme="retro"] [style*="color: var(--accent-cyan)"],
-[data-theme="retro"] [style*="color: var(--accent-amber)"],
-[data-theme="retro"] [style*="color: var(--accent-green)"] {
+[data-theme='retro'] [style*='color: var(--accent-cyan)'],
+[data-theme='retro'] [style*='color: var(--accent-amber)'],
+[data-theme='retro'] [style*='color: var(--accent-green)'] {
   color: #000080 !important;
 }
 
 /* Classic modal/dialog styling */
-[data-theme="retro"] [style*="position: fixed"][style*="background: rgba"] {
+[data-theme='retro'] [style*='position: fixed'][style*='background: rgba'] {
   background: rgba(0, 128, 128, 0.9) !important;
 }
 
 /* Classic table styling for DX cluster */
-[data-theme="retro"] table,
-[data-theme="retro"] [style*="display: grid"] {
+[data-theme='retro'] table,
+[data-theme='retro'] [style*='display: grid'] {
   border-collapse: collapse;
 }
 
-[data-theme="retro"] tr:nth-child(even) {
+[data-theme='retro'] tr:nth-child(even) {
   background: #dfdfdf;
 }
 
-[data-theme="retro"] tr:nth-child(odd) {
+[data-theme='retro'] tr:nth-child(odd) {
   background: #c0c0c0;
 }
 
 /* Classic Leaflet overrides */
-[data-theme="retro"] .leaflet-container {
+[data-theme='retro'] .leaflet-container {
   background: #000080 !important;
 }
 
-[data-theme="retro"] .leaflet-control-zoom {
+[data-theme='retro'] .leaflet-control-zoom {
   border-radius: 0 !important;
 }
 
-[data-theme="retro"] .leaflet-control-zoom a {
+[data-theme='retro'] .leaflet-control-zoom a {
   background: #c0c0c0 !important;
   color: #000000 !important;
   border-radius: 0 !important;
-  box-shadow: 
+  box-shadow:
     inset -1px -1px 0 #404040,
     inset 1px 1px 0 #ffffff !important;
 }
 
-[data-theme="retro"] .leaflet-popup-content-wrapper {
+[data-theme='retro'] .leaflet-popup-content-wrapper {
   background: #c0c0c0 !important;
   border-radius: 0 !important;
-  box-shadow: 
+  box-shadow:
     inset -1px -1px 0 #404040,
     inset 1px 1px 0 #ffffff,
-    2px 2px 4px rgba(0,0,0,0.5) !important;
+    2px 2px 4px rgba(0, 0, 0, 0.5) !important;
 }
 
-[data-theme="retro"] .leaflet-popup-tip {
+[data-theme='retro'] .leaflet-popup-tip {
   background: #c0c0c0 !important;
 }
 
 /* ============================================
    ANIMATIONS
    ============================================ */
-@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.7; } }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
-@keyframes dxnews-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+@keyframes dxnews-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
 
 .loading-spinner {
-  width: 14px; height: 14px;
+  width: 14px;
+  height: 14px;
   border: 2px solid var(--border-color);
   border-top-color: var(--accent-amber);
   border-radius: 50%;
@@ -335,13 +393,13 @@ body::before {
 }
 
 /* Legacy theme specific styles */
-[data-theme="legacy"] .loading-spinner {
+[data-theme='legacy'] .loading-spinner {
   border-color: var(--accent-green);
   border-top-color: var(--accent-amber);
 }
 
 /* Classic theme uses hourglass cursor for loading */
-[data-theme="retro"] .loading-spinner {
+[data-theme='retro'] .loading-spinner {
   border-radius: 0;
   border-color: #000000;
   border-top-color: #808080;
@@ -413,7 +471,7 @@ body::before {
   font-size: 12px;
   border-radius: 50%;
   border: 2px solid white;
-  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
 }
 
 .de-marker {
@@ -445,9 +503,9 @@ body::before {
 }
 
 /* Classic theme markers - square */
-[data-theme="retro"] .custom-marker,
-[data-theme="retro"] .de-marker,
-[data-theme="retro"] .dx-marker {
+[data-theme='retro'] .custom-marker,
+[data-theme='retro'] .de-marker,
+[data-theme='retro'] .dx-marker {
   border-radius: 0 !important;
 }
 
@@ -562,7 +620,7 @@ body::before {
 }
 
 /* Classic tooltips */
-[data-theme="retro"] .dx-tooltip {
+[data-theme='retro'] .dx-tooltip {
   background: #ffffcc !important;
   border: 1px solid #000000 !important;
   border-radius: 0 !important;
@@ -594,22 +652,50 @@ body::before {
 /* ============================================
    UTILITY CLASSES
    ============================================ */
-.text-amber { color: var(--accent-amber); }
-.text-green { color: var(--accent-green); }
-.text-red { color: var(--accent-red); }
-.text-blue { color: var(--accent-blue); }
-.text-cyan { color: var(--accent-cyan); }
-.text-muted { color: var(--text-muted); }
-.text-primary { color: var(--text-primary); }
-.text-secondary { color: var(--text-secondary); }
+.text-amber {
+  color: var(--accent-amber);
+}
+.text-green {
+  color: var(--accent-green);
+}
+.text-red {
+  color: var(--accent-red);
+}
+.text-blue {
+  color: var(--accent-blue);
+}
+.text-cyan {
+  color: var(--accent-cyan);
+}
+.text-muted {
+  color: var(--text-muted);
+}
+.text-primary {
+  color: var(--text-primary);
+}
+.text-secondary {
+  color: var(--text-secondary);
+}
 
-.font-mono { font-family: 'JetBrains Mono', monospace; }
-.font-display { font-family: 'Orbitron', monospace; }
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+.font-display {
+  font-family: 'Orbitron', monospace;
+}
 
-.bg-panel { background: var(--bg-panel); }
-.bg-primary { background: var(--bg-primary); }
-.bg-secondary { background: var(--bg-secondary); }
-.bg-tertiary { background: var(--bg-tertiary); }
+.bg-panel {
+  background: var(--bg-panel);
+}
+.bg-primary {
+  background: var(--bg-primary);
+}
+.bg-secondary {
+  background: var(--bg-secondary);
+}
+.bg-tertiary {
+  background: var(--bg-tertiary);
+}
 
 /* ============================================
    WSPR PLUGIN ANIMATIONS (v1.3.0)
@@ -637,7 +723,8 @@ body::before {
 
 /* Pulsing marker animation */
 @keyframes wspr-marker-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
     opacity: 0.8;
   }
@@ -664,12 +751,12 @@ body::before {
 .wspr-legend:hover,
 .wspr-chart:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
 }
 
 /* Filter input styles */
 .wspr-filter-control select,
-.wspr-filter-control input[type="range"] {
+.wspr-filter-control input[type='range'] {
   transition: all 0.2s ease;
 }
 
@@ -679,7 +766,7 @@ body::before {
   outline: none;
 }
 
-.wspr-filter-control input[type="range"]::-webkit-slider-thumb {
+.wspr-filter-control input[type='range']::-webkit-slider-thumb {
   appearance: none;
   width: 16px;
   height: 16px;
@@ -689,11 +776,11 @@ body::before {
   transition: background 0.2s ease;
 }
 
-.wspr-filter-control input[type="range"]::-webkit-slider-thumb:hover {
+.wspr-filter-control input[type='range']::-webkit-slider-thumb:hover {
   background: #00ddff;
 }
 
-.wspr-filter-control input[type="range"]::-moz-range-thumb {
+.wspr-filter-control input[type='range']::-moz-range-thumb {
   width: 16px;
   height: 16px;
   border-radius: 50%;
@@ -703,7 +790,7 @@ body::before {
   transition: background 0.2s ease;
 }
 
-.wspr-filter-control input[type="range"]::-moz-range-thumb:hover {
+.wspr-filter-control input[type='range']::-moz-range-thumb:hover {
   background: #00ddff;
 }
 
@@ -717,21 +804,24 @@ body::before {
   }
 }
 
-.wspr-chart div[style*="background: linear-gradient"] {
+.wspr-chart div[style*='background: linear-gradient'] {
   animation: wspr-bar-grow 0.5s ease-out;
 }
 
 /* Propagation score glow effect */
 @keyframes wspr-score-glow {
-  0%, 100% {
+  0%,
+  100% {
     text-shadow: 0 0 5px currentColor;
   }
   50% {
-    text-shadow: 0 0 15px currentColor, 0 0 25px currentColor;
+    text-shadow:
+      0 0 15px currentColor,
+      0 0 25px currentColor;
   }
 }
 
-.wspr-stats div[style*="font-size: 18px"] {
+.wspr-stats div[style*='font-size: 18px'] {
   animation: wspr-score-glow 2s ease-in-out infinite;
 }
 
@@ -1027,9 +1117,11 @@ body::before {
 #night-lights-pane {
   z-index: 650 !important;
   pointer-events: none;
-  mix-blend-mode: screen; 
+  mix-blend-mode: screen;
   filter: contrast(1.2);
-  transition: opacity 0.2s ease, clip-path 0.5s ease-in-out;
+  transition:
+    opacity 0.2s ease,
+    clip-path 0.5s ease-in-out;
 }
 
 .terminator-path {
@@ -1037,8 +1129,51 @@ body::before {
   z-index: 400 !important; /* Sit behind the city lights but in front of the map */
 }
 
-
 /* Hide city lights completely in 'Countries' or high-contrast modes */
-[data-theme="retro"] #night-lights-pane {
+[data-theme='retro'] #night-lights-pane {
   display: none;
+}
+
+/* ============================================
+   EMOJI FONT FALLBACK
+   On Linux systems without a color emoji font, missing emoji glyphs
+   render as an ugly □ replacement box.  This font-family stack tells the
+   browser to prefer system color emoji fonts and, as a last resort, use
+   the generic sans-serif which at minimum renders nothing rather than □.
+
+   Real fix (recommended): sudo apt install fonts-noto-color-emoji
+   then restart your browser / reboot in kiosk mode.
+   See the FAQ in README.md for full details.
+   ============================================ */
+
+/* System color emoji stack — covers Windows (Segoe UI Emoji), macOS/iOS
+   (Apple Color Emoji), Linux with Noto (Noto Color Emoji), and Firefox's
+   bundled Twemoji (Twemoji Mozilla). */
+@supports (font-family: 'Noto Color Emoji') {
+  :root {
+    --has-emoji-font: 1;
+  }
+}
+
+/* Apply an emoji-priority font stack everywhere so the browser picks up
+   whatever color emoji font is available on this OS/distro. */
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Color Emoji',
+    'Segoe UI Emoji', 'Apple Color Emoji', 'Twemoji Mozilla', 'Noto Emoji', sans-serif;
+}
+
+/* For elements that use JetBrains Mono (our monospace panels), keep the
+   typeface but still pull in system emoji for any emoji codepoints. */
+code,
+pre,
+.mono,
+.dx-cluster-panel,
+.band-label,
+.callsign,
+[style*='JetBrains Mono'],
+[style*='monospace'] {
+  font-family:
+    'JetBrains Mono', 'Courier New', monospace, 'Noto Color Emoji', 'Segoe UI Emoji', 'Apple Color Emoji',
+    'Twemoji Mozilla', 'Noto Emoji';
 }

@@ -12,7 +12,7 @@ import {
   DXpeditionPanel,
   PSKReporterPanel,
   WeatherPanel,
-  AnalogClockPanel
+  AnalogClockPanel,
 } from '../components';
 import { useRig } from '../contexts/RigContext.jsx';
 
@@ -69,6 +69,8 @@ export default function ModernLayout(props) {
     wsjtxMapSpots,
     dxFilters,
     setDxFilters,
+    mapBandFilter,
+    setMapBandFilter,
     pskFilters,
     setShowDXFilters,
     setShowPSKFilters,
@@ -95,19 +97,21 @@ export default function ModernLayout(props) {
   };
 
   return (
-    <div style={{
-      width: scale < 1 ? `${100 / scale}vw` : '100vw',
-      height: scale < 1 ? `${100 / scale}vh` : '100vh',
-      transform: `scale(${scale})`,
-      transformOrigin: 'center center',
-      display: 'grid',
-      gridTemplateColumns: getGridTemplateColumns(),
-      gridTemplateRows: '55px 1fr',
-      gap: leftSidebarVisible || rightSidebarVisible ? '8px' : '0',
-      padding: leftSidebarVisible || rightSidebarVisible ? '8px' : '0',
-      overflow: 'hidden',
-      boxSizing: 'border-box'
-    }}>
+    <div
+      style={{
+        width: scale < 1 ? `${100 / scale}vw` : '100vw',
+        height: scale < 1 ? `${100 / scale}vh` : '100vh',
+        transform: `scale(${scale})`,
+        transformOrigin: 'center center',
+        display: 'grid',
+        gridTemplateColumns: getGridTemplateColumns(),
+        gridTemplateRows: '55px 1fr',
+        gap: leftSidebarVisible || rightSidebarVisible ? '8px' : '0',
+        padding: leftSidebarVisible || rightSidebarVisible ? '8px' : '0',
+        overflow: 'hidden',
+        boxSizing: 'border-box',
+      }}
+    >
       {/* TOP BAR */}
       <Header
         config={config}
@@ -139,8 +143,14 @@ export default function ModernLayout(props) {
                 {t('app.dxLocation.deTitle')}
               </div>
               <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
-                <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>{deGrid}</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{config.location.lat.toFixed(4)}°, {config.location.lon.toFixed(4)}°</div>
+                <div
+                  style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}
+                >
+                  {deGrid}
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
+                  {config.location.lat.toFixed(4)}°, {config.location.lon.toFixed(4)}°
+                </div>
                 <div style={{ marginTop: '8px', fontSize: '13px' }}>
                   <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
                   <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{deSunTimes.sunrise}</span>
@@ -152,7 +162,12 @@ export default function ModernLayout(props) {
               <WeatherPanel
                 weatherData={localWeather}
                 tempUnit={tempUnit}
-                onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch { } }}
+                onTempUnitChange={(unit) => {
+                  setTempUnit(unit);
+                  try {
+                    localStorage.setItem('openhamclock_tempUnit', unit);
+                  } catch {}
+                }}
               />
             </div>
           )}
@@ -160,7 +175,9 @@ export default function ModernLayout(props) {
           {/* DX Location */}
           {config.panels?.dxLocation?.visible !== false && (
             <div className="panel" style={{ padding: '14px', flex: '0 0 auto' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <div
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}
+              >
                 <div style={{ fontSize: '14px', color: 'var(--accent-green)', fontWeight: '700' }}>
                   {t('app.dxLocation.dxTitle')}
                 </div>
@@ -174,16 +191,53 @@ export default function ModernLayout(props) {
                     borderRadius: '4px',
                     padding: '2px 6px',
                     fontSize: '10px',
-                    cursor: 'pointer'
+                    cursor: 'pointer',
                   }}
                 >
                   {dxLocked ? '🔒' : '🔓'}
                 </button>
               </div>
-              <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div
+                style={{
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: '14px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                }}
+              >
                 <div style={{ flex: 1 }}>
-                  <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>{dxGrid}</div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>{dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°</div>
+                  <div
+                    style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}
+                  >
+                    {dxGrid}
+                  </div>
+                  {(() => {
+                    const utcOffsetH = Math.round(dxLocation.lon / 15);
+                    const dxDate = new Date(currentTime.getTime() + utcOffsetH * 3600000);
+                    const hh = String(dxDate.getUTCHours()).padStart(2, '0');
+                    const mm = String(dxDate.getUTCMinutes()).padStart(2, '0');
+                    const sign = utcOffsetH >= 0 ? '+' : '';
+                    return (
+                      <div
+                        style={{
+                          color: 'var(--accent-cyan)',
+                          fontSize: '13px',
+                          marginTop: '2px',
+                          fontFamily: 'JetBrains Mono',
+                        }}
+                      >
+                        {hh}:{mm}{' '}
+                        <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+                          (UTC{sign}
+                          {utcOffsetH})
+                        </span>
+                      </div>
+                    );
+                  })()}
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
+                    {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
+                  </div>
                   <div style={{ marginTop: '8px', fontSize: '13px' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
                     <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{dxSunTimes.sunrise}</span>
@@ -191,56 +245,75 @@ export default function ModernLayout(props) {
                     <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
                   </div>
                 </div>
-                <div style={{ borderLeft: '1px solid var(--border-color)', paddingLeft: '12px', marginLeft: '12px', minWidth: '90px' }}>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '11px', marginBottom: '4px' }}>{t('app.dxLocation.beamDir')}</div>
+                <div
+                  style={{
+                    borderLeft: '1px solid var(--border-color)',
+                    paddingLeft: '12px',
+                    marginLeft: '12px',
+                    minWidth: '90px',
+                  }}
+                >
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '11px', marginBottom: '4px' }}>
+                    {t('app.dxLocation.beamDir')}
+                  </div>
                   <div style={{ fontSize: '13px', marginBottom: '3px' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>{t('app.dxLocation.sp')} </span>
-                    <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{(() => {
-                      const deLat = config.location.lat * Math.PI / 180;
-                      const deLon = config.location.lon * Math.PI / 180;
-                      const dxLat = dxLocation.lat * Math.PI / 180;
-                      const dxLon = dxLocation.lon * Math.PI / 180;
-                      const dLon = dxLon - deLon;
-                      const y = Math.sin(dLon) * Math.cos(dxLat);
-                      const x = Math.cos(deLat) * Math.sin(dxLat) - Math.sin(deLat) * Math.cos(dxLat) * Math.cos(dLon);
-                      let sp = Math.atan2(y, x) * 180 / Math.PI;
-                      sp = (sp + 360) % 360;
-                      return Math.round(sp);
-                    })()}°</span>
+                    <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
+                      {(() => {
+                        const deLat = (config.location.lat * Math.PI) / 180;
+                        const deLon = (config.location.lon * Math.PI) / 180;
+                        const dxLat = (dxLocation.lat * Math.PI) / 180;
+                        const dxLon = (dxLocation.lon * Math.PI) / 180;
+                        const dLon = dxLon - deLon;
+                        const y = Math.sin(dLon) * Math.cos(dxLat);
+                        const x =
+                          Math.cos(deLat) * Math.sin(dxLat) - Math.sin(deLat) * Math.cos(dxLat) * Math.cos(dLon);
+                        let sp = (Math.atan2(y, x) * 180) / Math.PI;
+                        sp = (sp + 360) % 360;
+                        return Math.round(sp);
+                      })()}
+                      °
+                    </span>
                   </div>
                   <div style={{ fontSize: '13px', marginBottom: '6px' }}>
                     <span style={{ color: 'var(--text-secondary)' }}>{t('app.dxLocation.lp')} </span>
-                    <span style={{ color: 'var(--accent-purple)', fontWeight: '700' }}>{(() => {
-                      const deLat = config.location.lat * Math.PI / 180;
-                      const deLon = config.location.lon * Math.PI / 180;
-                      const dxLat = dxLocation.lat * Math.PI / 180;
-                      const dxLon = dxLocation.lon * Math.PI / 180;
-                      const dLon = dxLon - deLon;
-                      const y = Math.sin(dLon) * Math.cos(dxLat);
-                      const x = Math.cos(deLat) * Math.sin(dxLat) - Math.sin(deLat) * Math.cos(dxLat) * Math.cos(dLon);
-                      let sp = Math.atan2(y, x) * 180 / Math.PI;
-                      sp = (sp + 360) % 360;
-                      let lp = (sp + 180) % 360;
-                      return Math.round(lp);
-                    })()}°</span>
+                    <span style={{ color: 'var(--accent-purple)', fontWeight: '700' }}>
+                      {(() => {
+                        const deLat = (config.location.lat * Math.PI) / 180;
+                        const deLon = (config.location.lon * Math.PI) / 180;
+                        const dxLat = (dxLocation.lat * Math.PI) / 180;
+                        const dxLon = (dxLocation.lon * Math.PI) / 180;
+                        const dLon = dxLon - deLon;
+                        const y = Math.sin(dLon) * Math.cos(dxLat);
+                        const x =
+                          Math.cos(deLat) * Math.sin(dxLat) - Math.sin(deLat) * Math.cos(dxLat) * Math.cos(dLon);
+                        let sp = (Math.atan2(y, x) * 180) / Math.PI;
+                        sp = (sp + 360) % 360;
+                        let lp = (sp + 180) % 360;
+                        return Math.round(lp);
+                      })()}
+                      °
+                    </span>
                   </div>
                   <div style={{ fontSize: '13px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
-                    <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{(() => {
-                      // Haversine distance formula
-                      const R = 6371; // Earth radius in km
-                      const deLat = config.location.lat * Math.PI / 180;
-                      const deLon = config.location.lon * Math.PI / 180;
-                      const dxLat = dxLocation.lat * Math.PI / 180;
-                      const dxLon = dxLocation.lon * Math.PI / 180;
-                      const dLat = dxLat - deLat;
-                      const dLon = dxLon - deLon;
-                      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                        Math.cos(deLat) * Math.cos(dxLat) *
-                        Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                      const km = R * c;
-                      return `📏 ${Math.round(km).toLocaleString()} km`;
-                    })()}</span>
+                    <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
+                      {(() => {
+                        // Haversine distance formula
+                        const R = 6371; // Earth radius in km
+                        const deLat = (config.location.lat * Math.PI) / 180;
+                        const deLon = (config.location.lon * Math.PI) / 180;
+                        const dxLat = (dxLocation.lat * Math.PI) / 180;
+                        const dxLon = (dxLocation.lon * Math.PI) / 180;
+                        const dLat = dxLat - deLat;
+                        const dLon = dxLon - deLon;
+                        const a =
+                          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                          Math.cos(deLat) * Math.cos(dxLat) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                        const km = R * c;
+                        return `📏 ${Math.round(km).toLocaleString()} km`;
+                      })()}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -248,7 +321,12 @@ export default function ModernLayout(props) {
                 <WeatherPanel
                   weatherData={dxWeather}
                   tempUnit={tempUnit}
-                  onTempUnitChange={(unit) => { setTempUnit(unit); try { localStorage.setItem('openhamclock_tempUnit', unit); } catch { } }}
+                  onTempUnitChange={(unit) => {
+                    setTempUnit(unit);
+                    try {
+                      localStorage.setItem('openhamclock_tempUnit', unit);
+                    } catch {}
+                  }}
                 />
               )}
             </div>
@@ -262,9 +340,7 @@ export default function ModernLayout(props) {
           )}
 
           {/* Solar Panel */}
-          {config.panels?.solar?.visible !== false && (
-            <SolarPanel solarIndices={solarIndices} />
-          )}
+          {config.panels?.solar?.visible !== false && <SolarPanel solarIndices={solarIndices} />}
 
           {/* VOACAP/Propagation Panel */}
           {config.panels?.propagation?.visible !== false && (
@@ -280,7 +356,16 @@ export default function ModernLayout(props) {
       )}
 
       {/* CENTER - MAP */}
-      <div style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', width: '100%', height: '100%', minWidth: 0 }}>
+      <div
+        style={{
+          position: 'relative',
+          borderRadius: '6px',
+          overflow: 'hidden',
+          width: '100%',
+          height: '100%',
+          minWidth: 0,
+        }}
+      >
         <WorldMap
           deLocation={config.location}
           dxLocation={dxLocation}
@@ -292,6 +377,8 @@ export default function ModernLayout(props) {
           mySpots={mySpots.data}
           dxPaths={dxClusterData.paths}
           dxFilters={dxFilters}
+          mapBandFilter={mapBandFilter}
+          onMapBandFilterChange={setMapBandFilter}
           satellites={filteredSatellites}
           pskReporterSpots={filteredPskSpots}
           showDXPaths={mapLayers.showDXPaths}
@@ -313,17 +400,19 @@ export default function ModernLayout(props) {
           mouseZoom={config.mouseZoom}
           onSpotClick={tuneTo}
         />
-        <div style={{
-          position: 'absolute',
-          bottom: '8px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          fontSize: '13px',
-          color: 'var(--text-muted)',
-          background: 'rgba(0,0,0,0.7)',
-          padding: '2px 8px',
-          borderRadius: '4px'
-        }}>
+        <div
+          style={{
+            position: 'absolute',
+            bottom: '8px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            fontSize: '13px',
+            color: 'var(--text-muted)',
+            background: 'rgba(0,0,0,0.7)',
+            padding: '2px 8px',
+            borderRadius: '4px',
+          }}
+        >
           {t('app.callsign', { callsign: config.callsign })}
         </div>
       </div>
@@ -333,7 +422,9 @@ export default function ModernLayout(props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden' }}>
           {/* DX Cluster - primary panel, takes most space */}
           {config.panels?.dxCluster?.visible !== false && (
-            <div style={{ flex: `${config.panels.dxCluster.size || 2} 1 auto`, minHeight: '180px', overflow: 'hidden' }}>
+            <div
+              style={{ flex: `${config.panels.dxCluster.size || 2} 1 auto`, minHeight: '180px', overflow: 'hidden' }}
+            >
               <DXClusterPanel
                 data={dxClusterData.spots}
                 loading={dxClusterData.loading}
@@ -344,7 +435,7 @@ export default function ModernLayout(props) {
                 onHoverSpot={setHoveredSpot}
                 onSpotClick={(spot) => {
                   tuneTo(spot);
-                  const path = (dxClusterData.paths || []).find(p => p.dxCall === spot.call);
+                  const path = (dxClusterData.paths || []).find((p) => p.dxCall === spot.call);
                   if (path && path.dxLat != null && path.dxLon != null) {
                     handleDXChange({ lat: path.dxLat, lon: path.dxLon });
                   }
@@ -358,7 +449,9 @@ export default function ModernLayout(props) {
 
           {/* PSKReporter + WSJT-X - digital mode spots */}
           {config.panels?.pskReporter?.visible !== false && (
-            <div style={{ flex: `${config.panels.pskReporter.size || 1} 1 auto`, minHeight: '140px', overflow: 'hidden' }}>
+            <div
+              style={{ flex: `${config.panels.pskReporter.size || 1} 1 auto`, minHeight: '140px', overflow: 'hidden' }}
+            >
               <PSKReporterPanel
                 callsign={config.callsign}
                 pskReporter={pskReporter}
@@ -389,25 +482,45 @@ export default function ModernLayout(props) {
 
           {/* DXpeditions */}
           {config.panels?.dxpeditions?.visible !== false && (
-            <div style={{ flex: `${config.panels.dxpeditions?.size || 1} 0 auto`, minHeight: '70px', maxHeight: '100px', overflow: 'hidden' }}>
+            <div
+              style={{
+                flex: `${config.panels.dxpeditions?.size || 1} 0 auto`,
+                minHeight: '70px',
+                maxHeight: '100px',
+                overflow: 'hidden',
+              }}
+            >
               <DXpeditionPanel data={dxpeditions.data} loading={dxpeditions.loading} />
             </div>
           )}
 
           {/* POTA / SOTA */}
           {config.panels?.pota?.visible !== false && (
-            <div style={{ flex: `${config.panels.pota?.size || 1} 0 auto`, minHeight: '60px', maxHeight: '120px', overflow: 'hidden' }}>
+            <div
+              style={{
+                flex: `${config.panels.pota?.size || 1} 0 auto`,
+                minHeight: '60px',
+                maxHeight: '120px',
+                overflow: 'hidden',
+              }}
+            >
               <PotaSotaPanel
                 potaData={potaSpots.data}
                 potaLoading={potaSpots.loading}
+                potaLastUpdated={potaSpots.lastUpdated}
+                potaLastChecked={potaSpots.lastChecked}
                 showPOTA={mapLayers.showPOTA}
                 onTogglePOTA={togglePOTA}
                 sotaData={sotaSpots.data}
                 sotaLoading={sotaSpots.loading}
+                sotaLastUpdated={sotaSpots.lastUpdated}
+                sotaLastChecked={sotaSpots.lastChecked}
                 showSOTA={mapLayers.showSOTA}
                 onToggleSOTA={toggleSOTA}
                 wwffData={wwffSpots.data}
                 wwffLoading={wwffSpots.loading}
+                wwffLastUpdated={wwffSpots.lastUpdated}
+                wwffLastChecked={wwffSpots.lastChecked}
                 showWWFF={mapLayers.showWWFF}
                 onToggleWWFF={toggleWWFF}
                 onPOTASpotClick={handleParkSpotClick}
@@ -419,11 +532,19 @@ export default function ModernLayout(props) {
 
           {/* Contests - at bottom, compact */}
           {config.panels?.contests?.visible !== false && (
-            <div style={{ flex: `${config.panels.contests?.size || 1} 0 auto`, minHeight: '80px', maxHeight: '120px', overflow: 'hidden' }}>
+            <div
+              style={{
+                flex: `${config.panels.contests?.size || 1} 0 auto`,
+                minHeight: '80px',
+                maxHeight: '120px',
+                overflow: 'hidden',
+              }}
+            >
               <ContestPanel data={contests.data} loading={contests.loading} />
             </div>
           )}
         </div>
       )}
-    </div>);
+    </div>
+  );
 }

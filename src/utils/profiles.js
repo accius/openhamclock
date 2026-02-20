@@ -23,6 +23,7 @@ const SNAPSHOT_KEYS = [
   'openhamclock_pskActiveTab',
   'openhamclock_pskFilters',
   'openhamclock_pskPanelMode',
+  'openhamclock_bandColors',
   'openhamclock_satelliteFilters',
   'openhamclock_solarImageType',
   'openhamclock_solarPanelMode',
@@ -93,7 +94,7 @@ function restoreSnapshot(snapshot) {
       keysToRemove.push(key);
     }
   }
-  keysToRemove.forEach(k => localStorage.removeItem(k));
+  keysToRemove.forEach((k) => localStorage.removeItem(k));
 
   // Write snapshot keys
   for (const [key, value] of Object.entries(snapshot)) {
@@ -157,11 +158,11 @@ export function renameProfile(oldName, newName) {
   const profiles = getProfiles();
   if (!profiles[oldName]) return false;
   if (profiles[newName.trim()]) return false; // target name already exists
-  
+
   profiles[newName.trim()] = { ...profiles[oldName], updatedAt: new Date().toISOString() };
   delete profiles[oldName];
   saveProfiles(profiles);
-  
+
   if (getActiveProfile() === oldName) {
     localStorage.setItem(ACTIVE_KEY, newName.trim());
   }
@@ -175,26 +176,34 @@ export function exportProfile(name) {
   const profiles = getProfiles();
   const profile = profiles[name];
   if (!profile) return null;
-  return JSON.stringify({
-    name,
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    ...profile,
-  }, null, 2);
+  return JSON.stringify(
+    {
+      name,
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      ...profile,
+    },
+    null,
+    2,
+  );
 }
 
 /**
  * Export current live state as a JSON string (without needing a saved profile)
  */
 export function exportCurrentState(name = 'Exported') {
-  return JSON.stringify({
-    name,
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    snapshot: takeSnapshot(),
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  }, null, 2);
+  return JSON.stringify(
+    {
+      name,
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      snapshot: takeSnapshot(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    null,
+    2,
+  );
 }
 
 /**
@@ -205,7 +214,7 @@ export function importProfile(jsonString) {
   try {
     const data = JSON.parse(jsonString);
     if (!data.snapshot || !data.name) return null;
-    
+
     const profiles = getProfiles();
     // Avoid overwriting - add suffix if name exists
     let name = data.name;
@@ -213,7 +222,7 @@ export function importProfile(jsonString) {
     while (profiles[name]) {
       name = `${data.name} (${counter++})`;
     }
-    
+
     profiles[name] = {
       snapshot: data.snapshot,
       createdAt: data.createdAt || new Date().toISOString(),

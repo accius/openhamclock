@@ -1,5 +1,5 @@
-import React, { useRef, useMemo } from "react";
-import useRotator from "../hooks/useRotator";
+import React, { useRef, useMemo } from 'react';
+import useRotator from '../hooks/useRotator';
 
 /**
  * Rotator Panel V1
@@ -20,9 +20,7 @@ export default function RotatorPanel({
   onStop,
   controlsEnabled = true,
 }) {
-  
-  const { azimuth, lastGoodAzimuth, isStale } =
-  state ?? useRotator({ endpointUrl, pollMs, staleMs });
+  const { azimuth, lastGoodAzimuth, isStale } = state ?? useRotator({ endpointUrl, pollMs, staleMs });
 
   const displayAngleRef = useRef(null); // continuous angle
   const prevAzRef = useRef(null);
@@ -49,15 +47,15 @@ export default function RotatorPanel({
   }, [lastGoodAzimuth, azimuth]);
 
   const bearingText = useMemo(() => {
-    if (azimuth == null || Number.isNaN(azimuth)) return "--";
+    if (azimuth == null || Number.isNaN(azimuth)) return '--';
     const a = ((Math.round(azimuth) % 360) + 360) % 360;
-    return String(a).padStart(3, "0");
+    return String(a).padStart(3, '0');
   }, [azimuth]);
 
   const [showCompass, setShowCompass] = React.useState(() => {
     try {
-      const v = localStorage.getItem("ohc_rotator_showCompass");
-      return v === null ? true : v === "1";
+      const v = localStorage.getItem('ohc_rotator_showCompass');
+      return v === null ? true : v === '1';
     } catch {
       return true;
     }
@@ -66,7 +64,9 @@ export default function RotatorPanel({
   const toggleCompass = () => {
     setShowCompass((v) => {
       const next = !v;
-      try { localStorage.setItem("ohc_rotator_showCompass", next ? "1" : "0"); } catch {}
+      try {
+        localStorage.setItem('ohc_rotator_showCompass', next ? '1' : '0');
+      } catch {}
       return next;
     });
   };
@@ -75,53 +75,52 @@ export default function RotatorPanel({
     <div className="ohc-rotator-panel">
       <div className="ohc-rotator-header">
         <div className="ohc-rotator-meta">
-
           <button
             onClick={toggleCompass}
             style={{
               marginLeft: 10,
-              padding: "4px 10px",
+              padding: '4px 10px',
               borderRadius: 999,
               fontSize: 11,
-              fontFamily: "JetBrains Mono",
-              cursor: "pointer",
-              background: showCompass ? "rgba(0,255,255,0.15)" : "rgba(0,0,0,0.35)",
-              border: `1px solid ${showCompass ? "#00ffff" : "rgba(255,255,255,0.18)"}`,
-              color: showCompass ? "#00ffff" : "rgba(255,255,255,0.65)",
+              fontFamily: 'JetBrains Mono',
+              cursor: 'pointer',
+              background: showCompass ? 'rgba(0,255,255,0.15)' : 'rgba(0,0,0,0.35)',
+              border: `1px solid ${showCompass ? '#00ffff' : 'rgba(255,255,255,0.18)'}`,
+              color: showCompass ? '#00ffff' : 'rgba(255,255,255,0.65)',
             }}
-            title={showCompass ? "Hide compass" : "Show compass"}
+            title={showCompass ? 'Hide compass' : 'Show compass'}
           >
-            COMPASS {showCompass ? "ON" : "OFF"}
+            COMPASS {showCompass ? 'ON' : 'OFF'}
           </button>
 
-          {typeof onToggleOverlay === "function" && (
+          {typeof onToggleOverlay === 'function' && (
             <button
               onClick={onToggleOverlay}
               style={{
                 marginLeft: 10,
-                padding: "4px 10px",
+                padding: '4px 10px',
                 borderRadius: 999,
                 fontSize: 11,
-                fontFamily: "JetBrains Mono",
-                cursor: "pointer",
-                background: overlayEnabled ? "rgba(0,255,255,0.15)" : "rgba(0,0,0,0.35)",
-                border: `1px solid ${overlayEnabled ? "#00ffff" : "rgba(255,255,255,0.18)"}`,
-                color: overlayEnabled ? "#00ffff" : "rgba(255,255,255,0.65)",
+                fontFamily: 'JetBrains Mono',
+                cursor: 'pointer',
+                background: overlayEnabled ? 'rgba(0,255,255,0.15)' : 'rgba(0,0,0,0.35)',
+                border: `1px solid ${overlayEnabled ? '#00ffff' : 'rgba(255,255,255,0.18)'}`,
+                color: overlayEnabled ? '#00ffff' : 'rgba(255,255,255,0.65)',
               }}
-              title={overlayEnabled ? "Hide rotator bearing on map" : "Show rotator bearing on map"}
+              title={overlayEnabled ? 'Hide rotator bearing on map' : 'Show rotator bearing on map'}
             >
-              MAP {overlayEnabled ? "ON" : "OFF"}
+              MAP {overlayEnabled ? 'ON' : 'OFF'}
             </button>
           )}
         </div>
       </div>
-       
-      {typeof onTurnAzimuth === "function" && (
+
+      {typeof onTurnAzimuth === 'function' && (
         <div
           style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
             gap: 10,
             marginBottom: 12,
           }}
@@ -129,15 +128,15 @@ export default function RotatorPanel({
           {/* Row 1: Nudge + Stop */}
           <div
             style={{
-              display: "flex",
+              display: 'flex',
               gap: 8,
-              justifyContent: "center",
-              flexWrap: "wrap",
+              justifyContent: 'center',
+              flexWrap: 'wrap',
             }}
           >
             <button
               disabled={!controlsEnabled}
-              onClick={() => onTurnAzimuth(((Number(azimuth ?? lastGoodAzimuth ?? 0) - 10) % 360 + 360) % 360)}
+              onClick={() => onTurnAzimuth((((Number(azimuth ?? lastGoodAzimuth ?? 0) - 10) % 360) + 360) % 360)}
               style={btnStyle(!controlsEnabled)}
             >
               -10
@@ -145,14 +144,14 @@ export default function RotatorPanel({
 
             <button
               disabled={!controlsEnabled}
-              onClick={() => onTurnAzimuth(((Number(azimuth ?? lastGoodAzimuth ?? 0) - 5) % 360 + 360) % 360)}
+              onClick={() => onTurnAzimuth((((Number(azimuth ?? lastGoodAzimuth ?? 0) - 5) % 360) + 360) % 360)}
               style={btnStyle(!controlsEnabled)}
             >
               -5
             </button>
 
             <button
-              disabled={!controlsEnabled || typeof onStop !== "function"}
+              disabled={!controlsEnabled || typeof onStop !== 'function'}
               onClick={() => onStop?.()}
               style={btnStyle(!controlsEnabled)}
             >
@@ -161,7 +160,7 @@ export default function RotatorPanel({
 
             <button
               disabled={!controlsEnabled}
-              onClick={() => onTurnAzimuth(((Number(azimuth ?? lastGoodAzimuth ?? 0) + 5) % 360 + 360) % 360)}
+              onClick={() => onTurnAzimuth((((Number(azimuth ?? lastGoodAzimuth ?? 0) + 5) % 360) + 360) % 360)}
               style={btnStyle(!controlsEnabled)}
             >
               +5
@@ -169,7 +168,7 @@ export default function RotatorPanel({
 
             <button
               disabled={!controlsEnabled}
-              onClick={() => onTurnAzimuth(((Number(azimuth ?? lastGoodAzimuth ?? 0) + 10) % 360 + 360) % 360)}
+              onClick={() => onTurnAzimuth((((Number(azimuth ?? lastGoodAzimuth ?? 0) + 10) % 360) + 360) % 360)}
               style={btnStyle(!controlsEnabled)}
             >
               +10
@@ -179,15 +178,12 @@ export default function RotatorPanel({
           {/* Row 2: AZ input centered */}
           <div
             style={{
-              display: "flex",
-              justifyContent: "center",
-              width: "100%",
+              display: 'flex',
+              justifyContent: 'center',
+              width: '100%',
             }}
           >
-            <AzGoto
-              disabled={!controlsEnabled}
-              onGo={(v) => onTurnAzimuth(v)}
-            />
+            <AzGoto disabled={!controlsEnabled} onGo={(v) => onTurnAzimuth(v)} />
           </div>
 
           {/* Row 3: Tip centered */}
@@ -195,7 +191,7 @@ export default function RotatorPanel({
             style={{
               fontSize: 11,
               opacity: 0.65,
-              textAlign: "center",
+              textAlign: 'center',
             }}
           >
             Tip: <b>Shift-click</b> the map to turn
@@ -204,32 +200,28 @@ export default function RotatorPanel({
       )}
       <div className="ohc-rotator-body">
         {showCompass && (
-          <Compass
-            azimuth={azimuth ?? lastGoodAzimuth ?? 0}
-            displayAngle={displayAngle}
-            isStale={isStale}
-          />
+          <Compass azimuth={azimuth ?? lastGoodAzimuth ?? 0} displayAngle={displayAngle} isStale={isStale} />
         )}
 
         <div
           style={{
-            display: "flex",
-            justifyContent: "center",
+            display: 'flex',
+            justifyContent: 'center',
             marginTop: showCompass ? 16 : 10,
-            width: "100%",
+            width: '100%',
           }}
         >
           <div
             style={{
-              display: "inline-flex",
-              width: "fit-content",
-              alignItems: "baseline",
-              justifyContent: "center",
+              display: 'inline-flex',
+              width: 'fit-content',
+              alignItems: 'baseline',
+              justifyContent: 'center',
               gap: 6,
-              padding: "10px 16px",
+              padding: '10px 16px',
               borderRadius: 14,
-              border: "1px solid rgba(255,255,255,0.10)",
-              background: "rgba(255,255,255,0.03)",
+              border: '1px solid rgba(255,255,255,0.10)',
+              background: 'rgba(255,255,255,0.03)',
               minWidth: 160,
             }}
           >
@@ -239,7 +231,7 @@ export default function RotatorPanel({
                 fontWeight: 800,
                 letterSpacing: 1,
                 lineHeight: 1,
-                color: "rgba(255,255,255,0.85)",
+                color: 'rgba(255,255,255,0.85)',
               }}
             >
               {bearingText}
@@ -249,7 +241,7 @@ export default function RotatorPanel({
                 fontSize: 20,
                 opacity: 0.65,
                 fontWeight: 700,
-                position: "relative",
+                position: 'relative',
                 top: -4, // optional: nudges ° up
               }}
             >
@@ -265,9 +257,8 @@ export default function RotatorPanel({
 }
 
 function Compass({ azimuth, displayAngle, isStale }) {
-  
   return (
-    <div className={"ohc-compass " + (isStale ? "ohc-compass--stale" : "")}>
+    <div className={'ohc-compass ' + (isStale ? 'ohc-compass--stale' : '')}>
       <svg viewBox="0 0 200 200" className="ohc-compass-svg" aria-label="Compass">
         {/* Outer ring */}
         <circle cx="100" cy="100" r="92" className="ohc-compass-ring" />
@@ -288,7 +279,7 @@ function Compass({ azimuth, displayAngle, isStale }) {
                 x2="100"
                 y2={100 - r2}
                 transform={`rotate(${deg} 100 100)`}
-                className={isMajor ? "ohc-tick ohc-tick--major" : "ohc-tick"}
+                className={isMajor ? 'ohc-tick ohc-tick--major' : 'ohc-tick'}
               />
             );
           })}
@@ -314,27 +305,16 @@ function Compass({ azimuth, displayAngle, isStale }) {
         <g
           className="ohc-needle-wrap"
           style={{
-            transform: displayAngle == null
-              ? "none"
-              : `rotate(${displayAngle}deg)`,
-            transition: "transform 250ms linear",
+            transform: displayAngle == null ? 'none' : `rotate(${displayAngle}deg)`,
+            transition: 'transform 250ms linear',
           }}
         >
           {/* Needle body */}
-          <path
-            d="M100 40 L106 100 L100 160 L94 100 Z"
-            className="ohc-needle"
-          />
+          <path d="M100 40 L106 100 L100 160 L94 100 Z" className="ohc-needle" />
           {/* Red direction tip */}
-          <path
-            d="M100 34 L106 54 L94 54 Z"
-            className="ohc-needle-tip-red"
-          />
+          <path d="M100 34 L106 54 L94 54 Z" className="ohc-needle-tip-red" />
           {/* Needle tip highlight */}
-          <path
-            d="M100 40 L104 98 L100 100 Z"
-            className="ohc-needle-tip"
-          />
+          <path d="M100 40 L104 98 L100 100 Z" className="ohc-needle-tip" />
         </g>
 
         {/* Center cap */}
@@ -346,22 +326,22 @@ function Compass({ azimuth, displayAngle, isStale }) {
 }
 function btnStyle(disabled) {
   return {
-    padding: "4px 10px",
+    padding: '4px 10px',
     borderRadius: 999,
     fontSize: 11,
-    fontFamily: "JetBrains Mono",
-    cursor: disabled ? "not-allowed" : "pointer",
-    background: "rgba(0,0,0,0.35)",
-    border: "1px solid rgba(255,255,255,0.18)",
-    color: disabled ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.75)",
+    fontFamily: 'JetBrains Mono',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    background: 'rgba(0,0,0,0.35)',
+    border: '1px solid rgba(255,255,255,0.18)',
+    color: disabled ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.75)',
   };
 }
 
 function AzGoto({ disabled, onGo }) {
-  const [val, setVal] = React.useState("");
+  const [val, setVal] = React.useState('');
 
   return (
-    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
       <input
         disabled={disabled}
         value={val}
@@ -369,14 +349,14 @@ function AzGoto({ disabled, onGo }) {
         placeholder="AZ"
         style={{
           width: 56,
-          padding: "4px 8px",
+          padding: '4px 8px',
           borderRadius: 8,
           fontSize: 11,
-          fontFamily: "JetBrains Mono",
-          background: "rgba(0,0,0,0.35)",
-          border: "1px solid rgba(255,255,255,0.18)",
-          color: "rgba(255,255,255,0.85)",
-          outline: "none",
+          fontFamily: 'JetBrains Mono',
+          background: 'rgba(0,0,0,0.35)',
+          border: '1px solid rgba(255,255,255,0.18)',
+          color: 'rgba(255,255,255,0.85)',
+          outline: 'none',
         }}
       />
       <button

@@ -12,6 +12,7 @@ import translationIT from './it.json';
 import translationNL from './nl.json';
 import translationKO from './ko.json';
 import translationSL from './sl.json';
+import translationMS from './ms.json';
 
 export const LANGUAGES = [
   { code: 'en', name: 'English', flag: '🇬🇧' },
@@ -23,7 +24,8 @@ export const LANGUAGES = [
   { code: 'ja', name: '日本語', flag: '🇯🇵' },
   { code: 'ko', name: '한국어', flag: '🇰🇷' },
   { code: 'it', name: 'Italiano', flag: '🇮🇹' },
-  { code: 'sl', name: 'Slovenščina', flag: '🇸🇮' }
+  { code: 'sl', name: 'Slovenščina', flag: '🇸🇮' },
+  { code: 'ms', name: 'Melayu', flag: '🇲🇾' },
 ];
 
 export const resources = {
@@ -36,7 +38,8 @@ export const resources = {
   ja: { translation: translationJA },
   ko: { translation: translationKO },
   it: { translation: translationIT },
-  sl: { translation: translationSL }
+  sl: { translation: translationSL },
+  ms: { translation: translationMS },
 };
 
 i18n
@@ -46,12 +49,12 @@ i18n
     fallbackLng: 'en',
     resources,
     interpolation: {
-      escapeValue: false
+      escapeValue: false,
     },
     detection: {
       order: ['localStorage', 'navigator'],
-      caches: ['localStorage']
-    }
+      caches: ['localStorage'],
+    },
   });
 
 export default i18n;

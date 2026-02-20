@@ -19,7 +19,7 @@ export const metadata = {
   category: 'geology',
   defaultEnabled: false,
   defaultOpacity: 0.9,
-  version: '1.2.0'
+  version: '1.2.0',
 };
 
 export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemoryMode = false }) {
@@ -27,7 +27,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
   const [earthquakeData, setEarthquakeData] = useState([]);
   const previousQuakeIds = useRef(new Set());
   const isFirstLoad = useRef(true);
-  
+
   // Low memory mode limits
   const MAX_QUAKES = lowMemoryMode ? 20 : 100;
   const REFRESH_INTERVAL = lowMemoryMode ? 600000 : 300000; // 10 min vs 5 min
@@ -40,7 +40,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       try {
         // USGS GeoJSON feed - All earthquakes from last hour
         const response = await fetch(
-          'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson'
+          'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson',
           //'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson'
         );
         const data = await response.json();
@@ -64,7 +64,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
     if (!map || typeof L === 'undefined') return;
 
     // Clear old markers
-    markersRef.forEach(marker => {
+    markersRef.forEach((marker) => {
       try {
         map.removeLayer(marker);
       } catch (e) {
@@ -81,18 +81,18 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
     const newMarkers = [];
     const currentQuakeIds = new Set();
 
-    earthquakeData.forEach(quake => {
+    earthquakeData.forEach((quake) => {
       const coords = quake.geometry.coordinates;
       const props = quake.properties;
       const mag = props.mag;
-      
+
       // GeoJSON standard format: [longitude, latitude, elevation]
       // For Santa Lucía, Peru: [-70.5639, -15.6136, 206.486]
       //   coords[0] = -70.5639 = Longitude (W)
       //   coords[1] = -15.6136 = Latitude (S)
       //   coords[2] = 206.486 = Depth (km)
-      const lat = coords[1];  // Latitude (y-axis)
-      const lon = coords[0];  // Longitude (x-axis)
+      const lat = coords[1]; // Latitude (y-axis)
+      const lon = coords[0]; // Longitude (x-axis)
       const depth = coords[2];
       const quakeId = quake.id;
 
@@ -103,7 +103,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
         geojson: `[lon=${coords[0]}, lat=${coords[1]}, depth=${coords[2]}]`,
         extracted: `lat=${lat} (coords[1]), lon=${lon} (coords[0])`,
         leafletMarkerCall: `L.marker([${lat}, ${lon}])`,
-        explanation: `Standard Leaflet [latitude, longitude] format - CSS position fixed`
+        explanation: `Standard Leaflet [latitude, longitude] format - CSS position fixed`,
       });
 
       currentQuakeIds.add(quakeId);
@@ -120,23 +120,29 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
       // Color based on magnitude (gets redder with stronger quakes)
       let color;
-      if (mag < 2) color = '#90EE90'; // Light green - micro
-      else if (mag < 3) color = '#FFEB3B'; // Yellow - minor
-      else if (mag < 4) color = '#FFA500'; // Orange - light
-      else if (mag < 5) color = '#FF6600'; // Deep orange - moderate
-      else if (mag < 6) color = '#FF3300'; // Red - strong
-      else if (mag < 7) color = '#CC0000'; // Dark red - major
+      if (mag < 2)
+        color = '#90EE90'; // Light green - micro
+      else if (mag < 3)
+        color = '#FFEB3B'; // Yellow - minor
+      else if (mag < 4)
+        color = '#FFA500'; // Orange - light
+      else if (mag < 5)
+        color = '#FF6600'; // Deep orange - moderate
+      else if (mag < 6)
+        color = '#FF3300'; // Red - strong
+      else if (mag < 7)
+        color = '#CC0000'; // Dark red - major
       else color = '#8B0000'; // Very dark red - great
 
       // Create earthquake icon with visible shake/wave symbol
       const waveIcon = `
-        <svg width="${size*0.8}" height="${size*0.8}" viewBox="0 0 32 32" style="fill: white; stroke: white; stroke-width: 1;">
+        <svg width="${size * 0.8}" height="${size * 0.8}" viewBox="0 0 32 32" style="fill: white; stroke: white; stroke-width: 1;">
           <path d="M16 4 L13 12 L10 8 L8 16 L6 12 L4 20 M16 4 L19 12 L22 8 L24 16 L26 12 L28 20" stroke-width="2" fill="none"/>
           <circle cx="16" cy="16" r="3" fill="white"/>
           <path d="M16 22 L14 26 L18 26 Z" fill="white"/>
         </svg>
       `;
-      
+
       const icon = L.divIcon({
         className: 'earthquake-icon',
         html: `<div style="
@@ -153,23 +159,23 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
           box-shadow: 0 2px 8px rgba(0,0,0,0.5);
         ">${waveIcon}</div>`,
         iconSize: [size, size],
-        iconAnchor: [size/2, size/2],
-        popupAnchor: [0, 0]  // Popup appears at the marker position (icon center)
+        iconAnchor: [size / 2, size / 2],
+        popupAnchor: [0, 0], // Popup appears at the marker position (icon center)
       });
-      
+
       console.log(`📍 Creating marker for ${quakeId}: M${mag.toFixed(1)} at [lat=${lat}, lon=${lon}] - ${props.place}`);
-      
+
       // Use standard Leaflet [latitude, longitude] format
       // The popup was appearing in the correct location, confirming marker position is correct
       // The icon was appearing offset due to CSS position: relative issue (now fixed)
-      const markerCoords = [lat, lon];  // CORRECT: [latitude, longitude]
-      
+      const markerCoords = [lat, lon]; // CORRECT: [latitude, longitude]
+
       console.log(`   → Creating L.marker([${markerCoords[0]}, ${markerCoords[1]}]) = [lat, lon]`);
-      
-      const circle = L.marker(markerCoords, { 
-        icon, 
+
+      const circle = L.marker(markerCoords, {
+        icon,
         opacity,
-        zIndexOffset: 10000 // Ensure markers appear on top
+        zIndexOffset: 10000, // Ensure markers appear on top
       });
 
       // Add to map first
@@ -185,7 +191,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
               const iconDiv = iconElement.querySelector('div');
               if (iconDiv) {
                 iconDiv.classList.add('earthquake-pulse-new');
-                
+
                 // Remove animation class after it completes (0.8s)
                 setTimeout(() => {
                   try {
@@ -198,7 +204,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
             console.warn('Could not animate earthquake marker:', e);
           }
         }, 10);
-        
+
         // Create pulsing ring effect - use same [lat, lon] format
         const pulseRing = L.circle([lat, lon], {
           radius: 50000, // 50km radius in meters
@@ -207,11 +213,11 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
           color: color,
           weight: 3,
           opacity: 0.8,
-          className: 'earthquake-pulse-ring'
+          className: 'earthquake-pulse-ring',
         });
-        
+
         pulseRing.addTo(map);
-        
+
         // Remove pulse ring after animation completes
         setTimeout(() => {
           try {
@@ -224,9 +230,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       const time = new Date(props.time);
       const timeStr = time.toLocaleString();
       const ageMinutes = Math.floor((Date.now() - props.time) / 60000);
-      const ageStr = ageMinutes < 60 
-        ? `${ageMinutes} min ago` 
-        : `${Math.floor(ageMinutes / 60)} hr ago`;
+      const ageStr = ageMinutes < 60 ? `${ageMinutes} min ago` : `${Math.floor(ageMinutes / 60)} hr ago`;
 
       // Add popup with details
       circle.bindPopup(`
@@ -253,7 +257,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
     // Update previous quake IDs for next comparison
     previousQuakeIds.current = currentQuakeIds;
-    
+
     // After first load, allow animations for new quakes
     if (isFirstLoad.current) {
       isFirstLoad.current = false;
@@ -263,7 +267,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
     setMarkersRef(newMarkers);
 
     return () => {
-      newMarkers.forEach(marker => {
+      newMarkers.forEach((marker) => {
         try {
           map.removeLayer(marker);
         } catch (e) {
@@ -275,6 +279,6 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
   return {
     markers: markersRef,
-    earthquakeCount: earthquakeData.length
+    earthquakeCount: earthquakeData.length,
   };
 }

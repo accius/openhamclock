@@ -16,11 +16,13 @@ This microservice provides HF propagation predictions as a REST API, suitable fo
 ## API Endpoints
 
 ### Health Check
+
 ```
 GET /api/health
 ```
 
 Response:
+
 ```json
 {
   "status": "healthy",
@@ -30,6 +32,7 @@ Response:
 ```
 
 ### Single Point Prediction
+
 ```
 GET /api/predict?txLat=40.1&txLon=-74.8&rxLat=51.5&rxLon=-0.1&month=1&hour=12&ssn=100
 ```
@@ -49,6 +52,7 @@ Parameters:
 | frequencies | No | Comma-separated MHz values |
 
 Response:
+
 ```json
 {
   "model": "ITU-R P.533-14",
@@ -63,6 +67,7 @@ Response:
 ```
 
 ### 24-Hour Prediction
+
 ```
 GET /api/predict/hourly?txLat=40.1&txLon=-74.8&rxLat=51.5&rxLon=-0.1&month=1&ssn=100
 ```
@@ -70,11 +75,13 @@ GET /api/predict/hourly?txLat=40.1&txLon=-74.8&rxLat=51.5&rxLon=-0.1&month=1&ssn
 Returns predictions for each hour (0-23 UTC).
 
 ### Band Conditions (Simplified)
+
 ```
 GET /api/bands?txLat=40.1&txLon=-74.8&rxLat=51.5&rxLon=-0.1
 ```
 
 Response:
+
 ```json
 {
   "model": "ITU-R P.533-14",
@@ -96,6 +103,7 @@ Response:
 3. Deploy!
 
 The Dockerfile will:
+
 - Clone and build ITURHFProp from source
 - Set up the Node.js API wrapper
 - Configure all necessary data files
@@ -149,10 +157,10 @@ const ITURHFPROP_SERVICE = process.env.ITURHFPROP_URL || 'http://localhost:3001'
 
 app.get('/api/propagation', async (req, res) => {
   const { deLat, deLon, dxLat, dxLon } = req.query;
-  
+
   try {
     const response = await fetch(
-      `${ITURHFPROP_SERVICE}/api/bands?txLat=${deLat}&txLon=${deLon}&rxLat=${dxLat}&rxLon=${dxLon}`
+      `${ITURHFPROP_SERVICE}/api/bands?txLat=${deLat}&txLon=${deLon}&rxLat=${dxLat}&rxLon=${dxLon}`,
     );
     const data = await response.json();
     res.json(data);
@@ -174,6 +182,7 @@ app.get('/api/propagation', async (req, res) => {
 ### ITU-R P.533-14
 
 The prediction model accounts for:
+
 - F2-layer propagation (main HF mode)
 - E-layer propagation
 - Sporadic-E when applicable
@@ -200,10 +209,10 @@ ITURHFProp is provided by ITU-R Study Group 3 - see [ITU-R-Study-Group-3/ITU-R-H
 ## Credits
 
 - **ITURHFProp** by ITU-R Study Group 3 - The core prediction engine
-- **ITU-R P.533-14** - International Telecommunication Union recommendation  
+- **ITU-R P.533-14** - International Telecommunication Union recommendation
 - **Chris Behm & George Engelbrecht** - Original ITURHFProp developers
 - **OpenHamClock** - Integration target
 
 ---
 
-*73 de OpenHamClock contributors*
+_73 de OpenHamClock contributors_

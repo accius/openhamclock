@@ -10,7 +10,7 @@ export const metadata = {
   category: 'weather',
   defaultEnabled: false,
   defaultOpacity: 0.6,
-  version: '1.0.0'
+  version: '1.0.0',
 };
 
 export function useLayer({ enabled = false, opacity = 0.6, map = null }) {
@@ -25,8 +25,8 @@ export function useLayer({ enabled = false, opacity = 0.6, map = null }) {
       transparent: true,
       attribution: i18n.t('plugins.layers.wxradar.attribution'),
       opacity: opacity,
-      zIndex: 200
-    }
+      zIndex: 200,
+    },
   };
 
   // Add/remove layer
@@ -85,6 +85,6 @@ export function useLayer({ enabled = false, opacity = 0.6, map = null }) {
 
   return {
     layer: layerRef,
-    refresh: () => setRadarTimestamp(Date.now())
+    refresh: () => setRadarTimestamp(Date.now()),
   };
 }

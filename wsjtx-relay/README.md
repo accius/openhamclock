@@ -61,13 +61,13 @@ That's it. The relay will show decoded messages as they come in.
 
 ## Options
 
-| Flag | Env Variable | Default | Description |
-|------|-------------|---------|-------------|
-| `--url` | `OPENHAMCLOCK_URL` | — | Server URL (required) |
-| `--key` | `RELAY_KEY` | — | Auth key (required) |
-| `--port` | `WSJTX_UDP_PORT` | `2237` | Local UDP port |
-| `--interval` | `BATCH_INTERVAL` | `2000` | Batch send interval (ms) |
-| `--verbose` | `VERBOSE=true` | off | Show all decoded messages |
+| Flag         | Env Variable       | Default | Description               |
+| ------------ | ------------------ | ------- | ------------------------- |
+| `--url`      | `OPENHAMCLOCK_URL` | —       | Server URL (required)     |
+| `--key`      | `RELAY_KEY`        | —       | Auth key (required)       |
+| `--port`     | `WSJTX_UDP_PORT`   | `2237`  | Local UDP port            |
+| `--interval` | `BATCH_INTERVAL`   | `2000`  | Batch send interval (ms)  |
+| `--verbose`  | `VERBOSE=true`     | off     | Show all decoded messages |
 
 ## Running as a Service
 
@@ -98,6 +98,7 @@ sudo systemctl enable --now wsjtx-relay
 ### Windows (Task Scheduler)
 
 Create a batch file `start-relay.bat`:
+
 ```batch
 @echo off
 set OPENHAMCLOCK_URL=https://openhamclock.com

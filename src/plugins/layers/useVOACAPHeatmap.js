@@ -2,11 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 
 /**
  * VOACAP-Style Propagation Heatmap Plugin v1.0.0
- * 
+ *
  * Shows color-coded propagation predictions from your DE location to
- * the entire world for a selected HF band — green (good), yellow 
+ * the entire world for a selected HF band — green (good), yellow
  * (marginal), red (poor). Inspired by the original HamClock VOACAP overlay.
- * 
+ *
  * Data source: /api/propagation/heatmap (server-side, uses ITU-R P.533-style model)
  * Update interval: 5 minutes
  */
@@ -19,20 +19,20 @@ export const metadata = {
   category: 'propagation',
   defaultEnabled: false,
   defaultOpacity: 0.35,
-  version: '1.0.0'
+  version: '1.0.0',
 };
 
 // HF bands: label, frequency in MHz
 const BANDS = [
   { label: '160m', freq: 1.8 },
-  { label: '80m',  freq: 3.5 },
-  { label: '40m',  freq: 7 },
-  { label: '30m',  freq: 10 },
-  { label: '20m',  freq: 14 },
-  { label: '17m',  freq: 18 },
-  { label: '15m',  freq: 21 },
-  { label: '12m',  freq: 24 },
-  { label: '10m',  freq: 28 }
+  { label: '80m', freq: 3.5 },
+  { label: '40m', freq: 7 },
+  { label: '30m', freq: 10 },
+  { label: '20m', freq: 14 },
+  { label: '17m', freq: 18 },
+  { label: '15m', freq: 21 },
+  { label: '12m', freq: 24 },
+  { label: '10m', freq: 28 },
 ];
 
 // Reliability to color: red (0%) → yellow (50%) → green (100%)
@@ -56,7 +56,7 @@ function reliabilityColor(r) {
 // Make control panel draggable with CTRL+drag
 function makeDraggable(element, storageKey, skipPositionLoad = false) {
   if (!element) return;
-  
+
   // Load saved position only if not already loaded
   if (!skipPositionLoad) {
     const saved = localStorage.getItem(storageKey);
@@ -64,7 +64,7 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
       try {
         const data = JSON.parse(saved);
         element.style.position = 'fixed';
-        
+
         // Check if saved as percentage (new format) or pixels (old format)
         if (data.topPercent !== undefined && data.leftPercent !== undefined) {
           // Use percentage-based positioning (scales with zoom)
@@ -77,7 +77,7 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
           element.style.top = topPercent + '%';
           element.style.left = leftPercent + '%';
         }
-        
+
         element.style.right = 'auto';
         element.style.bottom = 'auto';
         element.style.transform = 'none';
@@ -92,19 +92,19 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
       element.style.bottom = 'auto';
     }
   }
-  
+
   element.title = 'Hold CTRL and drag to reposition';
-  
+
   let isDragging = false;
   let startX, startY, startLeft, startTop;
-  
+
   const updateCursor = (e) => {
     element.style.cursor = e.ctrlKey ? 'grab' : 'default';
   };
-  
+
   element.addEventListener('mouseenter', updateCursor);
   element.addEventListener('mousemove', updateCursor);
-  
+
   element.addEventListener('mousedown', (e) => {
     if (!e.ctrlKey) return;
     isDragging = true;
@@ -116,30 +116,30 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
     e.preventDefault();
     e.stopPropagation();
   });
-  
+
   document.addEventListener('mousemove', (e) => {
     if (!isDragging) return;
     const dx = e.clientX - startX;
     const dy = e.clientY - startY;
-    element.style.left = (startLeft + dx) + 'px';
-    element.style.top = (startTop + dy) + 'px';
+    element.style.left = startLeft + dx + 'px';
+    element.style.top = startTop + dy + 'px';
   });
-  
+
   document.addEventListener('mouseup', () => {
     if (!isDragging) return;
     isDragging = false;
     element.style.cursor = 'default';
-    
+
     // Save position as percentage of viewport for zoom compatibility
     const topPercent = (element.offsetTop / window.innerHeight) * 100;
     const leftPercent = (element.offsetLeft / window.innerWidth) * 100;
-    
+
     const position = {
       topPercent,
       leftPercent,
       // Keep pixel values for backward compatibility
       top: element.offsetTop,
-      left: element.offsetLeft
+      left: element.offsetLeft,
     };
     localStorage.setItem(storageKey, JSON.stringify(position));
   });
@@ -148,19 +148,19 @@ function makeDraggable(element, storageKey, skipPositionLoad = false) {
 // Minimize/maximize toggle
 function addMinimizeToggle(container, storageKey) {
   if (!container) return;
-  
+
   const contentWrapper = container.querySelector('.voacap-panel-content');
   const minimizeBtn = container.querySelector('.voacap-minimize-btn');
   if (!contentWrapper || !minimizeBtn) return;
-  
+
   const minKey = storageKey + '-minimized';
   const isMinimized = localStorage.getItem(minKey) === 'true';
-  
+
   if (isMinimized) {
     contentWrapper.style.display = 'none';
     minimizeBtn.textContent = '▶';
   }
-  
+
   minimizeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     const hidden = contentWrapper.style.display === 'none';
@@ -183,36 +183,40 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
     try {
       const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
       return cfg.propagation?.mode || 'SSB';
-    } catch { return 'SSB'; }
+    } catch {
+      return 'SSB';
+    }
   });
   const [propPower, setPropPower] = useState(() => {
     try {
       const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
       return cfg.propagation?.power || 100;
-    } catch { return 100; }
+    } catch {
+      return 100;
+    }
   });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [lastFetch, setLastFetch] = useState(0);
-  
+
   const layersRef = useRef([]);
   const controlRef = useRef(null);
   const intervalRef = useRef(null);
-  
+
   // Listen for config changes (fired by saveConfig in config.js)
   useEffect(() => {
     const onConfigChange = (e) => {
       const cfg = e.detail || {};
       const newMode = cfg.propagation?.mode || 'SSB';
       const newPower = cfg.propagation?.power || 100;
-      setPropMode(prev => prev !== newMode ? newMode : prev);
-      setPropPower(prev => prev !== newPower ? newPower : prev);
+      setPropMode((prev) => (prev !== newMode ? newMode : prev));
+      setPropPower((prev) => (prev !== newPower ? newPower : prev));
     };
-    
+
     window.addEventListener('openhamclock-config-change', onConfigChange);
     return () => window.removeEventListener('openhamclock-config-change', onConfigChange);
   }, []);
-  
+
   // Parse DE location from locator grid square
   const deLocation = (() => {
     if (!locator || locator.length < 4) return null;
@@ -223,15 +227,15 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
     const latMin = parseInt(g[3]) * 1;
     return { lat: lat + latMin + 0.5, lon: lon + lonMin + 1 };
   })();
-  
+
   // Fetch heatmap data
   useEffect(() => {
     if (!enabled || !deLocation) return;
-    
+
     const fetchData = async () => {
       const band = BANDS[selectedBand];
       if (!band) return;
-      
+
       setLoading(true);
       try {
         const url = `/api/propagation/heatmap?deLat=${deLocation.lat.toFixed(1)}&deLon=${deLocation.lon.toFixed(1)}&freq=${band.freq}&grid=${gridSize}&mode=${propMode}&power=${propPower}`;
@@ -247,48 +251,50 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
         setLoading(false);
       }
     };
-    
+
     fetchData();
     intervalRef.current = setInterval(fetchData, 5 * 60 * 1000);
-    
+
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
   }, [enabled, deLocation?.lat, deLocation?.lon, selectedBand, gridSize, propMode, propPower]);
-  
+
   // Create control panel
   useEffect(() => {
     if (!map || !enabled) return;
-    
+
     // Avoid duplicate controls
     if (controlRef.current) {
-      try { map.removeControl(controlRef.current); } catch (e) {}
+      try {
+        map.removeControl(controlRef.current);
+      } catch (e) {}
       controlRef.current = null;
     }
-    
+
     const VOACAPControl = L.Control.extend({
       options: { position: 'topright' },
-      onAdd: function() {
+      onAdd: function () {
         const container = L.DomUtil.create('div', 'voacap-heatmap-control');
         L.DomEvent.disableClickPropagation(container);
         L.DomEvent.disableScrollPropagation(container);
-        
-        const bandOptions = BANDS.map((b, i) =>
-          `<option value="${i}" ${i === selectedBand ? 'selected' : ''}>${b.label} (${b.freq} MHz)</option>`
+
+        const bandOptions = BANDS.map(
+          (b, i) => `<option value="${i}" ${i === selectedBand ? 'selected' : ''}>${b.label} (${b.freq} MHz)</option>`,
         ).join('');
-        
-        const gridOptions = [5, 10, 15, 20].map(g =>
-          `<option value="${g}" ${g === gridSize ? 'selected' : ''}>${g}°</option>`
-        ).join('');
-        
-        const modeOptions = ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'AM', 'FM'].map(m =>
-          `<option value="${m}" ${m === propMode ? 'selected' : ''}>${m}</option>`
-        ).join('');
-        
-        const powerOptions = [5, 10, 25, 50, 100, 200, 400, 500, 750, 1000, 1500].map(p =>
-          `<option value="${p}" ${p === propPower ? 'selected' : ''}>${p}W</option>`
-        ).join('');
-        
+
+        const gridOptions = [5, 10, 15, 20]
+          .map((g) => `<option value="${g}" ${g === gridSize ? 'selected' : ''}>${g}°</option>`)
+          .join('');
+
+        const modeOptions = ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'AM', 'FM']
+          .map((m) => `<option value="${m}" ${m === propMode ? 'selected' : ''}>${m}</option>`)
+          .join('');
+
+        const powerOptions = [5, 10, 25, 50, 100, 200, 400, 500, 750, 1000, 1500]
+          .map((p) => `<option value="${p}" ${p === propPower ? 'selected' : ''}>${p}W</option>`)
+          .join('');
+
         container.innerHTML = `
           <div style="
             background: rgba(20, 20, 40, 0.92);
@@ -364,14 +370,14 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
             </div>
           </div>
         `;
-        
+
         return container;
-      }
+      },
     });
-    
+
     controlRef.current = new VOACAPControl();
     map.addControl(controlRef.current);
-    
+
     // Helper to update both plugin state AND global config in localStorage
     const updateGlobalConfig = (mode, power) => {
       try {
@@ -383,12 +389,12 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
         // Don't dispatch event here — we're already updating local state directly
       } catch (e) {}
     };
-    
+
     // Wire up event handlers after DOM is ready
     setTimeout(() => {
       const container = controlRef.current?._container;
       if (!container) return;
-      
+
       // Apply saved position
       const saved = localStorage.getItem('voacap-heatmap-position');
       if (saved) {
@@ -401,15 +407,15 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
           container.style.bottom = 'auto';
         } catch (e) {}
       }
-      
+
       makeDraggable(container, 'voacap-heatmap-position');
       addMinimizeToggle(container, 'voacap-heatmap-position');
-      
+
       const bandSelect = document.getElementById('voacap-band-select');
       const gridSelect = document.getElementById('voacap-grid-select');
       const modeSelect = document.getElementById('voacap-mode-select');
       const powerSelect = document.getElementById('voacap-power-select');
-      
+
       if (bandSelect) {
         bandSelect.addEventListener('change', (e) => {
           const val = parseInt(e.target.value);
@@ -439,13 +445,12 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
         });
       }
     }, 150);
-    
   }, [enabled, map]);
-  
+
   // Update status text and sync panel dropdowns when mode/power change
   useEffect(() => {
     if (!enabled) return;
-    
+
     const statusEl = document.getElementById('voacap-status');
     if (statusEl) {
       if (loading) {
@@ -454,89 +459,97 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
         statusEl.textContent = `${data.mode || 'SSB'} ${data.power || 100}W | SFI: ${data.solarData?.sfi} K: ${data.solarData?.kIndex}`;
       }
     }
-    
+
     // Sync dropdowns if changed externally (e.g. from Settings panel)
     const modeSelect = document.getElementById('voacap-mode-select');
     const powerSelect = document.getElementById('voacap-power-select');
     if (modeSelect && modeSelect.value !== propMode) modeSelect.value = propMode;
     if (powerSelect && parseFloat(powerSelect.value) !== propPower) powerSelect.value = propPower;
   }, [loading, data, enabled, propMode, propPower]);
-  
+
   // Render heatmap rectangles on the map
   useEffect(() => {
     if (!map || !enabled) return;
-    
+
     // Clear old layers
-    layersRef.current.forEach(layer => {
-      try { map.removeLayer(layer); } catch (e) {}
+    layersRef.current.forEach((layer) => {
+      try {
+        map.removeLayer(layer);
+      } catch (e) {}
     });
     layersRef.current = [];
-    
+
     if (!data?.cells?.length) return;
-    
+
     const half = (data.gridSize || 10) / 2;
     const newLayers = [];
-    
-    data.cells.forEach(cell => {
+
+    data.cells.forEach((cell) => {
       const color = reliabilityColor(cell.r);
       const band = BANDS[selectedBand];
-      
+
       // Create rectangles in 3 world copies for dateline support
       for (const offset of [-360, 0, 360]) {
         const bounds = [
           [cell.lat - half, cell.lon - half + offset],
-          [cell.lat + half, cell.lon + half + offset]
+          [cell.lat + half, cell.lon + half + offset],
         ];
-        
+
         const rect = L.rectangle(bounds, {
           color: 'transparent',
           fillColor: color,
           fillOpacity: opacity,
           weight: 0,
           interactive: false,
-          bubblingMouseEvents: true
+          bubblingMouseEvents: true,
         });
-        
+
         rect.addTo(map);
         newLayers.push(rect);
       }
     });
-    
+
     layersRef.current = newLayers;
-    
+
     return () => {
-      newLayers.forEach(layer => {
-        try { map.removeLayer(layer); } catch (e) {}
+      newLayers.forEach((layer) => {
+        try {
+          map.removeLayer(layer);
+        } catch (e) {}
       });
     };
   }, [map, enabled, data, opacity, selectedBand]);
-  
+
   // Cleanup on disable
   useEffect(() => {
     if (!enabled && map) {
       if (controlRef.current) {
-        try { map.removeControl(controlRef.current); } catch (e) {}
+        try {
+          map.removeControl(controlRef.current);
+        } catch (e) {}
         controlRef.current = null;
       }
-      layersRef.current.forEach(layer => {
-        try { map.removeLayer(layer); } catch (e) {}
+      layersRef.current.forEach((layer) => {
+        try {
+          map.removeLayer(layer);
+        } catch (e) {}
       });
       layersRef.current = [];
     }
   }, [enabled, map]);
-  
+
   return { data, loading, selectedBand };
 }
 
 // Quick haversine for popup display (no need for full precision)
 function haversineApprox(lat1, lon1, lat2, lon2) {
   const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-    Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
-    Math.sin(dLon/2) * Math.sin(dLon/2);
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
 // Format distance using global units preference from config

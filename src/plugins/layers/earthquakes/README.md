@@ -16,6 +16,7 @@ The Earthquakes plugin displays live seismic activity data from the USGS Earthqu
 ## 🌟 Features
 
 ### Core Capabilities
+
 - **Live Earthquake Data**: USGS M2.5+ earthquakes from the last hour
 - **Animated New Quake Detection**: Flash animation highlights newly detected earthquakes
 - **Magnitude-Based Sizing**: Larger circles for stronger quakes (16px–40px)
@@ -26,9 +27,10 @@ The Earthquakes plugin displays live seismic activity data from the USGS Earthqu
 - **Stable Positions**: Earthquakes stay at exact locations (no movement/drift)
 
 ### Visual Indicators (v1.2.0)
+
 - **Colored Circle Markers**: Background color shows magnitude severity
 - **Seismograph Wave Icon**: Custom SVG with zigzag waves, epicenter dot, and ground triangle
-- **Flash Animation (New Quakes)**: 
+- **Flash Animation (New Quakes)**:
   - Bright flash effect with glow (0.8s duration)
   - Expanding ring (50km radius, 3s duration)
   - 🆕 Badge in popup
@@ -37,21 +39,23 @@ The Earthquakes plugin displays live seismic activity data from the USGS Earthqu
 - **Box Shadow**: Depth effect for better visibility
 
 ### Magnitude Categories (Enhanced v1.2.0)
-| Magnitude | Size | Color | Hex | Classification |
-|-----------|------|-------|-----|----------------|
-| M1.0-2.0 | 16px | 🟢 Light Green | #90EE90 | Micro |
-| M2.0-3.0 | 16-20px | 🟡 Yellow | #FFEB3B | Minor |
-| M3.0-4.0 | 20-24px | 🟠 Orange | #FFA500 | Light |
-| M4.0-5.0 | 24-28px | 🟠 Deep Orange | #FF6600 | Moderate |
-| M5.0-6.0 | 28-32px | 🔴 Red | #FF3300 | Strong |
-| M6.0-7.0 | 32-36px | 🔴 Dark Red | #CC0000 | Major |
-| M7.0+ | 36-40px | 🔴 Very Dark Red | #8B0000 | Great |
+
+| Magnitude | Size    | Color            | Hex     | Classification |
+| --------- | ------- | ---------------- | ------- | -------------- |
+| M1.0-2.0  | 16px    | 🟢 Light Green   | #90EE90 | Micro          |
+| M2.0-3.0  | 16-20px | 🟡 Yellow        | #FFEB3B | Minor          |
+| M3.0-4.0  | 20-24px | 🟠 Orange        | #FFA500 | Light          |
+| M4.0-5.0  | 24-28px | 🟠 Deep Orange   | #FF6600 | Moderate       |
+| M5.0-6.0  | 28-32px | 🔴 Red           | #FF3300 | Strong         |
+| M6.0-7.0  | 32-36px | 🔴 Dark Red      | #CC0000 | Major          |
+| M7.0+     | 36-40px | 🔴 Very Dark Red | #8B0000 | Great          |
 
 ---
 
 ## 📊 Data Details
 
 ### Data Source
+
 - **Provider**: USGS Earthquake Hazards Program
 - **Feed**: GeoJSON All Earthquakes (Last Hour) **[Updated v1.2.0]**
 - **URL**: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson
@@ -60,7 +64,9 @@ The Earthquakes plugin displays live seismic activity data from the USGS Earthqu
 - **Time Window**: Last hour (more responsive to new activity)
 
 ### Earthquake Properties
+
 Each earthquake includes:
+
 - **Location**: Geographic description (e.g., "8 km NW of Palm Springs, CA")
 - **Magnitude**: Richter/Moment magnitude scale
 - **Depth**: Kilometers below surface
@@ -76,18 +82,23 @@ Each earthquake includes:
 ## 🎯 Use Cases
 
 ### 1. **Seismic Activity Monitoring**
+
 Track global earthquake activity in real-time, especially in tectonically active regions.
 
 ### 2. **Ionospheric Disturbance Awareness**
+
 Large earthquakes (M6+) can potentially affect ionospheric conditions and radio propagation.
 
 ### 3. **Regional Safety**
+
 Monitor seismic activity near your QTH (location) or planned DXpedition sites.
 
 ### 4. **Emergency Communications**
+
 Quick situational awareness during seismic events for EMCOMM (emergency communications) operations.
 
 ### 5. **Scientific Interest**
+
 Educational visualization of global tectonic plate boundaries and seismic patterns.
 
 ---
@@ -120,17 +131,20 @@ Educational visualization of global tectonic plate boundaries and seismic patter
 ### Understanding the Display
 
 #### Circle Size
+
 - **Larger circles** = Stronger earthquakes
 - **Smaller circles** = Weaker earthquakes
 - Size scales with magnitude (M2.5 = 8px, M7+ = 40px)
 
 #### New Earthquake Animation (v1.1.0)
+
 - **Growing dot**: Earthquake marker animates from small to full size (0.6 seconds)
 - **Pulse ring**: Expanding circular ring (50km radius, 3 seconds)
 - **🆕 Badge**: New earthquakes show "🆕" in popup for easy identification
 - **Auto-dismiss**: Animation plays once, then marker remains static
 
 #### Color Interpretation
+
 - **Yellow**: Minor quakes, little concern (M2.5-3.0)
 - **Orange**: Light to moderate, noticeable (M3.0-5.0)
 - **Red shades**: Strong to great, potentially destructive (M5.0+)
@@ -140,6 +154,7 @@ Educational visualization of global tectonic plate boundaries and seismic patter
 ## ⚙️ Configuration
 
 ### Default Settings
+
 ```javascript
 {
   enabled: false,
@@ -151,6 +166,7 @@ Educational visualization of global tectonic plate boundaries and seismic patter
 ```
 
 ### Animation Settings (v1.1.0)
+
 ```css
 /* Pulse ring animation */
 .earthquake-pulse-ring {
@@ -170,6 +186,7 @@ Educational visualization of global tectonic plate boundaries and seismic patter
 ## 🧪 Technical Details
 
 ### Implementation
+
 - **Marker Type**: Leaflet CircleMarker
 - **Data Format**: GeoJSON
 - **Coordinate System**: WGS84 (EPSG:4326)
@@ -177,12 +194,14 @@ Educational visualization of global tectonic plate boundaries and seismic patter
 - **Animation**: CSS keyframes + Leaflet interaction
 
 ### Performance
+
 - **Typical Load**: 50-200 earthquakes per day
 - **Marker Rendering**: <50ms for typical dataset
 - **Update Frequency**: 5 minutes (300,000ms)
 - **Animation Impact**: Minimal (CSS-based)
 
 ### Animation Technical Details (v1.1.0)
+
 ```javascript
 // Track previously seen earthquake IDs
 const previousQuakeIds = useRef(new Set());
@@ -191,21 +210,22 @@ const previousQuakeIds = useRef(new Set());
 const isNew = !previousQuakeIds.current.has(quakeId);
 
 // Apply animation classes
-className: isNew ? 'earthquake-pulse-new' : 'earthquake-marker'
+className: isNew ? 'earthquake-pulse-new' : 'earthquake-marker';
 
 // Create pulse ring for new quakes
 if (isNew) {
   const pulseRing = L.circle([lat, lon], {
-    radius: 50000,  // 50km in meters
-    className: 'earthquake-pulse-ring'
+    radius: 50000, // 50km in meters
+    className: 'earthquake-pulse-ring',
   });
-  
+
   // Auto-remove after animation completes
   setTimeout(() => map.removeLayer(pulseRing), 3000);
 }
 ```
 
 ### Data Flow
+
 ```
 USGS Seismic Network → GeoJSON API → OpenHamClock → Animated Map Display
       (real-time)        (5 min delay)    (5 min refresh)    (instant)
@@ -216,17 +236,20 @@ USGS Seismic Network → GeoJSON API → OpenHamClock → Animated Map Display
 ## 🔍 Troubleshooting
 
 ### No Earthquakes Showing
+
 1. **Check time period**: Only M2.5+ from last 24 hours
 2. **Zoom level**: Zoom in if markers are clustered
 3. **Opacity**: Increase opacity slider
 4. **Global coverage**: Earthquakes occur worldwide, may not be local
 
 ### Animation Not Playing
+
 - **First load**: Animation only plays for NEW earthquakes detected after plugin is enabled
 - **Refresh required**: Toggle plugin off/on to reset "new" detection
 - **Cache**: Clear browser cache if animations appear stuck
 
 ### Performance Issues
+
 - **Many earthquakes**: If 200+ quakes, consider zooming in
 - **Animation lag**: Disable and re-enable plugin to reset
 - **Browser**: Use modern browser (Chrome, Firefox, Edge)
@@ -245,6 +268,7 @@ USGS Seismic Network → GeoJSON API → OpenHamClock → Animated Map Display
 ## 📝 Version History
 
 ### v1.1.0 (2026-02-03)
+
 - **NEW**: Animated new earthquake detection
 - Growing dot animation (0.6s)
 - Pulse ring effect (3s, 50km radius)
@@ -253,6 +277,7 @@ USGS Seismic Network → GeoJSON API → OpenHamClock → Animated Map Display
 - Updated description and documentation
 
 ### v1.0.0 (Initial Release)
+
 - Live USGS earthquake data (M2.5+, 24hr)
 - Magnitude-based sizing (8-40px)
 - Color-coded by magnitude (6 categories)
@@ -265,6 +290,7 @@ USGS Seismic Network → GeoJSON API → OpenHamClock → Animated Map Display
 ## 💡 Tips & Best Practices
 
 ### For Best Results
+
 1. **Leave enabled overnight** to catch new seismic events with animation
 2. **Set opacity to 80-90%** for clear visibility
 3. **Click for details** - popups contain valuable information
@@ -272,12 +298,14 @@ USGS Seismic Network → GeoJSON API → OpenHamClock → Animated Map Display
 5. **Cross-reference with USGS** using detail links for official reports
 
 ### Animation Behavior
+
 - **First enable**: No animations (all quakes treated as "existing")
 - **After 5 min**: New quakes detected since last refresh animate
 - **Toggle off/on**: Resets "new" detection (all quakes animate next refresh)
 - **Best experience**: Keep plugin enabled continuously
 
 ### Common Workflows
+
 - **Daily Monitoring**: Enable at start of day, check periodically
 - **Event Tracking**: After major quake, monitor aftershocks
 - **Regional Focus**: Zoom to area of interest (e.g., Pacific Ring of Fire)
@@ -312,4 +340,4 @@ USGS Seismic Network → GeoJSON API → OpenHamClock → Animated Map Display
 
 **73 de OpenHamClock** 📡🌋
 
-*Seismic awareness for the radio amateur*
+_Seismic awareness for the radio amateur_

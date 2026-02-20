@@ -16,6 +16,7 @@ The Weather Radar plugin provides real-time NEXRAD (Next Generation Radar) weath
 ## 🌟 Features
 
 ### Core Capabilities
+
 - **NEXRAD Radar Overlay**: High-resolution weather radar imagery
 - **Real-time Updates**: Auto-refresh every 2 minutes
 - **Coverage**: Complete North America (USA, Canada, Mexico)
@@ -23,6 +24,7 @@ The Weather Radar plugin provides real-time NEXRAD (Next Generation Radar) weath
 - **WMS Integration**: Uses Weather Map Service (WMS) for efficient loading
 
 ### Data Visualization
+
 - **Precipitation Intensity**: Color-coded radar returns
   - Light: Green
   - Moderate: Yellow
@@ -36,6 +38,7 @@ The Weather Radar plugin provides real-time NEXRAD (Next Generation Radar) weath
 ## 📊 Data Details
 
 ### Data Source
+
 - **Provider**: Iowa State University Mesonet
 - **Service**: NEXRAD WMS (n0r product)
 - **URL**: https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi
@@ -43,6 +46,7 @@ The Weather Radar plugin provides real-time NEXRAD (Next Generation Radar) weath
 - **Data Latency**: ~5-10 minutes from radar scan
 
 ### Radar Product
+
 - **Product Code**: N0R (Base Reflectivity)
 - **Resolution**: ~1 km at radar site
 - **Range**: ~230 miles (370 km) from radar
@@ -53,18 +57,23 @@ The Weather Radar plugin provides real-time NEXRAD (Next Generation Radar) weath
 ## 🎯 Use Cases
 
 ### 1. **Weather Monitoring**
+
 Monitor local weather conditions and precipitation in real-time.
 
 ### 2. **Storm Tracking**
+
 Track approaching storms, severe weather, and precipitation systems.
 
 ### 3. **Operating Conditions**
+
 Assess weather impact on outdoor antenna installations and operations.
 
 ### 4. **Propagation Analysis**
+
 Identify weather fronts that can affect radio wave propagation (especially VHF/UHF).
 
 ### 5. **Safety Planning**
+
 Monitor severe weather before outdoor activities or antenna work.
 
 ---
@@ -91,6 +100,7 @@ Monitor severe weather before outdoor activities or antenna work.
 ### Interpreting Radar
 
 #### Precipitation Colors
+
 - **Green**: Light rain/drizzle
 - **Yellow**: Moderate rain
 - **Orange**: Heavy rain
@@ -98,6 +108,7 @@ Monitor severe weather before outdoor activities or antenna work.
 - **Purple**: Extreme precipitation/hail
 
 #### Coverage Gaps
+
 - **Dark spots**: Areas between radar sites (blind spots)
 - **Circular patterns**: Individual radar site coverage
 - **Mountains**: Terrain can block radar beams
@@ -107,6 +118,7 @@ Monitor severe weather before outdoor activities or antenna work.
 ## ⚙️ Configuration
 
 ### Default Settings
+
 ```javascript
 {
   enabled: false,
@@ -117,6 +129,7 @@ Monitor severe weather before outdoor activities or antenna work.
 ```
 
 ### WMS Parameters
+
 - **Service**: WMS (OGC Web Map Service)
 - **Version**: 1.3.0
 - **Format**: PNG with transparency
@@ -128,18 +141,21 @@ Monitor severe weather before outdoor activities or antenna work.
 ## 🧪 Technical Details
 
 ### Implementation
+
 - **Technology**: Leaflet WMS TileLayer
 - **Projection**: Web Mercator (EPSG:3857)
 - **Tile Size**: 256x256 pixels
 - **Z-Index**: 200 (above base map, below markers)
 
 ### Performance
+
 - **Tile Caching**: Browser caches tiles automatically
 - **Refresh**: Forced redraw every 2 minutes
 - **Network**: ~50-200 KB per map view
 - **Render Time**: <100ms for tile display
 
 ### Data Flow
+
 ```
 NEXRAD Radars → IEM Processing → WMS Server → OpenHamClock → Map Display
     (~5 min)        (real-time)      (on-demand)     (2 min refresh)
@@ -150,17 +166,20 @@ NEXRAD Radars → IEM Processing → WMS Server → OpenHamClock → Map Display
 ## 🔍 Troubleshooting
 
 ### Radar Not Showing
+
 1. **Check internet connection**: WMS requires live internet
 2. **Zoom level**: Zoom in if radar is too faint
 3. **Opacity**: Increase opacity slider
 4. **Clear browser cache**: Force reload (Ctrl+F5)
 
 ### Outdated Data
+
 - **Auto-refresh**: Plugin refreshes every 2 minutes automatically
 - **Manual refresh**: Toggle plugin off/on to force refresh
 - **IEM Service**: Check https://mesonet.agron.iastate.edu for service status
 
 ### Performance Issues
+
 - **Lower opacity**: Reduce to 40-50%
 - **Zoom in**: Less tiles to load
 - **Disable when not needed**: Toggle off to reduce network usage
@@ -178,6 +197,7 @@ NEXRAD Radars → IEM Processing → WMS Server → OpenHamClock → Map Display
 ## 📝 Version History
 
 ### v1.0.0 (2026-02-03)
+
 - Initial release
 - NEXRAD N0R base reflectivity overlay
 - Auto-refresh every 2 minutes
@@ -189,12 +209,14 @@ NEXRAD Radars → IEM Processing → WMS Server → OpenHamClock → Map Display
 ## 💡 Tips & Best Practices
 
 ### For Best Results
+
 1. **Set opacity to 50-70%** for balanced view
 2. **Use with other layers** (e.g., Gray Line, WSPR) for context
 3. **Monitor regularly** during weather events
 4. **Check multiple zoom levels** for detail vs overview
 
 ### Common Workflows
+
 - **Storm Monitoring**: Enable radar + adjust opacity to 80-90%
 - **Casual Check**: Quick toggle on/off to see current conditions
 - **Propagation Study**: Compare with WSPR propagation paths
@@ -229,4 +251,4 @@ NEXRAD Radars → IEM Processing → WMS Server → OpenHamClock → Map Display
 
 **73 de OpenHamClock** 📡☁️
 
-*Real-time weather awareness for radio operators*
+_Real-time weather awareness for radio operators_

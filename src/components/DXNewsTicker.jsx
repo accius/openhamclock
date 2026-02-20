@@ -14,7 +14,7 @@ function isDXNewsEnabled() {
       const layers = JSON.parse(stored);
       return layers.showDXNews !== false;
     }
-  } catch { }
+  } catch {}
   return true; // default on
 }
 
@@ -89,64 +89,75 @@ export const DXNewsTicker = ({ sidebar = false }) => {
   if (!visible || loading || news.length === 0) return null;
 
   // Build ticker text: "TITLE — description  ★  TITLE — description  ★  ..."
-  const tickerItems = news.map(item => ({
+  const tickerItems = news.map((item) => ({
     title: item.title,
-    desc: item.description
+    desc: item.description,
   }));
 
   return (
     <div
       ref={tickerRef}
-      style={sidebar ? {
-        width: '100%',
-        height: '100%',
-        background: 'transparent',
-        overflow: 'hidden',
-        display: 'flex',
-        alignItems: 'center'
-      } : {
-        position: 'absolute',
-        bottom: '8px',
-        left: '8px',
-        right: '8px',
-        height: '28px',
-        background: 'rgba(0, 0, 0, 0.85)',
-        border: '1px solid #444',
-        borderRadius: '6px',
-        overflow: 'hidden',
-        zIndex: 999,
-        display: 'flex',
-        alignItems: 'center'
-      }}
+      style={
+        sidebar
+          ? {
+              width: '100%',
+              height: '100%',
+              background: 'transparent',
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+            }
+          : {
+              position: 'absolute',
+              bottom: '8px',
+              left: '8px',
+              right: '8px',
+              height: '28px',
+              background: 'rgba(0, 0, 0, 0.85)',
+              border: '1px solid #444',
+              borderRadius: '6px',
+              overflow: 'hidden',
+              zIndex: 999,
+              display: 'flex',
+              alignItems: 'center',
+            }
+      }
     >
       {/* DX NEWS label */}
-      <a href="https://dxnews.com" target="_blank" rel="noopener noreferrer" style={{
-        background: 'rgba(255, 136, 0, 0.9)',
-        color: '#000',
-        fontWeight: '700',
-        fontSize: '10px',
-        fontFamily: 'JetBrains Mono, monospace',
-        padding: '0 8px',
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        flexShrink: 0,
-        borderRight: '1px solid #444',
-        letterSpacing: '0.5px',
-        textDecoration: 'none',
-      }}>
+      <a
+        href="https://dxnews.com"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{
+          background: 'rgba(255, 136, 0, 0.9)',
+          color: '#000',
+          fontWeight: '700',
+          fontSize: '10px',
+          fontFamily: 'JetBrains Mono, monospace',
+          padding: '0 8px',
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          flexShrink: 0,
+          borderRight: '1px solid #444',
+          letterSpacing: '0.5px',
+          textDecoration: 'none',
+        }}
+      >
         📰 DX NEWS
       </a>
 
       {/* Scrolling content */}
-      <div style={{
-        flex: 1,
-        overflow: 'hidden',
-        position: 'relative',
-        height: '100%',
-        maskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)',
-        WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)'
-      }}>
+      <div
+        style={{
+          flex: 1,
+          overflow: 'hidden',
+          position: 'relative',
+          height: '100%',
+          maskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)',
+        }}
+      >
         <div
           ref={contentRef}
           style={{
@@ -161,35 +172,41 @@ export const DXNewsTicker = ({ sidebar = false }) => {
             animationIterationCount: 'infinite',
             animationPlayState: paused ? 'paused' : 'running',
             paddingLeft: '100%',
-            willChange: 'transform'
+            willChange: 'transform',
           }}
           onClick={() => setPaused(!paused)}
-          title={paused ? t("app.dxNews.resumeTooltip") : t("app.dxNews.pauseTooltip")}
+          title={paused ? t('app.dxNews.resumeTooltip') : t('app.dxNews.pauseTooltip')}
         >
           {tickerItems.map((item, i) => (
             <span key={i} style={{ display: 'inline-flex', alignItems: 'center' }}>
-              <span style={{
-                color: '#ff8800',
-                fontWeight: '700',
-                fontSize: '11px',
-                fontFamily: 'JetBrains Mono, monospace',
-                marginRight: '6px'
-              }}>
+              <span
+                style={{
+                  color: '#ff8800',
+                  fontWeight: '700',
+                  fontSize: '11px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  marginRight: '6px',
+                }}
+              >
                 {item.title}
               </span>
-              <span style={{
-                color: '#aaa',
-                fontSize: '11px',
-                fontFamily: 'JetBrains Mono, monospace',
-                marginRight: '12px'
-              }}>
+              <span
+                style={{
+                  color: '#aaa',
+                  fontSize: '11px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  marginRight: '12px',
+                }}
+              >
                 {item.desc}
               </span>
-              <span style={{
-                color: '#555',
-                fontSize: '10px',
-                marginRight: '12px'
-              }}>
+              <span
+                style={{
+                  color: '#555',
+                  fontSize: '10px',
+                  marginRight: '12px',
+                }}
+              >
                 ◆
               </span>
             </span>
@@ -197,28 +214,34 @@ export const DXNewsTicker = ({ sidebar = false }) => {
           {/* Duplicate for seamless loop */}
           {tickerItems.map((item, i) => (
             <span key={`dup-${i}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
-              <span style={{
-                color: '#ff8800',
-                fontWeight: '700',
-                fontSize: '11px',
-                fontFamily: 'JetBrains Mono, monospace',
-                marginRight: '6px'
-              }}>
+              <span
+                style={{
+                  color: '#ff8800',
+                  fontWeight: '700',
+                  fontSize: '11px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  marginRight: '6px',
+                }}
+              >
                 {item.title}
               </span>
-              <span style={{
-                color: '#aaa',
-                fontSize: '11px',
-                fontFamily: 'JetBrains Mono, monospace',
-                marginRight: '12px'
-              }}>
+              <span
+                style={{
+                  color: '#aaa',
+                  fontSize: '11px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  marginRight: '12px',
+                }}
+              >
                 {item.desc}
               </span>
-              <span style={{
-                color: '#555',
-                fontSize: '10px',
-                marginRight: '12px'
-              }}>
+              <span
+                style={{
+                  color: '#555',
+                  fontSize: '10px',
+                  marginRight: '12px',
+                }}
+              >
                 ◆
               </span>
             </span>

@@ -30,7 +30,7 @@ export const DockableLayout = ({
   renderWorldMap,
   renderHeader,
   // Individual panel render functions for advanced docking
-  renderPanels = {}
+  renderPanels = {},
 }) => {
   const layoutRef = useRef(null);
   const [model, setModel] = useState(() => Model.fromJson(loadLayout()));
@@ -69,76 +69,82 @@ export const DockableLayout = ({
   }, []);
 
   // Add a new panel to a tabset
-  const handleAddPanel = useCallback((panelId) => {
-    if (!targetTabSetId || !PANEL_DEFINITIONS[panelId]) return;
+  const handleAddPanel = useCallback(
+    (panelId) => {
+      if (!targetTabSetId || !PANEL_DEFINITIONS[panelId]) return;
 
-    const panel = PANEL_DEFINITIONS[panelId];
+      const panel = PANEL_DEFINITIONS[panelId];
 
-    model.doAction(
-      Actions.addNode(
-        {
-          type: 'tab',
-          name: panel.name,
-          component: panelId,
-          id: `${panelId}-${Date.now()}`,
-        },
-        targetTabSetId,
-        DockLocation.CENTER,
-        -1,
-        true
-      )
-    );
+      model.doAction(
+        Actions.addNode(
+          {
+            type: 'tab',
+            name: panel.name,
+            component: panelId,
+            id: `${panelId}-${Date.now()}`,
+          },
+          targetTabSetId,
+          DockLocation.CENTER,
+          -1,
+          true,
+        ),
+      );
 
-    setShowPanelPicker(false);
-    setTargetTabSetId(null);
-  }, [model, targetTabSetId]);
+      setShowPanelPicker(false);
+      setTargetTabSetId(null);
+    },
+    [model, targetTabSetId],
+  );
 
   // Render tab content based on component type
-  const factory = useCallback((node) => {
-    const component = node.getComponent();
+  const factory = useCallback(
+    (node) => {
+      const component = node.getComponent();
 
-    switch (component) {
-      case 'left-sidebar':
-        return renderLeftSidebar ? renderLeftSidebar() : <div>Left Sidebar</div>;
+      switch (component) {
+        case 'left-sidebar':
+          return renderLeftSidebar ? renderLeftSidebar() : <div>Left Sidebar</div>;
 
-      case 'right-sidebar':
-        return renderRightSidebar ? renderRightSidebar() : <div>Right Sidebar</div>;
+        case 'right-sidebar':
+          return renderRightSidebar ? renderRightSidebar() : <div>Right Sidebar</div>;
 
-      case 'world-map':
-        return renderWorldMap ? renderWorldMap() : <div>World Map</div>;
+        case 'world-map':
+          return renderWorldMap ? renderWorldMap() : <div>World Map</div>;
 
-      // Individual panels for advanced docking
-      case 'de-location':
-        return renderPanels.deLocation ? renderPanels.deLocation() : null;
+        // Individual panels for advanced docking
+        case 'de-location':
+          return renderPanels.deLocation ? renderPanels.deLocation() : null;
 
-      case 'dx-location':
-        return renderPanels.dxLocation ? renderPanels.dxLocation() : null;
+        case 'dx-location':
+          return renderPanels.dxLocation ? renderPanels.dxLocation() : null;
 
-      case 'solar':
-        return renderPanels.solar ? renderPanels.solar() : null;
+        case 'solar':
+          return renderPanels.solar ? renderPanels.solar() : null;
 
-      case 'propagation':
-        return renderPanels.propagation ? renderPanels.propagation() : null;
+        case 'propagation':
+          return renderPanels.propagation ? renderPanels.propagation() : null;
 
-      case 'dx-cluster':
-        return renderPanels.dxCluster ? renderPanels.dxCluster() : null;
+        case 'dx-cluster':
+          return renderPanels.dxCluster ? renderPanels.dxCluster() : null;
 
-      case 'psk-reporter':
-        return renderPanels.pskReporter ? renderPanels.pskReporter() : null;
+        case 'psk-reporter':
+          return renderPanels.pskReporter ? renderPanels.pskReporter() : null;
 
-      case 'dxpeditions':
-        return renderPanels.dxpeditions ? renderPanels.dxpeditions() : null;
+        case 'dxpeditions':
+          return renderPanels.dxpeditions ? renderPanels.dxpeditions() : null;
 
-      case 'pota':
-        return renderPanels.pota ? renderPanels.pota() : null;
+        case 'pota':
+          return renderPanels.pota ? renderPanels.pota() : null;
 
-      case 'contests':
-        return renderPanels.contests ? renderPanels.contests() : null;
+        case 'contests':
+          return renderPanels.contests ? renderPanels.contests() : null;
 
-      default:
-        return <div style={{ padding: '20px', color: '#888' }}>Unknown panel: {component}</div>;
-    }
-  }, [renderLeftSidebar, renderRightSidebar, renderWorldMap, renderPanels]);
+        default:
+          return <div style={{ padding: '20px', color: '#888' }}>Unknown panel: {component}</div>;
+      }
+    },
+    [renderLeftSidebar, renderRightSidebar, renderWorldMap, renderPanels],
+  );
 
   // Custom tab set rendering with + button
   const onRenderTabSet = useCallback((node, renderValues) => {
@@ -156,7 +162,7 @@ export const DockableLayout = ({
         style={{ padding: '4px 6px' }}
       >
         <PlusIcon />
-      </button>
+      </button>,
     );
   }, []);
 
@@ -182,27 +188,27 @@ export const DockableLayout = ({
   }, [model]);
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      width: '100vw',
-      background: 'var(--bg-primary)'
-    }}>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        width: '100vw',
+        background: 'var(--bg-primary)',
+      }}
+    >
       {/* Header - always at top, not part of dockable layout */}
-      {renderHeader && (
-        <div style={{ flexShrink: 0 }}>
-          {renderHeader()}
-        </div>
-      )}
+      {renderHeader && <div style={{ flexShrink: 0 }}>{renderHeader()}</div>}
 
       {/* Dockable panel area */}
-      <div style={{
-        flex: 1,
-        position: 'relative',
-        padding: '8px',
-        minHeight: 0 // Important for flexbox
-      }}>
+      <div
+        style={{
+          flex: 1,
+          position: 'relative',
+          padding: '8px',
+          minHeight: 0, // Important for flexbox
+        }}
+      >
         <Layout
           ref={layoutRef}
           model={model}
@@ -276,21 +282,25 @@ export const DockableLayout = ({
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{
-              margin: '0 0 16px 0',
-              color: '#00ffcc',
-              fontFamily: 'JetBrains Mono, monospace',
-              fontSize: '16px',
-              fontWeight: '600',
-            }}>
+            <h3
+              style={{
+                margin: '0 0 16px 0',
+                color: '#00ffcc',
+                fontFamily: 'JetBrains Mono, monospace',
+                fontSize: '16px',
+                fontWeight: '600',
+              }}
+            >
               Add Panel
             </h3>
 
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: '8px',
-            }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gap: '8px',
+              }}
+            >
               {getAvailablePanels().map((panel) => (
                 <button
                   key={panel.id}
@@ -313,27 +323,33 @@ export const DockableLayout = ({
                     e.currentTarget.style.background = 'rgba(0, 0, 0, 0.3)';
                   }}
                 >
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    marginBottom: '4px',
-                  }}>
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginBottom: '4px',
+                    }}
+                  >
                     <span style={{ fontSize: '18px' }}>{panel.icon}</span>
-                    <span style={{
-                      color: '#e2e8f0',
-                      fontFamily: 'JetBrains Mono, monospace',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                    }}>
+                    <span
+                      style={{
+                        color: '#e2e8f0',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                      }}
+                    >
                       {panel.name}
                     </span>
                   </div>
-                  <div style={{
-                    color: '#718096',
-                    fontSize: '11px',
-                    lineHeight: 1.4,
-                  }}>
+                  <div
+                    style={{
+                      color: '#718096',
+                      fontSize: '11px',
+                      lineHeight: 1.4,
+                    }}
+                  >
                     {panel.description}
                   </div>
                 </button>
@@ -341,12 +357,14 @@ export const DockableLayout = ({
             </div>
 
             {getAvailablePanels().length === 0 && (
-              <div style={{
-                color: '#718096',
-                textAlign: 'center',
-                padding: '20px',
-                fontStyle: 'italic',
-              }}>
+              <div
+                style={{
+                  color: '#718096',
+                  textAlign: 'center',
+                  padding: '20px',
+                  fontStyle: 'italic',
+                }}
+              >
                 All panels are already visible
               </div>
             )}

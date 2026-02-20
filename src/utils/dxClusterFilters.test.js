@@ -360,12 +360,46 @@ describe('dxClusterFilters', () => {
       expect(applyDXFilters(mockSpot, filters)).toBe(true);
     });
 
-    it('should exclude spot when mode cannot be detected', () => {
-      const spot = { ...mockSpot, comment: 'no mode info' };
+    it('should exclude spot when mode cannot be detected from comment or frequency', () => {
+      // Use a frequency in the digital segment (7.070-7.150) where mode is ambiguous
+      const spot = { ...mockSpot, comment: 'no mode info', freq: '7.100' };
       const filters = {
         modes: ['FT8'],
       };
       expect(applyDXFilters(spot, filters)).toBe(false);
+    });
+
+    it('should infer FT8 from frequency when comment has no mode', () => {
+      const spot = { ...mockSpot, comment: 'CQ DX', freq: '14.074' };
+      const filters = {
+        modes: ['FT8'],
+      };
+      expect(applyDXFilters(spot, filters)).toBe(true);
+    });
+
+    it('should infer SSB from frequency when comment has no mode', () => {
+      const spot = { ...mockSpot, comment: '599', freq: '14.250' };
+      const filters = {
+        modes: ['SSB'],
+      };
+      expect(applyDXFilters(spot, filters)).toBe(true);
+    });
+
+    it('should infer CW from frequency when comment has no mode', () => {
+      const spot = { ...mockSpot, comment: '599', freq: '14.030' };
+      const filters = {
+        modes: ['CW'],
+      };
+      expect(applyDXFilters(spot, filters)).toBe(true);
+    });
+
+    it('should prefer comment mode over frequency inference', () => {
+      // Comment says CW but frequency is SSB range — comment wins
+      const spot = { ...mockSpot, comment: 'CW contest', freq: '14.250' };
+      const filters = {
+        modes: ['CW'],
+      };
+      expect(applyDXFilters(spot, filters)).toBe(true);
     });
 
     it('should work with different mode comments', () => {
@@ -540,9 +574,7 @@ describe('dxClusterFilters', () => {
     });
 
     it('should return original array when filters is null', () => {
-      const paths = [
-        { dxCall: 'W1AW', spotter: 'K2ABC', freq: '14.074', comment: 'FT8' },
-      ];
+      const paths = [{ dxCall: 'W1AW', spotter: 'K2ABC', freq: '14.074', comment: 'FT8' }];
       const result = filterDXPaths(paths, null);
       expect(result).toEqual(paths);
     });

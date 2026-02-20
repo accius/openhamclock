@@ -1,101 +1,116 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { useBandHealth, classifySpotMode } from "../hooks/useBandHealth.js";
-import { getBandFromFreq } from "../utils/callsign.js";
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useBandHealth, classifySpotMode } from '../hooks/useBandHealth.js';
+import { getBandFromFreq } from '../utils/callsign.js';
 
 const MODE_TILES = [
-  { value: "ALL", label: "All" },
-  { value: "SSB", label: "SSB" },
-  { value: "CW", label: "CW" },
-  { value: "FT8", label: "FT8" },
-  { value: "FT4", label: "FT4" },
-  { value: "RTTY", label: "RTTY" },
-  { value: "PSK", label: "PSK" },
-  { value: "JT65", label: "JT65" },
-  { value: "JS8", label: "JS8" },
-  { value: "SSTV", label: "SSTV" },
-  { value: "AM", label: "AM" },
-  { value: "FM", label: "FM" },
+  { value: 'ALL', label: 'All' },
+  { value: 'SSB', label: 'SSB' },
+  { value: 'CW', label: 'CW' },
+  { value: 'FT8', label: 'FT8' },
+  { value: 'FT4', label: 'FT4' },
+  { value: 'RTTY', label: 'RTTY' },
+  { value: 'PSK', label: 'PSK' },
+  { value: 'JT65', label: 'JT65' },
+  { value: 'JS8', label: 'JS8' },
+  { value: 'SSTV', label: 'SSTV' },
+  { value: 'AM', label: 'AM' },
+  { value: 'FM', label: 'FM' },
 ];
 
-const DIGITAL_MODES = new Set(["FT8", "FT4", "RTTY", "PSK", "JT65", "JS8", "SSTV"]);
+const DIGITAL_MODES = new Set(['FT8', 'FT4', 'RTTY', 'PSK', 'JT65', 'JS8', 'SSTV']);
 
 const WINDOW_OPTIONS = [
-  { value: 15, label: "15m" },
-  { value: 30, label: "30m" },
-  { value: 60, label: "60m" },
+  { value: 15, label: '15m' },
+  { value: 30, label: '30m' },
+  { value: 60, label: '60m' },
 ];
 
-const BAND_TILES = ["160m", "80m", "60m", "40m", "30m", "20m", "17m", "15m", "12m", "10m", "6m", "2m", "70cm"];
+const BAND_TILES = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
 
-const STORAGE_MODE_KEY = "openhamclock_bandHealth_mode";
-const STORAGE_WINDOW_KEY = "openhamclock_bandHealth_window";
+const STORAGE_MODE_KEY = 'openhamclock_bandHealth_mode';
+const STORAGE_WINDOW_KEY = 'openhamclock_bandHealth_window';
 
 function compactStatusLabel(label) {
-  switch (String(label || "").toUpperCase()) {
-    case "EXCELLENT": return "EXCEL";
-    case "UNUSABLE": return "UNUS";
-    default: return label;
+  switch (String(label || '').toUpperCase()) {
+    case 'EXCELLENT':
+      return 'EXCEL';
+    case 'UNUSABLE':
+      return 'UNUS';
+    default:
+      return label;
   }
 }
 
 function activityStyle(activity) {
   switch (activity) {
-    case "excellent": 
-    case "good":
-      return { border: "1px solid rgba(74,222,128,0.55)", background: "rgba(74,222,128,0.10)", color: "#4ade80" };
-    case "usable":
-      return { border: "1px solid rgba(251,191,36,0.55)", background: "rgba(251,191,36,0.10)", color: "#fbbf24" };
-    case "quiet":
-      return { border: "1px solid rgba(148,163,184,0.45)", background: "rgba(148,163,184,0.08)", color: "var(--text-muted)" };
-    case "closed":
+    case 'excellent':
+    case 'good':
+      return { border: '1px solid rgba(74,222,128,0.55)', background: 'rgba(74,222,128,0.10)', color: '#4ade80' };
+    case 'usable':
+      return { border: '1px solid rgba(251,191,36,0.55)', background: 'rgba(251,191,36,0.10)', color: '#fbbf24' };
+    case 'quiet':
+      return {
+        border: '1px solid rgba(148,163,184,0.45)',
+        background: 'rgba(148,163,184,0.08)',
+        color: 'var(--text-muted)',
+      };
+    case 'closed':
     default:
-      return { border: "1px solid rgba(239,68,68,0.40)", background: "rgba(239,68,68,0.08)", color: "#fb7185" };
+      return { border: '1px solid rgba(239,68,68,0.40)', background: 'rgba(239,68,68,0.08)', color: '#fb7185' };
   }
 }
 
 function heatFromRatio(r) {
-  if (r <= 0) return { key: "cold", label: "COLD" };
-  if (r < 0.25) return { key: "cool", label: "COOL" };
-  if (r < 0.60) return { key: "warm", label: "WARM" };
-  return { key: "hot", label: "HOT" };
+  if (r <= 0) return { key: 'cold', label: 'COLD' };
+  if (r < 0.25) return { key: 'cool', label: 'COOL' };
+  if (r < 0.6) return { key: 'warm', label: 'WARM' };
+  return { key: 'hot', label: 'HOT' };
 }
 
 // For ALL: 3-level summary based on average activity across included modes
 function heatFromAverageRatio3(avg) {
-  if (avg <= 0) return { key: "cold", label: "COLD" };
-  if (avg < 0.55) return { key: "warm", label: "WARM" };
-  return { key: "hot", label: "HOT" };
+  if (avg <= 0) return { key: 'cold', label: 'COLD' };
+  if (avg < 0.55) return { key: 'warm', label: 'WARM' };
+  return { key: 'hot', label: 'HOT' };
 }
 
 function heatStyle(heatKey) {
   switch (heatKey) {
-    case "hot":
-      return { border: "1px solid rgba(74,222,128,0.70)", background: "rgba(74,222,128,0.12)", color: "#4ade80" };
-    case "warm":
-      return { border: "1px solid rgba(251,191,36,0.65)", background: "rgba(251,191,36,0.12)", color: "#fbbf24" };
-    case "cool":
-      return { border: "1px solid rgba(148,163,184,0.55)", background: "rgba(148,163,184,0.10)", color: "var(--text-primary)" };
-    case "cold":
+    case 'hot':
+      return { border: '1px solid rgba(74,222,128,0.70)', background: 'rgba(74,222,128,0.12)', color: '#4ade80' };
+    case 'warm':
+      return { border: '1px solid rgba(251,191,36,0.65)', background: 'rgba(251,191,36,0.12)', color: '#fbbf24' };
+    case 'cool':
+      return {
+        border: '1px solid rgba(148,163,184,0.55)',
+        background: 'rgba(148,163,184,0.10)',
+        color: 'var(--text-primary)',
+      };
+    case 'cold':
     default:
-      return { border: "1px solid rgba(239,68,68,0.35)", background: "rgba(239,68,68,0.06)", color: "var(--text-muted)" };
+      return {
+        border: '1px solid rgba(239,68,68,0.35)',
+        background: 'rgba(239,68,68,0.06)',
+        color: 'var(--text-muted)',
+      };
   }
 }
 
 function filteredStyle() {
   return {
-    border: "1px dashed rgba(148,163,184,0.35)",
-    background: "rgba(148,163,184,0.04)",
-    color: "rgba(148,163,184,0.70)",
+    border: '1px dashed rgba(148,163,184,0.35)',
+    background: 'rgba(148,163,184,0.04)',
+    color: 'rgba(148,163,184,0.70)',
     opacity: 0.55,
-    filter: "grayscale(0.7)",
+    filter: 'grayscale(0.7)',
   };
 }
 
 function trendGlyph(trend) {
-  if (trend === "rising") return "▲";
-  if (trend === "falling") return "▼";
-  return "•";
+  if (trend === 'rising') return '▲';
+  if (trend === 'falling') return '▼';
+  return '•';
 }
 
 /**
@@ -111,7 +126,7 @@ function spotToBand(spot) {
   if (!Number.isFinite(f) || f <= 0) return null;
 
   const band = getBandFromFreq(f);
-  return band && band !== "other" ? band : null;
+  return band && band !== 'other' ? band : null;
 }
 
 export default function BandHealthPanel({ dxSpots = [], clusterFilters = null }) {
@@ -127,15 +142,15 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
 
   const [mode, setMode] = useState(() => {
     try {
-      return localStorage.getItem(STORAGE_MODE_KEY) || "ALL";
+      return localStorage.getItem(STORAGE_MODE_KEY) || 'ALL';
     } catch {
-      return "ALL";
+      return 'ALL';
     }
   });
 
   const [windowMinutes, setWindowMinutes] = useState(() => {
     try {
-      const v = parseInt(localStorage.getItem(STORAGE_WINDOW_KEY) || "15", 10);
+      const v = parseInt(localStorage.getItem(STORAGE_WINDOW_KEY) || '15', 10);
       return Number.isFinite(v) ? v : 15;
     } catch {
       return 15;
@@ -156,8 +171,6 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
       localStorage.setItem(STORAGE_WINDOW_KEY, String(n));
     } catch {}
   };
-  
-
 
   // Filters come from dxFilters (same object DXClusterPanel uses)
   const includedBands = useMemo(() => {
@@ -180,9 +193,9 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
   const updatedText = useMemo(() => {
     try {
       const d = new Date(updatedAt);
-      return d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+      return d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
     } catch {
-      return "";
+      return '';
     }
   }, [updatedAt]);
 
@@ -193,9 +206,9 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
     return BAND_TILES.map((bandName) => {
       const base = byBand.get(bandName) || {
         band: bandName,
-        activity: "closed",
-        label: "CLOSED",
-        trend: "steady",
+        activity: 'closed',
+        label: 'CLOSED',
+        trend: 'steady',
         count: 0,
         uniques: 0,
       };
@@ -205,10 +218,10 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
         return {
           ...base,
           filtered: true,
-          label: "FILTERED",
+          label: 'FILTERED',
           count: 0,
           uniques: 0,
-          trend: "steady",
+          trend: 'steady',
         };
       }
 
@@ -226,7 +239,7 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
     const uniques = new Map();
 
     for (const t of MODE_TILES) {
-      if (t.value !== "ALL") {
+      if (t.value !== 'ALL') {
         counts.set(t.value, 0);
         uniques.set(t.value, new Set());
       }
@@ -239,7 +252,7 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
       // timestamp can be number or ISO; normalize safely
       let ts = now;
       if (s?.timestamp != null) {
-        const maybe = typeof s.timestamp === "number" ? s.timestamp : Date.parse(s.timestamp);
+        const maybe = typeof s.timestamp === 'number' ? s.timestamp : Date.parse(s.timestamp);
         ts = Number.isFinite(maybe) ? maybe : now;
       }
       if (ts < cutoff) continue;
@@ -250,7 +263,7 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
       // Respect band filters (if active)
       if (includedBands && !includedBands.has(band)) continue;
 
-      const m = String(classifySpotMode(s)?.mode || "").toUpperCase();
+      const m = String(classifySpotMode(s)?.mode || '').toUpperCase();
 
       // If mode filters active, only count spots that match included modes
       if (includedModes && (!m || !includedModes.has(m))) continue;
@@ -277,7 +290,7 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
     let sumRatio = 0;
     let nRatio = 0;
     for (const t of MODE_TILES) {
-      if (t.value === "ALL") continue;
+      if (t.value === 'ALL') continue;
       if (includedModes && !includedModes.has(t.value)) continue;
 
       const c = counts.get(t.value) || 0;
@@ -296,7 +309,7 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
       // timestamp can be number or ISO; normalize safely
       let ts = now;
       if (s?.timestamp != null) {
-        const maybe = typeof s.timestamp === "number" ? s.timestamp : Date.parse(s.timestamp);
+        const maybe = typeof s.timestamp === 'number' ? s.timestamp : Date.parse(s.timestamp);
         ts = Number.isFinite(maybe) ? maybe : now;
       }
       if (ts < cutoff) continue;
@@ -308,7 +321,7 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
       if (includedBands && !includedBands.has(band)) continue;
 
       const cls = classifySpotMode(s); // { mode, inferred, confidence, ... }
-      const m = String(cls?.mode || "").toUpperCase();
+      const m = String(cls?.mode || '').toUpperCase();
 
       // If mode filters active, only count spots that match included modes
       if (includedModes && (!m || !includedModes.has(m))) continue;
@@ -321,25 +334,25 @@ export default function BandHealthPanel({ dxSpots = [], clusterFilters = null })
 
     const unknownCount = Math.max(0, allCount - knownCount);
 
-const tiles = MODE_TILES.map((t) => {
-  if (t.value === "ALL") {
-    const heat = heatFromAverageRatio3(avgRatio);
-    const tooltip =
-      `There are ${allCount} active signals on the bands right now.\n` +
-      `Classified into known modes: ${knownCount} (inferred: ${inferredCount}).\n` +
-      `Still unknown/unspecified: ${unknownCount}.\n` +
-      `Inference is best-effort from frequency (band plan).`;
+    const tiles = MODE_TILES.map((t) => {
+      if (t.value === 'ALL') {
+        const heat = heatFromAverageRatio3(avgRatio);
+        const tooltip =
+          `There are ${allCount} active signals on the bands right now.\n` +
+          `Classified into known modes: ${knownCount} (inferred: ${inferredCount}).\n` +
+          `Still unknown/unspecified: ${unknownCount}.\n` +
+          `Inference is best-effort from frequency (band plan).`;
 
-    return {
-      value: "ALL",
-      label: "All",
-      count: allCount,
-      uniq: allUniques.size,
-      heat,
-      filtered: false,
-      tooltip,
-    };
-  }
+        return {
+          value: 'ALL',
+          label: 'All',
+          count: allCount,
+          uniq: allUniques.size,
+          heat,
+          filtered: false,
+          tooltip,
+        };
+      }
 
       const isFiltered = includedModes ? !includedModes.has(t.value) : false;
       if (isFiltered) {
@@ -348,7 +361,7 @@ const tiles = MODE_TILES.map((t) => {
           label: t.label,
           count: 0,
           uniq: 0,
-          heat: { key: "cold", label: "FILTERED" },
+          heat: { key: 'cold', label: 'FILTERED' },
           filtered: true,
         };
       }
@@ -369,20 +382,23 @@ const tiles = MODE_TILES.map((t) => {
     });
 
     // Keep ALL first; then sort rest by activity
-    const allTile = tiles.find((x) => x.value === "ALL");
-    const rest = tiles.filter((x) => x.value !== "ALL").sort((a, b) => b.count - a.count);
+    const allTile = tiles.find((x) => x.value === 'ALL');
+    const rest = tiles.filter((x) => x.value !== 'ALL').sort((a, b) => b.count - a.count);
     return allTile ? [allTile, ...rest] : rest;
   }, [dxSpots, windowMinutes, includedBands, includedModes]);
 
   return (
-    <div className="panel" style={{ padding: "8px 10px", height: "100%", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+    <div
+      className="panel"
+      style={{ padding: '8px 10px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+    >
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em" }}>HF BAND HEALTH</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{updatedText ? `upd ${updatedText}` : ""}</div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: '0.04em' }}>HF BAND HEALTH</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{updatedText ? `upd ${updatedText}` : ''}</div>
           <div
-            style={{ cursor: "help", userSelect: "none" }}
+            style={{ cursor: 'help', userSelect: 'none' }}
             title="HF Band Health shows real-world band usability based on recent DX Cluster spot activity. It uses a rolling time window and respects active DX Cluster filters."
           >
             ℹ️
@@ -391,24 +407,28 @@ const tiles = MODE_TILES.map((t) => {
       </div>
 
       {/* Controls */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: 10, color: "var(--text-muted)" }}>Window</span>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Window</span>
           <select
             value={windowMinutes}
             onChange={(e) => onWindowChange(e.target.value)}
             style={{
               fontSize: 11,
-              padding: "2px 6px",
-              background: "var(--bg-secondary)",
-              color: "var(--text-primary)",
-              border: "1px solid var(--border-color)",
+              padding: '2px 6px',
+              background: 'var(--bg-secondary)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-color)',
               borderRadius: 4,
-              outline: "none",
+              outline: 'none',
             }}
           >
             {WINDOW_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value} style={{ background: "var(--bg-secondary)", color: "var(--text-primary)" }}>
+              <option
+                key={o.value}
+                value={o.value}
+                style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              >
                 {o.label}
               </option>
             ))}
@@ -416,18 +436,24 @@ const tiles = MODE_TILES.map((t) => {
         </div>
 
         <div
-          style={{ marginLeft: "auto", fontSize: 9, color: "var(--text-muted)" }}
-          title={filtersActive ? "Based on the active DX Cluster feed (filters active)" : "Based on the active DX Cluster feed"}
+          style={{ marginLeft: 'auto', fontSize: 9, color: 'var(--text-muted)' }}
+          title={
+            filtersActive
+              ? 'Based on the active DX Cluster feed (filters active)'
+              : 'Based on the active DX Cluster feed'
+          }
         >
-          DX Cluster{filtersActive ? " (filtered)" : ""}
+          DX Cluster{filtersActive ? ' (filtered)' : ''}
         </div>
       </div>
 
       {/* Mode tiles */}
       <div style={{ marginBottom: 8 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-          <div style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.04em", fontWeight: 700 }}>MODE ACTIVITY</div>
-          <div style={{ fontSize: 9, color: "var(--text-muted)" }}>(click to filter)</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+          <div style={{ fontSize: 10, color: 'var(--text-muted)', letterSpacing: '0.04em', fontWeight: 700 }}>
+            MODE ACTIVITY
+          </div>
+          <div style={{ fontSize: 9, color: 'var(--text-muted)' }}>(click to filter)</div>
         </div>
 
         {/* Pulse animation for selected mode */}
@@ -448,16 +474,16 @@ const tiles = MODE_TILES.map((t) => {
           }
         `}</style>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6 }}>
           {modeTiles.map((m) => {
             const isSelected = m.value === mode;
             const st = m.filtered ? filteredStyle() : heatStyle(m.heat.key);
 
             const tipText =
-              m.value === "ALL"
-                ? (m.tooltip || "")
+              m.value === 'ALL'
+                ? m.tooltip || ''
                 : m.filtered
-                  ? "Filtered out by DX Cluster mode filters"
+                  ? 'Filtered out by DX Cluster mode filters'
                   : `spots: ${m.count}, unique: ${m.uniq} • ${m.heat.label}`;
 
             return (
@@ -469,15 +495,15 @@ const tiles = MODE_TILES.map((t) => {
                 style={{
                   ...st,
                   borderRadius: 6,
-                  padding: "6px 7px",
-                  cursor: "pointer",
-                  userSelect: "none",
-                  outline: "none",
-                  animation: isSelected ? "ohcPulseRing 1.4s ease-in-out infinite" : "none",
+                  padding: '6px 7px',
+                  cursor: 'pointer',
+                  userSelect: 'none',
+                  outline: 'none',
+                  animation: isSelected ? 'ohcPulseRing 1.4s ease-in-out infinite' : 'none',
                 }}
               >
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, textAlign: "center", whiteSpace: "nowrap" }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, textAlign: 'center', whiteSpace: 'nowrap' }}>
                     {m.label}
                   </div>
 
@@ -485,15 +511,15 @@ const tiles = MODE_TILES.map((t) => {
                     style={{
                       fontSize: 10,
                       fontWeight: 700,
-                      letterSpacing: "0.03em",
-                      textAlign: "center",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      width: "100%",
+                      letterSpacing: '0.03em',
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      width: '100%',
                     }}
                   >
-                    {m.filtered ? "FILTERED" : m.heat.label}
+                    {m.filtered ? 'FILTERED' : m.heat.label}
                   </div>
                 </div>
               </div>
@@ -502,9 +528,9 @@ const tiles = MODE_TILES.map((t) => {
         </div>
       </div>
 
-{/* Bands grid */}
-      <div style={{ overflow: "auto", paddingRight: 4 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6 }}>
+      {/* Bands grid */}
+      <div style={{ overflow: 'auto', paddingRight: 4 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 6 }}>
           {bands.map((b) => {
             const st = b.filtered ? filteredStyle() : activityStyle(b.activity);
 
@@ -514,53 +540,52 @@ const tiles = MODE_TILES.map((t) => {
                 style={{
                   ...st,
                   borderRadius: 6,
-                  padding: "6px 7px",
+                  padding: '6px 7px',
                   minHeight: 40,
-                  display: "flex",
-                  flexDirection: "column",
-                  justifyContent: "space-between",
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
                 }}
                 onMouseMove={(e) =>
                   setTip({
                     x: e.clientX,
                     y: e.clientY,
                     text: b.filtered
-                      ? "Filtered out by DX Cluster band filters"
+                      ? 'Filtered out by DX Cluster band filters'
                       : `status: ${b.label} • spots: ${b.count}, unique: ${b.uniques}`,
                   })
                 }
                 onMouseLeave={() => setTip(null)}
               >
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <div style={{ fontSize: 12, fontWeight: 800 }}>{b.band}</div>
-                  <div style={{ fontSize: 11, opacity: 0.9 }}>{b.filtered ? "" : trendGlyph(b.trend)}</div>
+                  <div style={{ fontSize: 11, opacity: 0.9 }}>{b.filtered ? '' : trendGlyph(b.trend)}</div>
                 </div>
 
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, minWidth: 0 }}>
                   <div
                     style={{
                       fontSize: 10,
                       fontWeight: 700,
-                      letterSpacing: "0.03em",
-                      textAlign: "center",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      width: "100%",
+                      letterSpacing: '0.03em',
+                      textAlign: 'center',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      width: '100%',
                     }}
                     title={b.label} // full word on hover
                   >
                     {compactStatusLabel(b.label)}
                   </div>
-
                 </div>
               </div>
             );
           })}
         </div>
 
-        <div style={{ marginTop: 8, fontSize: 9, color: "var(--text-muted)" }}>
-          {mode === "ALL"
+        <div style={{ marginTop: 8, fontSize: 9, color: 'var(--text-muted)' }}>
+          {mode === 'ALL'
             ? `Showing all included modes from DX Cluster spots over the last ${windowMinutes} minutes.`
             : `Showing ${mode} spots from DX Cluster over the last ${windowMinutes} minutes.`}
         </div>
@@ -591,26 +616,26 @@ const tiles = MODE_TILES.map((t) => {
               // If below would go off the bottom, try above instead
               if (placeBelow) {
                 const belowBottom = y + h + 24;
-                if (belowBottom > (vh - MARGIN) && aboveTop >= MARGIN) placeBelow = false;
+                if (belowBottom > vh - MARGIN && aboveTop >= MARGIN) placeBelow = false;
               }
 
               return (
                 <div
                   ref={tipRef}
                   style={{
-                    position: "fixed",
+                    position: 'fixed',
                     left: x,
                     top: y,
-                    transform: placeBelow ? "translate(-50%, 14px)" : "translate(-50%, -120%)",
-                    background: "rgba(0,0,0,0.9)",
-                    color: "#e5e7eb",
-                    padding: "4px 8px",
+                    transform: placeBelow ? 'translate(-50%, 14px)' : 'translate(-50%, -120%)',
+                    background: 'rgba(0,0,0,0.9)',
+                    color: '#e5e7eb',
+                    padding: '4px 8px',
                     fontSize: 11,
                     borderRadius: 4,
-                    whiteSpace: "pre",
+                    whiteSpace: 'pre',
                     zIndex: 2147483647,
-                    pointerEvents: "none",
-                    boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+                    pointerEvents: 'none',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
                     maxWidth: 360,
                   }}
                 >
@@ -618,7 +643,7 @@ const tiles = MODE_TILES.map((t) => {
                 </div>
               );
             })(),
-            document.body
+            document.body,
           )
         : null}
     </div>

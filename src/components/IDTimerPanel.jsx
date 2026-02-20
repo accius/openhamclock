@@ -83,7 +83,8 @@ export const IDTimerPanel = ({ callsign }) => {
   }, []);
 
   const toggle = useCallback(() => {
-    if (active) stop(); else start();
+    if (active) stop();
+    else start();
   }, [active, start, stop]);
 
   // Tick loop — only runs when active
@@ -116,15 +117,21 @@ export const IDTimerPanel = ({ callsign }) => {
   const barColor = !active && !expired ? '#555' : urgent ? '#ff4444' : '#44cc44';
 
   return (
-    <div className="panel" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}>
+    <div
+      className="panel"
+      style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column', position: 'relative' }}
+    >
       {/* Header */}
-      <div className="panel-header" style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '6px',
-        fontSize: '11px'
-      }}>
+      <div
+        className="panel-header"
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '6px',
+          fontSize: '11px',
+        }}
+      >
         <span>📢 ID TIMER</span>
         <div style={{ display: 'flex', gap: '4px' }}>
           <button
@@ -138,7 +145,7 @@ export const IDTimerPanel = ({ callsign }) => {
               borderRadius: '3px',
               fontSize: '9px',
               fontFamily: 'JetBrains Mono',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             {active ? '■ Stop' : '▶ Start'}
@@ -154,7 +161,7 @@ export const IDTimerPanel = ({ callsign }) => {
               borderRadius: '3px',
               fontSize: '9px',
               fontFamily: 'JetBrains Mono',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             ↺
@@ -163,33 +170,52 @@ export const IDTimerPanel = ({ callsign }) => {
       </div>
 
       {/* Countdown display */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: '8px' }}>
-        <div style={{
-          fontSize: '32px',
-          fontWeight: '900',
-          fontFamily: 'Orbitron, JetBrains Mono, monospace',
-          color: expired ? '#ff4444' : !active ? '#555' : urgent ? '#ff4444' : 'var(--text-primary, #eee)',
-          letterSpacing: '2px',
-          animation: expired ? 'idBlink 0.6s ease-in-out infinite' : (urgent ? 'idPulse 1s ease-in-out infinite' : 'none')
-        }}>
+      <div
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '8px',
+        }}
+      >
+        <div
+          style={{
+            fontSize: '32px',
+            fontWeight: '900',
+            fontFamily: 'Orbitron, JetBrains Mono, monospace',
+            color: expired ? '#ff4444' : !active ? '#555' : urgent ? '#ff4444' : 'var(--text-primary, #eee)',
+            letterSpacing: '2px',
+            animation: expired
+              ? 'idBlink 0.6s ease-in-out infinite'
+              : urgent
+                ? 'idPulse 1s ease-in-out infinite'
+                : 'none',
+          }}
+        >
           {formatTime(remaining)}
         </div>
 
         {/* Progress bar */}
-        <div style={{
-          width: '100%',
-          height: '6px',
-          background: 'rgba(255,255,255,0.08)',
-          borderRadius: '3px',
-          overflow: 'hidden'
-        }}>
-          <div style={{
-            width: `${pct}%`,
-            height: '100%',
-            background: barColor,
+        <div
+          style={{
+            width: '100%',
+            height: '6px',
+            background: 'rgba(255,255,255,0.08)',
             borderRadius: '3px',
-            transition: 'width 0.3s linear, background 0.3s'
-          }} />
+            overflow: 'hidden',
+          }}
+        >
+          <div
+            style={{
+              width: `${pct}%`,
+              height: '100%',
+              background: barColor,
+              borderRadius: '3px',
+              transition: 'width 0.3s linear, background 0.3s',
+            }}
+          />
         </div>
 
         <div style={{ fontSize: '9px', color: 'var(--text-muted, #888)', fontFamily: 'JetBrains Mono, monospace' }}>
@@ -203,17 +229,23 @@ export const IDTimerPanel = ({ callsign }) => {
           onClick={reset}
           style={{
             position: 'fixed',
-            top: 0, left: 0, right: 0, bottom: 0,
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             background: 'rgba(0,0,0,0.75)',
             display: 'flex',
             justifyContent: 'center',
             alignItems: 'center',
             zIndex: 99999,
-            cursor: 'pointer'
+            cursor: 'pointer',
           }}
         >
           <div
-            onClick={(e) => { e.stopPropagation(); reset(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              reset();
+            }}
             style={{
               background: '#1a1a2e',
               border: '3px solid #ff4444',
@@ -223,20 +255,22 @@ export const IDTimerPanel = ({ callsign }) => {
               boxShadow: '0 0 40px rgba(255, 68, 68, 0.4)',
               animation: 'idBlink 0.6s ease-in-out infinite',
               cursor: 'pointer',
-              maxWidth: '90vw'
+              maxWidth: '90vw',
             }}
           >
             <div style={{ fontSize: '18px', color: '#ff4444', marginBottom: '12px', fontWeight: '700' }}>
               📢 IDENTIFY YOUR STATION
             </div>
-            <div style={{
-              fontSize: '36px',
-              fontWeight: '900',
-              fontFamily: 'Orbitron, JetBrains Mono, monospace',
-              color: '#ff4444',
-              letterSpacing: '3px',
-              marginBottom: '16px'
-            }}>
+            <div
+              style={{
+                fontSize: '36px',
+                fontWeight: '900',
+                fontFamily: 'Orbitron, JetBrains Mono, monospace',
+                color: '#ff4444',
+                letterSpacing: '3px',
+                marginBottom: '16px',
+              }}
+            >
               {callsign || 'N0CALL'}
             </div>
             <div style={{ fontSize: '13px', color: '#888', fontFamily: 'JetBrains Mono, monospace' }}>

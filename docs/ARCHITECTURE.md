@@ -199,7 +199,7 @@ const MY_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 // 2. Create route
 app.get('/api/myfeature', async (req, res) => {
   const now = Date.now();
-  if (myCache.data && (now - myCache.timestamp) < MY_CACHE_TTL) {
+  if (myCache.data && now - myCache.timestamp < MY_CACHE_TTL) {
     return res.json(myCache.data);
   }
   const response = await fetch('https://external-api.com/data');

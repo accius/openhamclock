@@ -2,121 +2,35 @@
  * POTAPanel Component
  * Displays Parks on the Air activations with ON/OFF toggle
  */
-import React from 'react';
-import CallsignLink from './CallsignLink.jsx';
+import ActivatePanel from './ActivatePanel.jsx';
 
 export const POTAPanel = ({
   data,
   loading,
+  lastUpdated,
+  lastChecked,
   showOnMap,
   onToggleMap,
   showLabelsOnMap = true,
   onToggleLabelsOnMap,
   onSpotClick,
+  onHoverSpot,
 }) => {
   return (
-    <div className="panel" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div className="panel-header" style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: '6px',
-        fontSize: '11px'
-      }}>
-        <span>▲ POTA ACTIVATORS {data?.length > 0 ? `(${data.length})` : ''}</span>
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <button
-            onClick={onToggleMap}
-            title={showOnMap ? 'Hide POTA activators on map' : 'Show POTA activators on map'}
-            style={{
-              background: showOnMap ? 'rgba(68, 204, 68, 0.3)' : 'rgba(100, 100, 100, 0.3)',
-              border: `1px solid ${showOnMap ? '#44cc44' : '#666'}`,
-              color: showOnMap ? '#44cc44' : '#888',
-              padding: '1px 6px',
-              borderRadius: '3px',
-              fontSize: '9px',
-              fontFamily: 'JetBrains Mono',
-              cursor: 'pointer'
-            }}
-          >
-            ⊞ Map {showOnMap ? 'ON' : 'OFF'}
-          </button>
-
-          {typeof onToggleLabelsOnMap === 'function' && (
-            <button
-              onClick={onToggleLabelsOnMap}
-              title={showLabelsOnMap ? 'Hide POTA callsigns on map' : 'Show POTA callsigns on map'}
-              style={{
-                background: showLabelsOnMap ? 'rgba(255, 170, 0, 0.22)' : 'rgba(100, 100, 100, 0.3)',
-                border: `1px solid ${showLabelsOnMap ? '#ffaa00' : '#666'}`,
-                color: showLabelsOnMap ? '#ffaa00' : '#888',
-                padding: '1px 6px',
-                borderRadius: '3px',
-                fontSize: '9px',
-                fontFamily: 'JetBrains Mono',
-                cursor: 'pointer'
-              }}
-            >
-              ⊞ Calls {showLabelsOnMap ? 'ON' : 'OFF'}
-            </button>
-          )}
-        </div>
-      </div>
-
-      <div style={{ flex: 1, overflowY: 'auto' }}>
-        {loading ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '10px' }}>
-            <div className="loading-spinner" />
-          </div>
-        ) : data && data.length > 0 ? (
-          <div style={{ fontSize: '10px', fontFamily: 'JetBrains Mono, monospace' }}>
-            {data.map((spot, i) => (
-              <div
-                key={`${spot.call}-${spot.ref}-${i}`}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: '62px 50px 58px 1fr',
-                  gap: '4px',
-                  padding: '3px 0',
-                  borderBottom: i < data.length - 1 ? '1px solid var(--border-color)' : 'none',
-                  cursor: 'pointer'
-                }}
-                onClick={() => {
-                  onSpotClick?.(spot);
-                }}
-              >
-                <span style={{ color: '#44cc44', fontWeight: '600', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  <CallsignLink call={spot.call} color="#44cc44" fontWeight="600" />
-                </span>
-                <span style={{ color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {spot.locationDesc || spot.ref}
-                </span>
-                <span style={{ color: 'var(--accent-cyan)', textAlign: 'right' }}>
-                  {(() => {
-                    if (!spot.freq) return '?';
-                    const freqVal = parseFloat(spot.freq);
-                    if (freqVal > 1000) {
-                      // It's in kHz, convert to MHz
-                      return (freqVal / 1000).toFixed(3);
-                    } else {
-                      // Already in MHz
-                      return freqVal.toFixed(3);
-                    }
-                  })()}
-                </span>
-                <span style={{ color: 'var(--text-muted)', textAlign: 'right', fontSize: '9px' }}>
-                  {spot.time}
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '10px', fontSize: '11px' }}>
-            No POTA spots
-          </div>
-        )}
-      </div>
-    </div>
+    <ActivatePanel
+      name={'POTA'}
+      shade={'#44cc44'}
+      data={data}
+      loading={loading}
+      lastUpdated={lastUpdated}
+      lastChecked={lastChecked}
+      showOnMap={showOnMap}
+      onToggleMap={onToggleMap}
+      showLabelsOnMap={showLabelsOnMap}
+      onToggleLabelsOnMap={onToggleLabelsOnMap}
+      onSpotClick={onSpotClick}
+      onHoverSpot={onHoverSpot}
+    />
   );
 };
 

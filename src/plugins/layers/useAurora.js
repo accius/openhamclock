@@ -15,7 +15,7 @@ export const metadata = {
   category: 'space-weather',
   defaultEnabled: false,
   defaultOpacity: 0.6,
-  version: '2.0.0'
+  version: '2.0.0',
 };
 
 // Aurora color ramp: transparent → green → yellow → red
@@ -150,7 +150,9 @@ export function useLayer({ enabled = false, opacity = 0.6, map = null }) {
 
     // Remove existing
     if (overlayLayer) {
-      try { map.removeLayer(overlayLayer); } catch (e) {}
+      try {
+        map.removeLayer(overlayLayer);
+      } catch (e) {}
       setOverlayLayer(null);
     }
 
@@ -213,12 +215,15 @@ export function useLayer({ enabled = false, opacity = 0.6, map = null }) {
 
       const overlay = L.imageOverlay(
         shiftedUrl,
-        [[-90, -180], [90, 180]],
+        [
+          [-90, -180],
+          [90, 180],
+        ],
         {
           opacity: opacity,
           zIndex: 210,
-          interactive: false
-        }
+          interactive: false,
+        },
       );
 
       overlay.addTo(map);
@@ -229,7 +234,9 @@ export function useLayer({ enabled = false, opacity = 0.6, map = null }) {
 
     return () => {
       if (overlayLayer && map) {
-        try { map.removeLayer(overlayLayer); } catch (e) {}
+        try {
+          map.removeLayer(overlayLayer);
+        } catch (e) {}
       }
     };
   }, [enabled, auroraData, map]);
@@ -247,6 +254,6 @@ export function useLayer({ enabled = false, opacity = 0.6, map = null }) {
     refresh: () => {
       setAuroraData(null);
       fetchingRef.current = false;
-    }
+    },
   };
 }

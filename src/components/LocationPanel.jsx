@@ -3,7 +3,14 @@
  * Displays DE and DX location info with grid squares and sun times
  */
 import React from 'react';
-import { calculateGridSquare, calculateBearing, calculateDistance, formatDistance, getMoonPhase, getMoonPhaseEmoji } from '../utils/geo.js';
+import {
+  calculateGridSquare,
+  calculateBearing,
+  calculateDistance,
+  formatDistance,
+  getMoonPhase,
+  getMoonPhaseEmoji,
+} from '../utils/geo.js';
 
 export const LocationPanel = ({
   config,
@@ -12,7 +19,7 @@ export const LocationPanel = ({
   dxSunTimes,
   currentTime,
   dxLocked,
-  onToggleDxLock
+  onToggleDxLock,
 }) => {
   const deGrid = calculateGridSquare(config.location.lat, config.location.lon);
   const dxGrid = calculateGridSquare(dxLocation.lat, dxLocation.lon);
@@ -24,60 +31,74 @@ export const LocationPanel = ({
   return (
     <div className="panel" style={{ padding: '12px' }}>
       <div className="panel-header">◎ LOCATIONS</div>
-      
+
       {/* DE Location */}
       <div style={{ marginBottom: '12px' }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '4px'
-        }}>
-          <span style={{ 
-            color: 'var(--accent-amber)', 
-            fontWeight: '700', 
-            fontSize: '14px' 
-          }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '4px',
+          }}
+        >
+          <span
+            style={{
+              color: 'var(--accent-amber)',
+              fontWeight: '700',
+              fontSize: '14px',
+            }}
+          >
             DE: {config.callsign}
           </span>
-          <span style={{ 
-            color: 'var(--accent-green)', 
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: '12px'
-          }}>
+          <span
+            style={{
+              color: 'var(--accent-green)',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: '12px',
+            }}
+          >
             {deGrid}
           </span>
         </div>
-        <div style={{ 
-          fontSize: '11px', 
-          color: 'var(--text-muted)',
-          fontFamily: 'JetBrains Mono, monospace'
-        }}>
+        <div
+          style={{
+            fontSize: '11px',
+            color: 'var(--text-muted)',
+            fontFamily: 'JetBrains Mono, monospace',
+          }}
+        >
           {config.location.lat.toFixed(4)}°, {config.location.lon.toFixed(4)}°
         </div>
-        <div style={{ 
-          fontSize: '11px', 
-          color: 'var(--text-secondary)',
-          marginTop: '4px'
-        }}>
+        <div
+          style={{
+            fontSize: '11px',
+            color: 'var(--text-secondary)',
+            marginTop: '4px',
+          }}
+        >
           ☀ {deSunTimes.sunrise} / {deSunTimes.sunset} UTC
         </div>
       </div>
-      
+
       {/* DX Location */}
       <div style={{ marginBottom: '12px' }}>
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          marginBottom: '4px'
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '4px',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ 
-              color: 'var(--accent-blue)', 
-              fontWeight: '700', 
-              fontSize: '14px' 
-            }}>
+            <span
+              style={{
+                color: 'var(--accent-blue)',
+                fontWeight: '700',
+                fontSize: '14px',
+              }}
+            >
               DX Target
             </span>
             {onToggleDxLock && (
@@ -95,89 +116,106 @@ export const LocationPanel = ({
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '3px'
+                  gap: '3px',
                 }}
               >
                 {dxLocked ? '🔒' : '🔓'}
               </button>
             )}
           </div>
-          <span style={{ 
-            color: 'var(--accent-green)', 
-            fontFamily: 'JetBrains Mono, monospace',
-            fontSize: '12px'
-          }}>
+          <span
+            style={{
+              color: 'var(--accent-green)',
+              fontFamily: 'JetBrains Mono, monospace',
+              fontSize: '12px',
+            }}
+          >
             {dxGrid}
           </span>
         </div>
-        <div style={{ 
-          fontSize: '11px', 
-          color: 'var(--text-muted)',
-          fontFamily: 'JetBrains Mono, monospace'
-        }}>
+        <div
+          style={{
+            fontSize: '11px',
+            color: 'var(--text-muted)',
+            fontFamily: 'JetBrains Mono, monospace',
+          }}
+        >
           {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
         </div>
-        <div style={{ 
-          fontSize: '11px', 
-          color: 'var(--text-secondary)',
-          marginTop: '4px'
-        }}>
+        <div
+          style={{
+            fontSize: '11px',
+            color: 'var(--text-secondary)',
+            marginTop: '4px',
+          }}
+        >
           ☀ {dxSunTimes.sunrise} / {dxSunTimes.sunset} UTC
         </div>
       </div>
-      
+
       {/* Path Info */}
-      <div style={{ 
-        padding: '10px',
-        background: 'var(--bg-tertiary)',
-        borderRadius: '6px',
-        marginBottom: '12px'
-      }}>
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: '1fr 1fr', 
-          gap: '12px',
-          textAlign: 'center'
-        }}>
+      <div
+        style={{
+          padding: '10px',
+          background: 'var(--bg-tertiary)',
+          borderRadius: '6px',
+          marginBottom: '12px',
+        }}
+      >
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '12px',
+            textAlign: 'center',
+          }}
+        >
           <div>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>BEARING</div>
-            <div style={{ 
-              fontSize: '18px', 
-              fontWeight: '700', 
-              color: 'var(--accent-cyan)',
-              fontFamily: 'Orbitron, monospace'
-            }}>
+            <div
+              style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: 'var(--accent-cyan)',
+                fontFamily: 'Orbitron, monospace',
+              }}
+            >
               {bearing.toFixed(0)}°
             </div>
           </div>
           <div>
             <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>DISTANCE</div>
-            <div style={{ 
-              fontSize: '18px', 
-              fontWeight: '700', 
-              color: 'var(--accent-cyan)',
-              fontFamily: 'Orbitron, monospace'
-            }}>
+            <div
+              style={{
+                fontSize: '18px',
+                fontWeight: '700',
+                color: 'var(--accent-cyan)',
+                fontFamily: 'Orbitron, monospace',
+              }}
+            >
               {formatDistance(distance, config.units)}
             </div>
           </div>
         </div>
       </div>
-      
+
       {/* Moon Phase */}
-      <div style={{ 
-        textAlign: 'center',
-        padding: '8px',
-        background: 'var(--bg-tertiary)',
-        borderRadius: '6px'
-      }}>
+      <div
+        style={{
+          textAlign: 'center',
+          padding: '8px',
+          background: 'var(--bg-tertiary)',
+          borderRadius: '6px',
+        }}
+      >
         <span style={{ fontSize: '20px', marginRight: '8px' }}>{moonEmoji}</span>
-        <span style={{ 
-          fontSize: '11px', 
-          color: 'var(--text-secondary)' 
-        }}>
-          {moonPhase < 0.25 ? 'Waxing' : moonPhase < 0.5 ? 'Waxing' : moonPhase < 0.75 ? 'Waning' : 'Waning'}
-          {' '}
+        <span
+          style={{
+            fontSize: '11px',
+            color: 'var(--text-secondary)',
+          }}
+        >
+          {moonPhase < 0.25 ? 'Waxing' : moonPhase < 0.5 ? 'Waxing' : moonPhase < 0.75 ? 'Waning' : 'Waning'}{' '}
           {Math.round(moonPhase * 100)}%
         </span>
       </div>

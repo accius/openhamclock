@@ -27,11 +27,13 @@ export const BandConditionsPanel = ({ data, loading }) => {
           <div className="loading-spinner" />
         </div>
       ) : (
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fill, minmax(50px, 1fr))', 
-          gap: '6px' 
-        }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(50px, 1fr))',
+            gap: '6px',
+          }}
+        >
           {data.map(({ band, condition }) => {
             const style = getConditionStyle(condition);
             return (
@@ -42,23 +44,27 @@ export const BandConditionsPanel = ({ data, loading }) => {
                   padding: '6px 4px',
                   background: style.bg,
                   borderRadius: '4px',
-                  border: `1px solid ${style.color}33`
+                  border: `1px solid ${style.color}33`,
                 }}
               >
-                <div style={{ 
-                  fontSize: '12px', 
-                  fontWeight: '700', 
-                  color: 'var(--text-primary)',
-                  fontFamily: 'JetBrains Mono, monospace'
-                }}>
+                <div
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'JetBrains Mono, monospace',
+                  }}
+                >
                   {band}
                 </div>
-                <div style={{ 
-                  fontSize: '9px', 
-                  fontWeight: '600', 
-                  color: style.color,
-                  marginTop: '2px'
-                }}>
+                <div
+                  style={{
+                    fontSize: '9px',
+                    fontWeight: '600',
+                    color: style.color,
+                    marginTop: '2px',
+                  }}
+                >
                   {t(`band.conditions.${condition.toLowerCase()}`)}
                 </div>
               </div>

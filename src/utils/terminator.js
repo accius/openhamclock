@@ -3,7 +3,7 @@
  * Based on @joergdietrich/leaflet.terminator math, extended to span
  * multiple world copies (-540..540° longitude) so the gray line renders
  * correctly when users pan past the International Date Line.
- * 
+ *
  * Removes CDN dependency on L.Terminator.js
  */
 
@@ -25,9 +25,9 @@ function gmst(date) {
 /** Sun's ecliptic position */
 function sunEclipticPosition(jd) {
   const n = jd - 2451545.0;
-  const L = (280.460 + 0.9856474 * n) % 360;
+  const L = (280.46 + 0.9856474 * n) % 360;
   const g = ((357.528 + 0.9856003 * n) % 360) * RAD;
-  const lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * RAD;
+  const lambda = (L + 1.915 * Math.sin(g) + 0.02 * Math.sin(2 * g)) * RAD;
   return { lambda };
 }
 
@@ -61,14 +61,14 @@ function computeNightPolygon(time, resolution) {
   const sunPos = sunEquatorialPosition(eclPos.lambda, obliq);
   const gmstVal = gmst(date);
   const ha0 = hourAngle(gmstVal, sunPos, -180);
-  
+
   const steps = Math.ceil(360 / resolution);
   const baseLine = [];
-  
+
   for (let i = 0; i <= steps; i++) {
-    const lon = -180 + (i * 360 / steps);
-    const ha = ha0 + (i * 360 / steps) * RAD;
-    
+    const lon = -180 + (i * 360) / steps;
+    const ha = ha0 + ((i * 360) / steps) * RAD;
+
     let lat;
     const tanDelta = Math.tan(sunPos.delta);
     if (Math.abs(tanDelta) < 1e-10) {
@@ -77,32 +77,32 @@ function computeNightPolygon(time, resolution) {
     } else {
       lat = Math.atan(-Math.cos(ha) / tanDelta) / RAD;
     }
-    
+
     baseLine.push([lat, lon]);
   }
-  
+
   // Close the polygon through the dark pole
   // delta > 0 (northern summer): south pole is in darkness
   // delta < 0 (northern winter): north pole is in darkness
   const nightPole = sunPos.delta >= 0 ? -90 : 90;
-  
+
   const baseRing = [...baseLine];
   baseRing.push([nightPole, 180]);
   baseRing.push([nightPole, -180]);
-  
+
   // Create 3 world copies so terminator is visible past the dateline
   const rings = [];
   for (const offset of [-360, 0, 360]) {
     rings.push(baseRing.map(([lat, lon]) => [lat, lon + offset]));
   }
-  
+
   return rings;
 }
 
 /**
  * Create a Leaflet terminator layer
  * Drop-in replacement for L.terminator()
- * 
+ *
  * @param {Object} options - Leaflet polygon style options + resolution
  * @returns {L.Polygon} Polygon with setTime() method
  */
@@ -117,9 +117,9 @@ export function createTerminator(options = {}) {
     time,
     ...otherOptions
   } = options;
-  
+
   const rings = computeNightPolygon(time || new Date(), resolution);
-  
+
   const polygon = L.polygon(rings, {
     fillOpacity,
     fillColor,
@@ -128,21 +128,21 @@ export function createTerminator(options = {}) {
     dashArray,
     interactive: false,
     bubblingMouseEvents: false,
-    ...otherOptions
+    ...otherOptions,
   });
-  
+
   polygon._terminatorResolution = resolution;
-  
+
   /**
    * Update the terminator to a new time
    * @param {Date} [newTime] - Time to compute for (default: now)
    */
-  polygon.setTime = function(newTime) {
+  polygon.setTime = function (newTime) {
     const t = newTime || new Date();
     const newRings = computeNightPolygon(t, this._terminatorResolution);
     this.setLatLngs(newRings);
   };
-  
+
   return polygon;
 }
 

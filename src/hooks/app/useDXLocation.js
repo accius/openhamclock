@@ -41,7 +41,7 @@ export default function useDXLocation(defaultDX) {
   }, [dxLocked]);
 
   const handleToggleDxLock = useCallback(() => {
-    setDxLocked(prev => !prev);
+    setDxLocked((prev) => !prev);
   }, []);
 
   const handleDXChange = useCallback((coords) => {
@@ -55,6 +55,6 @@ export default function useDXLocation(defaultDX) {
     setDxLocation,
     dxLocked,
     handleToggleDxLock,
-    handleDXChange
+    handleDXChange,
   };
 }

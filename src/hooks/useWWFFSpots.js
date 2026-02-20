@@ -9,19 +9,38 @@ import { apiFetch } from '../utils/apiFetch';
 export const useWWFFSpots = () => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [lastChecked, setLastChecked] = useState(null);
+  const lastNewestSpotRef = useRef(null);
   const fetchRef = useRef(null);
 
   useEffect(() => {
     const fetchWWFF = async () => {
       try {
         // Use server proxy for caching - reduces external API calls
-        const res = await apiFetch('/api/wwff/spots');
-        if (res.ok) {
+        // Cache-bust to bypass browser cache AND Cloudflare edge cache
+        const res = await apiFetch(`/api/wwff/spots?_t=${Date.now()}`, { cache: 'no-store' });
+        if (res?.ok) {
           const spots = await res.json();
+          console.log(`[WWFF] Fetched ${Array.isArray(spots) ? spots.length : 0} spots`);
+
+          // Only mark as "updated" when data content actually changes
+          let newestTime = null;
+          if (Array.isArray(spots) && spots.length > 0) {
+            const times = spots
+              .map((s) => s.spot_time)
+              .filter(Boolean)
+              .sort((a, b) => b - a);
+            newestTime = times[0] || null;
+          }
+          if (newestTime !== lastNewestSpotRef.current || lastNewestSpotRef.current === null) {
+            lastNewestSpotRef.current = newestTime;
+            setLastUpdated(Date.now());
+          }
 
           // Filter out QRT spots and nearly-expired spots, then sort by most recent
           const validSpots = spots
-            .filter(s => {
+            .filter((s) => {
               // Filter out QRT (operator signed off)
               const comments = (s.remarks || '').toUpperCase().trim();
               if (comments === 'QRT' || comments.startsWith('QRT ') || comments.startsWith('QRT,')) return false;
@@ -38,33 +57,38 @@ export const useWWFFSpots = () => {
               return timeB - timeA;
             });
 
-          setData(validSpots.map(s => {
-            // Use API coordinates
-            let lat = s.latitude ? parseFloat(s.latitude) : null;
-            let lon = s.longitude ? parseFloat(s.longitude) : null;
+          setData(
+            validSpots.map((s) => {
+              // Use API coordinates
+              let lat = s.latitude ? parseFloat(s.latitude) : null;
+              let lon = s.longitude ? parseFloat(s.longitude) : null;
 
-            // WWFF API returns frequency_khz as a number (e.g., 7160 or 433240)
-            // Convert to MHz for consistency with POTA/SOTA and proper rig control
-            const freqKhz = parseFloat(s.frequency_khz);
-            const freqMhz = !isNaN(freqKhz) ? freqKhz / 1000 : null;
+              // WWFF API returns frequency_khz as a number (e.g., 7160 or 433240)
+              // Convert to MHz for consistency with POTA/SOTA and proper rig control
+              const freqKhz = parseFloat(s.frequency_khz);
+              const freqMhz = !isNaN(freqKhz) ? freqKhz / 1000 : null;
 
-            return {
-              call: s.activator,
-              ref: s.reference,
-              freq: freqMhz ? freqMhz.toString() : s.frequency_khz, // Convert to MHz string
-              mode: s.mode,
-              name: s.reference_name,
-              remarks: s.remarks,
-              lat,
-              lon,
-              time: s.spot_time ? s.spot_time_formatted.substr(11, 5) + 'z' : '',
-              expire: 0
-            };
-          }));
+              return {
+                call: s.activator,
+                ref: s.reference,
+                freq: freqMhz ? freqMhz.toString() : s.frequency_khz, // Convert to MHz string
+                mode: s.mode,
+                name: s.reference_name,
+                remarks: s.remarks,
+                lat,
+                lon,
+                time: s.spot_time ? s.spot_time_formatted.substr(11, 5) + 'z' : '',
+                expire: 0,
+              };
+            }),
+          );
+        } else {
+          console.warn(`[WWFF] Fetch failed: ${res?.status || 'no response'} ${res?.statusText || ''}`);
         }
       } catch (err) {
-        console.error('WWFF error:', err);
+        console.error('[WWFF] Fetch error:', err.message || err);
       } finally {
+        setLastChecked(Date.now());
         setLoading(false);
       }
     };
@@ -77,7 +101,7 @@ export const useWWFFSpots = () => {
 
   useVisibilityRefresh(() => fetchRef.current?.(), 10000);
 
-  return { data, loading };
+  return { data, loading, lastUpdated, lastChecked };
 };
 
 export default useWWFFSpots;

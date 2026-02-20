@@ -12,7 +12,7 @@ Data Source: Internal TLE API / satellite.js
 Overview
 The Satellite Tracks plugin provides high-performance, real-time orbital tracking and visualization for the OpenHamClock interface. It uses on-device orbital propagation to calculate precise positions, helping operators predict passes and monitor satellite telemetry in a dedicated data window.
 
-🌟 Features 
+🌟 Features
 Core Capabilities
 Real-time Propagation: Calculates satellite positions locally using satellite.js and TLE data fetched every 60 seconds.
 

@@ -27,6 +27,8 @@ npm start
 
 Open [http://localhost:3000](http://localhost:3000) in your browser. On first run, the server creates a `.env` file from `.env.example` and builds the React frontend automatically. A setup wizard will walk you through entering your callsign and grid locator.
 
+In development mode, the frontend runs on port 3000 and proxies API requests to the backend on port 3001.
+
 You can also configure your station by editing `.env` directly:
 
 ```bash
@@ -40,10 +42,10 @@ Restart with `npm start` after editing `.env` to apply changes.
 For development with hot reload:
 
 ```bash
-# Terminal 1 — Backend
+# Terminal 1 — Backend (http://localhost:3001)
 node server.js
 
-# Terminal 2 — Frontend (hot reload on http://localhost:5173)
+# Terminal 2 — Frontend (hot reload on http://localhost:3000)
 npm run dev
 ```
 
@@ -161,12 +163,12 @@ All filter settings are saved to your browser's localStorage and persist across 
 
 **DX cluster source options (configurable in Settings → DX Cluster tab or in .env):**
 
-| Source | Description |
-|--------|-------------|
+| Source                        | Description                                                                                                      |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | **DX Spider Proxy** (default) | Persistent telnet connection to the DX Spider network via a proxy microservice. Most reliable, best spot volume. |
-| **HamQTH** | Spots from HamQTH's DX cluster HTTP feed. No telnet required. |
-| **DXWatch** | Spots from the DXWatch cluster. |
-| **Auto** | Tries all sources in order and uses the first one that responds. |
+| **HamQTH**                    | Spots from HamQTH's DX cluster HTTP feed. No telnet required.                                                    |
+| **DXWatch**                   | Spots from the DXWatch cluster.                                                                                  |
+| **Auto**                      | Tries all sources in order and uses the first one that responds.                                                 |
 
 **Spot retention:** Spots remain in the list for 30 minutes by default. Change this via the `SPOT_RETENTION_MINUTES` variable in `.env` (range: 5–30 minutes) or in the DX Filter Manager settings tab.
 
@@ -331,11 +333,13 @@ Real-time HF and VHF band conditions from the N0NBH solar conditions feed, sourc
 **What it shows:**
 
 Each HF band from 80m through 10m with day and night condition indicators:
+
 - **Green (GOOD)** — Band is open with good propagation. Get on the air!
 - **Amber (FAIR)** — Band may be usable but conditions are degraded.
 - **Red (POOR)** — Band is not supporting propagation.
 
 Additional information in the panel:
+
 - **Day/night indicator** — Shows current conditions with a ☀/☾ marker, plus mini indicators when day and night conditions differ
 - **VHF conditions** — Aurora and E-skip status by region (Europe, North America) with green/gray color coding
 - **Footer stats** — SFI, K-index, geomagnetic field status (color-coded: green=QUIET, amber=UNSETTLED, red=ACTIVE/STORM), signal noise level
@@ -475,6 +479,7 @@ Current weather conditions at your station location, displayed in the header bar
 - Weather description icon and temperature in both °F and °C
 
 **Below the DE and optionally DX Location panel:**
+
 - Temperature in either °F or °C with a toggle to select which one (note that the toggle affects both the DE and DX temperature display)
 - Weather description (clear, cloudy, rain, snow, etc.) with an emoji icon
 - Humidity and wind speed
@@ -559,12 +564,12 @@ A classic analog clock display showing local time with additional station inform
 
 Four visual themes, selectable in Settings or via `THEME` in `.env`:
 
-| Theme | Description |
-|-------|-------------|
-| **Dark** | Modern dark interface with amber and cyan accents on a charcoal background. Easy on the eyes for late-night operating. This is the default. |
-| **Light** | Light background with darker text. Best for daytime use or brightly lit environments where a dark screen causes too much contrast. |
-| **Legacy** | Classic green-on-black terminal aesthetic reminiscent of vintage station monitors. Monochrome green text with a true-black background. |
-| **Retro** | 90s-era GUI style with teal backgrounds, silver beveled panels, and shadow effects. A nostalgic throwback to early Windows and OS/2 interfaces. |
+| Theme      | Description                                                                                                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Dark**   | Modern dark interface with amber and cyan accents on a charcoal background. Easy on the eyes for late-night operating. This is the default.     |
+| **Light**  | Light background with darker text. Best for daytime use or brightly lit environments where a dark screen causes too much contrast.              |
+| **Legacy** | Classic green-on-black terminal aesthetic reminiscent of vintage station monitors. Monochrome green text with a true-black background.          |
+| **Retro**  | 90s-era GUI style with teal backgrounds, silver beveled panels, and shadow effects. A nostalgic throwback to early Windows and OS/2 interfaces. |
 
 All themes use CSS custom properties defined in `src/styles/main.css`. To create your own theme, add a new set of CSS variables following the existing pattern.
 
@@ -572,9 +577,9 @@ All themes use CSS custom properties defined in `src/styles/main.css`. To create
 
 Two layout modes, selectable in Settings or via `LAYOUT` in `.env`:
 
-| Layout | Description |
-|--------|-------------|
-| **Modern** | Responsive 3-column grid layout. The map fills the center column, with sidebar panels on the left and right. Designed for widescreen monitors (1920×1080 and above). Panels reflow on smaller screens. |
+| Layout      | Description                                                                                                                                                                                                                                                           |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Modern**  | Responsive 3-column grid layout. The map fills the center column, with sidebar panels on the left and right. Designed for widescreen monitors (1920×1080 and above). Panels reflow on smaller screens.                                                                |
 | **Classic** | Inspired by the original HamClock by Elwood Downey, WB0OEW (SK). Features a black background, large colored numeric displays for callsign and frequency, a rainbow frequency bar, and a full-width map. Optimized for dedicated displays and Raspberry Pi kiosk mode. |
 
 ---
@@ -585,11 +590,11 @@ OpenHamClock has a plugin system for adding custom map overlays without modifyin
 
 **Built-in plugins:**
 
-| Layer | Description |
-|-------|-------------|
-| **Aurora** | Real-time auroral oval overlay from the NOAA OVATION model. Shows the current extent of the aurora borealis/australis. Useful for VHF operators (aurora can enable 2m and 6m contacts) and HF operators (aurora degrades polar HF paths). |
-| **Earthquakes** | Recent seismic activity markers from USGS. Large earthquakes can temporarily affect HF propagation through atmospheric acoustic-gravity waves. |
-| **Weather Radar** | Precipitation overlay showing rain, snow, and storms. |
+| Layer             | Description                                                                                                                                                                                                                               |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Aurora**        | Real-time auroral oval overlay from the NOAA OVATION model. Shows the current extent of the aurora borealis/australis. Useful for VHF operators (aurora can enable 2m and 6m contacts) and HF operators (aurora degrades polar HF paths). |
+| **Earthquakes**   | Recent seismic activity markers from USGS. Large earthquakes can temporarily affect HF propagation through atmospheric acoustic-gravity waves.                                                                                            |
+| **Weather Radar** | Precipitation overlay showing rain, snow, and storms.                                                                                                                                                                                     |
 
 **How to enable/disable layers:**
 
@@ -630,6 +635,7 @@ Save and switch between named configuration profiles. Useful when multiple opera
 6. To share a profile or move it between devices, click **⤓** (export) to download a JSON file, then use **Import Profile from File** on the other device
 
 **Profile actions:**
+
 - **▶ Load** — Restores the profile and reloads the page
 - **↻ Update** — Overwrites the saved profile with your current live state
 - **✎ Rename** — Inline rename
@@ -653,6 +659,7 @@ When the server is updated with a new version (e.g., via `git pull` + restart, o
 Visit `/api/health` in your browser for a real-time server status dashboard. The page auto-refreshes every 30 seconds.
 
 **What it shows:**
+
 - **Online Now** — Real-time concurrent user count (sessions expire after 5 minutes of inactivity)
 - **Peak Concurrent** — Highest simultaneous users since last restart
 - **Visitors Today / All-Time** — Unique IP counts with daily average
@@ -672,6 +679,7 @@ Visitor stats persist across restarts via file-based storage. Configure the stor
 All configuration is done through the `.env` file. On first run, this file is auto-created from `.env.example`. You can also change most settings through the browser-based Settings panel.
 
 > **Can't find the `.env` file?** Files starting with a dot are hidden by default on Linux, Mac, and Raspberry Pi.
+>
 > - **Terminal:** `ls -la` to see hidden files, or `nano .env` to edit directly
 > - **File manager (Pi/Linux):** Press `Ctrl+H` to toggle hidden files
 > - **Mac Finder:** Press `Cmd+Shift+.` to toggle hidden files
@@ -681,63 +689,63 @@ All configuration is done through the `.env` file. On first run, this file is au
 
 ### Station Settings
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `CALLSIGN` | `N0CALL` | Your amateur radio callsign. This is shown in the header bar and used for DX cluster login, PSKReporter queries, and "My Spots" tracking. |
-| `LOCATOR` | `FN31` | Your Maidenhead grid locator (4 or 6 characters). Used to calculate your station coordinates if LATITUDE/LONGITUDE aren't set. |
-| `LATITUDE` | *(from locator)* | Station latitude in decimal degrees. Overrides the latitude calculated from LOCATOR. |
-| `LONGITUDE` | *(from locator)* | Station longitude in decimal degrees. Overrides the longitude calculated from LOCATOR. |
+| Variable    | Default          | Description                                                                                                                               |
+| ----------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `CALLSIGN`  | `N0CALL`         | Your amateur radio callsign. This is shown in the header bar and used for DX cluster login, PSKReporter queries, and "My Spots" tracking. |
+| `LOCATOR`   | `FN31`           | Your Maidenhead grid locator (4 or 6 characters). Used to calculate your station coordinates if LATITUDE/LONGITUDE aren't set.            |
+| `LATITUDE`  | _(from locator)_ | Station latitude in decimal degrees. Overrides the latitude calculated from LOCATOR.                                                      |
+| `LONGITUDE` | _(from locator)_ | Station longitude in decimal degrees. Overrides the longitude calculated from LOCATOR.                                                    |
 
 ### Server Settings
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | `3000` | HTTP server port. Change if 3000 is already in use. |
-| `HOST` | `localhost` | Bind address. Set to `0.0.0.0` to make OpenHamClock accessible from other devices on your LAN (tablets, phones, other PCs). |
-| `LOG_LEVEL` | `warn` | Server log verbosity: `debug` (everything), `info` (operational), `warn` (problems), `error` (failures only). Use `warn` for production. |
+| Variable    | Default     | Description                                                                                                                              |
+| ----------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`      | `3001`      | Backend API server port. In development, the Vite frontend runs on 3000 and proxies /api to this port.                                   |
+| `HOST`      | `localhost` | Bind address. Set to `0.0.0.0` to make OpenHamClock accessible from other devices on your LAN (tablets, phones, other PCs).              |
+| `LOG_LEVEL` | `warn`      | Server log verbosity: `debug` (everything), `info` (operational), `warn` (problems), `error` (failures only). Use `warn` for production. |
 
 ### Display Preferences
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `UNITS` | `imperial` | `imperial` (°F, miles) or `metric` (°C, km). Affects weather display and distance calculations. |
-| `TIME_FORMAT` | `12` | `12` or `24` hour clock format. Can also be toggled by clicking the local clock in the header. |
-| `THEME` | `dark` | `dark`, `light`, `legacy`, or `retro`. See [Themes and Layouts](#themes-and-layouts). |
-| `LAYOUT` | `modern` | `modern` or `classic`. See [Themes and Layouts](#themes-and-layouts). |
-| `TZ` | *(browser)* | IANA timezone identifier (e.g., `America/New_York`, `Europe/London`). Only needed if your browser spoofs the timezone (common with privacy browsers like Librewolf). |
+| Variable      | Default     | Description                                                                                                                                                          |
+| ------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `UNITS`       | `imperial`  | `imperial` (°F, miles) or `metric` (°C, km). Affects weather display and distance calculations.                                                                      |
+| `TIME_FORMAT` | `12`        | `12` or `24` hour clock format. Can also be toggled by clicking the local clock in the header.                                                                       |
+| `THEME`       | `dark`      | `dark`, `light`, `legacy`, or `retro`. See [Themes and Layouts](#themes-and-layouts).                                                                                |
+| `LAYOUT`      | `modern`    | `modern` or `classic`. See [Themes and Layouts](#themes-and-layouts).                                                                                                |
+| `TZ`          | _(browser)_ | IANA timezone identifier (e.g., `America/New_York`, `Europe/London`). Only needed if your browser spoofs the timezone (common with privacy browsers like Librewolf). |
 
 ### Feature Toggles
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `SHOW_POTA` | `true` | Show POTA activator markers on the map. |
-| `SHOW_SATELLITES` | `true` | Show satellite tracks on the map. |
-| `SHOW_DX_PATHS` | `true` | Show great-circle DX signal paths on the map. |
-| `SHOW_DX_WEATHER` | `true` | Show weather for the selected DX location. |
+| Variable               | Default | Description                                                                         |
+| ---------------------- | ------- | ----------------------------------------------------------------------------------- |
+| `SHOW_POTA`            | `true`  | Show POTA activator markers on the map.                                             |
+| `SHOW_SATELLITES`      | `true`  | Show satellite tracks on the map.                                                   |
+| `SHOW_DX_PATHS`        | `true`  | Show great-circle DX signal paths on the map.                                       |
+| `SHOW_DX_WEATHER`      | `true`  | Show weather for the selected DX location.                                          |
 | `CLASSIC_ANALOG_CLOCK` | `false` | Show analog clock panel in the classic layout. Always available in dockable layout. |
 
 ### External Services
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OPENWEATHER_API_KEY` | *(none)* | OpenWeatherMap API key. Only needed for the **Cloud Layer** map overlay — weather data uses Open-Meteo directly from each user's browser with no key. Get a free key at [openweathermap.org/api](https://openweathermap.org/api). Also set `VITE_OPENWEATHER_API_KEY` to the same value. |
-| `ITURHFPROP_URL` | Public service | URL for ITU-R P.533 propagation predictions. Defaults to the public OpenHamClock service. Override only if self-hosting the `iturhfprop-service/`. |
-| `DXSPIDER_PROXY_URL` | *(none)* | URL of your DX Spider proxy. A default proxy is provided, so you only need this if you're running your own. |
+| Variable              | Default        | Description                                                                                                                                                                                                                                                                              |
+| --------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OPENWEATHER_API_KEY` | _(none)_       | OpenWeatherMap API key. Only needed for the **Cloud Layer** map overlay — weather data uses Open-Meteo directly from each user's browser with no key. Get a free key at [openweathermap.org/api](https://openweathermap.org/api). Also set `VITE_OPENWEATHER_API_KEY` to the same value. |
+| `ITURHFPROP_URL`      | Public service | URL for ITU-R P.533 propagation predictions. Defaults to the public OpenHamClock service. Override only if self-hosting the `iturhfprop-service/`.                                                                                                                                       |
+| `DXSPIDER_PROXY_URL`  | _(none)_       | URL of your DX Spider proxy. A default proxy is provided, so you only need this if you're running your own.                                                                                                                                                                              |
 
 ### WSJT-X Integration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `WSJTX_ENABLED` | `true` | Enable the WSJT-X UDP listener on the server. |
-| `WSJTX_UDP_PORT` | `2237` | UDP port for receiving WSJT-X decoded messages. Must match the port configured in WSJT-X Settings → Reporting → UDP Server. |
-| `WSJTX_RELAY_KEY` | *(none)* | Shared secret key for the WSJT-X relay agent. Required only for cloud deployments where WSJT-X can't reach the server directly over UDP. Pick any strong random string. |
+| Variable          | Default  | Description                                                                                                                                                             |
+| ----------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `WSJTX_ENABLED`   | `true`   | Enable the WSJT-X UDP listener on the server.                                                                                                                           |
+| `WSJTX_UDP_PORT`  | `2237`   | UDP port for receiving WSJT-X decoded messages. Must match the port configured in WSJT-X Settings → Reporting → UDP Server.                                             |
+| `WSJTX_RELAY_KEY` | _(none)_ | Shared secret key for the WSJT-X relay agent. Required only for cloud deployments where WSJT-X can't reach the server directly over UDP. Pick any strong random string. |
 
 ### DX Cluster
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `DX_CLUSTER_CALLSIGN` | *(CALLSIGN-56)* | Callsign used for DX cluster login. Defaults to your callsign with SSID suffix -56. Use -57 for a staging/test instance to avoid conflicts. |
-| `SPOT_RETENTION_MINUTES` | `30` | How long DX spots stay in the list before aging out. Range: 5–30 minutes. |
+| Variable                 | Default         | Description                                                                                                                                 |
+| ------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DX_CLUSTER_CALLSIGN`    | _(CALLSIGN-56)_ | Callsign used for DX cluster login. Defaults to your callsign with SSID suffix -56. Use -57 for a staging/test instance to avoid conflicts. |
+| `SPOT_RETENTION_MINUTES` | `30`            | How long DX spots stay in the list before aging out. Range: 5–30 minutes.                                                                   |
 
 ### Configuration Priority
 
@@ -808,7 +816,7 @@ nano .env          # Set your callsign and locator
 ./restart.sh       # Apply changes
 ```
 
-The Pi setup script installs Node.js 20, clones the repository, builds the frontend, creates a systemd service (`openhamclock.service`) for automatic startup, and optionally configures Chromium in kiosk mode.
+The Pi setup script installs Node.js 20, clones the repository, builds the frontend, creates a systemd service (`openhamclock.service`) for automatic startup, and optionally configures Chromium in kiosk mode. It also installs `fonts-noto-color-emoji` so that all emoji icons display correctly in Chromium.
 
 ### Docker
 
@@ -852,13 +860,13 @@ railway up
 
 **Environment variables to set in Railway's dashboard:**
 
-| Variable | Value | Notes |
-|----------|-------|-------|
-| `CALLSIGN` | Your callsign | Required |
-| `LOCATOR` | Your grid | Required |
-| `HOST` | `0.0.0.0` | Required for Railway |
-| `LOG_LEVEL` | `warn` | Recommended to stay under Railway's 500 logs/sec limit |
-| `WSJTX_RELAY_KEY` | *(random string)* | Only if using the WSJT-X relay agent |
+| Variable          | Value             | Notes                                                  |
+| ----------------- | ----------------- | ------------------------------------------------------ |
+| `CALLSIGN`        | Your callsign     | Required                                               |
+| `LOCATOR`         | Your grid         | Required                                               |
+| `HOST`            | `0.0.0.0`         | Required for Railway                                   |
+| `LOG_LEVEL`       | `warn`            | Recommended to stay under Railway's 500 logs/sec limit |
+| `WSJTX_RELAY_KEY` | _(random string)_ | Only if using the WSJT-X relay agent                   |
 
 **Cost:** Railway's free tier is usually sufficient for a single-user instance.
 
@@ -905,17 +913,20 @@ The relay agent (`wsjtx-relay/relay.js`) bridges WSJT-X on your local machine to
 **Setup:**
 
 1. On your server (or Railway dashboard), set `WSJTX_RELAY_KEY` to any strong random string:
+
    ```
    WSJTX_RELAY_KEY=my-super-secret-relay-key-2024
    ```
 
 2. On your local machine (where WSJT-X runs), start the relay:
+
    ```bash
    cd wsjtx-relay
    node relay.js --url https://openhamclock.com --key my-super-secret-relay-key-2024
    ```
 
    Or with environment variables:
+
    ```bash
    OPENHAMCLOCK_URL=https://openhamclock.com RELAY_KEY=my-super-secret-relay-key-2024 node relay.js
    ```
@@ -1082,40 +1093,40 @@ PSKReporter MQTT ──────────────► React ──► P
 
 The backend exposes these REST endpoints. All data endpoints return JSON. Cache durations shown are server-side; the frontend may poll at different intervals.
 
-| Endpoint | Description | Cache |
-|----------|-------------|-------|
-| `GET /api/config` | Server configuration (callsign, location, features, version) | — |
-| `GET /api/version` | Lightweight version check (for auto-refresh polling) | no-cache |
-| `GET /api/health` | Health dashboard with uptime, visitors, concurrent users, session analytics, API traffic | — |
-| `GET /api/n0nbh` | N0NBH band conditions (SFI, K, bands, VHF, geomag, signal noise, MUF) | 1 hr |
-| *(weather)* | Weather is fetched directly from Open-Meteo by each user's browser — no server endpoint needed | — |
-| `GET /api/dxcluster/spots` | Current DX cluster spots (array of spot objects) | 5 sec |
-| `GET /api/dxcluster/paths` | DX spots with resolved coordinates for map display | 5 sec |
-| `GET /api/dxcluster/sources` | Available DX cluster source backends | — |
-| `GET /api/solar-indices` | SFI, Kp, SSN with 30-day history arrays | 15 min |
-| `GET /api/noaa/flux` | Raw 10.7 cm solar flux from NOAA | 15 min |
-| `GET /api/noaa/kindex` | Raw planetary K-index from NOAA | 15 min |
-| `GET /api/noaa/sunspots` | Raw sunspot number from NOAA | 15 min |
-| `GET /api/noaa/xray` | GOES X-ray flux (6-hour dataset) | 15 min |
-| `GET /api/noaa/aurora` | Aurora oval boundary data from OVATION model | 15 min |
-| `GET /api/hamqsl/conditions` | HamQSL band conditions XML (parsed to JSON) | 30 min |
-| `GET /api/propagation` | HF propagation predictions (per-band reliability %) | 10 min |
-| `GET /api/pota/spots` | POTA activator spots from api.pota.app | 1 min |
-| `GET /api/wwff/spots` | WWFF activator spots from spots.wwff.co | 90 sec |
-| `GET /api/sota/spots` | SOTA activator spots from api2.sota.org.uk | 2 min |
-| `GET /api/satellites/tle` | Satellite TLE data from CelesTrak | 6 hr |
-| `GET /api/contests` | Contest calendar from contestcalendar.com | 30 min |
-| `GET /api/dxpeditions` | Active DXpeditions from NG3K | 30 min |
-| `GET /api/dxnews` | DX news headlines from DXNews.com | 30 min |
-| `GET /api/callsign/:call` | Callsign lookup (DXCC entity, grid, country, continent) | — |
-| `GET /api/myspots/:callsign` | Recent spots of a specific callsign | 30 sec |
-| `GET /api/ionosonde` | Ionospheric sounding data from prop.kc2g.com | 5 min |
-| `GET /api/pskreporter/config` | PSKReporter MQTT connection configuration | — |
-| `GET /api/pskreporter/http/:call` | PSKReporter HTTP API fallback | 2 min |
-| `GET /api/wsjtx` | WSJT-X connection status and active client list | — |
-| `GET /api/wsjtx/decodes` | WSJT-X decoded messages (latest batch) | — |
-| `POST /api/wsjtx/relay` | WSJT-X relay agent data ingest endpoint | — |
-| `GET /api/qrz/lookup/:callsign` | QRZ.com callsign lookup | — |
+| Endpoint                          | Description                                                                                    | Cache    |
+| --------------------------------- | ---------------------------------------------------------------------------------------------- | -------- |
+| `GET /api/config`                 | Server configuration (callsign, location, features, version)                                   | —        |
+| `GET /api/version`                | Lightweight version check (for auto-refresh polling)                                           | no-cache |
+| `GET /api/health`                 | Health dashboard with uptime, visitors, concurrent users, session analytics, API traffic       | —        |
+| `GET /api/n0nbh`                  | N0NBH band conditions (SFI, K, bands, VHF, geomag, signal noise, MUF)                          | 1 hr     |
+| _(weather)_                       | Weather is fetched directly from Open-Meteo by each user's browser — no server endpoint needed | —        |
+| `GET /api/dxcluster/spots`        | Current DX cluster spots (array of spot objects)                                               | 5 sec    |
+| `GET /api/dxcluster/paths`        | DX spots with resolved coordinates for map display                                             | 5 sec    |
+| `GET /api/dxcluster/sources`      | Available DX cluster source backends                                                           | —        |
+| `GET /api/solar-indices`          | SFI, Kp, SSN with 30-day history arrays                                                        | 15 min   |
+| `GET /api/noaa/flux`              | Raw 10.7 cm solar flux from NOAA                                                               | 15 min   |
+| `GET /api/noaa/kindex`            | Raw planetary K-index from NOAA                                                                | 15 min   |
+| `GET /api/noaa/sunspots`          | Raw sunspot number from NOAA                                                                   | 15 min   |
+| `GET /api/noaa/xray`              | GOES X-ray flux (6-hour dataset)                                                               | 15 min   |
+| `GET /api/noaa/aurora`            | Aurora oval boundary data from OVATION model                                                   | 15 min   |
+| `GET /api/hamqsl/conditions`      | HamQSL band conditions XML (parsed to JSON)                                                    | 30 min   |
+| `GET /api/propagation`            | HF propagation predictions (per-band reliability %)                                            | 10 min   |
+| `GET /api/pota/spots`             | POTA activator spots from api.pota.app                                                         | 1 min    |
+| `GET /api/wwff/spots`             | WWFF activator spots from spots.wwff.co                                                        | 90 sec   |
+| `GET /api/sota/spots`             | SOTA activator spots from api2.sota.org.uk                                                     | 2 min    |
+| `GET /api/satellites/tle`         | Satellite TLE data from CelesTrak                                                              | 6 hr     |
+| `GET /api/contests`               | Contest calendar from contestcalendar.com                                                      | 30 min   |
+| `GET /api/dxpeditions`            | Active DXpeditions from NG3K                                                                   | 30 min   |
+| `GET /api/dxnews`                 | DX news headlines from DXNews.com                                                              | 30 min   |
+| `GET /api/callsign/:call`         | Callsign lookup (DXCC entity, grid, country, continent)                                        | —        |
+| `GET /api/myspots/:callsign`      | Recent spots of a specific callsign                                                            | 30 sec   |
+| `GET /api/ionosonde`              | Ionospheric sounding data from prop.kc2g.com                                                   | 5 min    |
+| `GET /api/pskreporter/config`     | PSKReporter MQTT connection configuration                                                      | —        |
+| `GET /api/pskreporter/http/:call` | PSKReporter HTTP API fallback                                                                  | 2 min    |
+| `GET /api/wsjtx`                  | WSJT-X connection status and active client list                                                | —        |
+| `GET /api/wsjtx/decodes`          | WSJT-X decoded messages (latest batch)                                                         | —        |
+| `POST /api/wsjtx/relay`           | WSJT-X relay agent data ingest endpoint                                                        | —        |
+| `GET /api/qrz/lookup/:callsign`   | QRZ.com callsign lookup                                                                        | —        |
 
 ---
 
@@ -1154,6 +1165,15 @@ A: Set `LAYOUT=classic` in `.env` (or select it in Settings). The Classic layout
 **Q: I can't find the `.env` file — where is it?**
 A: The `.env` file is in the root OpenHamClock directory (same folder as `server.js`). Files starting with `.` are hidden by default — use `ls -la` in a terminal to see it, or `Ctrl+H` in a Linux file manager. If it doesn't exist yet, run `npm start` once (it's auto-created from `.env.example`) or copy it manually: `cp .env.example .env`. Most settings can also be changed through the browser Settings panel without editing `.env` at all.
 
+**Q: Icons and emoji are showing as boxes or missing on Linux / Raspberry Pi — how do I fix it?**
+A: OpenHamClock uses emoji for icons throughout the interface (weather symbols, band indicators, satellite markers, and more). On Linux, emoji rendering depends on a color emoji font being installed on the **machine running the browser** — not the server. Install the Noto Color Emoji font to fix it:
+
+```bash
+sudo apt install fonts-noto-color-emoji
+```
+
+Then restart your browser (or reboot if running in kiosk mode). The Raspberry Pi setup script now installs this automatically. On Windows and macOS, emoji fonts are bundled with the OS and no action is needed.
+
 ---
 
 ## Contributing
@@ -1170,11 +1190,13 @@ npm run dev      # Terminal 2 — Frontend on :3000
 ```
 
 **Read first:**
+
 - **[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)** — Full codebase map and key patterns
 - **[CONTRIBUTING.md](CONTRIBUTING.md)** — Dev setup, code guidelines, testing checklist, PR workflow
 - **[src/plugins/OpenHamClock-Plugin-Guide.md](src/plugins/OpenHamClock-Plugin-Guide.md)** — Map layer plugin API
 
 **Community:**
+
 - [GitHub Issues](https://github.com/accius/openhamclock/issues) — Bug reports and feature requests
 - [Facebook Group](https://www.facebook.com/groups/1217043013897440) — Discussion and help
 - [Reddit r/OpenHamClock](https://www.reddit.com/r/OpenHamClock/) — Community discussion

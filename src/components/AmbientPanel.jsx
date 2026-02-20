@@ -1,14 +1,14 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useAmbientWeather } from "../hooks/useAmbientWeather.js";
+import React, { useEffect, useMemo, useState } from 'react';
+import { useAmbientWeather } from '../hooks/useAmbientWeather.js';
 
 const row = (label, value) => (
-  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, margin: "2px 0" }}>
-    <span style={{ color: "var(--text-muted)" }}>{label}</span>
-    <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{value}</span>
+  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, margin: '2px 0' }}>
+    <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+    <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{value}</span>
   </div>
 );
 
-const STORAGE_KEY = "openhamclock_ambientPanel";
+const STORAGE_KEY = 'openhamclock_ambientPanel';
 
 const DEFAULT_SHOW = {
   // Outside
@@ -54,12 +54,12 @@ const DEFAULT_SHOW = {
 
 function safeLocalTimeString(v) {
   try {
-    if (v == null || v === "") return "";
+    if (v == null || v === '') return '';
     const d = new Date(v);
-    if (Number.isNaN(d.getTime())) return "";
+    if (Number.isNaN(d.getTime())) return '';
     return d.toLocaleString();
   } catch {
-    return "";
+    return '';
   }
 }
 
@@ -81,21 +81,18 @@ function loadPanelPrefs() {
 
 function savePanelPrefs(prefs) {
   try {
-    localStorage.setItem(
-      STORAGE_KEY,
-      JSON.stringify({ autoHideMissing: prefs.autoHideMissing, show: prefs.show })
-    );
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ autoHideMissing: prefs.autoHideMissing, show: prefs.show }));
   } catch {
     // ignore
   }
 }
 
 function fmtBoolOk(v) {
-  if (v == null) return "--";
-  return v ? "OK" : "LOW";
+  if (v == null) return '--';
+  return v ? 'OK' : 'LOW';
 }
 
-export default function AmbientPanel({ tempUnit = "F" }) {
+export default function AmbientPanel({ tempUnit = 'F' }) {
   // ✅ Hooks must always run in the same order
   const ambient = useAmbientWeather(tempUnit);
   const w = ambient.data;
@@ -107,10 +104,10 @@ export default function AmbientPanel({ tempUnit = "F" }) {
   }, [prefs]);
 
   // ✅ Derive units safely even when w is null
-  const deg = `°${(w?.tempUnit || tempUnit)}`;
-  const windUnit = w?.windUnit || "mph";
-  const rainUnit = w?.rainUnit || "in";
-  const pressureUnit = w?.pressureUnit || "inHg";
+  const deg = `°${w?.tempUnit || tempUnit}`;
+  const windUnit = w?.windUnit || 'mph';
+  const rainUnit = w?.rainUnit || 'in';
+  const pressureUnit = w?.pressureUnit || 'inHg';
 
   // ✅ useMemo MUST run on every render (return [] when no data)
   const rows = useMemo(() => {
@@ -118,45 +115,81 @@ export default function AmbientPanel({ tempUnit = "F" }) {
 
     return [
       // Outside
-      { key: "temp", label: "Temp", value: w.temp, fmt: (v) => `${v}${deg}`, group: "outside" },
-      { key: "feelsLike", label: "Feels", value: w.feelsLike, fmt: (v) => `${v}${deg}`, group: "outside" },
-      { key: "humidity", label: "Humidity", value: w.humidity, fmt: (v) => `${v}%`, group: "outside" },
-      { key: "dewPoint", label: "Dew Pt", value: w.dewPoint, fmt: (v) => `${v}${deg}`, group: "outside" },
+      { key: 'temp', label: 'Temp', value: w.temp, fmt: (v) => `${v}${deg}`, group: 'outside' },
+      { key: 'feelsLike', label: 'Feels', value: w.feelsLike, fmt: (v) => `${v}${deg}`, group: 'outside' },
+      { key: 'humidity', label: 'Humidity', value: w.humidity, fmt: (v) => `${v}%`, group: 'outside' },
+      { key: 'dewPoint', label: 'Dew Pt', value: w.dewPoint, fmt: (v) => `${v}${deg}`, group: 'outside' },
 
       // Pressure
-      { key: "pressureRel", label: "Pressure (Rel)", value: w.pressureRel, fmt: (v) => `${v} ${pressureUnit}`, group: "outside" },
-      { key: "pressureAbs", label: "Pressure (Abs)", value: w.pressureAbs, fmt: (v) => `${v} ${pressureUnit}`, group: "outside" },
+      {
+        key: 'pressureRel',
+        label: 'Pressure (Rel)',
+        value: w.pressureRel,
+        fmt: (v) => `${v} ${pressureUnit}`,
+        group: 'outside',
+      },
+      {
+        key: 'pressureAbs',
+        label: 'Pressure (Abs)',
+        value: w.pressureAbs,
+        fmt: (v) => `${v} ${pressureUnit}`,
+        group: 'outside',
+      },
 
       // Wind
-      { key: "windSpeed", label: "Wind", value: w.windSpeed, fmt: (v) => `${v} ${windUnit}`, group: "wind" },
+      { key: 'windSpeed', label: 'Wind', value: w.windSpeed, fmt: (v) => `${v} ${windUnit}`, group: 'wind' },
       // NOTE: windDir is a compass string (E, ESE, etc.) — no degree symbol
-      { key: "windDir", label: "Direction", value: w.windDir, fmt: (v) => `${v}`, group: "wind" },
-      { key: "windDirDeg", label: "Dir (deg)", value: w.windDirDeg, fmt: (v) => `${v}°`, group: "wind" },
-      { key: "windGust", label: "Gust", value: w.windGust, fmt: (v) => `${v} ${windUnit}`, group: "wind" },
-      { key: "maxDailyGust", label: "Max Gust", value: w.maxDailyGust, fmt: (v) => `${v} ${windUnit}`, group: "wind" },
+      { key: 'windDir', label: 'Direction', value: w.windDir, fmt: (v) => `${v}`, group: 'wind' },
+      { key: 'windDirDeg', label: 'Dir (deg)', value: w.windDirDeg, fmt: (v) => `${v}°`, group: 'wind' },
+      { key: 'windGust', label: 'Gust', value: w.windGust, fmt: (v) => `${v} ${windUnit}`, group: 'wind' },
+      { key: 'maxDailyGust', label: 'Max Gust', value: w.maxDailyGust, fmt: (v) => `${v} ${windUnit}`, group: 'wind' },
 
       // Rain
-      { key: "rainDaily", label: "Rain Today", value: w.rainDaily, fmt: (v) => `${v} ${rainUnit}`, group: "rain" },
-      { key: "rainRate", label: "Rain Rate", value: w.rainRate, fmt: (v) => `${v} ${rainUnit}`, group: "rain" },
-      { key: "rainHourly", label: "Rain Hourly", value: w.rainHourly, fmt: (v) => `${v} ${rainUnit}`, group: "rain" },
-      { key: "rainWeekly", label: "Rain Weekly", value: w.rainWeekly, fmt: (v) => `${v} ${rainUnit}`, group: "rain" },
-      { key: "rainMonthly", label: "Rain Monthly", value: w.rainMonthly, fmt: (v) => `${v} ${rainUnit}`, group: "rain" },
-      { key: "rainYearly", label: "Rain Yearly", value: w.rainYearly, fmt: (v) => `${v} ${rainUnit}`, group: "rain" },
+      { key: 'rainDaily', label: 'Rain Today', value: w.rainDaily, fmt: (v) => `${v} ${rainUnit}`, group: 'rain' },
+      { key: 'rainRate', label: 'Rain Rate', value: w.rainRate, fmt: (v) => `${v} ${rainUnit}`, group: 'rain' },
+      { key: 'rainHourly', label: 'Rain Hourly', value: w.rainHourly, fmt: (v) => `${v} ${rainUnit}`, group: 'rain' },
+      { key: 'rainWeekly', label: 'Rain Weekly', value: w.rainWeekly, fmt: (v) => `${v} ${rainUnit}`, group: 'rain' },
+      {
+        key: 'rainMonthly',
+        label: 'Rain Monthly',
+        value: w.rainMonthly,
+        fmt: (v) => `${v} ${rainUnit}`,
+        group: 'rain',
+      },
+      { key: 'rainYearly', label: 'Rain Yearly', value: w.rainYearly, fmt: (v) => `${v} ${rainUnit}`, group: 'rain' },
 
       // Indoor
-      { key: "indoorTemp", label: "Indoor Temp", value: w.indoorTemp, fmt: (v) => `${v}${deg}`, group: "indoor" },
-      { key: "indoorHumidity", label: "Indoor Humidity", value: w.indoorHumidity, fmt: (v) => `${v}%`, group: "indoor" },
-      { key: "indoorFeelsLike", label: "Indoor Feels", value: w.indoorFeelsLike, fmt: (v) => `${v}${deg}`, group: "indoor" },
-      { key: "indoorDewPoint", label: "Indoor Dew Pt", value: w.indoorDewPoint, fmt: (v) => `${v}${deg}`, group: "indoor" },
+      { key: 'indoorTemp', label: 'Indoor Temp', value: w.indoorTemp, fmt: (v) => `${v}${deg}`, group: 'indoor' },
+      {
+        key: 'indoorHumidity',
+        label: 'Indoor Humidity',
+        value: w.indoorHumidity,
+        fmt: (v) => `${v}%`,
+        group: 'indoor',
+      },
+      {
+        key: 'indoorFeelsLike',
+        label: 'Indoor Feels',
+        value: w.indoorFeelsLike,
+        fmt: (v) => `${v}${deg}`,
+        group: 'indoor',
+      },
+      {
+        key: 'indoorDewPoint',
+        label: 'Indoor Dew Pt',
+        value: w.indoorDewPoint,
+        fmt: (v) => `${v}${deg}`,
+        group: 'indoor',
+      },
 
       // Extras
-      { key: "uv", label: "UV", value: w.uv, fmt: (v) => `${v}`, group: "extras" },
-      { key: "solar", label: "Solar", value: w.solar, fmt: (v) => `${v}`, group: "extras" },
+      { key: 'uv', label: 'UV', value: w.uv, fmt: (v) => `${v}`, group: 'extras' },
+      { key: 'solar', label: 'Solar', value: w.solar, fmt: (v) => `${v}`, group: 'extras' },
 
       // Battery
-      { key: "battOutOk", label: "Batt Out", value: w.battOutOk, fmt: fmtBoolOk, group: "battery" },
-      { key: "battInOk", label: "Batt In", value: w.battInOk, fmt: fmtBoolOk, group: "battery" },
-      { key: "battRainOk", label: "Batt Rain", value: w.battRainOk, fmt: fmtBoolOk, group: "battery" },
+      { key: 'battOutOk', label: 'Batt Out', value: w.battOutOk, fmt: fmtBoolOk, group: 'battery' },
+      { key: 'battInOk', label: 'Batt In', value: w.battInOk, fmt: fmtBoolOk, group: 'battery' },
+      { key: 'battRainOk', label: 'Batt Rain', value: w.battRainOk, fmt: fmtBoolOk, group: 'battery' },
     ];
   }, [w, deg, windUnit, rainUnit, pressureUnit]);
 
@@ -165,21 +198,19 @@ export default function AmbientPanel({ tempUnit = "F" }) {
 
   // Render helper (not a hook; safe anywhere)
   const Code = ({ children }) => (
-    <code style={{ background: "var(--bg-tertiary)", padding: "2px 4px", borderRadius: 3 }}>
-      {children}
-    </code>
+    <code style={{ background: 'var(--bg-tertiary)', padding: '2px 4px', borderRadius: 3 }}>{children}</code>
   );
 
   // ✅ Now it’s safe to early-return after hooks
-  if (hasError && ambient.error?.code === "missing_credentials") {
+  if (hasError && ambient.error?.code === 'missing_credentials') {
     return (
       <div className="panel" style={{ padding: 14 }}>
         <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>🌦️ Ambient Weather</div>
-        <div style={{ color: "var(--text-secondary)", fontSize: 13, lineHeight: 1.4 }}>
+        <div style={{ color: 'var(--text-secondary)', fontSize: 13, lineHeight: 1.4 }}>
           Missing Ambient credentials.
           <br />
-          Put <Code>VITE_AMBIENT_API_KEY</Code> and <Code>VITE_AMBIENT_APPLICATION_KEY</Code> in{" "}
-          <Code>.env.local</Code>, then restart.
+          Put <Code>VITE_AMBIENT_API_KEY</Code> and <Code>VITE_AMBIENT_APPLICATION_KEY</Code> in <Code>.env.local</Code>
+          , then restart.
         </div>
       </div>
     );
@@ -189,7 +220,7 @@ export default function AmbientPanel({ tempUnit = "F" }) {
     return (
       <div className="panel" style={{ padding: 14 }}>
         <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>🌦️ Ambient Weather</div>
-        <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>Loading…</div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Loading…</div>
       </div>
     );
   }
@@ -198,8 +229,8 @@ export default function AmbientPanel({ tempUnit = "F" }) {
     return (
       <div className="panel" style={{ padding: 14 }}>
         <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 8 }}>🌦️ Ambient Weather</div>
-        <div style={{ color: "var(--text-secondary)", fontSize: 13 }}>
-          No data yet. {hasError ? `(${ambient.error?.message || "error"})` : ""}
+        <div style={{ color: 'var(--text-secondary)', fontSize: 13 }}>
+          No data yet. {hasError ? `(${ambient.error?.message || 'error'})` : ''}
         </div>
       </div>
     );
@@ -208,21 +239,21 @@ export default function AmbientPanel({ tempUnit = "F" }) {
   const filtered = rows.filter((r) => {
     if (!prefs.show[r.key]) return false;
     if (!prefs.autoHideMissing) return true;
-    return !(r.value == null || r.value === "");
+    return !(r.value == null || r.value === '');
   });
 
   const byGroup = (g) => filtered.filter((r) => r.group === g);
 
-  const outsideRows = byGroup("outside");
-  const windRows = byGroup("wind");
-  const rainRows = byGroup("rain");
-  const indoorRows = byGroup("indoor");
-  const extraRows = byGroup("extras");
-  const batteryRows = byGroup("battery");
+  const outsideRows = byGroup('outside');
+  const windRows = byGroup('wind');
+  const rainRows = byGroup('rain');
+  const indoorRows = byGroup('indoor');
+  const extraRows = byGroup('extras');
+  const batteryRows = byGroup('battery');
 
   const Toggle = ({ k, label }) => (
-    <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, margin: "4px 0" }}>
-      <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>{label}</span>
+    <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, margin: '4px 0' }}>
+      <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>{label}</span>
       <input
         type="checkbox"
         checked={!!prefs.show[k]}
@@ -233,24 +264,22 @@ export default function AmbientPanel({ tempUnit = "F" }) {
 
   return (
     <div className="panel" style={{ padding: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
         <div style={{ fontSize: 14, fontWeight: 800 }}>🌦️ Ambient Weather</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-            {safeLocalTimeString(w.lastUpdated)}
-          </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{safeLocalTimeString(w.lastUpdated)}</div>
           <button
             onClick={() => setPrefs((p) => ({ ...p, open: !p.open }))}
             title="Ambient display options"
             style={{
-              cursor: "pointer",
-              border: "1px solid var(--border-color)",
-              background: "var(--bg-tertiary)",
-              color: "var(--text-primary)",
+              cursor: 'pointer',
+              border: '1px solid var(--border-color)',
+              background: 'var(--bg-tertiary)',
+              color: 'var(--text-primary)',
               borderRadius: 6,
-              padding: "2px 8px",
+              padding: '2px 8px',
               fontSize: 12,
-              lineHeight: "18px",
+              lineHeight: '18px',
             }}
           >
             ⚙
@@ -263,13 +292,15 @@ export default function AmbientPanel({ tempUnit = "F" }) {
           style={{
             marginBottom: 10,
             padding: 10,
-            border: "1px solid var(--border-color)",
+            border: '1px solid var(--border-color)',
             borderRadius: 10,
-            background: "var(--bg-tertiary)",
+            background: 'var(--bg-tertiary)',
           }}
         >
-          <label style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 8 }}>
-            <span style={{ color: "var(--text-secondary)", fontSize: 13 }}>Auto-hide missing values</span>
+          <label
+            style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 8 }}
+          >
+            <span style={{ color: 'var(--text-secondary)', fontSize: 13 }}>Auto-hide missing values</span>
             <input
               type="checkbox"
               checked={!!prefs.autoHideMissing}
@@ -277,9 +308,11 @@ export default function AmbientPanel({ tempUnit = "F" }) {
             />
           </label>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
             <div>
-              <div style={{ fontWeight: 800, fontSize: 12, color: "var(--text-primary)", marginBottom: 6 }}>Outside</div>
+              <div style={{ fontWeight: 800, fontSize: 12, color: 'var(--text-primary)', marginBottom: 6 }}>
+                Outside
+              </div>
               <Toggle k="temp" label="Temp" />
               <Toggle k="feelsLike" label="Feels" />
               <Toggle k="humidity" label="Humidity" />
@@ -289,7 +322,7 @@ export default function AmbientPanel({ tempUnit = "F" }) {
             </div>
 
             <div>
-              <div style={{ fontWeight: 800, fontSize: 12, color: "var(--text-primary)", marginBottom: 6 }}>Wind</div>
+              <div style={{ fontWeight: 800, fontSize: 12, color: 'var(--text-primary)', marginBottom: 6 }}>Wind</div>
               <Toggle k="windSpeed" label="Wind Speed" />
               <Toggle k="windDir" label="Direction (N/NE/E…)" />
               <Toggle k="windDirDeg" label="Direction (deg)" />
@@ -298,7 +331,7 @@ export default function AmbientPanel({ tempUnit = "F" }) {
             </div>
 
             <div>
-              <div style={{ fontWeight: 800, fontSize: 12, color: "var(--text-primary)", marginBottom: 6 }}>Rain</div>
+              <div style={{ fontWeight: 800, fontSize: 12, color: 'var(--text-primary)', marginBottom: 6 }}>Rain</div>
               <Toggle k="rainDaily" label="Rain Today" />
               <Toggle k="rainRate" label="Rain Rate" />
               <Toggle k="rainHourly" label="Rain Hourly" />
@@ -308,7 +341,7 @@ export default function AmbientPanel({ tempUnit = "F" }) {
             </div>
 
             <div>
-              <div style={{ fontWeight: 800, fontSize: 12, color: "var(--text-primary)", marginBottom: 6 }}>
+              <div style={{ fontWeight: 800, fontSize: 12, color: 'var(--text-primary)', marginBottom: 6 }}>
                 Indoor / Extras
               </div>
               <Toggle k="indoorTemp" label="Indoor Temp" />
@@ -325,30 +358,30 @@ export default function AmbientPanel({ tempUnit = "F" }) {
         </div>
       )}
 
-      {outsideRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : "--"))}
+      {outsideRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : '--'))}
 
       {windRows.length > 0 && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-color)" }}>
-          {windRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : "--"))}
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border-color)' }}>
+          {windRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : '--'))}
         </div>
       )}
 
       {rainRows.length > 0 && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-color)" }}>
-          {rainRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : "--"))}
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border-color)' }}>
+          {rainRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : '--'))}
         </div>
       )}
 
       {indoorRows.length > 0 && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-color)" }}>
-          {indoorRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : "--"))}
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border-color)' }}>
+          {indoorRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : '--'))}
         </div>
       )}
 
       {(extraRows.length > 0 || batteryRows.length > 0) && (
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-color)" }}>
-          {extraRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : "--"))}
-          {batteryRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : "--"))}
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border-color)' }}>
+          {extraRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : '--'))}
+          {batteryRows.map((r) => row(r.label, r.value != null ? r.fmt(r.value) : '--'))}
         </div>
       )}
     </div>

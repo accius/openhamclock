@@ -15,12 +15,23 @@ import {
   renameProfile,
   exportProfile,
   exportCurrentState,
-  importProfile
+  importProfile,
 } from '../utils/profiles.js';
 
 import useLocalInstall from '../hooks/app/useLocalInstall.js';
 
-export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, satellites, satelliteFilters, onSatelliteFiltersChange, mapLayers, onToggleDXNews }) => {
+export const SettingsPanel = ({
+  isOpen,
+  onClose,
+  config,
+  onSave,
+  onResetLayout,
+  satellites,
+  satelliteFilters,
+  onSatelliteFiltersChange,
+  mapLayers,
+  onToggleDXNews,
+}) => {
   const [callsign, setCallsign] = useState(config?.callsign || '');
   const [headerSize, setheaderSize] = useState(config?.headerSize || 1.0);
   const [gridSquare, setGridSquare] = useState('');
@@ -31,7 +42,9 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   const [mouseZoom, setMouseZoom] = useState(config?.mouseZoom || 50);
   const [timezone, setTimezone] = useState(config?.timezone || '');
   const [dxClusterSource, setDxClusterSource] = useState(config?.dxClusterSource || 'dxspider-proxy');
-  const [customDxCluster, setCustomDxCluster] = useState(config?.customDxCluster || { enabled: false, host: '', port: 7300 });
+  const [customDxCluster, setCustomDxCluster] = useState(
+    config?.customDxCluster || { enabled: false, host: '', port: 7300 },
+  );
   const [lowMemoryMode, setLowMemoryMode] = useState(config?.lowMemoryMode || false);
   const [preventSleep, setPreventSleep] = useState(config?.preventSleep || false);
   const [units, setUnits] = useState(config?.units || 'imperial');
@@ -41,6 +54,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   const [rigHost, setRigHost] = useState(config?.rigControl?.host || 'http://localhost');
   const [rigPort, setRigPort] = useState(config?.rigControl?.port || 5555);
   const [tuneEnabled, setTuneEnabled] = useState(config?.rigControl?.tuneEnabled || false);
+  const [autoMode, setAutoMode] = useState(config?.rigControl?.autoMode !== false);
   const [satelliteSearch, setSatelliteSearch] = useState('');
   const isLocalInstall = useLocalInstall();
   const [rotatorEnabled, setRotatorEnabled] = useState(() => {
@@ -55,6 +69,15 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   const [n3fjpEnabled, setN3fjpEnabled] = useState(() => {
     try {
       return localStorage.getItem('ohc_n3fjp_enabled') === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  // DX Weather (local-only)
+  const [dxWeatherEnabled, setDxWeatherEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('ohc_dx_weather_enabled') === '1';
     } catch {
       return false;
     }
@@ -107,7 +130,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   useEffect(() => {
     if (config) {
       setCallsign(config.callsign || '');
-      setheaderSize(config.headerSize || 1.0)
+      setheaderSize(config.headerSize || 1.0);
       setLat(config.location?.lat || 0);
       setLon(config.location?.lon || 0);
       setTheme(config.theme || 'dark');
@@ -126,6 +149,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       setRigHost(config.rigControl?.host || 'http://localhost');
       setRigPort(config.rigControl?.port || 5555);
       setTuneEnabled(config.rigControl?.tuneEnabled || false);
+      setAutoMode(config.rigControl?.autoMode !== false);
       if (config.location?.lat && config.location?.lon) {
         setGridSquare(calculateGridSquare(config.location.lat, config.location.lon));
       }
@@ -183,8 +207,8 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   useEffect(() => {
     if (isOpen && activeTab === 'profiles') {
       fetch('/api/qrz/status')
-        .then(r => r.json())
-        .then(data => setQrzStatus(data))
+        .then((r) => r.json())
+        .then((data) => setQrzStatus(data))
         .catch(() => setQrzStatus(null));
     }
   }, [isOpen, activeTab]);
@@ -210,16 +234,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   // Reset all popup positions for a plugin
   const resetPopupPositions = (layerId) => {
     const storageKeys = {
-      'lightning': ['lightning-stats-position', 'lightning-proximity-position'],
-      'wspr': ['wspr-filter-position', 'wspr-stats-position', 'wspr-legend-position', 'wspr-chart-position'],
-      'rbn': ['rbn-panel-position'],
-      'grayline': ['grayline-position'],
-      'n3fjp_logged_qsos': ['n3fjp-position'],
-      'voacap-heatmap': ['voacap-heatmap-position']
+      lightning: ['lightning-stats-position', 'lightning-proximity-position'],
+      wspr: ['wspr-filter-position', 'wspr-stats-position', 'wspr-legend-position', 'wspr-chart-position'],
+      rbn: ['rbn-panel-position'],
+      grayline: ['grayline-position'],
+      n3fjp_logged_qsos: ['n3fjp-position'],
+      'voacap-heatmap': ['voacap-heatmap-position'],
     };
 
     const keys = storageKeys[layerId] || [];
-    keys.forEach(key => {
+    keys.forEach((key) => {
       localStorage.removeItem(key);
       // Also remove minimized state
       localStorage.removeItem(key + '-minimized');
@@ -257,8 +281,8 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
     if (grid.length >= 6) {
       const lon3 = (grid.charCodeAt(4) - 65) * (2 / 24);
       const lat3 = (grid.charCodeAt(5) - 65) * (1 / 24);
-      lon = lon1 + lon2 + lon3 + (1 / 24);
-      lat = lat1 + lat2 + lat3 + (1 / 48);
+      lon = lon1 + lon2 + lon3 + 1 / 24;
+      lat = lat1 + lat2 + lat3 + 1 / 48;
     }
 
     return { lat, lon };
@@ -280,7 +304,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
         (error) => {
           console.error('Geolocation error:', error);
           alert(t('station.settings.useLocation.error1'));
-        }
+        },
       );
     } else {
       alert(t('station.settings.useLocation.error2'));
@@ -289,18 +313,14 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
   const handleToggleLayer = (layerId) => {
     if (window.hamclockLayerControls) {
-      const layer = layers.find(l => l.id === layerId);
+      const layer = layers.find((l) => l.id === layerId);
       const newEnabledState = !layer.enabled;
 
       // Update the control
       window.hamclockLayerControls.toggleLayer(layerId, newEnabledState);
 
       // Force immediate UI update
-      setLayers(prevLayers =>
-        prevLayers.map(l =>
-          l.id === layerId ? { ...l, enabled: newEnabledState } : l
-        )
-      );
+      setLayers((prevLayers) => prevLayers.map((l) => (l.id === layerId ? { ...l, enabled: newEnabledState } : l)));
 
       // Refresh after a short delay to get the updated state
       setTimeout(() => {
@@ -312,15 +332,10 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   };
   const handleUpdateLayerConfig = (layerId, configDelta) => {
     if (window.hamclockLayerControls?.updateLayerConfig) {
-
       window.hamclockLayerControls.updateLayerConfig(layerId, configDelta);
 
-      setLayers(prevLayers =>
-        prevLayers.map(l =>
-          l.id === layerId
-            ? { ...l, config: { ...(l.config || {}), ...configDelta } }
-            : l
-        )
+      setLayers((prevLayers) =>
+        prevLayers.map((l) => (l.id === layerId ? { ...l, config: { ...(l.config || {}), ...configDelta } } : l)),
       );
     }
   };
@@ -348,7 +363,8 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
       preventSleep,
       units,
       propagation: { mode: propMode, power: parseFloat(propPower) || 100 },
-      rigControl: { enabled: rigEnabled, host: rigHost, port: parseInt(rigPort) || 5555, tuneEnabled }
+
+      rigControl: { enabled: rigEnabled, host: rigHost, port: parseInt(rigPort) || 5555, tuneEnabled, autoMode },
     });
     onClose();
   };
@@ -356,16 +372,14 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
   if (!isOpen) return null;
 
   const Code = ({ children }) => (
-    <code style={{ background: 'var(--bg-tertiary)', padding: '2px 4px', borderRadius: '3px' }}>
-      {children}
-    </code>
+    <code style={{ background: 'var(--bg-tertiary)', padding: '2px 4px', borderRadius: '3px' }}>{children}</code>
   );
 
   const themeDescriptions = {
     dark: t('station.settings.theme.dark.describe'),
     light: t('station.settings.theme.light.describe'),
     legacy: t('station.settings.theme.legacy.describe'),
-    retro: t('station.settings.theme.retro.describe')
+    retro: t('station.settings.theme.retro.describe'),
   };
 
   const layoutDescriptions = {
@@ -373,51 +387,59 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
     classic: t('station.settings.layout.classic.describe'),
     tablet: t('station.settings.layout.tablet.describe'),
     compact: t('station.settings.layout.compact.describe'),
-    dockable: t('station.settings.layout.dockable.describe')
+    dockable: t('station.settings.layout.dockable.describe'),
   };
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.8)',
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      zIndex: 10000
-    }}>
-      <div style={{
-        background: 'var(--bg-secondary)',
-        border: '2px solid var(--accent-amber)',
-        borderRadius: '12px',
-        padding: '24px',
-        width: '520px',
-        maxHeight: '90vh',
-        overflowY: 'auto'
-      }}>
-        <h2 style={{
-          color: 'var(--accent-cyan)',
-          marginTop: 0,
-          marginBottom: '24px',
-          textAlign: 'center',
-          fontFamily: 'Orbitron, monospace',
-          fontSize: '20px'
-        }}>
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.8)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10000,
+      }}
+    >
+      <div
+        style={{
+          background: 'var(--bg-secondary)',
+          border: '2px solid var(--accent-amber)',
+          borderRadius: '12px',
+          padding: '24px',
+          width: '520px',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+        }}
+      >
+        <h2
+          style={{
+            color: 'var(--accent-cyan)',
+            marginTop: 0,
+            marginBottom: '24px',
+            textAlign: 'center',
+            fontFamily: 'Orbitron, monospace',
+            fontSize: '20px',
+          }}
+        >
           {t('station.settings.title')}
         </h2>
 
         {/* Tab Navigation */}
-        <div style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: '4px',
-          marginBottom: '24px',
-          borderBottom: '1px solid var(--border-color)',
-          paddingBottom: '12px'
-        }}>
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '4px',
+            marginBottom: '24px',
+            borderBottom: '1px solid var(--border-color)',
+            paddingBottom: '12px',
+          }}
+        >
           <button
             onClick={() => setActiveTab('station')}
             style={{
@@ -430,7 +452,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               fontSize: '13px',
               cursor: 'pointer',
               fontWeight: activeTab === 'station' ? '700' : '400',
-              fontFamily: 'JetBrains Mono, monospace'
+              fontFamily: 'JetBrains Mono, monospace',
             }}
           >
             {t('station.settings.tab1.title')}
@@ -448,7 +470,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               fontSize: '13px',
               cursor: 'pointer',
               fontWeight: activeTab === 'integrations' ? '700' : '400',
-              fontFamily: 'JetBrains Mono, monospace'
+              fontFamily: 'JetBrains Mono, monospace',
             }}
           >
             Integrations
@@ -466,7 +488,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               fontSize: '13px',
               cursor: 'pointer',
               fontWeight: activeTab === 'layers' ? '700' : '400',
-              fontFamily: 'JetBrains Mono, monospace'
+              fontFamily: 'JetBrains Mono, monospace',
             }}
           >
             {t('station.settings.tab2.title')}
@@ -483,13 +505,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               fontSize: '13px',
               cursor: 'pointer',
               fontWeight: activeTab === 'satellites' ? '700' : '400',
-              fontFamily: 'JetBrains Mono, monospace'
+              fontFamily: 'JetBrains Mono, monospace',
             }}
           >
             {t('station.settings.tab3.title')}
           </button>
           <button
-            onClick={() => { setActiveTab('profiles'); refreshProfiles(); }}
+            onClick={() => {
+              setActiveTab('profiles');
+              refreshProfiles();
+            }}
             style={{
               flex: 1,
               padding: '10px',
@@ -500,7 +525,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               fontSize: '13px',
               cursor: 'pointer',
               fontWeight: activeTab === 'profiles' ? '700' : '400',
-              fontFamily: 'JetBrains Mono, monospace'
+              fontFamily: 'JetBrains Mono, monospace',
             }}
           >
             Profiles
@@ -517,7 +542,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               fontSize: '13px',
               cursor: 'pointer',
               fontWeight: activeTab === 'community' ? '700' : '400',
-              fontFamily: 'JetBrains Mono, monospace'
+              fontFamily: 'JetBrains Mono, monospace',
             }}
           >
             Community
@@ -529,20 +554,20 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
           <>
             {/* First-time setup banner */}
             {(config?.configIncomplete || config?.callsign === 'N0CALL' || !config?.locator) && (
-              <div style={{
-                background: 'rgba(255, 193, 7, 0.15)',
-                border: '1px solid var(--accent-amber)',
-                borderRadius: '8px',
-                padding: '12px 16px',
-                marginBottom: '20px',
-                fontSize: '13px'
-              }}>
+              <div
+                style={{
+                  background: 'rgba(255, 193, 7, 0.15)',
+                  border: '1px solid var(--accent-amber)',
+                  borderRadius: '8px',
+                  padding: '12px 16px',
+                  marginBottom: '20px',
+                  fontSize: '13px',
+                }}
+              >
                 <div style={{ color: 'var(--accent-amber)', fontWeight: '700', marginBottom: '6px' }}>
-                  {t("station.settings.welcome")}
+                  {t('station.settings.welcome')}
                 </div>
-                <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  {t("station.settings.describe")}
-                </div>
+                <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>{t('station.settings.describe')}</div>
                 <div style={{ color: 'var(--text-muted)', fontSize: '11px', marginTop: '8px' }}>
                   <Trans i18nKey="station.settings.tip.env" components={{ envExample: <Code />, env: <Code /> }} />
                 </div>
@@ -550,21 +575,32 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             )}
 
             {/* Integrations moved to dedicated tab */}
-            <div style={{
-              background: 'rgba(0, 255, 255, 0.04)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              padding: '10px 14px',
-              marginBottom: '20px',
-              fontSize: 12,
-              color: 'var(--text-secondary)'
-            }}>
+            <div
+              style={{
+                background: 'rgba(0, 255, 255, 0.04)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                marginBottom: '20px',
+                fontSize: 12,
+                color: 'var(--text-secondary)',
+              }}
+            >
               Looking for Rotator / N3FJP / other add-ons? See <b>Settings → Integrations</b>.
             </div>
 
             {/* Callsign */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 {t('station.settings.callsign')}
               </label>
               <input
@@ -581,7 +617,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   fontSize: '18px',
                   fontFamily: 'JetBrains Mono, monospace',
                   fontWeight: '700',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -589,7 +625,15 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             {/* Callsign Size*/}
             <div style={{ marginBottom: '20px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '6px',
+                    color: 'var(--text-muted)',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                  }}
+                >
                   {t('station.settings.headerSize')}
                 </label>
                 <input
@@ -598,7 +642,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   value={isNaN(lat) ? '' : headerSize}
                   onChange={(e) => {
                     if (e.target.value >= 0.1 && e.target.value <= 2.0) {
-                      setheaderSize(e.target.value)
+                      setheaderSize(e.target.value);
                     }
                   }}
                   style={{
@@ -610,7 +654,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     color: 'var(--text-primary)',
                     fontSize: '14px',
                     fontFamily: 'JetBrains Mono, monospace',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
@@ -618,7 +662,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Grid Square */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '6px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 {t('station.settings.locator')}
               </label>
               <input
@@ -637,7 +690,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   fontSize: '18px',
                   fontFamily: 'JetBrains Mono, monospace',
                   fontWeight: '700',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
                 }}
               />
             </div>
@@ -645,7 +698,15 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             {/* Lat/Lon */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '6px',
+                    color: 'var(--text-muted)',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                  }}
+                >
                   {t('station.settings.latitude')}
                 </label>
                 <input
@@ -662,12 +723,20 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     color: 'var(--text-primary)',
                     fontSize: '14px',
                     fontFamily: 'JetBrains Mono, monospace',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
               <div>
-                <label style={{ display: 'block', marginBottom: '6px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '6px',
+                    color: 'var(--text-muted)',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                  }}
+                >
                   {t('station.settings.longitude')}
                 </label>
                 <input
@@ -684,7 +753,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     color: 'var(--text-primary)',
                     fontSize: '14px',
                     fontFamily: 'JetBrains Mono, monospace',
-                    boxSizing: 'border-box'
+                    boxSizing: 'border-box',
                   }}
                 />
               </div>
@@ -701,7 +770,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 color: 'var(--text-secondary)',
                 fontSize: '13px',
                 cursor: 'pointer',
-                marginBottom: '20px'
+                marginBottom: '20px',
               }}
             >
               {t('station.settings.useLocation')}
@@ -709,7 +778,15 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Mouse wheel zoom factor */}
             <div style={{ marginBottom: '31px' }}>
-              <label style={{ display: 'block', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 {t('station.settings.mouseZoom')}
                 <input
                   type="range"
@@ -720,7 +797,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   style={{
                     width: '100%',
                     cursor: 'pointer',
-                    marginTop: '3px'
+                    marginTop: '3px',
                   }}
                 />
               </label>
@@ -734,7 +811,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Theme */}
             <div style={{ marginBottom: '8px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 {t('station.settings.theme')}
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
@@ -750,10 +836,11 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       color: theme === th ? '#000' : 'var(--text-secondary)',
                       fontSize: '12px',
                       cursor: 'pointer',
-                      fontWeight: theme === th ? '600' : '400'
+                      fontWeight: theme === th ? '600' : '400',
                     }}
                   >
-                    {th === 'dark' ? '🌙' : th === 'light' ? '☀️' : th === 'legacy' ? '💻' : '🪟'} {t('station.settings.theme.' + th)}
+                    {th === 'dark' ? '🌙' : th === 'light' ? '☀️' : th === 'legacy' ? '💻' : '🪟'}{' '}
+                    {t('station.settings.theme.' + th)}
                   </button>
                 ))}
               </div>
@@ -764,7 +851,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Layout */}
             <div style={{ marginBottom: '8px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 {t('station.settings.layout')}
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
@@ -780,10 +876,19 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       color: layout === l ? '#000' : 'var(--text-secondary)',
                       fontSize: '12px',
                       cursor: 'pointer',
-                      fontWeight: layout === l ? '600' : '400'
+                      fontWeight: layout === l ? '600' : '400',
                     }}
                   >
-                    {l === 'modern' ? '🖥️' : l === 'classic' ? '📺' : l === 'tablet' ? '📱' : l === 'compact' ? '📊' : '⊞'} {l === 'dockable' ? t('station.settings.layout.dockable') : t('station.settings.layout.' + l)}
+                    {l === 'modern'
+                      ? '🖥️'
+                      : l === 'classic'
+                        ? '📺'
+                        : l === 'tablet'
+                          ? '📱'
+                          : l === 'compact'
+                            ? '📊'
+                            : '⊞'}{' '}
+                    {l === 'dockable' ? t('station.settings.layout.dockable') : t('station.settings.layout.' + l)}
                   </button>
                 ))}
               </div>
@@ -808,7 +913,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px'
+                    gap: '6px',
                   }}
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -822,7 +927,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* DX Cluster Source */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 {t('station.settings.timezone')}
               </label>
               <select
@@ -837,7 +951,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   color: timezone ? 'var(--accent-green)' : 'var(--text-muted)',
                   fontSize: '14px',
                   fontFamily: 'JetBrains Mono, monospace',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
                 }}
               >
                 <option value="">{t('station.settings.timezone.auto')}</option>
@@ -928,7 +1042,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Distance Units */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 📏 Distance Units
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -943,7 +1066,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     color: units === 'imperial' ? '#000' : 'var(--text-secondary)',
                     fontSize: '13px',
                     cursor: 'pointer',
-                    fontWeight: units === 'imperial' ? '600' : '400'
+                    fontWeight: units === 'imperial' ? '600' : '400',
                   }}
                 >
                   🇺🇸 Imperial (mi)
@@ -959,7 +1082,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     color: units === 'metric' ? '#000' : 'var(--text-secondary)',
                     fontSize: '13px',
                     cursor: 'pointer',
-                    fontWeight: units === 'metric' ? '600' : '400'
+                    fontWeight: units === 'metric' ? '600' : '400',
                   }}
                 >
                   🌍 Metric (km)
@@ -974,16 +1097,27 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Rig Control Settings */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 {t('station.settings.rigControl.title')} (Beta)
               </label>
 
-              <div style={{
-                background: 'var(--bg-tertiary)',
-                padding: '12px',
-                borderRadius: '6px',
-                border: '1px solid var(--border-color)'
-              }}>
+              <div
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  padding: '12px',
+                  borderRadius: '6px',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '12px' }}>
                   <input
                     type="checkbox"
@@ -999,35 +1133,76 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 {rigEnabled && (
                   <>
                     {/* Download Rig Listener */}
-                    <div style={{
-                      background: 'rgba(99,102,241,0.08)',
-                      border: '1px solid rgba(99,102,241,0.2)',
-                      borderRadius: '6px',
-                      padding: '10px',
-                      marginBottom: '12px',
-                    }}>
-                      <div style={{ fontSize: '11px', color: 'var(--text-secondary)', marginBottom: '8px', lineHeight: 1.4 }}>
-                        📻 Download the Rig Listener for your computer. Double-click to run — it connects your radio to OpenHamClock via USB.
+                    <div
+                      style={{
+                        background: 'rgba(99,102,241,0.08)',
+                        border: '1px solid rgba(99,102,241,0.2)',
+                        borderRadius: '6px',
+                        padding: '10px',
+                        marginBottom: '12px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontSize: '11px',
+                          color: 'var(--text-secondary)',
+                          marginBottom: '8px',
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        📻 Download the Rig Listener for your computer. Double-click to run — it connects your radio to
+                        OpenHamClock via USB.
                       </div>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                        <a href="/api/rig/download/windows"
+                        <a
+                          href="/api/rig/download/windows"
                           style={{
-                            padding: '5px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: '600',
-                            background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
-                            color: '#818cf8', textDecoration: 'none', cursor: 'pointer',
-                          }}>⊞ Windows</a>
-                        <a href="/api/rig/download/mac"
+                            padding: '5px 12px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            background: 'rgba(99,102,241,0.15)',
+                            border: '1px solid rgba(99,102,241,0.3)',
+                            color: '#818cf8',
+                            textDecoration: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          ⊞ Windows
+                        </a>
+                        <a
+                          href="/api/rig/download/mac"
                           style={{
-                            padding: '5px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: '600',
-                            background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
-                            color: '#818cf8', textDecoration: 'none', cursor: 'pointer',
-                          }}> Mac</a>
-                        <a href="/api/rig/download/linux"
+                            padding: '5px 12px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            background: 'rgba(99,102,241,0.15)',
+                            border: '1px solid rgba(99,102,241,0.3)',
+                            color: '#818cf8',
+                            textDecoration: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {' '}
+                          Mac
+                        </a>
+                        <a
+                          href="/api/rig/download/linux"
                           style={{
-                            padding: '5px 12px', borderRadius: '4px', fontSize: '11px', fontWeight: '600',
-                            background: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
-                            color: '#818cf8', textDecoration: 'none', cursor: 'pointer',
-                          }}>🐧 Linux</a>
+                            padding: '5px 12px',
+                            borderRadius: '4px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            background: 'rgba(99,102,241,0.15)',
+                            border: '1px solid rgba(99,102,241,0.3)',
+                            color: '#818cf8',
+                            textDecoration: 'none',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          🐧 Linux
+                        </a>
                       </div>
                       <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '6px', opacity: 0.7 }}>
                         Supports Yaesu, Kenwood, Elecraft, and Icom radios. No extra software needed.
@@ -1035,68 +1210,99 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '10px' }}>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '10px' }}>
-                        {t('station.settings.rigControl.host')}
-                      </label>
-                      <input
-                        type="text"
-                        value={rigHost}
-                        onChange={(e) => setRigHost(e.target.value)}
-                        placeholder="http://localhost"
-                        style={{
-                          width: '100%',
-                          padding: '8px',
-                          background: 'var(--bg-primary)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '4px',
-                          color: 'var(--accent-cyan)',
-                          fontSize: '13px',
-                          fontFamily: 'JetBrains Mono',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '10px' }}>
-                        {t('station.settings.rigControl.port')}
-                      </label>
-                      <input
-                        type="number"
-                        value={rigPort}
-                        onChange={(e) => setRigPort(e.target.value)}
-                        placeholder="5555"
-                        style={{
-                          width: '100%',
-                          padding: '8px',
-                          background: 'var(--bg-primary)',
-                          border: '1px solid var(--border-color)',
-                          borderRadius: '4px',
-                          color: 'var(--accent-cyan)',
-                          fontSize: '13px',
-                          fontFamily: 'JetBrains Mono',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      checked={tuneEnabled}
-                      onChange={(e) => setTuneEnabled(e.target.checked)}
-                      style={{ marginRight: '8px' }}
-                    />
-                    <div>
-                      <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>
-                        {t('station.settings.rigControl.tuneEnabled')}
-                      </span>
-                      <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                        {t('station.settings.rigControl.tuneEnabled.hint')}
+                      <div>
+                        <label
+                          style={{
+                            display: 'block',
+                            marginBottom: '4px',
+                            color: 'var(--text-muted)',
+                            fontSize: '10px',
+                          }}
+                        >
+                          {t('station.settings.rigControl.host')}
+                        </label>
+                        <input
+                          type="text"
+                          value={rigHost}
+                          onChange={(e) => setRigHost(e.target.value)}
+                          placeholder="http://localhost"
+                          style={{
+                            width: '100%',
+                            padding: '8px',
+                            background: 'var(--bg-primary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '4px',
+                            color: 'var(--accent-cyan)',
+                            fontSize: '13px',
+                            fontFamily: 'JetBrains Mono',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label
+                          style={{
+                            display: 'block',
+                            marginBottom: '4px',
+                            color: 'var(--text-muted)',
+                            fontSize: '10px',
+                          }}
+                        >
+                          {t('station.settings.rigControl.port')}
+                        </label>
+                        <input
+                          type="number"
+                          value={rigPort}
+                          onChange={(e) => setRigPort(e.target.value)}
+                          placeholder="5555"
+                          style={{
+                            width: '100%',
+                            padding: '8px',
+                            background: 'var(--bg-primary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '4px',
+                            color: 'var(--accent-cyan)',
+                            fontSize: '13px',
+                            fontFamily: 'JetBrains Mono',
+                            boxSizing: 'border-box',
+                          }}
+                        />
                       </div>
                     </div>
-                  </div>
+
+                    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={tuneEnabled}
+                        onChange={(e) => setTuneEnabled(e.target.checked)}
+                        style={{ marginRight: '8px' }}
+                      />
+                      <div>
+                        <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>
+                          {t('station.settings.rigControl.tuneEnabled')}
+                        </span>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          {t('station.settings.rigControl.tuneEnabled.hint')}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '10px', display: 'flex', alignItems: 'center' }}>
+                      <input
+                        type="checkbox"
+                        checked={autoMode}
+                        onChange={(e) => setAutoMode(e.target.checked)}
+                        style={{ marginRight: '8px' }}
+                      />
+                      <div>
+                        <span style={{ color: 'var(--text-primary)', fontSize: '13px' }}>
+                          {t('station.settings.rigControl.autoMode')}
+                        </span>
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          {t('station.settings.rigControl.autoMode.hint')}
+                        </div>
+                      </div>
+                    </div>
                   </>
                 )}
               </div>
@@ -1104,7 +1310,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Propagation Settings */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 ⌇ Propagation Mode & Power
               </label>
 
@@ -1120,8 +1335,8 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     { id: 'WSPR', label: 'WSPR', desc: 'Beacon' },
                     { id: 'JS8', label: 'JS8', desc: 'Chat' },
                     { id: 'RTTY', label: 'RTTY', desc: 'Teletype' },
-                    { id: 'PSK31', label: 'PSK31', desc: 'PSK' }
-                  ].map(m => (
+                    { id: 'PSK31', label: 'PSK31', desc: 'PSK' },
+                  ].map((m) => (
                     <button
                       key={m.id}
                       onClick={() => setPropMode(m.id)}
@@ -1136,7 +1351,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                         fontWeight: propMode === m.id ? '700' : '400',
                         fontFamily: 'JetBrains Mono, monospace',
                         lineHeight: 1.2,
-                        textAlign: 'center'
+                        textAlign: 'center',
                       }}
                       title={m.desc}
                     >
@@ -1149,13 +1364,20 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               {/* Power */}
               <div style={{ marginBottom: '6px' }}>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>TX Power</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) 1.2fr', gap: '4px', alignItems: 'center' }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(4, 1fr) 1.2fr',
+                    gap: '4px',
+                    alignItems: 'center',
+                  }}
+                >
                   {[
                     { w: 5, label: '5W', tip: 'QRP' },
                     { w: 25, label: '25W', tip: 'Low' },
                     { w: 100, label: '100W', tip: 'Std' },
-                    { w: 1500, label: '1.5kW', tip: 'Max' }
-                  ].map(p => (
+                    { w: 1500, label: '1.5kW', tip: 'Max' },
+                  ].map((p) => (
                     <button
                       key={p.w}
                       onClick={() => setPropPower(p.w)}
@@ -1168,7 +1390,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                         fontSize: '11px',
                         cursor: 'pointer',
                         fontWeight: propPower === p.w ? '700' : '400',
-                        fontFamily: 'JetBrains Mono, monospace'
+                        fontFamily: 'JetBrains Mono, monospace',
                       }}
                       title={p.tip}
                     >
@@ -1193,7 +1415,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                         fontSize: '11px',
                         fontFamily: 'JetBrains Mono, monospace',
                         textAlign: 'center',
-                        boxSizing: 'border-box'
+                        boxSizing: 'border-box',
                       }}
                       min="0.1"
                       max="2000"
@@ -1210,20 +1432,35 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   const adv = modeAdv[propMode] || 0;
                   const pwrDb = 10 * Math.log10((propPower || 100) / 100);
                   const margin = adv + pwrDb;
-                  return `Signal margin: ${margin >= 0 ? '+' : ''}${margin.toFixed(1)} dB vs SSB@100W — ${margin >= 30 ? 'extreme weak-signal advantage' :
-                    margin >= 15 ? 'strong advantage — marginal bands may open' :
-                      margin >= 5 ? 'moderate advantage' :
-                        margin >= -5 ? 'baseline conditions' :
-                          margin >= -15 ? 'reduced margin — some bands may close' :
-                            'significant disadvantage — only strong openings'
-                    }`;
+                  return `Signal margin: ${margin >= 0 ? '+' : ''}${margin.toFixed(1)} dB vs SSB@100W — ${
+                    margin >= 30
+                      ? 'extreme weak-signal advantage'
+                      : margin >= 15
+                        ? 'strong advantage — marginal bands may open'
+                        : margin >= 5
+                          ? 'moderate advantage'
+                          : margin >= -5
+                            ? 'baseline conditions'
+                            : margin >= -15
+                              ? 'reduced margin — some bands may close'
+                              : 'significant disadvantage — only strong openings'
+                  }`;
                 })()}
               </div>
             </div>
 
             {/* Low Memory Mode */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 🧠 Performance Mode
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
@@ -1238,7 +1475,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     color: !lowMemoryMode ? '#000' : 'var(--text-secondary)',
                     fontSize: '13px',
                     cursor: 'pointer',
-                    fontWeight: !lowMemoryMode ? '600' : '400'
+                    fontWeight: !lowMemoryMode ? '600' : '400',
                   }}
                 >
                   🚀 Full
@@ -1254,13 +1491,19 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     color: lowMemoryMode ? '#000' : 'var(--text-secondary)',
                     fontSize: '13px',
                     cursor: 'pointer',
-                    fontWeight: lowMemoryMode ? '600' : '400'
+                    fontWeight: lowMemoryMode ? '600' : '400',
                   }}
                 >
                   🪶 Low Memory
                 </button>
               </div>
-              <div style={{ fontSize: '11px', color: lowMemoryMode ? 'var(--accent-green)' : 'var(--text-muted)', marginTop: '6px' }}>
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: lowMemoryMode ? 'var(--accent-green)' : 'var(--text-muted)',
+                  marginTop: '6px',
+                }}
+              >
                 {lowMemoryMode
                   ? '✓ Low Memory Mode: Reduced animations, fewer map markers, smaller spot limits. Recommended for systems with <8GB RAM.'
                   : 'Full Mode: All features enabled. Requires 8GB+ RAM for best performance.'}
@@ -1309,7 +1552,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               </div>
             </div>
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 {t('station.settings.dx.title')}
               </label>
               <select
@@ -1324,7 +1576,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   color: 'var(--accent-green)',
                   fontSize: '14px',
                   fontFamily: 'JetBrains Mono, monospace',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
                 }}
               >
                 <option value="dxspider-proxy">{t('station.settings.dx.option1')}</option>
@@ -1340,20 +1592,32 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Custom DX Cluster Settings */}
             {dxClusterSource === 'custom' && (
-              <div style={{
-                marginBottom: '20px',
-                padding: '16px',
-                background: 'var(--bg-tertiary)',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)'
-              }}>
-                <label style={{ display: 'block', marginBottom: '12px', color: 'var(--accent-cyan)', fontSize: '12px', fontWeight: '600' }}>
+              <div
+                style={{
+                  marginBottom: '20px',
+                  padding: '16px',
+                  background: 'var(--bg-tertiary)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '12px',
+                    color: 'var(--accent-cyan)',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                  }}
+                >
                   {t('station.settings.dx.custom.title')}
                 </label>
 
                 {/* Host */}
                 <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '11px' }}>
+                  <label
+                    style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '11px' }}
+                  >
                     {t('station.settings.dx.custom.host')}
                   </label>
                   <input
@@ -1369,14 +1633,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       borderRadius: '6px',
                       color: 'var(--text-primary)',
                       fontSize: '14px',
-                      fontFamily: 'JetBrains Mono, monospace'
+                      fontFamily: 'JetBrains Mono, monospace',
                     }}
                   />
                 </div>
 
                 {/* Port */}
                 <div style={{ marginBottom: '12px' }}>
-                  <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '11px' }}>
+                  <label
+                    style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '11px' }}
+                  >
                     {t('station.settings.dx.custom.port')}
                   </label>
                   <input
@@ -1392,14 +1658,13 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       borderRadius: '6px',
                       color: 'var(--text-primary)',
                       fontSize: '14px',
-                      fontFamily: 'JetBrains Mono, monospace'
+                      fontFamily: 'JetBrains Mono, monospace',
                     }}
                   />
                 </div>
 
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                  {t('station.settings.dx.custom.callsign', { callsign: callsign || 'N0CALL' })}
-                  {' '}
+                  {t('station.settings.dx.custom.callsign', { callsign: callsign || 'N0CALL' })}{' '}
                   {t('station.settings.dx.custom.commonPorts')}
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--accent-amber)', marginTop: '8px' }}>
@@ -1410,7 +1675,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
             {/* Language */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: 'var(--text-muted)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
                 ⊕ {t('station.settings.language')}
               </label>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
@@ -1420,20 +1694,27 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     onClick={() => i18n.changeLanguage(lang.code)}
                     style={{
                       padding: '8px 6px',
-                      background: i18n.language === lang.code || (i18n.language && i18n.language.startsWith(lang.code))
-                        ? 'rgba(0, 221, 255, 0.2)'
-                        : 'var(--bg-tertiary)',
-                      border: `1px solid ${i18n.language === lang.code || (i18n.language && i18n.language.startsWith(lang.code))
-                        ? 'var(--accent-cyan)'
-                        : 'var(--border-color)'}`,
+                      background:
+                        i18n.language === lang.code || (i18n.language && i18n.language.startsWith(lang.code))
+                          ? 'rgba(0, 221, 255, 0.2)'
+                          : 'var(--bg-tertiary)',
+                      border: `1px solid ${
+                        i18n.language === lang.code || (i18n.language && i18n.language.startsWith(lang.code))
+                          ? 'var(--accent-cyan)'
+                          : 'var(--border-color)'
+                      }`,
                       borderRadius: '6px',
-                      color: i18n.language === lang.code || (i18n.language && i18n.language.startsWith(lang.code))
-                        ? 'var(--accent-cyan)'
-                        : 'var(--text-secondary)',
+                      color:
+                        i18n.language === lang.code || (i18n.language && i18n.language.startsWith(lang.code))
+                          ? 'var(--accent-cyan)'
+                          : 'var(--text-secondary)',
                       fontSize: '12px',
                       cursor: 'pointer',
-                      fontWeight: i18n.language === lang.code || (i18n.language && i18n.language.startsWith(lang.code)) ? '600' : '400',
-                      textAlign: 'center'
+                      fontWeight:
+                        i18n.language === lang.code || (i18n.language && i18n.language.startsWith(lang.code))
+                          ? '600'
+                          : '400',
+                      textAlign: 'center',
                     }}
                   >
                     {lang.flag} {lang.name}
@@ -1448,52 +1729,58 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
         {activeTab === 'integrations' && (
           <div>
             {/* Status pill */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: 12,
-              marginBottom: 16,
-              padding: '10px 14px',
-              borderRadius: 10,
-              border: '1px solid var(--border-color)',
-              background: 'var(--bg-tertiary)'
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                marginBottom: 16,
+                padding: '10px 14px',
+                borderRadius: 10,
+                border: '1px solid var(--border-color)',
+                background: 'var(--bg-tertiary)',
+              }}
+            >
               <div style={{ color: 'var(--text-secondary)', fontSize: 12 }}>
                 These features require a local OpenHamClock instance.
               </div>
-              <div style={{
-                fontFamily: 'JetBrains Mono, monospace',
-                fontSize: 11,
-                padding: '4px 10px',
-                borderRadius: 999,
-                border: `1px solid ${isLocalInstall ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.18)'}`,
-                color: isLocalInstall ? 'var(--accent-cyan)' : 'var(--text-muted)',
-                background: isLocalInstall ? 'rgba(0,255,255,0.10)' : 'rgba(0,0,0,0.25)'
-              }}>
+              <div
+                style={{
+                  fontFamily: 'JetBrains Mono, monospace',
+                  fontSize: 11,
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  border: `1px solid ${isLocalInstall ? 'var(--accent-cyan)' : 'rgba(255,255,255,0.18)'}`,
+                  color: isLocalInstall ? 'var(--accent-cyan)' : 'var(--text-muted)',
+                  background: isLocalInstall ? 'rgba(0,255,255,0.10)' : 'rgba(0,0,0,0.25)',
+                }}
+              >
                 {isLocalInstall ? 'Local mode' : 'Hosted mode'}
               </div>
             </div>
 
             {/* Local-only group */}
-            <div style={{
-              background: 'rgba(0, 255, 255, 0.05)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '10px',
-              padding: '14px 16px',
-              marginBottom: 16
-            }}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginBottom: 10
-              }}>
+            <div
+              style={{
+                background: 'rgba(0, 255, 255, 0.05)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '10px',
+                padding: '14px 16px',
+                marginBottom: 16,
+              }}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  marginBottom: 10,
+                }}
+              >
                 <div>
-                  <div style={{ color: 'var(--accent-cyan)', fontWeight: 800, letterSpacing: 0.2 }}>
-                    Local-only
-                  </div>
+                  <div style={{ color: 'var(--accent-cyan)', fontWeight: 800, letterSpacing: 0.2 }}>Local-only</div>
                   <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.45, marginTop: 4 }}>
                     These integrations are disabled on the hosted site so they can never crash or spam the network.
                   </div>
@@ -1501,20 +1788,31 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               </div>
 
               {/* Rotator */}
-              <div style={{
-                borderTop: '1px solid rgba(255,255,255,0.08)',
-                paddingTop: 12,
-                marginTop: 8
-              }}>
+              <div
+                style={{
+                  borderTop: '1px solid rgba(255,255,255,0.08)',
+                  paddingTop: 12,
+                  marginTop: 8,
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                   <div>
                     <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>🧭 Rotator</div>
                     <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.45 }}>
-                      Requires a rotator backend (e.g., PstRotatorAz or a simple HTTP bridge) reachable by your local OpenHamClock Node server.
+                      Requires a rotator backend (e.g., PstRotatorAz or a simple HTTP bridge) reachable by your local
+                      OpenHamClock Node server.
                     </div>
                   </div>
 
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontFamily: 'JetBrains Mono, monospace',
+                      fontSize: 12,
+                    }}
+                  >
                     <input
                       type="checkbox"
                       disabled={!isLocalInstall}
@@ -1522,7 +1820,9 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       onChange={(e) => {
                         const next = !!e.target.checked;
                         setRotatorEnabled(next);
-                        try { localStorage.setItem('ohc_rotator_enabled', next ? '1' : '0'); } catch {}
+                        try {
+                          localStorage.setItem('ohc_rotator_enabled', next ? '1' : '0');
+                        } catch {}
                         // Default overlay OFF when enabling (hosted-safe + predictable)
                         if (next) {
                           try {
@@ -1532,7 +1832,9 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                             localStorage.setItem('openhamclock_mapLayers', JSON.stringify(ml));
                           } catch {}
                         }
-                        try { window.dispatchEvent(new Event('ohc-rotator-config-changed')); } catch {}
+                        try {
+                          window.dispatchEvent(new Event('ohc-rotator-config-changed'));
+                        } catch {}
                       }}
                     />
                     Enable
@@ -1542,10 +1844,10 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 <details style={{ marginTop: 10 }}>
                   <summary
                     style={{
-                      cursor: "pointer",
-                      color: "var(--accent-amber)",
+                      cursor: 'pointer',
+                      color: 'var(--accent-amber)',
                       fontSize: 12,
-                      userSelect: "none",
+                      userSelect: 'none',
                     }}
                   >
                     Learn how
@@ -1554,7 +1856,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   <div
                     style={{
                       marginTop: 8,
-                      color: "var(--text-secondary)",
+                      color: 'var(--text-secondary)',
                       fontSize: 12,
                       lineHeight: 1.55,
                     }}
@@ -1566,75 +1868,123 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     <ol style={{ margin: 0, paddingLeft: 18 }}>
                       <li>
                         Run OpenHamClock locally:
-                        <div style={{ fontFamily: "JetBrains Mono", marginTop: 4 }}>
-                          npm start
-                        </div>
+                        <div style={{ fontFamily: 'JetBrains Mono', marginTop: 4 }}>npm start</div>
                         Open the local URL shown in your terminal (example: http://127.0.0.1:3001).
                       </li>
 
                       <li style={{ marginTop: 6 }}>
-                        Install and configure <b>PstRotatorAz</b> (or another rotator backend)
-                        on your LAN.
-                        <div style={{ marginTop: 4 }}>
-                          Enable and start its control interface (web/UDP).
-                        </div>
+                        Install and configure <b>PstRotatorAz</b> (or another rotator backend) on your LAN.
+                        <div style={{ marginTop: 4 }}>Enable and start its control interface (web/UDP).</div>
                       </li>
 
                       <li style={{ marginTop: 6 }}>
                         In the OpenHamClock folder:
-                        <div style={{ fontFamily: "JetBrains Mono", marginTop: 4 }}>
-                          copy .env.example → .env
-                        </div>
+                        <div style={{ fontFamily: 'JetBrains Mono', marginTop: 4 }}>copy .env.example → .env</div>
                         Then edit:
-                        <div style={{ fontFamily: "JetBrains Mono", marginTop: 4 }}>
+                        <div style={{ fontFamily: 'JetBrains Mono', marginTop: 4 }}>
                           VITE_PSTROTATOR_TARGET=http://192.168.1.43:50004
                         </div>
                         (Replace with the IP and port of your PstRotatorAz machine.)
                       </li>
 
-                      <li style={{ marginTop: 6 }}>
-                        Ensure Windows Firewall allows the PstRotatorAz port.
-                      </li>
+                      <li style={{ marginTop: 6 }}>Ensure Windows Firewall allows the PstRotatorAz port.</li>
 
                       <li style={{ marginTop: 6 }}>
-                        Enable Rotator here, then add the <b>Rotator</b> panel using the “+”
-                        button on any tabset.
+                        Enable Rotator here, then add the <b>Rotator</b> panel using the “+” button on any tabset.
                       </li>
                     </ol>
 
-                    <div style={{ marginTop: 10, fontSize: 11, color: "var(--text-muted)" }}>
-                      Tip: Click <b>MAP ON</b> inside the Rotator panel to show the bearing
-                      overlay. Hold <b>Shift</b> and click the map to rotate your antenna to
-                      that heading.
+                    <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)' }}>
+                      Tip: Click <b>MAP ON</b> inside the Rotator panel to show the bearing overlay. Hold <b>Shift</b>{' '}
+                      and click the map to rotate your antenna to that heading.
                     </div>
 
-                    <div style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}>
-                      Note: This feature cannot work on the hosted site because it requires
-                      access to devices on your local network.
+                    <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+                      Note: This feature cannot work on the hosted site because it requires access to devices on your
+                      local network.
                     </div>
                   </div>
                 </details>
+
+                {/* DX Weather (Map overlays) */}
+                <div
+                  style={{
+                    borderTop: '1px solid rgba(255,255,255,0.08)',
+                    paddingTop: 12,
+                    marginTop: 12,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                    <div>
+                      <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>🌦️ DX Weather</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.45 }}>
+                        Adds a small weather bubble on hover and weather details inside map popups (DX spots, POTA/SOTA,
+                        and the movable DX marker).
+                      </div>
+
+                      {!isLocalInstall && (
+                        <div style={{ marginTop: 6, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.45 }}>
+                          Hosted mode disables this feature to protect shared weather-provider rate limits. Available in
+                          Local mode.
+                        </div>
+                      )}
+                    </div>
+
+                    <label
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        fontFamily: 'JetBrains Mono, monospace',
+                        fontSize: 12,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={!isLocalInstall}
+                        checked={!!dxWeatherEnabled}
+                        onChange={(e) => {
+                          const next = !!e.target.checked;
+                          if (!isLocalInstall) return;
+                          setDxWeatherEnabled(next);
+                          try {
+                            localStorage.setItem('ohc_dx_weather_enabled', next ? '1' : '0');
+                          } catch {}
+                          try {
+                            window.dispatchEvent(new Event('ohc-dx-weather-config-changed'));
+                          } catch {}
+                        }}
+                      />
+                      Enable
+                    </label>
+                  </div>
+
+                  <div style={{ marginTop: 10, color: 'var(--text-muted)', fontSize: 12, lineHeight: 1.45 }}>
+                    Tip: A 5–10 minute cache is used automatically and hover fetches are debounced.
+                  </div>
+                </div>
 
                 {!isLocalInstall && (
                   <div
                     style={{
                       marginTop: 8,
-                      color: "var(--text-muted)",
+                      color: 'var(--text-muted)',
                       fontSize: 11,
                     }}
                   >
                     Hosted mode detected — Rotator cannot be enabled here.
                   </div>
                 )}
-
               </div>
 
               {/* N3FJP */}
-              <div style={{
-                borderTop: '1px solid rgba(255,255,255,0.08)',
-                paddingTop: 12,
-                marginTop: 14
-              }}>
+              <div
+                style={{
+                  borderTop: '1px solid rgba(255,255,255,0.08)',
+                  paddingTop: 12,
+                  marginTop: 14,
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                   <div>
                     <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>🗺️ N3FJP Logged QSOs</div>
@@ -1643,7 +1993,15 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     </div>
                   </div>
 
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'JetBrains Mono, monospace', fontSize: 12 }}>
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontFamily: 'JetBrains Mono, monospace',
+                      fontSize: 12,
+                    }}
+                  >
                     <input
                       type="checkbox"
                       disabled={!isLocalInstall}
@@ -1651,8 +2009,12 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       onChange={(e) => {
                         const next = !!e.target.checked;
                         setN3fjpEnabled(next);
-                        try { localStorage.setItem('ohc_n3fjp_enabled', next ? '1' : '0'); } catch {}
-                        try { window.dispatchEvent(new Event('ohc-n3fjp-config-changed')); } catch {}
+                        try {
+                          localStorage.setItem('ohc_n3fjp_enabled', next ? '1' : '0');
+                        } catch {}
+                        try {
+                          window.dispatchEvent(new Event('ohc-n3fjp-config-changed'));
+                        } catch {}
 
                         // ✅ Also toggle the map layer automatically
                         try {
@@ -1678,7 +2040,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 {/* Simple config */}
                 <div style={{ display: 'flex', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
                   <div style={{ flex: '1 1 160px' }}>
-                    <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        marginBottom: 6,
+                        color: 'var(--text-muted)',
+                        fontSize: 11,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                      }}
+                    >
                       Display window
                     </label>
                     <select
@@ -1688,8 +2059,12 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                         const v = parseInt(e.target.value, 10);
                         const next = Number.isFinite(v) ? v : 15;
                         setN3fjpDisplayMinutes(next);
-                        try { localStorage.setItem('n3fjp_display_minutes', String(next)); } catch {}
-                        try { window.dispatchEvent(new Event('ohc-n3fjp-config-changed')); } catch {}
+                        try {
+                          localStorage.setItem('n3fjp_display_minutes', String(next));
+                        } catch {}
+                        try {
+                          window.dispatchEvent(new Event('ohc-n3fjp-config-changed'));
+                        } catch {}
                       }}
                       style={{
                         width: '100%',
@@ -1699,19 +2074,28 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                         borderRadius: '6px',
                         color: 'var(--text-primary)',
                         fontSize: '14px',
-                        fontFamily: 'JetBrains Mono, monospace'
+                        fontFamily: 'JetBrains Mono, monospace',
                       }}
                     >
                       {[15, 30, 60, 120, 240, 720, 1440].map((m) => (
                         <option key={m} value={m}>
-                          {m === 60 ? "1 hour" : m < 60 ? `${m} min` : `${m / 60} hours`}
+                          {m === 60 ? '1 hour' : m < 60 ? `${m} min` : `${m / 60} hours`}
                         </option>
                       ))}
                     </select>
                   </div>
 
                   <div style={{ flex: '0 0 120px' }}>
-                    <label style={{ display: 'block', marginBottom: 6, color: 'var(--text-muted)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1 }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        marginBottom: 6,
+                        color: 'var(--text-muted)',
+                        fontSize: 11,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                      }}
+                    >
                       Line color
                     </label>
                     <input
@@ -1721,8 +2105,12 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       onChange={(e) => {
                         const next = e.target.value || '#3388ff';
                         setN3fjpLineColor(next);
-                        try { localStorage.setItem('n3fjp_line_color', next); } catch {}
-                        try { window.dispatchEvent(new Event('ohc-n3fjp-config-changed')); } catch {}
+                        try {
+                          localStorage.setItem('n3fjp_line_color', next);
+                        } catch {}
+                        try {
+                          window.dispatchEvent(new Event('ohc-n3fjp-config-changed'));
+                        } catch {}
                       }}
                       style={{
                         width: '100%',
@@ -1730,7 +2118,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                         padding: 0,
                         border: '1px solid var(--border-color)',
                         borderRadius: 6,
-                        background: 'transparent'
+                        background: 'transparent',
                       }}
                     />
                   </div>
@@ -1739,10 +2127,10 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 <details style={{ marginTop: 10 }}>
                   <summary
                     style={{
-                      cursor: "pointer",
-                      color: "var(--accent-amber)",
+                      cursor: 'pointer',
+                      color: 'var(--accent-amber)',
                       fontSize: 12,
-                      userSelect: "none",
+                      userSelect: 'none',
                     }}
                   >
                     Learn how
@@ -1751,7 +2139,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   <div
                     style={{
                       marginTop: 8,
-                      color: "var(--text-secondary)",
+                      color: 'var(--text-secondary)',
                       fontSize: 12,
                       lineHeight: 1.55,
                     }}
@@ -1763,21 +2151,17 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     <ol style={{ margin: 0, paddingLeft: 18 }}>
                       <li>
                         Run OpenHamClock locally:
-                        <div style={{ fontFamily: "JetBrains Mono", marginTop: 4 }}>
-                          npm start
-                        </div>
-                        Open the local URL shown in your terminal
-                        (example: http://127.0.0.1:3001).
+                        <div style={{ fontFamily: 'JetBrains Mono', marginTop: 4 }}>npm start</div>
+                        Open the local URL shown in your terminal (example: http://127.0.0.1:3001).
                       </li>
 
                       <li style={{ marginTop: 6 }}>
-                        Install the N3FJP bridge on the same PC (or LAN machine)
-                        that can access your N3FJP logger.
+                        Install the N3FJP bridge on the same PC (or LAN machine) that can access your N3FJP logger.
                       </li>
 
                       <li style={{ marginTop: 6 }}>
                         Edit the bridge <b>config.json</b> file and set:
-                        <div style={{ fontFamily: "JetBrains Mono", marginTop: 4 }}>
+                        <div style={{ fontFamily: 'JetBrains Mono', marginTop: 4 }}>
                           "OHC_BASE_URL": "http://127.0.0.1:3001"
                         </div>
                         (Use the exact URL printed by OpenHamClock.)
@@ -1785,14 +2169,12 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
 
                       <li style={{ marginTop: 6 }}>
                         Ensure:
-                        <div style={{ fontFamily: "JetBrains Mono", marginTop: 4 }}>
-                          "ENABLE_OHC_HTTP": true
-                        </div>
+                        <div style={{ fontFamily: 'JetBrains Mono', marginTop: 4 }}>"ENABLE_OHC_HTTP": true</div>
                       </li>
 
                       <li style={{ marginTop: 6 }}>
-                        Start the bridge script (PowerShell or VBS launcher).
-                        You should see log messages when QSOs are entered.
+                        Start the bridge script (PowerShell or VBS launcher). You should see log messages when QSOs are
+                        entered.
                       </li>
 
                       <li style={{ marginTop: 6 }}>
@@ -1802,19 +2184,18 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       </li>
                     </ol>
 
-                    <div style={{ marginTop: 10, fontSize: 11, color: "var(--text-muted)" }}>
-                      Tip: If you see “connection refused,” verify that OpenHamClock
-                      is running locally and that the port matches your
+                    <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-muted)' }}>
+                      Tip: If you see “connection refused,” verify that OpenHamClock is running locally and that the
+                      port matches your
                       <b> OHC_BASE_URL</b> setting.
                     </div>
 
-                    <div style={{ marginTop: 6, fontSize: 11, color: "var(--text-muted)" }}>
-                      Note: This integration cannot work on the hosted site because it
-                      requires access to your local N3FJP logger and LAN services.
+                    <div style={{ marginTop: 6, fontSize: 11, color: 'var(--text-muted)' }}>
+                      Note: This integration cannot work on the hosted site because it requires access to your local
+                      N3FJP logger and LAN services.
                     </div>
                   </div>
                 </details>
-
               </div>
             </div>
           </div>
@@ -1824,28 +2205,35 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
         {activeTab === 'layers' && (
           <div>
             {/* Map Overlays section */}
-            <div style={{
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '8px',
-              padding: '14px',
-              marginBottom: '16px'
-            }}>
-              <div style={{
-                fontSize: '11px',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px',
-                color: 'var(--text-muted)',
-                marginBottom: '10px'
-              }}>
+            <div
+              style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '8px',
+                padding: '14px',
+                marginBottom: '16px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px',
+                  color: 'var(--text-muted)',
+                  marginBottom: '10px',
+                }}
+              >
                 Map Overlays
               </div>
-              <label style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                cursor: 'pointer'
-              }}>
+
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  cursor: 'pointer',
+                }}
+              >
                 <input
                   type="checkbox"
                   checked={mapLayers?.showDXNews !== false}
@@ -1854,12 +2242,14 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 />
                 <span style={{ fontSize: '18px' }}>📰</span>
                 <div>
-                  <div style={{
-                    color: mapLayers?.showDXNews !== false ? 'var(--accent-amber)' : 'var(--text-primary)',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    fontFamily: 'JetBrains Mono, monospace'
-                  }}>
+                  <div
+                    style={{
+                      color: mapLayers?.showDXNews !== false ? 'var(--accent-amber)' : 'var(--text-primary)',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      fontFamily: 'JetBrains Mono, monospace',
+                    }}
+                  >
                     DX News Ticker
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
@@ -1870,77 +2260,68 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             </div>
 
             {layers.length > 0 ? (
-              layers
-                .filter(layer => layer.category !== 'satellites') // Correctly filter out satellites
-                .map(layer => (
-                  <div key={layer.id} style={{
-                    background: 'var(--bg-tertiary)',
-                    border: `1px solid ${layer.enabled ? 'var(--accent-amber)' : 'var(--border-color)'}`,
-                    borderRadius: '8px',
-                    padding: '14px',
-                    marginBottom: '12px'
-                  }}>
+              (() => {
+                const categoryOrder = [
+                  { key: 'propagation', label: '📡 Propagation' },
+                  { key: 'amateur', label: '📻 Amateur Radio' },
+                  { key: 'weather', label: '🌤️ Weather' },
+                  { key: 'space-weather', label: '☀️ Space Weather' },
+                  { key: 'hazards', label: '⚠️ Natural Hazards' },
+                  { key: 'geology', label: '🌍 Geology' },
+                  { key: 'overlay', label: '🗺️ Map Overlays' },
+                ];
+
+                const nonSatLayers = layers.filter((l) => l.category !== 'satellites');
+                const grouped = {};
+                nonSatLayers.forEach((l) => {
+                  const cat = l.category || 'overlay';
+                  if (!grouped[cat]) grouped[cat] = [];
+                  grouped[cat].push(l);
+                });
+                Object.values(grouped).forEach((arr) =>
+                  arr.sort((a, b) => {
+                    const nameA = (a.name.startsWith('plugins.') ? t(a.name) : a.name).toLowerCase();
+                    const nameB = (b.name.startsWith('plugins.') ? t(b.name) : b.name).toLowerCase();
+                    return nameA.localeCompare(nameB);
+                  }),
+                );
+
+                const renderLayerCard = (layer) => (
+                  <div
+                    key={layer.id}
+                    style={{
+                      background: 'var(--bg-tertiary)',
+                      border: `1px solid ${layer.enabled ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                      borderRadius: '8px',
+                      padding: '14px',
+                      marginBottom: '12px',
+                    }}
+                  >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <label style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '10px',
-                        cursor: 'pointer',
-                        flex: 1
-                      }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
                         <input
                           type="checkbox"
                           checked={layer.enabled}
                           onChange={() => handleToggleLayer(layer.id)}
-                          style={{
-                            width: '18px',
-                            height: '18px',
-                            cursor: 'pointer'
-                          }}
+                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
                         />
                         <span style={{ fontSize: '18px' }}>{layer.icon}</span>
                         <div>
-                          <div style={{
-                            color: layer.enabled ? 'var(--accent-amber)' : 'var(--text-primary)',
-                            fontSize: '14px',
-                            fontWeight: '600',
-                            fontFamily: 'JetBrains Mono, monospace'
-                          }}>
+                          <div style={{ color: layer.enabled ? 'var(--accent-amber)' : 'var(--text-primary)', fontSize: '14px', fontWeight: '600', fontFamily: 'JetBrains Mono, monospace' }}>
                             {layer.name.startsWith('plugins.') ? t(layer.name) : layer.name}
                           </div>
                           {layer.description && (
-                            <div style={{
-                              fontSize: '11px',
-                              color: 'var(--text-muted)',
-                              marginTop: '2px'
-                            }}>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>
                               {layer.description.startsWith('plugins.') ? t(layer.description) : layer.description}
                             </div>
                           )}
                         </div>
                       </label>
-                      <span style={{
-                        fontSize: '11px',
-                        textTransform: 'uppercase',
-                        color: 'var(--text-secondary)',
-                        background: 'var(--bg-hover)',
-                        padding: '2px 8px',
-                        borderRadius: '3px'
-                      }}>
-                        {layer.category}
-                      </span>
                     </div>
 
                     {layer.enabled && (
                       <div style={{ paddingLeft: '38px', marginTop: '12px' }}>
-                        <label style={{
-                          display: 'block',
-                          fontSize: '11px',
-                          color: 'var(--text-muted)',
-                          marginBottom: '6px',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}>
+                        <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                           {t('station.settings.layers.opacity')}: {Math.round(layer.opacity * 100)}%
                         </label>
                         <input
@@ -1949,44 +2330,63 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                           max="100"
                           value={layer.opacity * 100}
                           onChange={(e) => handleOpacityChange(layer.id, parseFloat(e.target.value) / 100)}
-                          style={{
-                            width: '100%',
-                            cursor: 'pointer'
-                          }}
+                          style={{ width: '100%', cursor: 'pointer' }}
                         />
-
-                        {/* CTRL+Click Reset Button - Hidden unless CTRL is pressed */}
-                        {ctrlPressed && ['lightning', 'wspr', 'rbn', 'grayline', 'n3fjp_logged_qsos', 'voacap-heatmap'].includes(layer.id) && (
-                          <button
-                            onClick={() => resetPopupPositions(layer.id)}
-                            style={{
-                              marginTop: '12px',
-                              padding: '8px 12px',
-                              background: 'var(--accent-red)',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '4px',
-                              cursor: 'pointer',
-                              fontSize: '11px',
-                              fontWeight: '600',
-                              textTransform: 'uppercase',
-                              width: '100%'
-                            }}
-                          >
-                            🔄 RESET POPUPS
-                          </button>
-                        )}
+                        {ctrlPressed &&
+                          ['lightning', 'wspr', 'rbn', 'grayline', 'n3fjp_logged_qsos', 'voacap-heatmap'].includes(layer.id) && (
+                            <button
+                              onClick={() => resetPopupPositions(layer.id)}
+                              style={{ marginTop: '12px', padding: '8px 12px', background: 'var(--accent-red)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', width: '100%' }}
+                            >
+                              🔄 RESET POPUPS
+                            </button>
+                          )}
                       </div>
                     )}
                   </div>
-                ))
+                );
+
+                const result = [];
+                const rendered = new Set();
+                categoryOrder.forEach(({ key, label }) => {
+                  if (!grouped[key] || grouped[key].length === 0) return;
+                  result.push(
+                    <div
+                      key={`cat-${key}`}
+                      style={{
+                        fontSize: '11px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        color: 'var(--text-muted)',
+                        marginBottom: '8px',
+                        marginTop: result.length > 0 ? '16px' : '0',
+                        paddingBottom: '4px',
+                        borderBottom: '1px solid var(--border-color)',
+                      }}
+                    >
+                      {label}
+                    </div>,
+                  );
+                  grouped[key].forEach((layer) => {
+                    result.push(renderLayerCard(layer));
+                    rendered.add(layer.id);
+                  });
+                });
+                // Any uncategorized leftovers
+                nonSatLayers.filter((l) => !rendered.has(l.id)).forEach((layer) => {
+                  result.push(renderLayerCard(layer));
+                });
+                return result;
+              })()
             ) : (
-              <div style={{
-                textAlign: 'center',
-                padding: '40px 20px',
-                color: 'var(--text-muted)',
-                fontSize: '13px'
-              }}>
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '40px 20px',
+                  color: 'var(--text-muted)',
+                  fontSize: '13px',
+                }}
+              >
                 {t('station.settings.layers.noLayers')}
               </div>
             )}
@@ -1999,15 +2399,18 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             {/* 1. Plugin Layer Toggle Section */}
             <div style={{ marginBottom: '20px' }}>
               {layers
-                .filter(layer => layer.category === 'satellites')
-                .map(layer => (
-                  <div key={layer.id} style={{
-                    background: 'var(--bg-tertiary)',
-                    border: `1px solid ${layer.enabled ? 'var(--accent-amber)' : 'var(--border-color)'}`,
-                    borderRadius: '8px',
-                    padding: '14px',
-                    marginBottom: '12px'
-                  }}>
+                .filter((layer) => layer.category === 'satellites')
+                .map((layer) => (
+                  <div
+                    key={layer.id}
+                    style={{
+                      background: 'var(--bg-tertiary)',
+                      border: `1px solid ${layer.enabled ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                      borderRadius: '8px',
+                      padding: '14px',
+                      marginBottom: '12px',
+                    }}
+                  >
                     <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
                       <input
                         type="checkbox"
@@ -2017,37 +2420,63 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       />
                       <span style={{ fontSize: '18px' }}>🛰️</span>
                       <div>
-                        <div style={{
-                          color: layer.enabled ? 'var(--accent-amber)' : 'var(--text-primary)',
-                          fontSize: '14px',
-                          fontWeight: '600',
-                          fontFamily: 'JetBrains Mono, monospace'
-                        }}>
+                        <div
+                          style={{
+                            color: layer.enabled ? 'var(--accent-amber)' : 'var(--text-primary)',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            fontFamily: 'JetBrains Mono, monospace',
+                          }}
+                        >
                           {layer.name}
                         </div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                          {layer.description}
-                        </div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>{layer.description}</div>
                       </div>
                     </label>
 
                     {layer.enabled && (
-                      <div style={{ paddingLeft: '38px', marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      <div
+                        style={{
+                          paddingLeft: '38px',
+                          marginTop: '10px',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px',
+                        }}
+                      >
                         {/* Sub-Toggles for Tracks and Footprints */}
                         <div style={{ display: 'flex', gap: '15px' }}>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer' }}>
+                          <label
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                            }}
+                          >
                             <input
                               type="checkbox"
                               checked={layer.config?.showTracks !== false}
                               onChange={(e) => handleUpdateLayerConfig(layer.id, { showTracks: e.target.checked })}
-                            /> Track Lines
+                            />{' '}
+                            Track Lines
                           </label>
-                          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '11px', cursor: 'pointer' }}>
+                          <label
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              fontSize: '11px',
+                              cursor: 'pointer',
+                            }}
+                          >
                             <input
                               type="checkbox"
                               checked={layer.config?.showFootprints !== false}
                               onChange={(e) => handleUpdateLayerConfig(layer.id, { showFootprints: e.target.checked })}
-                            /> Footprints
+                            />{' '}
+                            Footprints
                           </label>
                         </div>
                         {/* Lead Time Slider WIP
@@ -2094,16 +2523,18 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             </div>
 
             {/* 2. Existing Satellite Filter Controls */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              marginBottom: '16px',
-              paddingBottom: '12px',
-              borderBottom: '1px solid var(--border-color)'
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: '16px',
+                paddingBottom: '12px',
+                borderBottom: '1px solid var(--border-color)',
+              }}
+            >
               <button
                 onClick={() => {
-                  const allSats = (satellites || []).map(s => s.name);
+                  const allSats = (satellites || []).map((s) => s.name);
                   onSatelliteFiltersChange(allSats);
                 }}
                 style={{
@@ -2114,9 +2545,11 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   padding: '6px 12px',
                   fontSize: '12px',
                   cursor: 'pointer',
-                  fontFamily: 'JetBrains Mono'
+                  fontFamily: 'JetBrains Mono',
                 }}
-              >{t('station.settings.satellites.selectAll')}</button>
+              >
+                {t('station.settings.satellites.selectAll')}
+              </button>
               <button
                 onClick={() => onSatelliteFiltersChange([])}
                 style={{
@@ -2127,16 +2560,20 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   padding: '6px 12px',
                   fontSize: '12px',
                   cursor: 'pointer',
-                  fontFamily: 'JetBrains Mono'
+                  fontFamily: 'JetBrains Mono',
                 }}
-              >{t('station.settings.satellites.clear')}</button>
+              >
+                {t('station.settings.satellites.clear')}
+              </button>
             </div>
 
-            <div style={{
-              fontSize: '11px',
-              color: 'var(--text-muted)',
-              marginBottom: '12px'
-            }}>
+            <div
+              style={{
+                fontSize: '11px',
+                color: 'var(--text-muted)',
+                marginBottom: '12px',
+              }}
+            >
               {satelliteFilters.length === 0
                 ? t('station.settings.satellites.showAll')
                 : t('station.settings.satellites.selectedCount', { count: satelliteFilters.length })}
@@ -2158,7 +2595,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   color: 'var(--text-primary)',
                   fontFamily: 'JetBrains Mono',
                   fontSize: '12px',
-                  outline: 'none'
+                  outline: 'none',
                 }}
               />
               {satelliteSearch && (
@@ -2174,25 +2611,26 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     color: '#ff6666',
                     cursor: 'pointer',
                     fontSize: '16px',
-                    padding: '4px 8px'
+                    padding: '4px 8px',
                   }}
-                >×</button>
+                >
+                  ×
+                </button>
               )}
             </div>
 
             {/* Satellite Grid */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(2, 1fr)',
-              gap: '8px',
-              maxHeight: '400px',
-              overflowY: 'auto'
-            }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '8px',
+                maxHeight: '400px',
+                overflowY: 'auto',
+              }}
+            >
               {(satellites || [])
-                .filter(sat =>
-                  !satelliteSearch ||
-                  sat.name.toLowerCase().includes(satelliteSearch.toLowerCase())
-                )
+                .filter((sat) => !satelliteSearch || sat.name.toLowerCase().includes(satelliteSearch.toLowerCase()))
                 .sort((a, b) => {
                   const aSelected = satelliteFilters.includes(a.name);
                   const bSelected = satelliteFilters.includes(b.name);
@@ -2200,14 +2638,14 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   if (!aSelected && bSelected) return 1;
                   return a.name.localeCompare(b.name);
                 })
-                .map(sat => {
+                .map((sat) => {
                   const isSelected = satelliteFilters.includes(sat.name);
                   return (
                     <button
                       key={sat.name}
                       onClick={() => {
                         if (isSelected) {
-                          onSatelliteFiltersChange(satelliteFilters.filter(n => n !== sat.name));
+                          onSatelliteFiltersChange(satelliteFilters.filter((n) => n !== sat.name));
                         } else {
                           onSatelliteFiltersChange([...satelliteFilters, sat.name]);
                         }
@@ -2224,31 +2662,37 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                         fontSize: '12px',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        gap: '8px',
                       }}
                     >
-                      <span style={{
-                        width: '16px',
-                        height: '16px',
-                        borderRadius: '3px',
-                        border: `2px solid ${isSelected ? '#00ffff' : '#666'}`,
-                        background: isSelected ? '#00ffff' : 'transparent',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        fontSize: '10px',
-                        flexShrink: 0
-                      }}>
+                      <span
+                        style={{
+                          width: '16px',
+                          height: '16px',
+                          borderRadius: '3px',
+                          border: `2px solid ${isSelected ? '#00ffff' : '#666'}`,
+                          background: isSelected ? '#00ffff' : 'transparent',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '10px',
+                          flexShrink: 0,
+                        }}
+                      >
                         {isSelected && '✓'}
                       </span>
                       <div style={{ flex: 1, overflow: 'hidden' }}>
-                        <div style={{
-                          color: isSelected ? '#00ffff' : 'var(--text-primary)',
-                          fontWeight: '600',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
-                        }}>{sat.name}</div>
+                        <div
+                          style={{
+                            color: isSelected ? '#00ffff' : 'var(--text-primary)',
+                            fontWeight: '600',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
+                          {sat.name}
+                        </div>
                       </div>
                     </button>
                   );
@@ -2262,48 +2706,56 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
             {/* Description */}
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
-              Save your current layout, theme, map layers, filters, and all preferences as a named profile.
-              Switch between profiles when sharing a HamClock between operators, or to toggle between your own saved views.
+              Save your current layout, theme, map layers, filters, and all preferences as a named profile. Switch
+              between profiles when sharing a HamClock between operators, or to toggle between your own saved views.
             </div>
 
             {/* Active profile indicator */}
             {activeProfileName && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                background: 'rgba(0, 255, 136, 0.1)',
-                border: '1px solid rgba(0, 255, 136, 0.3)',
-                borderRadius: '6px',
-                fontSize: '12px'
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '8px 12px',
+                  background: 'rgba(0, 255, 136, 0.1)',
+                  border: '1px solid rgba(0, 255, 136, 0.3)',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                }}
+              >
                 <span style={{ color: '#00ff88' }}>●</span>
-                <span style={{ color: 'var(--text-primary)' }}>Active: <strong>{activeProfileName}</strong></span>
+                <span style={{ color: 'var(--text-primary)' }}>
+                  Active: <strong>{activeProfileName}</strong>
+                </span>
               </div>
             )}
 
             {/* Status message */}
             {profileMessage && (
-              <div style={{
-                padding: '8px 12px',
-                background: profileMessage.type === 'error' ? 'rgba(255, 68, 102, 0.1)' : 'rgba(0, 255, 136, 0.1)',
-                border: `1px solid ${profileMessage.type === 'error' ? 'rgba(255, 68, 102, 0.3)' : 'rgba(0, 255, 136, 0.3)'}`,
-                borderRadius: '6px',
-                fontSize: '11px',
-                color: profileMessage.type === 'error' ? '#ff4466' : '#00ff88'
-              }}>
+              <div
+                style={{
+                  padding: '8px 12px',
+                  background: profileMessage.type === 'error' ? 'rgba(255, 68, 102, 0.1)' : 'rgba(0, 255, 136, 0.1)',
+                  border: `1px solid ${profileMessage.type === 'error' ? 'rgba(255, 68, 102, 0.3)' : 'rgba(0, 255, 136, 0.3)'}`,
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  color: profileMessage.type === 'error' ? '#ff4466' : '#00ff88',
+                }}
+              >
                 {profileMessage.text}
               </div>
             )}
 
             {/* Save new profile */}
-            <div style={{
-              padding: '12px',
-              background: 'var(--bg-tertiary)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)'
-            }}>
+            <div
+              style={{
+                padding: '12px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+              }}
+            >
               <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent-amber)', marginBottom: '8px' }}>
                 💾 Save Current State as Profile
               </div>
@@ -2315,7 +2767,8 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && newProfileName.trim()) {
                       const exists = profiles[newProfileName.trim()];
-                      if (exists && !window.confirm(`Profile "${newProfileName.trim()}" already exists. Overwrite?`)) return;
+                      if (exists && !window.confirm(`Profile "${newProfileName.trim()}" already exists. Overwrite?`))
+                        return;
                       saveProfile(newProfileName.trim());
                       setNewProfileName('');
                       refreshProfiles();
@@ -2332,14 +2785,15 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     borderRadius: '4px',
                     color: 'var(--text-primary)',
                     fontSize: '12px',
-                    fontFamily: 'JetBrains Mono, monospace'
+                    fontFamily: 'JetBrains Mono, monospace',
                   }}
                 />
                 <button
                   onClick={() => {
                     if (!newProfileName.trim()) return;
                     const exists = profiles[newProfileName.trim()];
-                    if (exists && !window.confirm(`Profile "${newProfileName.trim()}" already exists. Overwrite?`)) return;
+                    if (exists && !window.confirm(`Profile "${newProfileName.trim()}" already exists. Overwrite?`))
+                      return;
                     saveProfile(newProfileName.trim());
                     setNewProfileName('');
                     refreshProfiles();
@@ -2349,14 +2803,16 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   disabled={!newProfileName.trim()}
                   style={{
                     padding: '8px 16px',
-                    background: newProfileName.trim() ? 'linear-gradient(135deg, #00ff88 0%, #00ddff 100%)' : 'var(--bg-tertiary)',
+                    background: newProfileName.trim()
+                      ? 'linear-gradient(135deg, #00ff88 0%, #00ddff 100%)'
+                      : 'var(--bg-tertiary)',
                     border: 'none',
                     borderRadius: '4px',
                     color: newProfileName.trim() ? '#000' : 'var(--text-muted)',
                     fontSize: '12px',
                     fontWeight: '700',
                     cursor: newProfileName.trim() ? 'pointer' : 'default',
-                    whiteSpace: 'nowrap'
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   Save
@@ -2370,15 +2826,17 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                 📋 Saved Profiles ({Object.keys(profiles).length})
               </div>
               {Object.keys(profiles).length === 0 ? (
-                <div style={{
-                  padding: '20px',
-                  textAlign: 'center',
-                  color: 'var(--text-muted)',
-                  fontSize: '12px',
-                  background: 'var(--bg-tertiary)',
-                  borderRadius: '8px',
-                  border: '1px dashed var(--border-color)'
-                }}>
+                <div
+                  style={{
+                    padding: '20px',
+                    textAlign: 'center',
+                    color: 'var(--text-muted)',
+                    fontSize: '12px',
+                    background: 'var(--bg-tertiary)',
+                    borderRadius: '8px',
+                    border: '1px dashed var(--border-color)',
+                  }}
+                >
                   No saved profiles yet. Save your current configuration above.
                 </div>
               ) : (
@@ -2394,25 +2852,28 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       try {
                         const cfg = profile.snapshot?.openhamclock_config;
                         if (cfg) snapshotCallsign = JSON.parse(cfg).callsign || '';
-                      } catch { }
+                      } catch {}
 
                       // Parse layout type
                       let snapshotLayout = '';
                       try {
                         const cfg = profile.snapshot?.openhamclock_config;
                         if (cfg) snapshotLayout = JSON.parse(cfg).layout || '';
-                      } catch { }
+                      } catch {}
 
                       return (
-                        <div key={name} style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          padding: '10px 12px',
-                          background: isActive ? 'rgba(0, 255, 136, 0.08)' : 'var(--bg-tertiary)',
-                          border: `1px solid ${isActive ? 'rgba(0, 255, 136, 0.3)' : 'var(--border-color)'}`,
-                          borderRadius: '6px',
-                        }}>
+                        <div
+                          key={name}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            padding: '10px 12px',
+                            background: isActive ? 'rgba(0, 255, 136, 0.08)' : 'var(--bg-tertiary)',
+                            border: `1px solid ${isActive ? 'rgba(0, 255, 136, 0.3)' : 'var(--border-color)'}`,
+                            borderRadius: '6px',
+                          }}
+                        >
                           {/* Profile info */}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             {isRenaming ? (
@@ -2425,7 +2886,10 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                                     if (e.key === 'Enter') {
                                       if (renameProfile(name, renameValue)) {
                                         refreshProfiles();
-                                        setProfileMessage({ type: 'success', text: `Renamed to "${renameValue.trim()}"` });
+                                        setProfileMessage({
+                                          type: 'success',
+                                          text: `Renamed to "${renameValue.trim()}"`,
+                                        });
                                       } else {
                                         setProfileMessage({ type: 'error', text: 'Rename failed — name may be taken' });
                                       }
@@ -2443,44 +2907,75 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                                     borderRadius: '3px',
                                     color: 'var(--text-primary)',
                                     fontSize: '12px',
-                                    fontFamily: 'JetBrains Mono, monospace'
+                                    fontFamily: 'JetBrains Mono, monospace',
                                   }}
                                 />
-                                <button onClick={() => {
-                                  if (renameProfile(name, renameValue)) {
-                                    refreshProfiles();
-                                    setProfileMessage({ type: 'success', text: `Renamed to "${renameValue.trim()}"` });
-                                  } else {
-                                    setProfileMessage({ type: 'error', text: 'Rename failed — name may already exist' });
-                                  }
-                                  setRenamingProfile(null);
-                                  setTimeout(() => setProfileMessage(null), 3000);
-                                }} style={{
-                                  padding: '4px 8px', background: 'var(--accent-green)', border: 'none',
-                                  borderRadius: '3px', color: '#000', fontSize: '10px', cursor: 'pointer', fontWeight: '700'
-                                }}>✓</button>
-                                <button onClick={() => setRenamingProfile(null)} style={{
-                                  padding: '4px 8px', background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
-                                  borderRadius: '3px', color: 'var(--text-muted)', fontSize: '10px', cursor: 'pointer'
-                                }}>✕</button>
+                                <button
+                                  onClick={() => {
+                                    if (renameProfile(name, renameValue)) {
+                                      refreshProfiles();
+                                      setProfileMessage({
+                                        type: 'success',
+                                        text: `Renamed to "${renameValue.trim()}"`,
+                                      });
+                                    } else {
+                                      setProfileMessage({
+                                        type: 'error',
+                                        text: 'Rename failed — name may already exist',
+                                      });
+                                    }
+                                    setRenamingProfile(null);
+                                    setTimeout(() => setProfileMessage(null), 3000);
+                                  }}
+                                  style={{
+                                    padding: '4px 8px',
+                                    background: 'var(--accent-green)',
+                                    border: 'none',
+                                    borderRadius: '3px',
+                                    color: '#000',
+                                    fontSize: '10px',
+                                    cursor: 'pointer',
+                                    fontWeight: '700',
+                                  }}
+                                >
+                                  ✓
+                                </button>
+                                <button
+                                  onClick={() => setRenamingProfile(null)}
+                                  style={{
+                                    padding: '4px 8px',
+                                    background: 'var(--bg-primary)',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: '3px',
+                                    color: 'var(--text-muted)',
+                                    fontSize: '10px',
+                                    cursor: 'pointer',
+                                  }}
+                                >
+                                  ✕
+                                </button>
                               </div>
                             ) : (
                               <>
-                                <div style={{
-                                  fontSize: '13px',
-                                  fontWeight: '600',
-                                  color: isActive ? '#00ff88' : 'var(--text-primary)',
-                                  whiteSpace: 'nowrap',
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis'
-                                }}>
+                                <div
+                                  style={{
+                                    fontSize: '13px',
+                                    fontWeight: '600',
+                                    color: isActive ? '#00ff88' : 'var(--text-primary)',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                  }}
+                                >
                                   {isActive && <span style={{ marginRight: '4px' }}>●</span>}
                                   {name}
                                 </div>
                                 <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '2px' }}>
                                   {snapshotCallsign && <span>{snapshotCallsign}</span>}
                                   {snapshotLayout && <span> • {snapshotLayout}</span>}
-                                  {profile.updatedAt && <span> • {new Date(profile.updatedAt).toLocaleDateString()}</span>}
+                                  {profile.updatedAt && (
+                                    <span> • {new Date(profile.updatedAt).toLocaleDateString()}</span>
+                                  )}
                                 </div>
                               </>
                             )}
@@ -2492,7 +2987,11 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                               {/* Load */}
                               <button
                                 onClick={() => {
-                                  if (window.confirm(`Load profile "${name}"? This will replace your current settings and reload.`)) {
+                                  if (
+                                    window.confirm(
+                                      `Load profile "${name}"? This will replace your current settings and reload.`,
+                                    )
+                                  ) {
                                     loadProfile(name);
                                     window.location.reload();
                                   }
@@ -2506,7 +3005,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                                   color: isActive ? '#00ff88' : 'var(--text-secondary)',
                                   fontSize: '11px',
                                   cursor: 'pointer',
-                                  fontWeight: '600'
+                                  fontWeight: '600',
                                 }}
                               >
                                 {isActive ? '✓ Active' : '▶ Load'}
@@ -2527,12 +3026,17 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                                   borderRadius: '4px',
                                   color: 'var(--text-muted)',
                                   fontSize: '11px',
-                                  cursor: 'pointer'
+                                  cursor: 'pointer',
                                 }}
-                              >↻</button>
+                              >
+                                ↻
+                              </button>
                               {/* Rename */}
                               <button
-                                onClick={() => { setRenamingProfile(name); setRenameValue(name); }}
+                                onClick={() => {
+                                  setRenamingProfile(name);
+                                  setRenameValue(name);
+                                }}
                                 title="Rename"
                                 style={{
                                   padding: '5px 8px',
@@ -2541,9 +3045,11 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                                   borderRadius: '4px',
                                   color: 'var(--text-muted)',
                                   fontSize: '11px',
-                                  cursor: 'pointer'
+                                  cursor: 'pointer',
                                 }}
-                              >✎</button>
+                              >
+                                ✎
+                              </button>
                               {/* Export */}
                               <button
                                 onClick={() => {
@@ -2553,7 +3059,12 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                                     const url = URL.createObjectURL(blob);
                                     const a = document.createElement('a');
                                     a.href = url;
-                                    a.download = `hamclock-profile-${name.replace(/\s+/g, '-').toLowerCase()}.json`;
+                                    a.download = (() => {
+                                      const now = new Date();
+                                      const date = now.toISOString().split('T')[0];
+                                      const time = now.toTimeString().slice(0, 8).replace(/:/g, '');
+                                      return `hamclock-profile-${name.replace(/\s+/g, '-').toLowerCase()}-${date}-${time}.json`;
+                                    })();
                                     a.click();
                                     URL.revokeObjectURL(url);
                                     setProfileMessage({ type: 'success', text: `Exported "${name}"` });
@@ -2568,9 +3079,11 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                                   borderRadius: '4px',
                                   color: 'var(--text-muted)',
                                   fontSize: '11px',
-                                  cursor: 'pointer'
+                                  cursor: 'pointer',
                                 }}
-                              >⤓</button>
+                              >
+                                ⤓
+                              </button>
                               {/* Delete */}
                               <button
                                 onClick={() => {
@@ -2589,9 +3102,11 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                                   borderRadius: '4px',
                                   color: '#ff4466',
                                   fontSize: '11px',
-                                  cursor: 'pointer'
+                                  cursor: 'pointer',
                                 }}
-                              >✕</button>
+                              >
+                                ✕
+                              </button>
                             </div>
                           )}
                         </div>
@@ -2602,36 +3117,81 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             </div>
 
             {/* QRZ.com XML API Credentials */}
-            <div style={{
-              padding: '12px',
-              background: 'var(--bg-tertiary)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              marginBottom: '12px'
-            }}>
-              <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent-amber)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div
+              style={{
+                padding: '12px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                marginBottom: '12px',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '12px',
+                  fontWeight: '600',
+                  color: 'var(--accent-amber)',
+                  marginBottom: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}
+              >
                 <span>📡 QRZ.com Callsign Lookup</span>
                 {qrzStatus?.configured && (
-                  <span style={{
-                    fontSize: '10px', fontWeight: '500', padding: '1px 6px', borderRadius: '3px',
-                    background: qrzStatus.hasSession ? 'rgba(46, 204, 113, 0.15)' : 'rgba(241, 196, 15, 0.15)',
-                    color: qrzStatus.hasSession ? '#2ecc71' : '#f1c40f'
-                  }}>
+                  <span
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: '500',
+                      padding: '1px 6px',
+                      borderRadius: '3px',
+                      background: qrzStatus.hasSession ? 'rgba(46, 204, 113, 0.15)' : 'rgba(241, 196, 15, 0.15)',
+                      color: qrzStatus.hasSession ? '#2ecc71' : '#f1c40f',
+                    }}
+                  >
                     {qrzStatus.hasSession ? '● Connected' : '○ Configured'}
                     {qrzStatus.source === 'env' ? ' (env)' : ''}
                   </span>
                 )}
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.4 }}>
-                Enables precise station locations from <a href="https://www.qrz.com/i/subscriptions.html" target="_blank" rel="noopener" style={{ color: 'var(--accent-blue)' }}>QRZ.com</a> user
-                profiles (user-supplied coordinates, geocoded addresses, grid squares).
-                Without this, locations fall back to HamQTH (country-level only).
-                Requires a QRZ Logbook Data subscription.
+                Enables precise station locations from{' '}
+                <a
+                  href="https://www.qrz.com/i/subscriptions.html"
+                  target="_blank"
+                  rel="noopener"
+                  style={{ color: 'var(--accent-blue)' }}
+                >
+                  QRZ.com
+                </a>{' '}
+                user profiles (user-supplied coordinates, geocoded addresses, grid squares). Without this, locations
+                fall back to HamQTH (country-level only). Requires a QRZ Logbook Data subscription.
               </div>
               {qrzStatus?.source === 'env' ? (
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '8px', background: 'var(--bg-primary)', borderRadius: '4px' }}>
-                  ✓ Credentials configured via <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: '2px' }}>QRZ_USERNAME</code> / <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: '2px' }}>QRZ_PASSWORD</code> in .env file
-                  {qrzStatus.lookupCount > 0 && <span style={{ color: 'var(--accent-green)' }}> — {qrzStatus.lookupCount} lookups this session</span>}
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                    padding: '8px',
+                    background: 'var(--bg-primary)',
+                    borderRadius: '4px',
+                  }}
+                >
+                  ✓ Credentials configured via{' '}
+                  <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: '2px' }}>
+                    QRZ_USERNAME
+                  </code>{' '}
+                  /{' '}
+                  <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: '2px' }}>
+                    QRZ_PASSWORD
+                  </code>{' '}
+                  in .env file
+                  {qrzStatus.lookupCount > 0 && (
+                    <span style={{ color: 'var(--accent-green)' }}>
+                      {' '}
+                      — {qrzStatus.lookupCount} lookups this session
+                    </span>
+                  )}
                 </div>
               ) : (
                 <>
@@ -2642,10 +3202,15 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       value={qrzUsername}
                       onChange={(e) => setQrzUsername(e.target.value)}
                       style={{
-                        flex: 1, padding: '8px 12px', background: 'var(--bg-primary)',
-                        border: '1px solid var(--border-color)', borderRadius: '4px',
-                        color: 'var(--text-primary)', fontSize: '12px', fontFamily: 'JetBrains Mono, monospace',
-                        boxSizing: 'border-box'
+                        flex: 1,
+                        padding: '8px 12px',
+                        background: 'var(--bg-primary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '4px',
+                        color: 'var(--text-primary)',
+                        fontSize: '12px',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        boxSizing: 'border-box',
                       }}
                     />
                     <input
@@ -2654,10 +3219,15 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       value={qrzPassword}
                       onChange={(e) => setQrzPassword(e.target.value)}
                       style={{
-                        flex: 1, padding: '8px 12px', background: 'var(--bg-primary)',
-                        border: '1px solid var(--border-color)', borderRadius: '4px',
-                        color: 'var(--text-primary)', fontSize: '12px', fontFamily: 'JetBrains Mono, monospace',
-                        boxSizing: 'border-box'
+                        flex: 1,
+                        padding: '8px 12px',
+                        background: 'var(--bg-primary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '4px',
+                        color: 'var(--text-primary)',
+                        fontSize: '12px',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        boxSizing: 'border-box',
                       }}
                     />
                   </div>
@@ -2671,14 +3241,14 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                           const res = await fetch('/api/qrz/configure', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: qrzUsername.trim(), password: qrzPassword.trim() })
+                            body: JSON.stringify({ username: qrzUsername.trim(), password: qrzPassword.trim() }),
                           });
                           const data = await res.json();
                           if (data.success) {
                             setQrzMessage({ type: 'success', text: 'Connected to QRZ.com successfully!' });
                             setQrzPassword('');
                             // Refresh status
-                            const st = await fetch('/api/qrz/status').then(r => r.json());
+                            const st = await fetch('/api/qrz/status').then((r) => r.json());
                             setQrzStatus(st);
                           } else {
                             setQrzMessage({ type: 'error', text: data.error || 'Login failed' });
@@ -2689,9 +3259,15 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                         setQrzTesting(false);
                       }}
                       style={{
-                        padding: '6px 14px', fontSize: '11px', fontWeight: '600', borderRadius: '4px',
-                        border: 'none', cursor: (qrzTesting || !qrzUsername.trim() || !qrzPassword.trim()) ? 'not-allowed' : 'pointer',
-                        background: 'var(--accent-amber)', color: '#000', opacity: (qrzTesting || !qrzUsername.trim() || !qrzPassword.trim()) ? 0.5 : 1
+                        padding: '6px 14px',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        borderRadius: '4px',
+                        border: 'none',
+                        cursor: qrzTesting || !qrzUsername.trim() || !qrzPassword.trim() ? 'not-allowed' : 'pointer',
+                        background: 'var(--accent-amber)',
+                        color: '#000',
+                        opacity: qrzTesting || !qrzUsername.trim() || !qrzPassword.trim() ? 0.5 : 1,
                       }}
                     >
                       {qrzTesting ? 'Testing...' : 'Save & Test'}
@@ -2703,13 +3279,17 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                           setQrzUsername('');
                           setQrzPassword('');
                           setQrzMessage(null);
-                          const st = await fetch('/api/qrz/status').then(r => r.json());
+                          const st = await fetch('/api/qrz/status').then((r) => r.json());
                           setQrzStatus(st);
                         }}
                         style={{
-                          padding: '6px 12px', fontSize: '11px', borderRadius: '4px',
-                          border: '1px solid var(--border-color)', cursor: 'pointer',
-                          background: 'transparent', color: 'var(--text-muted)'
+                          padding: '6px 12px',
+                          fontSize: '11px',
+                          borderRadius: '4px',
+                          border: '1px solid var(--border-color)',
+                          cursor: 'pointer',
+                          background: 'transparent',
+                          color: 'var(--text-muted)',
                         }}
                       >
                         Remove
@@ -2722,11 +3302,17 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     )}
                   </div>
                   {qrzMessage && (
-                    <div style={{
-                      marginTop: '6px', fontSize: '11px', padding: '6px 10px', borderRadius: '4px',
-                      background: qrzMessage.type === 'success' ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)',
-                      color: qrzMessage.type === 'success' ? '#2ecc71' : '#e74c3c'
-                    }}>
+                    <div
+                      style={{
+                        marginTop: '6px',
+                        fontSize: '11px',
+                        padding: '6px 10px',
+                        borderRadius: '4px',
+                        background:
+                          qrzMessage.type === 'success' ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)',
+                        color: qrzMessage.type === 'success' ? '#2ecc71' : '#e74c3c',
+                      }}
+                    >
                       {qrzMessage.type === 'success' ? '✓' : '✗'} {qrzMessage.text}
                     </div>
                   )}
@@ -2735,31 +3321,51 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             </div>
 
             {/* Open-Meteo API Key (optional) */}
-            <div style={{
-              padding: '12px',
-              background: 'var(--bg-tertiary)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)',
-              marginBottom: '12px'
-            }}>
+            <div
+              style={{
+                padding: '12px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+                marginBottom: '12px',
+              }}
+            >
               <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent-amber)', marginBottom: '8px' }}>
-                🌡️ Open-Meteo API Key <span style={{ color: 'var(--text-muted)', fontWeight: '400', fontSize: '11px' }}>(optional)</span>
+                🌡️ Open-Meteo API Key{' '}
+                <span style={{ color: 'var(--text-muted)', fontWeight: '400', fontSize: '11px' }}>(optional)</span>
               </div>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.4 }}>
-                Weather data is provided by Open-Meteo's free API. For higher rate limits or commercial use,
-                enter your API key from <a href="https://open-meteo.com/en/pricing" target="_blank" rel="noopener" style={{ color: 'var(--accent-blue)' }}>open-meteo.com</a>.
-                Leave blank for the free tier.
+                Weather data is provided by Open-Meteo's free API. For higher rate limits or commercial use, enter your
+                API key from{' '}
+                <a
+                  href="https://open-meteo.com/en/pricing"
+                  target="_blank"
+                  rel="noopener"
+                  style={{ color: 'var(--accent-blue)' }}
+                >
+                  open-meteo.com
+                </a>
+                . Leave blank for the free tier.
               </div>
               <input
                 type="text"
                 placeholder="Free tier (no key needed)"
-                defaultValue={(() => { try { return localStorage.getItem('ohc_openmeteo_apikey') || ''; } catch { return ''; } })()}
+                defaultValue={(() => {
+                  try {
+                    return localStorage.getItem('ohc_openmeteo_apikey') || '';
+                  } catch {
+                    return '';
+                  }
+                })()}
                 onChange={(e) => {
                   try {
                     const val = e.target.value.trim();
-                    if (val) { localStorage.setItem('ohc_openmeteo_apikey', val); }
-                    else { localStorage.removeItem('ohc_openmeteo_apikey'); }
-                  } catch { }
+                    if (val) {
+                      localStorage.setItem('ohc_openmeteo_apikey', val);
+                    } else {
+                      localStorage.removeItem('ohc_openmeteo_apikey');
+                    }
+                  } catch {}
                 }}
                 style={{
                   width: '100%',
@@ -2770,18 +3376,20 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                   color: 'var(--text-primary)',
                   fontSize: '12px',
                   fontFamily: 'JetBrains Mono, monospace',
-                  boxSizing: 'border-box'
+                  boxSizing: 'border-box',
                 }}
               />
             </div>
 
             {/* Import / Export section */}
-            <div style={{
-              padding: '12px',
-              background: 'var(--bg-tertiary)',
-              borderRadius: '8px',
-              border: '1px solid var(--border-color)'
-            }}>
+            <div
+              style={{
+                padding: '12px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '8px',
+                border: '1px solid var(--border-color)',
+              }}
+            >
               <div style={{ fontSize: '12px', fontWeight: '600', color: 'var(--accent-amber)', marginBottom: '8px' }}>
                 📦 Import / Export
               </div>
@@ -2819,7 +3427,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     color: 'var(--text-secondary)',
                     fontSize: '11px',
                     cursor: 'pointer',
-                    fontWeight: '600'
+                    fontWeight: '600',
                   }}
                 >
                   ⤒ Import Profile from File
@@ -2831,7 +3439,12 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `hamclock-current-${new Date().toISOString().split('T')[0]}.json`;
+                    a.download = (() => {
+                      const now = new Date();
+                      const date = now.toISOString().split('T')[0];
+                      const time = now.toTimeString().slice(0, 8).replace(/:/g, '');
+                      return `hamclock-current-${date}-${time}.json`;
+                    })();
                     a.click();
                     URL.revokeObjectURL(url);
                     setProfileMessage({ type: 'success', text: 'Exported current state' });
@@ -2845,14 +3458,15 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                     color: 'var(--text-secondary)',
                     fontSize: '11px',
                     cursor: 'pointer',
-                    fontWeight: '600'
+                    fontWeight: '600',
                   }}
                 >
                   ⤓ Export Current State
                 </button>
               </div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '8px' }}>
-                Share profile files between devices or operators. Exported files contain all settings, layout preferences, map layers, and filter configurations.
+                Share profile files between devices or operators. Exported files contain all settings, layout
+                preferences, map layers, and filter configurations.
               </div>
             </div>
           </div>
@@ -2864,60 +3478,154 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
             <p style={{ fontSize: '13px', color: 'var(--text-secondary)', marginBottom: '8px' }}>
               Join the OpenHamClock community — report bugs, request features, and connect with other operators.
             </p>
-            <a href="https://github.com/accius/openhamclock" target="_blank" rel="noopener noreferrer" style={{
-              display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
-              background: 'var(--bg-tertiary)', borderRadius: '8px', textDecoration: 'none',
-              color: 'var(--text-primary)', border: '1px solid transparent', transition: 'border-color 0.2s'
-            }} onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
-               onMouseOut={e => e.currentTarget.style.borderColor = 'transparent'}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            <a
+              href="https://github.com/accius/openhamclock"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '14px 16px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                color: 'var(--text-primary)',
+                border: '1px solid transparent',
+                transition: 'border-color 0.2s',
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--border-color)')}
+              onMouseOut={(e) => (e.currentTarget.style.borderColor = 'transparent')}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+              </svg>
               <div>
                 <div style={{ fontWeight: 600, fontSize: '14px' }}>GitHub</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Source code, issues & releases</div>
               </div>
             </a>
-            <a href="https://www.facebook.com/groups/1217043013897440" target="_blank" rel="noopener noreferrer" style={{
-              display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
-              background: 'var(--bg-tertiary)', borderRadius: '8px', textDecoration: 'none',
-              color: 'var(--text-primary)', border: '1px solid transparent', transition: 'border-color 0.2s'
-            }} onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
-               onMouseOut={e => e.currentTarget.style.borderColor = 'transparent'}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="#1877F2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+            <a
+              href="https://www.facebook.com/groups/1217043013897440"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '14px 16px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                color: 'var(--text-primary)',
+                border: '1px solid transparent',
+                transition: 'border-color 0.2s',
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--border-color)')}
+              onMouseOut={(e) => (e.currentTarget.style.borderColor = 'transparent')}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="#1877F2">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
               <div>
                 <div style={{ fontWeight: 600, fontSize: '14px' }}>Facebook Group</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Community discussion & help</div>
               </div>
             </a>
-            <a href="https://www.reddit.com/r/OpenHamClock/" target="_blank" rel="noopener noreferrer" style={{
-              display: 'flex', alignItems: 'center', gap: '12px', padding: '14px 16px',
-              background: 'var(--bg-tertiary)', borderRadius: '8px', textDecoration: 'none',
-              color: 'var(--text-primary)', border: '1px solid transparent', transition: 'border-color 0.2s'
-            }} onMouseOver={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
-               onMouseOut={e => e.currentTarget.style.borderColor = 'transparent'}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="#FF4500"><path d="M12 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 01-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 01.042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 014.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 01.14-.197.35.35 0 01.238-.042l2.906.617a1.214 1.214 0 011.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 00-.231.094.33.33 0 000 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 000-.463.327.327 0 00-.462 0c-.545.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 00-.205-.094z"/></svg>
+            <a
+              href="https://www.reddit.com/r/OpenHamClock/"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '14px 16px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '8px',
+                textDecoration: 'none',
+                color: 'var(--text-primary)',
+                border: '1px solid transparent',
+                transition: 'border-color 0.2s',
+              }}
+              onMouseOver={(e) => (e.currentTarget.style.borderColor = 'var(--border-color)')}
+              onMouseOut={(e) => (e.currentTarget.style.borderColor = 'transparent')}
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="#FF4500">
+                <path d="M12 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 01-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 01.042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 014.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 01.14-.197.35.35 0 01.238-.042l2.906.617a1.214 1.214 0 011.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 00-.231.094.33.33 0 000 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 000-.463.327.327 0 00-.462 0c-.545.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 00-.205-.094z" />
+              </svg>
               <div>
                 <div style={{ fontWeight: 600, fontSize: '14px' }}>Reddit</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>r/OpenHamClock</div>
               </div>
             </a>
-            <div style={{ marginTop: '16px', padding: '14px 16px', background: 'var(--bg-tertiary)', borderRadius: '8px', textAlign: 'center' }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent-amber)' }}>Created by Chris Hetherington — K0CJH</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.5' }}>Built with the help of an amazing community of amateur radio operators contributing features, reporting bugs, and making OpenHamClock better every day.</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>K0CJH / openhamclock.com</div>
+            <div
+              style={{
+                marginTop: '16px',
+                padding: '14px 16px',
+                background: 'var(--bg-tertiary)',
+                borderRadius: '8px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--accent-amber)' }}>
+                Created by Chris Hetherington — K0CJH
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '6px', lineHeight: '1.5' }}>
+                Built with the help of an amazing community of amateur radio operators contributing features, reporting
+                bugs, and making OpenHamClock better every day.
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                K0CJH / openhamclock.com
+              </div>
             </div>
 
             {/* Contributors */}
-            <div style={{ marginTop: '12px', padding: '14px 16px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
-              <div style={{ fontSize: '12px', color: 'var(--accent-amber)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '10px', textAlign: 'center' }}>Contributors</div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '10px' }}>Thank you to everyone who has contributed code, features, bug fixes, and ideas.</div>
+            <div
+              style={{ marginTop: '12px', padding: '14px 16px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}
+            >
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--accent-amber)',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  marginBottom: '10px',
+                  textAlign: 'center',
+                }}
+              >
+                Contributors
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', textAlign: 'center', marginBottom: '10px' }}>
+                Thank you to everyone who has contributed code, features, bug fixes, and ideas.
+              </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', justifyContent: 'center' }}>
                 {[
-                  'creinemann', 'ceotjoe', 'alanhargreaves', 'dmazan', 'Delerius',
-                  'rfreedman', 'SebFox2011', 'infopcgood', 'thomas-schreck', 'echo-gravitas',
-                  'yuryja', 'Holyszewski', 'trancen', 'ThePangel', 'w8mej',
-                  'JoshuaNewport', 'denete', 'kmanwar89', 'KentenRoth', 's53zo',
-                  'theodeurne76', 'm1dst', 'brianbruff'
-                ].map(name => (
+                  'creinemann',
+                  'ceotjoe',
+                  'alanhargreaves',
+                  'dmazan',
+                  'Delerius',
+                  'rfreedman',
+                  'SebFox2011',
+                  'infopcgood',
+                  'thomas-schreck',
+                  'echo-gravitas',
+                  'yuryja',
+                  'Holyszewski',
+                  'trancen',
+                  'ThePangel',
+                  'w8mej',
+                  'JoshuaNewport',
+                  'denete',
+                  'kmanwar89',
+                  'KentenRoth',
+                  's53zo',
+                  'theodeurne76',
+                  'm1dst',
+                  'brianbruff',
+                ].map((name) => (
                   <a
                     key={name}
                     href={`https://github.com/${name}`}
@@ -2935,8 +3643,14 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
                       border: '1px solid transparent',
                       transition: 'all 0.15s',
                     }}
-                    onMouseOver={e => { e.currentTarget.style.borderColor = 'var(--accent-cyan)'; e.currentTarget.style.color = 'var(--accent-cyan)'; }}
-                    onMouseOut={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.color = 'var(--text-secondary)'; }}
+                    onMouseOver={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--accent-cyan)';
+                      e.currentTarget.style.color = 'var(--accent-cyan)';
+                    }}
+                    onMouseOut={(e) => {
+                      e.currentTarget.style.borderColor = 'transparent';
+                      e.currentTarget.style.color = 'var(--text-secondary)';
+                    }}
                   >
                     {name}
                   </a>
@@ -2960,7 +3674,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               borderRadius: '6px',
               color: 'var(--text-secondary)',
               fontSize: '14px',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             {t('cancel')}
@@ -2975,7 +3689,7 @@ export const SettingsPanel = ({ isOpen, onClose, config, onSave, onResetLayout, 
               color: '#000',
               fontSize: '14px',
               fontWeight: '700',
-              cursor: 'pointer'
+              cursor: 'pointer',
             }}
           >
             {t('station.settings.button.save')}

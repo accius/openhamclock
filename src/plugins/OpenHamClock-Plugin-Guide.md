@@ -77,6 +77,7 @@ Plugin adds/removes/updates Leaflet layers on map
 ### Integration Points
 
 **WorldMap.jsx** (3 small additions):
+
 1. Import `getAllLayers` from registry
 2. Add `pluginLayersRef` and `pluginLayerStates` state
 3. Render `<PluginLayer>` components in JSX
@@ -104,7 +105,7 @@ export const metadata = {
   category: 'custom',
   defaultEnabled: false,
   defaultOpacity: 0.7,
-  version: '1.0.0'
+  version: '1.0.0',
 };
 
 export function useLayer({ enabled, opacity, map }) {
@@ -116,7 +117,7 @@ export function useLayer({ enabled, opacity, map }) {
     if (enabled && !layerRef) {
       // Add your layer
       const layer = L.tileLayer('https://example.com/{z}/{x}/{y}.png', {
-        opacity: opacity
+        opacity: opacity,
       });
       layer.addTo(map);
       setLayerRef(layer);
@@ -148,7 +149,7 @@ import * as MyLayerPlugin from './layers/useMyLayer.js';
 const layerPlugins = [
   WXRadarPlugin,
   EarthquakesPlugin,
-  MyLayerPlugin,  // ← Add your plugin here
+  MyLayerPlugin, // ← Add your plugin here
 ];
 ```
 
@@ -183,7 +184,7 @@ export const metadata = {
   category: 'weather',
   defaultEnabled: false,
   defaultOpacity: 0.8,
-  version: '1.0.0'
+  version: '1.0.0',
 };
 
 export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
@@ -196,9 +197,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
 
     const fetchStrikes = async () => {
       try {
-        const response = await fetch(
-          'https://api.example.com/lightning?minutes=30'
-        );
+        const response = await fetch('https://api.example.com/lightning?minutes=30');
         const data = await response.json();
         setStrikes(data.strikes || []);
       } catch (err) {
@@ -207,7 +206,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
     };
 
     fetchStrikes();
-    
+
     // Refresh every 1 minute
     const interval = setInterval(fetchStrikes, 60000);
     return () => clearInterval(interval);
@@ -218,7 +217,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
     if (!map || typeof L === 'undefined') return;
 
     // Clear old markers
-    markers.forEach(m => {
+    markers.forEach((m) => {
       try {
         map.removeLayer(m);
       } catch (e) {
@@ -231,7 +230,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
 
     const newMarkers = [];
 
-    strikes.forEach(strike => {
+    strikes.forEach((strike) => {
       // Create marker
       const marker = L.circleMarker([strike.lat, strike.lon], {
         radius: 6,
@@ -239,7 +238,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
         color: '#ff6600',
         weight: 2,
         fillOpacity: opacity,
-        opacity: opacity
+        opacity: opacity,
       });
 
       // Add popup
@@ -257,7 +256,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
     setMarkers(newMarkers);
 
     return () => {
-      newMarkers.forEach(m => {
+      newMarkers.forEach((m) => {
         try {
           map.removeLayer(m);
         } catch (e) {
@@ -269,7 +268,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
 
   return {
     markers,
-    strikeCount: strikes.length
+    strikeCount: strikes.length,
   };
 }
 ```
@@ -299,17 +298,14 @@ export function useLayer({ enabled, opacity, map }) {
 
     if (enabled && !layerRef) {
       // WMS tile layer
-      const layer = L.tileLayer.wms(
-        'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi',
-        {
-          layers: 'nexrad-n0r-900913',
-          format: 'image/png',
-          transparent: true,
-          opacity: opacity,
-          zIndex: 200,
-          attribution: '© Data Provider'
-        }
-      );
+      const layer = L.tileLayer.wms('https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi', {
+        layers: 'nexrad-n0r-900913',
+        format: 'image/png',
+        transparent: true,
+        opacity: opacity,
+        zIndex: 200,
+        attribution: '© Data Provider',
+      });
       layer.addTo(map);
       setLayerRef(layer);
     } else if (!enabled && layerRef) {
@@ -365,21 +361,21 @@ export function useLayer({ enabled, opacity, map }) {
     if (!map || typeof L === 'undefined') return;
 
     // Clear old
-    markers.forEach(m => map.removeLayer(m));
+    markers.forEach((m) => map.removeLayer(m));
     setMarkers([]);
 
     if (!enabled || data.length === 0) return;
 
     const newMarkers = [];
 
-    data.forEach(point => {
+    data.forEach((point) => {
       const marker = L.circleMarker([point.lat, point.lon], {
         radius: 8,
         fillColor: point.color || '#ff0000',
         color: '#fff',
         weight: 2,
         fillOpacity: opacity,
-        opacity: opacity
+        opacity: opacity,
       });
 
       marker.bindPopup(`
@@ -394,7 +390,7 @@ export function useLayer({ enabled, opacity, map }) {
     setMarkers(newMarkers);
 
     return () => {
-      newMarkers.forEach(m => map.removeLayer(m));
+      newMarkers.forEach((m) => map.removeLayer(m));
     };
   }, [enabled, data, map, opacity]);
 
@@ -416,7 +412,7 @@ export function useLayer({ enabled, opacity, map }) {
     if (!enabled) return;
 
     fetch('https://api.example.com/boundaries.geojson')
-      .then(r => r.json())
+      .then((r) => r.json())
       .then(setGeoData);
   }, [enabled]);
 
@@ -434,13 +430,13 @@ export function useLayer({ enabled, opacity, map }) {
           color: '#0000ff',
           weight: 2,
           opacity: opacity,
-          fillOpacity: opacity * 0.3
+          fillOpacity: opacity * 0.3,
         },
         onEachFeature: (feature, layer) => {
           if (feature.properties.name) {
             layer.bindPopup(`<b>${feature.properties.name}</b>`);
           }
-        }
+        },
       });
       layer.addTo(map);
       setLayerRef(layer);
@@ -467,7 +463,7 @@ export function useLayer({ enabled, opacity, map }) {
 useEffect(() => {
   // ✅ GOOD: Check before using
   if (!map || typeof L === 'undefined') return;
-  
+
   // Now safe to use map and L
   const layer = L.marker([...]).addTo(map);
 }, [map]);
@@ -485,7 +481,7 @@ useEffect(() => {
 ```javascript
 useEffect(() => {
   const layer = L.marker([...]).addTo(map);
-  
+
   // ✅ GOOD: Cleanup function
   return () => {
     if (layer && map) {
@@ -514,7 +510,7 @@ useEffect(() => {
       console.error('Plugin data error:', err);
     }
   };
-  
+
   if (enabled) fetchData();
 }, [enabled]);
 ```
@@ -524,14 +520,14 @@ useEffect(() => {
 ```javascript
 useEffect(() => {
   if (!enabled) return;
-  
+
   const interval = setInterval(fetchData, 60000);
   const markers = [];
-  
+
   // ✅ GOOD: Clean up intervals and markers
   return () => {
     clearInterval(interval);
-    markers.forEach(m => map.removeLayer(m));
+    markers.forEach((m) => map.removeLayer(m));
   };
 }, [enabled]);
 ```
@@ -574,32 +570,35 @@ const markers = data.map(createMarker); // data has 50000 items
 
 ```javascript
 // Check plugin registration
-window.hamclockLayerControls.layers
+window.hamclockLayerControls.layers;
 
 // Check localStorage
-JSON.parse(localStorage.getItem('openhamclock_mapSettings')).layers
+JSON.parse(localStorage.getItem('openhamclock_mapSettings')).layers;
 
 // Manually toggle (for debugging)
-window.hamclockLayerControls.toggleLayer('mylayer', true)
+window.hamclockLayerControls.toggleLayer('mylayer', true);
 
 // Check layer state
-window.hamclockLayerControls.layers.find(l => l.id === 'mylayer')
+window.hamclockLayerControls.layers.find((l) => l.id === 'mylayer');
 ```
 
 ### Common Test Scenarios
 
 **Test 1: Fresh Install**
+
 1. Clear localStorage: `localStorage.clear()`
 2. Refresh page
 3. Plugin should be at defaultEnabled state
 4. Toggle on/off should work
 
 **Test 2: State Persistence**
+
 1. Enable plugin, set opacity to 50%
 2. Refresh page (F5)
 3. Plugin should still be enabled at 50% opacity
 
 **Test 3: Multiple Plugins**
+
 1. Enable weather radar
 2. Enable earthquakes
 3. Both should display simultaneously
@@ -612,32 +611,34 @@ window.hamclockLayerControls.layers.find(l => l.id === 'mylayer')
 ### Problem: Layer doesn't appear when enabled
 
 **Possible Causes:**
+
 - Map instance not ready
 - Leaflet not loaded
 - API/data fetch failed
 - Invalid coordinates
 
 **Solution:**
+
 ```javascript
 useEffect(() => {
   // Add debug logging
   console.log('Plugin state:', { enabled, map, data: data.length });
-  
+
   if (!map) {
     console.warn('Map not ready');
     return;
   }
-  
+
   if (typeof L === 'undefined') {
     console.error('Leaflet not loaded');
     return;
   }
-  
+
   if (data.length === 0) {
     console.warn('No data to display');
     return;
   }
-  
+
   // Continue with rendering...
 }, [enabled, map, data]);
 ```
@@ -647,17 +648,18 @@ useEffect(() => {
 **Cause:** Missing cleanup or not checking enabled state
 
 **Solution:**
+
 ```javascript
 useEffect(() => {
   if (!map) return;
-  
+
   // Remove layer if disabled
   if (!enabled && layerRef) {
     map.removeLayer(layerRef);
     setLayerRef(null);
     return; // Exit early
   }
-  
+
   // Only add if enabled
   if (enabled && !layerRef) {
     const layer = createLayer();
@@ -671,14 +673,13 @@ useEffect(() => {
 **Cause:** localStorage not saving correctly
 
 **Solution:**
+
 ```javascript
 // Check if data is being saved
 window.hamclockLayerControls.toggleLayer('mylayer', true);
 
 // Then check localStorage
-console.log(
-  JSON.parse(localStorage.getItem('openhamclock_mapSettings')).layers
-);
+console.log(JSON.parse(localStorage.getItem('openhamclock_mapSettings')).layers);
 
 // Should show: { mylayer: { enabled: true, opacity: 0.7 } }
 ```
@@ -686,11 +687,13 @@ console.log(
 ### Problem: Plugin not in Settings panel
 
 **Causes:**
+
 1. Not registered in layerRegistry.js
 2. Missing metadata export
 3. Syntax error in plugin file
 
 **Solution:**
+
 ```bash
 # Check for syntax errors
 npm run dev
@@ -708,6 +711,7 @@ grep -n "export const metadata" src/plugins/layers/useMyLayer.js
 **Cause:** Calling state setter during render
 
 **Solution:**
+
 ```javascript
 // ❌ BAD: State update during render
 if (enabled && !layerRef) {
@@ -740,8 +744,8 @@ export function useLayer({ enabled, opacity, map }) {
     // Create custom control
     const RefreshControl = L.Control.extend({
       options: { position: 'topright' },
-      
-      onAdd: function(map) {
+
+      onAdd: function (map) {
         const container = L.DomUtil.create('div', 'leaflet-bar');
         const button = L.DomUtil.create('a', '', container);
         button.innerHTML = '🔄';
@@ -749,14 +753,14 @@ export function useLayer({ enabled, opacity, map }) {
         button.style.cursor = 'pointer';
         button.style.padding = '5px 10px';
         button.style.background = '#fff';
-        
-        button.onclick = function(e) {
+
+        button.onclick = function (e) {
           e.preventDefault();
           fetchData(); // Trigger refresh
         };
-        
+
         return container;
-      }
+      },
     });
 
     const control = new RefreshControl();
@@ -793,13 +797,13 @@ const createCustomIcon = (color, label) => {
       </div>
     `,
     iconSize: null,
-    iconAnchor: [0, 0]
+    iconAnchor: [0, 0],
   });
 };
 
 // Usage
 const marker = L.marker([lat, lon], {
-  icon: createCustomIcon('#ff0000', 'ALERT')
+  icon: createCustomIcon('#ff0000', 'ALERT'),
 });
 ```
 
@@ -818,21 +822,21 @@ export function useLayer({ enabled, opacity, map }) {
 
     let animationFrame;
     const targetOpacity = enabled ? opacity : 0;
-    
+
     const animate = () => {
-      setCurrentOpacity(prev => {
+      setCurrentOpacity((prev) => {
         const diff = targetOpacity - prev;
         if (Math.abs(diff) < 0.01) return targetOpacity;
         return prev + diff * 0.1; // Ease towards target
       });
-      
+
       if (Math.abs(currentOpacity - targetOpacity) > 0.01) {
         animationFrame = requestAnimationFrame(animate);
       }
     };
-    
+
     animate();
-    
+
     return () => {
       if (animationFrame) cancelAnimationFrame(animationFrame);
     };
@@ -857,14 +861,14 @@ export function useLayer({ enabled, opacity, map }) {
 
 ```typescript
 export const metadata: {
-  id: string;              // Unique identifier (lowercase, no spaces)
-  name: string;            // Display name in UI
-  description: string;     // Brief description (shown in Settings)
-  icon: string;            // Emoji icon (single character)
-  category: string;        // Category for grouping (weather, geology, etc.)
+  id: string; // Unique identifier (lowercase, no spaces)
+  name: string; // Display name in UI
+  description: string; // Brief description (shown in Settings)
+  icon: string; // Emoji icon (single character)
+  category: string; // Category for grouping (weather, geology, etc.)
   defaultEnabled: boolean; // Initial enabled state
-  defaultOpacity: number;  // Initial opacity (0.0 to 1.0)
-  version: string;         // Plugin version (semver)
+  defaultOpacity: number; // Initial opacity (0.0 to 1.0)
+  version: string; // Plugin version (semver)
 };
 ```
 
@@ -872,19 +876,21 @@ export const metadata: {
 
 ```typescript
 export function useLayer(params: {
-  enabled: boolean;   // Current enabled state
-  opacity: number;    // Current opacity (0.0 to 1.0)
-  map: L.Map | null;  // Leaflet map instance (may be null initially)
-}): any;              // Optional return value (for debugging/monitoring)
+  enabled: boolean; // Current enabled state
+  opacity: number; // Current opacity (0.0 to 1.0)
+  map: L.Map | null; // Leaflet map instance (may be null initially)
+}): any; // Optional return value (for debugging/monitoring)
 ```
 
 **Parameters:**
+
 - `enabled` - Boolean indicating if layer should be visible
 - `opacity` - Number from 0.0 (transparent) to 1.0 (opaque)
 - `map` - Leaflet map instance or null if not ready
 
 **Return Value (Optional):**
 Return any data you want for debugging. Common returns:
+
 - `{ layer: layerRef }` - Reference to Leaflet layer
 - `{ markers: markersArray }` - Array of markers
 - `{ count: dataLength }` - Number of items displayed
@@ -917,46 +923,49 @@ const memoizedFn = useCallback(() => {
 ### Leaflet API Essentials
 
 **Map Methods:**
+
 ```javascript
-map.addLayer(layer)          // Add layer to map
-map.removeLayer(layer)       // Remove layer from map
-map.hasLayer(layer)          // Check if layer exists
-map.getCenter()              // Get center [lat, lon]
-map.getZoom()                // Get zoom level
-map.getBounds()              // Get visible bounds
-map.panTo([lat, lon])        // Pan to coordinates
-map.setView([lat, lon], zoom) // Set center and zoom
+map.addLayer(layer); // Add layer to map
+map.removeLayer(layer); // Remove layer from map
+map.hasLayer(layer); // Check if layer exists
+map.getCenter(); // Get center [lat, lon]
+map.getZoom(); // Get zoom level
+map.getBounds(); // Get visible bounds
+map.panTo([lat, lon]); // Pan to coordinates
+map.setView([lat, lon], zoom); // Set center and zoom
 ```
 
 **Layer Types:**
+
 ```javascript
 // Tile layer
-L.tileLayer(url, options)
-L.tileLayer.wms(url, options)
+L.tileLayer(url, options);
+L.tileLayer.wms(url, options);
 
 // Markers
-L.marker([lat, lon], options)
-L.circleMarker([lat, lon], options)
+L.marker([lat, lon], options);
+L.circleMarker([lat, lon], options);
 
 // Shapes
-L.circle([lat, lon], options)
-L.polygon(latlngs, options)
-L.polyline(latlngs, options)
+L.circle([lat, lon], options);
+L.polygon(latlngs, options);
+L.polyline(latlngs, options);
 
 // GeoJSON
-L.geoJSON(geojsonData, options)
+L.geoJSON(geojsonData, options);
 
 // Layer groups
-L.layerGroup(layers)
-L.featureGroup(layers)
+L.layerGroup(layers);
+L.featureGroup(layers);
 ```
 
 **Popup/Tooltip:**
+
 ```javascript
-marker.bindPopup(content, options)
-marker.bindTooltip(content, options)
-marker.openPopup()
-marker.closePopup()
+marker.bindPopup(content, options);
+marker.bindTooltip(content, options);
+marker.openPopup();
+marker.closePopup();
 ```
 
 ### Fetch API
@@ -970,8 +979,8 @@ const data = await response.json();
 const response = await fetch(url, {
   method: 'GET',
   headers: {
-    'Accept': 'application/json'
-  }
+    Accept: 'application/json',
+  },
 });
 
 // Error handling
@@ -993,26 +1002,26 @@ try {
 **File:** `src/plugins/layers/useWXRadar.js`
 
 **Features:**
+
 - WMS tile overlay
 - Auto-refresh every 2 minutes
 - Opacity control
 - NEXRAD radar data
 
 **Key Code:**
+
 ```javascript
-const layer = L.tileLayer.wms(
-  'https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi',
-  {
-    layers: 'nexrad-n0r-900913',
-    format: 'image/png',
-    transparent: true,
-    opacity: opacity,
-    zIndex: 200
-  }
-);
+const layer = L.tileLayer.wms('https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi', {
+  layers: 'nexrad-n0r-900913',
+  format: 'image/png',
+  transparent: true,
+  opacity: opacity,
+  zIndex: 200,
+});
 ```
 
 **Learn From:**
+
 - Simple tile layer implementation
 - Auto-refresh pattern
 - WMS configuration
@@ -1022,6 +1031,7 @@ const layer = L.tileLayer.wms(
 **File:** `src/plugins/layers/useEarthquakes.js`
 
 **Features:**
+
 - USGS GeoJSON API
 - Circle markers scaled by magnitude
 - Color-coded by severity
@@ -1029,6 +1039,7 @@ const layer = L.tileLayer.wms(
 - Auto-refresh every 5 minutes
 
 **Key Code:**
+
 ```javascript
 const size = Math.min(Math.max(mag * 4, 8), 40);
 
@@ -1037,7 +1048,7 @@ const marker = L.circleMarker([lat, lon], {
   fillColor: color,
   color: '#fff',
   weight: 2,
-  fillOpacity: opacity
+  fillOpacity: opacity,
 });
 
 marker.bindPopup(`
@@ -1048,6 +1059,7 @@ marker.bindPopup(`
 ```
 
 **Learn From:**
+
 - API data fetching
 - Dynamic marker sizing
 - Color-coding logic
@@ -1088,36 +1100,43 @@ marker.bindPopup(`
 ### Data Sources
 
 **Weather:**
+
 - NOAA NEXRAD Radar: https://mesonet.agron.iastate.edu/
 - OpenWeatherMap: https://openweathermap.org/api
 - Weather.gov API: https://www.weather.gov/documentation/services-web-api
 
 **Geology:**
+
 - USGS Earthquakes: https://earthquake.usgs.gov/fdsnws/event/1/
 - USGS Volcanoes: https://volcanoes.usgs.gov/vhp/data_api.html
 
 **Astronomy:**
+
 - NASA APIs: https://api.nasa.gov/
 - Space Weather: https://services.swpc.noaa.gov/
 
 **Amateur Radio:**
+
 - Reverse Beacon Network: https://www.reversebeacon.net/
 - PSK Reporter: https://pskreporter.info/
 - APRS-IS: http://www.aprs-is.net/
 
 **General:**
+
 - OpenStreetMap: https://wiki.openstreetmap.org/wiki/API
 - Natural Earth Data: https://www.naturalearthdata.com/
 
 ### Libraries
 
 **Leaflet Plugins:**
+
 - Marker Clustering: https://github.com/Leaflet/Leaflet.markercluster
 - Heatmaps: https://github.com/Leaflet/Leaflet.heat
 - Animated Markers: https://github.com/openplans/Leaflet.AnimatedMarker
 - Draw Tools: https://github.com/Leaflet/Leaflet.draw
 
 **React Resources:**
+
 - React Hooks Docs: https://react.dev/reference/react
 - useEffect Guide: https://react.dev/reference/react/useEffect
 
@@ -1201,4 +1220,4 @@ Questions? Found a bug? Have an idea? Open an issue on GitHub!
 
 ---
 
-*Last Updated: February 2, 2026*
+_Last Updated: February 2, 2026_

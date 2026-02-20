@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * RotatorMapOverlay V1
@@ -7,9 +7,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
  */
 export default function RotatorMapOverlay({
   enabled,
-  deLocation,          // expects { lat, lon } or { latitude, longitude }
-  azimuth,             // degrees (0=N, 90=E)
-  lastGoodAzimuth,     // fallback when azimuth is null/stale
+  deLocation, // expects { lat, lon } or { latitude, longitude }
+  azimuth, // degrees (0=N, 90=E)
+  lastGoodAzimuth, // fallback when azimuth is null/stale
 }) {
   const wrapRef = useRef(null);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -41,10 +41,10 @@ export default function RotatorMapOverlay({
   }, [azimuth, lastGoodAzimuth]);
 
   const pathD = useMemo(() => {
-    if (!enabled) return "";
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return "";
-    if (!usedAz && usedAz !== 0) return "";
-    if (!size.w || !size.h) return "";
+    if (!enabled) return '';
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return '';
+    if (!usedAz && usedAz !== 0) return '';
+    if (!size.w || !size.h) return '';
 
     // Start pixel from DE
     const p0 = projectEquirect(lon, lat, size.w, size.h);
@@ -72,11 +72,11 @@ export default function RotatorMapOverlay({
     <div
       ref={wrapRef}
       style={{
-        position: "absolute",
+        position: 'absolute',
         inset: 0,
-        pointerEvents: "none",
+        pointerEvents: 'none',
         zIndex: 2005,
-        background: "transparent",
+        background: 'transparent',
       }}
     >
       <svg
@@ -100,18 +100,17 @@ export default function RotatorMapOverlay({
 }
 
 function normalizeLatLon(loc) {
-  if (!loc || typeof loc !== "object") return { lat: NaN, lon: NaN };
+  if (!loc || typeof loc !== 'object') return { lat: NaN, lon: NaN };
 
-  const lat =
-    Number.isFinite(loc.lat) ? loc.lat :
-    Number.isFinite(loc.latitude) ? loc.latitude :
-    NaN;
+  const lat = Number.isFinite(loc.lat) ? loc.lat : Number.isFinite(loc.latitude) ? loc.latitude : NaN;
 
-  const lon =
-    Number.isFinite(loc.lon) ? loc.lon :
-    Number.isFinite(loc.lng) ? loc.lng :
-    Number.isFinite(loc.longitude) ? loc.longitude :
-    NaN;
+  const lon = Number.isFinite(loc.lon)
+    ? loc.lon
+    : Number.isFinite(loc.lng)
+      ? loc.lng
+      : Number.isFinite(loc.longitude)
+        ? loc.longitude
+        : NaN;
 
   return { lat, lon };
 }
@@ -133,8 +132,10 @@ function destinationPoint(latDeg, lonDeg, bearingDeg, distanceDeg) {
   const θ = toRad(bearingDeg);
   const δ = toRad(distanceDeg);
 
-  const sinφ1 = Math.sin(φ1), cosφ1 = Math.cos(φ1);
-  const sinδ = Math.sin(δ), cosδ = Math.cos(δ);
+  const sinφ1 = Math.sin(φ1),
+    cosφ1 = Math.cos(φ1);
+  const sinδ = Math.sin(δ),
+    cosδ = Math.cos(δ);
 
   const sinφ2 = sinφ1 * cosδ + cosφ1 * sinδ * Math.cos(θ);
   const φ2 = Math.asin(sinφ2);

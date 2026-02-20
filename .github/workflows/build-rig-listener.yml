@@ -7,7 +7,7 @@
 name: Build Rig Listener
 
 on:
-  workflow_dispatch:          # Manual trigger from Actions tab
+  workflow_dispatch: # Manual trigger from Actions tab
   release:
     types: [created]
 
@@ -21,12 +21,12 @@ jobs:
             output: rig-listener-win-x64.exe
             artifact: rig-listener-win-x64
 
-          - os: macos-13              # Intel Mac
+          - os: macos-13 # Intel Mac
             target: node18-macos-x64
             output: rig-listener-mac-x64
             artifact: rig-listener-mac-x64
 
-          - os: macos-latest          # Apple Silicon
+          - os: macos-latest # Apple Silicon
             target: node18-macos-arm64
             output: rig-listener-mac-arm64
             artifact: rig-listener-mac-arm64

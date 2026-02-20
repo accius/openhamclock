@@ -22,14 +22,15 @@ Many cloud hosting platforms (including Railway) don't support outbound telnet c
 
 ## Environment Variables
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT` | 3001 | HTTP server port |
+| Variable   | Default      | Description                       |
+| ---------- | ------------ | --------------------------------- |
+| `PORT`     | 3001         | HTTP server port                  |
 | `CALLSIGN` | OPENHAMCLOCK | Callsign used for DX Spider login |
 
 ## API Endpoints
 
 ### `GET /health`
+
 Health check endpoint.
 
 ```json
@@ -46,9 +47,11 @@ Health check endpoint.
 ```
 
 ### `GET /api/spots`
+
 Get accumulated spots with full details.
 
 Query parameters:
+
 - `limit` (default: 50, max: 200) - Number of spots to return
 - `since` (timestamp) - Only return spots after this timestamp
 
@@ -75,9 +78,11 @@ Query parameters:
 ```
 
 ### `GET /api/dxcluster/spots`
+
 Get spots in simplified format (compatible with OpenHamClock).
 
 Query parameters:
+
 - `limit` (default: 25, max: 100)
 
 ```json
@@ -95,6 +100,7 @@ Query parameters:
 ```
 
 ### `GET /api/stats`
+
 Get statistics about spots.
 
 ```json
@@ -120,6 +126,7 @@ Get statistics about spots.
 ```
 
 ### `GET /api/nodes`
+
 List available DX Spider nodes.
 
 ```json
@@ -133,9 +140,11 @@ List available DX Spider nodes.
 ```
 
 ### `POST /api/reconnect`
+
 Force reconnection to current node.
 
 ### `POST /api/switch-node`
+
 Switch to a different node.
 
 ```json

@@ -66,13 +66,14 @@ COPY --from=builder /app/public ./public
 # Create local data directory as fallback
 RUN mkdir -p /app/data
 
-# Expose ports (3000 = web, 2237 = WSJT-X UDP)
+# Expose ports (3000 = web, 2237 = WSJT-X UDP, 12060 = N1MM/DXLog)
 EXPOSE 3000
 EXPOSE 2237/udp
+EXPOSE 12060
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/api/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://127.0.0.1:3000/api/health || exit 1
 
 # Start server with explicit heap limit and GC access for periodic compaction
 CMD ["node", "--max-old-space-size=2048", "--expose-gc", "server.js"]
