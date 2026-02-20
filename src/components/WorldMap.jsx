@@ -1633,17 +1633,24 @@ export const WorldMap = ({
               zIndexOffset: isWatched ? 5000 : 1000,
             });
 
-            const ageStr = station.age < 1 ? 'now' : station.age < 60 ? `${station.age}m ago` : `${Math.floor(station.age / 60)}h ago`;
+            const ageStr =
+              station.age < 1
+                ? 'now'
+                : station.age < 60
+                  ? `${station.age}m ago`
+                  : `${Math.floor(station.age / 60)}h ago`;
 
             marker
-              .bindPopup(`
+              .bindPopup(
+                `
                 <b data-qrz-call="${esc(station.call)}" style="cursor:pointer">${esc(station.ssid || station.call)}</b>
                 ${isWatched ? ' <span style="color:#f59e0b">★</span>' : ''}<br>
                 <span style="color:#888;font-size:11px">${ageStr}</span><br>
                 ${station.speed > 0 ? `Speed: ${station.speed} kt<br>` : ''}
                 ${station.altitude ? `Alt: ${station.altitude} ft<br>` : ''}
                 ${station.comment ? `<span style="font-size:11px;color:#aaa">${esc(station.comment.substring(0, 80))}</span>` : ''}
-              `)
+              `,
+              )
               .addTo(map);
 
             if (onSpotClick) {
