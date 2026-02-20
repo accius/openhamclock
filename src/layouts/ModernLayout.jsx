@@ -42,7 +42,7 @@ export default function ModernLayout(props) {
     currentTime, classicAnalogClock,
     bandConditions, propagation,
     dxClusterData,
-    potaSpots, wwffSpots, sotaSpots, mySpots,
+    potaSpots, wwffSpots, sotaSpots, wwbotaSpots, mySpots,
     dxpeditions, contests, satellites,
     pskReporter, wsjtx,
     filteredPskSpots, wsjtxMapSpots,
@@ -52,7 +52,7 @@ export default function ModernLayout(props) {
     setShowDXFilters, setShowPSKFilters,
     mapLayers,
     toggleDXPaths, toggleDXLabels,
-    togglePOTA, toggleWWFF, toggleSOTA,
+    togglePOTA, toggleWWFF, toggleSOTA, toggleWWBOTA,
     toggleSatellites, togglePSKReporter, toggleWSJTX,
     hoveredSpot, setHoveredSpot,
     filteredSatellites,
@@ -89,6 +89,7 @@ export default function ModernLayout(props) {
         potaSpots={potaSpots.data}
         wwffSpots={wwffSpots.data}
         sotaSpots={sotaSpots.data}
+        wwbotaSpots={wwbotaSpots.data}
         mySpots={mySpots.data}
         dxPaths={dxClusterData.paths}
         dxFilters={dxFilters}
@@ -102,6 +103,7 @@ export default function ModernLayout(props) {
         showPOTA={mapLayers.showPOTA}
         showWWFF={mapLayers.showWWFF}
         showSOTA={mapLayers.showSOTA}
+        showWWBOTA={mapLayers.showWWBOTA}
         showSatellites={mapLayers.showSatellites}
         showPSKReporter={mapLayers.showPSKReporter}
         wsjtxSpots={wsjtxMapSpots}
@@ -210,7 +212,9 @@ export default function ModernLayout(props) {
       showSOTA={mapLayers.showSOTA} onToggleSOTA={toggleSOTA}
       wwffData={wwffSpots.data} wwffLoading={wwffSpots.loading} wwffLastUpdated={wwffSpots.lastUpdated} wwffLastChecked={wwffSpots.lastChecked}
       showWWFF={mapLayers.showWWFF} onToggleWWFF={toggleWWFF}
-      onPOTASpotClick={handleParkSpotClick} onWWFFSpotClick={handleParkSpotClick} onSOTASpotClick={handleParkSpotClick}
+      wwbotaData={wwbotaSpots.data} wwbotaLoading={wwbotaSpots.loading} wwbotaLastUpdated={wwbotaSpots.lastUpdated} wwbotaConnected={wwbotaSpots.connected}
+      showWWBOTA={mapLayers.showWWBOTA} onToggleWWBOTA={toggleWWBOTA}
+      onPOTASpotClick={handleParkSpotClick} onWWFFSpotClick={handleParkSpotClick} onSOTASpotClick={handleParkSpotClick} onWWBOTASpotClick={handleParkSpotClick}
     />
   );
 

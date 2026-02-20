@@ -12,6 +12,7 @@ export const ActivatePanel = ({
   loading,
   lastUpdated,
   lastChecked,
+  connected,
   showOnMap,
   onToggleMap,
   showLabelsOnMap = true,
@@ -37,16 +38,28 @@ export const ActivatePanel = ({
       >
         <span>
           ▲ {name} ACTIVATORS {data?.length > 0 ? `(${data.length})` : ''}
-          {checkedTime && (
+          {connected !== undefined ? (
             <span
               style={{
-                color: isStale ? (staleMinutes >= 10 ? '#ff4444' : '#ffaa00') : '#666',
+                color: connected ? '#44cc44' : '#ff4444',
                 marginLeft: '6px',
                 fontSize: '9px',
               }}
             >
-              {isStale ? `⚠ ${staleMinutes}m stale` : `✓${checkedTime}`}
+              {connected ? '✓' : '✗'} {connected ? 'Live' : 'Error'}
             </span>
+          ) : (
+            checkedTime && (
+              <span
+                style={{
+                  color: isStale ? (staleMinutes >= 10 ? '#ff4444' : '#ffaa00') : '#666',
+                  marginLeft: '6px',
+                  fontSize: '9px',
+                }}
+              >
+                {isStale ? `⚠ ${staleMinutes}m stale` : `✓${checkedTime}`}
+              </span>
+            )
           )}
         </span>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
@@ -148,7 +161,7 @@ export const ActivatePanel = ({
           </div>
         ) : (
           <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '10px', fontSize: '11px' }}>
-            No WWFF spots
+            No spots
           </div>
         )}
       </div>
