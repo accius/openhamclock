@@ -56,7 +56,7 @@ function createWindow() {
       contextIsolation: true,
       enableRemoteModule: false,
       // Preload script for IPC communication (e.g. screen wake lock)
-      preload: path.join(__dirname, 'preload.js')
+      preload: path.join(__dirname, 'preload.js'),
     },
     // Frame options
     frame: true,
