@@ -3,6 +3,8 @@ name: Build and Publish Docker Image
 on:
   push:
     branches: ['main']
+  release:
+    types: [published]
 
 env:
   REGISTRY: ghcr.io
@@ -12,7 +14,7 @@ jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
       attestations: write
       id-token: write
@@ -42,8 +44,11 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=pr
-            type=sha,prefix={{branch}}-
+            type=sha,prefix={{branch}}-,enable=${{ github.event_name != 'release' }}
             type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
 
       - name: Build and push Docker image
         id: push
@@ -53,7 +58,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          platforms: linux/amd64
+          annotations: ${{ steps.meta.outputs.annotations }}
+          platforms: linux/amd64,linux/arm64
           cache-from: type=gha,scope=${{ github.workflow }}
           cache-to: type=gha,scope=${{ github.workflow }},mode=max
           provenance: true
@@ -66,3 +72,21 @@ jobs:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true
+
+      - name: Update release with Docker image link
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="${TAG_NAME#v}"
+          IMAGE_URL="https://github.com/${{ github.repository }}/pkgs/container/openhamclock"
+          EXISTING_BODY=$(gh release view "$TAG_NAME" --json body -q .body)
+          gh release edit "$TAG_NAME" --notes "${EXISTING_BODY}
+
+          ---
+
+          **Docker image:** [\`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}\`](${IMAGE_URL})
+          \`\`\`
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
+          \`\`\`"
