@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useVisibilityRefresh } from './useVisibilityRefresh';
 import { apiFetch } from '../utils/apiFetch';
+import { WGS84ToMaidenhead } from '@hamset/maidenhead-locator';
 
 export const useSOTASpots = () => {
   const [data, setData] = useState([]);
@@ -93,6 +94,7 @@ export const useSOTASpots = () => {
                       return new Date(ts).toISOString().substr(11, 5) + 'z';
                     })()
                   : '',
+                grid: WGS84ToMaidenhead({ lat:lat, lng:lon}),
               };
             });
 

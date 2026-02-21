@@ -5,6 +5,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useVisibilityRefresh } from './useVisibilityRefresh';
 import { apiFetch } from '../utils/apiFetch';
+import { WGS84ToMaidenhead } from '@hamset/maidenhead-locator';
 
 export const useWWFFSpots = () => {
   const [data, setData] = useState([]);
@@ -79,6 +80,7 @@ export const useWWFFSpots = () => {
                 lon,
                 time: s.spot_time ? s.spot_time_formatted.substr(11, 5) + 'z' : '',
                 expire: 0,
+                grid: WGS84ToMaidenhead({ lat: lat, lng: lon}),
               };
             }),
           );
