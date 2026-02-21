@@ -34,7 +34,9 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
         // Fetch both floods and severe storms in parallel
         const [floodsRes, stormsRes] = await Promise.all([
           fetch(`https://eonet.gsfc.nasa.gov/api/v3/events?category=floods&status=open&limit=${MAX_EVENTS}`),
-          fetch(`https://eonet.gsfc.nasa.gov/api/v3/events?category=severeStorms&status=open&limit=${Math.floor(MAX_EVENTS / 2)}`),
+          fetch(
+            `https://eonet.gsfc.nasa.gov/api/v3/events?category=severeStorms&status=open&limit=${Math.floor(MAX_EVENTS / 2)}`,
+          ),
         ]);
 
         const [floodsData, stormsData] = await Promise.all([floodsRes.json(), stormsRes.json()]);
@@ -177,7 +179,9 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
             : `${Math.floor(ageHours / 24)} days ago`;
 
       const sources = (event.sources || [])
-        .map((s) => `<a href="${s.url}" target="_blank" style="color: var(--accent-cyan); font-size: 11px;">${s.id}</a>`)
+        .map(
+          (s) => `<a href="${s.url}" target="_blank" style="color: var(--accent-cyan); font-size: 11px;">${s.id}</a>`,
+        )
         .join(' · ');
 
       marker.bindPopup(`

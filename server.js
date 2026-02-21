@@ -6133,7 +6133,9 @@ function pskMqttConnect() {
         if (!pskMqtt.recentSpots.has(scUpper)) pskMqtt.recentSpots.set(scUpper, []);
         const scRecent = pskMqtt.recentSpots.get(scUpper);
         const isDupRecent = scRecent.some(
-          (s) => `${s.sender}|${s.receiver}|${s.band}|${s.freq}` === spotKey && Math.abs(s.timestamp - spot.timestamp) < 30000,
+          (s) =>
+            `${s.sender}|${s.receiver}|${s.band}|${s.freq}` === spotKey &&
+            Math.abs(s.timestamp - spot.timestamp) < 30000,
         );
         if (!isDupRecent) {
           scRecent.push(txSpot);
@@ -6161,7 +6163,9 @@ function pskMqttConnect() {
         if (!pskMqtt.recentSpots.has(rcUpper)) pskMqtt.recentSpots.set(rcUpper, []);
         const rcRecent = pskMqtt.recentSpots.get(rcUpper);
         const isDupRxRecent = rcRecent.some(
-          (s) => `${s.sender}|${s.receiver}|${s.band}|${s.freq}` === rxSpotKey && Math.abs(s.timestamp - spot.timestamp) < 30000,
+          (s) =>
+            `${s.sender}|${s.receiver}|${s.band}|${s.freq}` === rxSpotKey &&
+            Math.abs(s.timestamp - spot.timestamp) < 30000,
         );
         if (!isDupRxRecent) {
           rcRecent.push(rxSpot);
@@ -10487,7 +10491,9 @@ function parseAprsPacket(line) {
     if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
 
     // Parse optional speed/course/altitude from comment
-    let speed = null, course = null, altitude = null;
+    let speed = null,
+      course = null,
+      altitude = null;
     const csMatch = comment?.match(/^(\d{3})\/(\d{3})/);
     if (csMatch) {
       course = parseInt(csMatch[1]);
@@ -10584,7 +10590,9 @@ function connectAprsIS() {
 
   aprsSocket.on('timeout', () => {
     logWarn('[APRS-IS] Socket timeout, reconnecting...');
-    try { aprsSocket.destroy(); } catch (e) {}
+    try {
+      aprsSocket.destroy();
+    } catch (e) {}
   });
 }
 
