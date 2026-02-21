@@ -67,15 +67,16 @@ const cToF = (c) => (c * 9) / 5 + 32;
 const kmhToMph = (k) => k * 0.621371;
 const mmToInch = (mm) => mm * 0.0393701;
 const kmToMi = (km) => km * 0.621371;
+const hPaToInHg = (hpa) => hpa * 0.0295299830714;
 
 /**
  * Convert raw Open-Meteo API response to display-ready weather data.
  * Exported so WeatherPanel can use pre-fetched data without its own hook.
  */
-export function convertWeatherData(rawData, tempUnit = 'F') {
+export function convertWeatherData(rawData, units = 'imperial') {
   if (!rawData) return null;
 
-  const isMetric = tempUnit === 'C';
+  const isMetric = units === 'metric';
   const current = rawData.current || {};
   const daily = rawData.daily || {};
   const hourly = rawData.hourly || {};
@@ -131,7 +132,11 @@ export function convertWeatherData(rawData, tempUnit = 'F') {
     icon: weather.icon,
     humidity: Math.round(current.relative_humidity_2m || 0),
     dewPoint: convTemp(current.dew_point_2m),
-    pressure: current.pressure_msl ? current.pressure_msl.toFixed(1) : null,
+    pressure: current.pressure_msl
+      ? isMetric
+        ? current.pressure_msl.toFixed(1)
+        : hPaToInHg(current.pressure_msl).toFixed(2)
+      : null,
     cloudCover: current.cloud_cover || 0,
     windSpeed: convWind(current.wind_speed_10m),
     windDir: windDirection(current.wind_direction_10m),
@@ -154,6 +159,7 @@ export function convertWeatherData(rawData, tempUnit = 'F') {
     tempUnit: isMetric ? 'C' : 'F',
     windUnit: isMetric ? 'km/h' : 'mph',
     visUnit: isMetric ? 'km' : 'mi',
+    pressureUnit: isMetric ? 'hPa' : 'inHg',
     rawTempC,
     rawFeelsLikeC: current.apparent_temperature || 0,
   };
@@ -197,7 +203,7 @@ async function fetchOpenMeteoDirect(lat, lon) {
   return data;
 }
 
-export const useWeather = (location, tempUnit = 'F') => {
+export const useWeather = (location, units = 'imperial') => {
   const [rawData, setRawData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null); // { message, retryIn }
@@ -251,8 +257,8 @@ export const useWeather = (location, tempUnit = 'F') => {
     };
   }, [location?.lat, location?.lon]);
 
-  // Convert raw API data to display data based on current tempUnit
-  const data = convertWeatherData(rawData, tempUnit);
+  // Convert raw API data to display data based on global units setting
+  const data = convertWeatherData(rawData, units);
 
   return { data, loading, error };
 };
