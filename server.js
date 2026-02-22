@@ -514,6 +514,44 @@ function logWarn(...args) {
 
 // Rate-limited error logging - prevents log spam when services are down
 const errorLogState = {};
+
+// Global log rate limiter — safety net for Railway/cloud log pipelines
+// Token bucket: allows bursts of 20, refills at 10 tokens/sec, drops excess silently
+const _logBucket = { tokens: 20, max: 20, rate: 10, lastRefill: Date.now(), dropped: 0 };
+function _logAllowed() {
+  const now = Date.now();
+  const elapsed = (now - _logBucket.lastRefill) / 1000;
+  _logBucket.tokens = Math.min(_logBucket.max, _logBucket.tokens + elapsed * _logBucket.rate);
+  _logBucket.lastRefill = now;
+  if (_logBucket.tokens >= 1) {
+    _logBucket.tokens--;
+    return true;
+  }
+  _logBucket.dropped++;
+  return false;
+}
+// Periodically report dropped messages (every 60s, if any were dropped)
+setInterval(() => {
+  if (_logBucket.dropped > 0) {
+    const d = _logBucket.dropped;
+    _logBucket.dropped = 0;
+    process.stderr.write(`[Log Throttle] Suppressed ${d} log messages in last 60s to stay within rate limits\n`);
+  }
+}, 60000);
+
+// Wrap console methods with rate limiter (preserves original for startup banner)
+const _origLog = console.log.bind(console);
+const _origWarn = console.warn.bind(console);
+const _origError = console.error.bind(console);
+console.log = (...args) => {
+  if (_logAllowed()) _origLog(...args);
+};
+console.warn = (...args) => {
+  if (_logAllowed()) _origWarn(...args);
+};
+console.error = (...args) => {
+  if (_logAllowed()) _origError(...args);
+};
 const ERROR_LOG_INTERVAL = 5 * 60 * 1000; // Only log same error once per 5 minutes
 
 function logErrorOnce(category, message) {
@@ -1968,7 +2006,9 @@ app.get('/api/solar-indices', async (req, res) => {
 // NASA Dial-A-Moon — proxies photorealistic moon image from NASA SVS
 // Image changes hourly, cached for 1 hour to avoid hammering NASA
 let moonImageCache = { buffer: null, contentType: null, timestamp: 0 };
+let moonImageNegativeCache = 0; // Timestamp of last failed fetch — prevents retry storm
 const MOON_CACHE_TTL = 60 * 60 * 1000; // 1 hour
+const MOON_NEGATIVE_CACHE_TTL = 5 * 60 * 1000; // 5 min backoff on failure
 
 app.get('/api/moon-image', async (req, res) => {
   try {
@@ -1977,6 +2017,16 @@ app.get('/api/moon-image', async (req, res) => {
       res.set('Content-Type', moonImageCache.contentType);
       res.set('Cache-Control', 'public, max-age=3600');
       return res.send(moonImageCache.buffer);
+    }
+
+    // If NASA recently failed, return stale cache or 503 without retrying
+    if (Date.now() - moonImageNegativeCache < MOON_NEGATIVE_CACHE_TTL) {
+      if (moonImageCache.buffer) {
+        res.set('Content-Type', moonImageCache.contentType);
+        res.set('Cache-Control', 'public, max-age=300');
+        return res.send(moonImageCache.buffer);
+      }
+      return res.status(503).json({ error: 'Moon image temporarily unavailable' });
     }
 
     // Build UTC timestamp for Dial-A-Moon API (rounds to nearest hour)
@@ -2005,6 +2055,7 @@ app.get('/api/moon-image', async (req, res) => {
     res.set('Cache-Control', 'public, max-age=3600');
     res.send(buffer);
   } catch (error) {
+    moonImageNegativeCache = Date.now(); // Backoff for 5 min
     logErrorOnce('Moon Image', error.message);
     // Return stale cache on error
     if (moonImageCache.buffer) {
@@ -6088,7 +6139,9 @@ function pskMqttConnect() {
         if (!pskMqtt.recentSpots.has(scUpper)) pskMqtt.recentSpots.set(scUpper, []);
         const scRecent = pskMqtt.recentSpots.get(scUpper);
         const isDupRecent = scRecent.some(
-          (s) => `${s.sender}|${s.receiver}|${s.band}|${s.freq}` === spotKey && Math.abs(s.timestamp - spot.timestamp) < 30000,
+          (s) =>
+            `${s.sender}|${s.receiver}|${s.band}|${s.freq}` === spotKey &&
+            Math.abs(s.timestamp - spot.timestamp) < 30000,
         );
         if (!isDupRecent) {
           scRecent.push(txSpot);
@@ -6116,7 +6169,9 @@ function pskMqttConnect() {
         if (!pskMqtt.recentSpots.has(rcUpper)) pskMqtt.recentSpots.set(rcUpper, []);
         const rcRecent = pskMqtt.recentSpots.get(rcUpper);
         const isDupRxRecent = rcRecent.some(
-          (s) => `${s.sender}|${s.receiver}|${s.band}|${s.freq}` === rxSpotKey && Math.abs(s.timestamp - spot.timestamp) < 30000,
+          (s) =>
+            `${s.sender}|${s.receiver}|${s.band}|${s.freq}` === rxSpotKey &&
+            Math.abs(s.timestamp - spot.timestamp) < 30000,
         );
         if (!isDupRxRecent) {
           rcRecent.push(rxSpot);
@@ -6314,7 +6369,7 @@ app.get('/api/pskreporter/stream/:callsign', (req, res) => {
     }
   }
 
-  console.log(
+  logInfo(
     `[PSK-MQTT] SSE client connected for ${callsign} (${pskMqtt.subscribers.get(callsign).size} clients, ${pskMqtt.subscribedCalls.size} callsigns total)`,
   );
 
@@ -6334,7 +6389,7 @@ app.get('/api/pskreporter/stream/:callsign', (req, res) => {
     const clients = pskMqtt.subscribers.get(callsign);
     if (clients) {
       clients.delete(res);
-      console.log(`[PSK-MQTT] SSE client disconnected for ${callsign} (${clients.size} remaining)`);
+      logInfo(`[PSK-MQTT] SSE client disconnected for ${callsign} (${clients.size} remaining)`);
 
       // If no more clients for this callsign, unsubscribe after a grace period
       if (clients.size === 0) {
@@ -6595,16 +6650,25 @@ setInterval(() => {
 async function enrichSpotWithLocation(spot) {
   const skimmerCall = spot.callsign;
 
-  // Check cache first
+  // Check cache first (includes negative cache entries)
   if (callsignLocationCache.has(skimmerCall)) {
     const location = callsignLocationCache.get(skimmerCall);
-    return {
-      ...spot,
-      grid: location.grid,
-      skimmerLat: location.lat,
-      skimmerLon: location.lon,
-      skimmerCountry: location.country,
-    };
+    // Negative cache entry — skip lookup unless expired
+    if (location._failed) {
+      if (location._expires && Date.now() > location._expires) {
+        callsignLocationCache.delete(skimmerCall); // Expired, allow retry
+      } else {
+        return spot;
+      }
+    } else {
+      return {
+        ...spot,
+        grid: location.grid,
+        skimmerLat: location.lat,
+        skimmerLon: location.lon,
+        skimmerCountry: location.country,
+      };
+    }
   }
 
   // Lookup location (don't block on failures)
@@ -6618,7 +6682,7 @@ async function enrichSpotWithLocation(spot) {
       const returnedCall = (locationData.callsign || '').toUpperCase();
       const requestedBase = extractBaseCallsign(skimmerCall);
       if (returnedCall && returnedCall !== requestedBase && returnedCall !== skimmerCall.toUpperCase()) {
-        console.warn(`[RBN] Callsign mismatch! Requested: ${skimmerCall}, Got: ${returnedCall} — discarding`);
+        logDebug(`[RBN] Callsign mismatch! Requested: ${skimmerCall}, Got: ${returnedCall} — discarding`);
         return spot;
       }
 
@@ -6639,7 +6703,7 @@ async function enrichSpotWithLocation(spot) {
             if (dist > 5000) {
               // Location is > 5000 km from where the callsign prefix says it should be
               // This is almost certainly wrong data — use prefix estimate instead
-              console.warn(
+              logDebug(
                 `[RBN] Location sanity check FAILED for ${skimmerCall}: lookup=${locationData.lat.toFixed(1)},${locationData.lon.toFixed(1)} vs prefix=${prefixCoords.lat.toFixed(1)},${prefixCoords.lon.toFixed(1)} (${Math.round(dist)} km apart) — using prefix`,
               );
               const grid = latLonToGrid(prefixCoords.lat, prefixCoords.lon);
@@ -6685,7 +6749,8 @@ async function enrichSpotWithLocation(spot) {
       }
     }
   } catch (err) {
-    // Silent fail
+    // Cache the failure for 10 min to prevent retry storm when QRZ/HamQTH is down
+    cacheCallsignLocation(skimmerCall, { _failed: true, _expires: Date.now() + 10 * 60 * 1000 });
   }
 
   return spot;
@@ -6732,7 +6797,7 @@ app.get('/api/rbn/spots', async (req, res) => {
     enrichedSpots.push(await enrichSpotWithLocation(spot));
   }
 
-  console.log(
+  logDebug(
     `[RBN] Returning ${enrichedSpots.length} spots for ${callsign} (last ${minutes} min, ${rbnSpotsByDX.size} DX stations tracked)`,
   );
 
@@ -6780,7 +6845,7 @@ app.get('/api/rbn/location/:callsign', async (req, res) => {
       return res.json(result);
     }
   } catch (err) {
-    console.warn(`[RBN] Failed to lookup ${callsign}: ${err.message}`);
+    logErrorOnce('RBN', `Failed to lookup ${callsign}: ${err.message}`);
   }
 
   res.status(404).json({ error: 'Location not found' });
@@ -6788,7 +6853,7 @@ app.get('/api/rbn/location/:callsign', async (req, res) => {
 
 // Legacy endpoint for compatibility (deprecated)
 app.get('/api/rbn', async (req, res) => {
-  console.log('[RBN] Warning: Using deprecated /api/rbn endpoint, use /api/rbn/spots instead');
+  logWarn('[RBN] Warning: Using deprecated /api/rbn endpoint, use /api/rbn/spots instead');
 
   const callsign = (req.query.callsign || '').toUpperCase().trim();
   const minutes = parseInt(req.query.minutes) || 30;
@@ -7092,7 +7157,7 @@ app.get('/api/wspr/heatmap', async (req, res) => {
           source: 'pskreporter',
           format: 'raw',
         };
-        console.log(`[WSPR Heatmap] Returning ${spots.length} raw spots (${minutes}min, band: ${band})`);
+        logDebug(`[WSPR Heatmap] Returning ${spots.length} raw spots (${minutes}min, band: ${band})`);
       } else {
         const aggregated = aggregateWSPRByGrid(spots);
         result = {
@@ -7103,7 +7168,7 @@ app.get('/api/wspr/heatmap', async (req, res) => {
           source: 'pskreporter',
           format: 'aggregated',
         };
-        console.log(
+        logDebug(
           `[WSPR Heatmap] Aggregated ${spots.length} spots → ${aggregated.uniqueGrids} grids, ${aggregated.paths.length} paths (${minutes}min, band: ${band})`,
         );
       }
@@ -7481,93 +7546,163 @@ const HAM_SATELLITES = {
 };
 
 let tleCache = { data: null, timestamp: 0 };
-const TLE_CACHE_DURATION = 6 * 60 * 60 * 1000; // 6 hours
+const TLE_CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours — TLEs don't change that fast
+const TLE_STALE_SERVE_LIMIT = 48 * 60 * 60 * 1000; // Serve stale cache up to 48h while retrying
+let tleNegativeCache = 0; // Timestamp of last total failure
+const TLE_NEGATIVE_TTL = 30 * 60 * 1000; // 30 min backoff after all sources fail
+
+// TLE data sources in priority order — automatic failover
+const TLE_SOURCES = {
+  celestrak: {
+    name: 'CelesTrak',
+    fetchGroups: async (groups, signal) => {
+      const tleData = {};
+      for (const group of groups) {
+        try {
+          const res = await fetch(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`, {
+            headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
+            signal,
+          });
+          if (res.ok) parseTleText(await res.text(), tleData, group);
+          else if (res.status === 429 || res.status === 403)
+            throw new Error(`CelesTrak returned ${res.status} (rate limited or banned)`);
+        } catch (e) {
+          if (e.message?.includes('rate limited') || e.message?.includes('banned')) throw e; // Bubble up to trigger failover
+          logDebug(`[Satellites] CelesTrak group ${group} failed: ${e.message}`);
+        }
+      }
+      return tleData;
+    },
+  },
+  celestrak_legacy: {
+    name: 'CelesTrak (legacy)',
+    fetchGroups: async (groups, signal) => {
+      const tleData = {};
+      // Legacy domain uses different URL format
+      const legacyMap = { amateur: 'amateur', weather: 'weather', goes: 'goes' };
+      for (const group of groups) {
+        try {
+          const res = await fetch(`https://celestrak.com/NORAD/elements/${legacyMap[group] || group}.txt`, {
+            headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
+            signal,
+          });
+          if (res.ok) parseTleText(await res.text(), tleData, group);
+        } catch (e) {
+          logDebug(`[Satellites] CelesTrak legacy group ${group} failed: ${e.message}`);
+        }
+      }
+      return tleData;
+    },
+  },
+  amsat: {
+    name: 'AMSAT',
+    fetchGroups: async (_groups, signal) => {
+      // AMSAT provides a single combined file for amateur satellites
+      const tleData = {};
+      try {
+        const res = await fetch('https://www.amsat.org/tle/current/nasabare.txt', {
+          headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
+          signal,
+        });
+        if (res.ok) parseTleText(await res.text(), tleData, 'amateur');
+      } catch (e) {
+        logDebug(`[Satellites] AMSAT TLE failed: ${e.message}`);
+      }
+      return tleData;
+    },
+  },
+};
+
+// Configurable source order via env var: TLE_SOURCES=celestrak,amsat,celestrak_legacy
+const TLE_SOURCE_ORDER = (process.env.TLE_SOURCES || 'celestrak,celestrak_legacy,amsat')
+  .split(',')
+  .map((s) => s.trim())
+  .filter((s) => TLE_SOURCES[s]);
+
+function parseTleText(text, tleData, group) {
+  const lines = text.trim().split('\n');
+  for (let i = 0; i < lines.length - 2; i += 3) {
+    const name = lines[i]?.trim();
+    const line1 = lines[i + 1]?.trim();
+    const line2 = lines[i + 2]?.trim();
+    if (name && line1 && line1.startsWith('1 ')) {
+      const noradId = parseInt(line1.substring(2, 7));
+      const alreadyExists = Object.values(tleData).some((sat) => sat.norad === noradId);
+      if (alreadyExists) continue;
+      const key = name.replace(/[^A-Z0-9\-]/g, '_').toUpperCase();
+      const hamSat = Object.values(HAM_SATELLITES).find((s) => s.norad === noradId);
+      if (hamSat) {
+        tleData[key] = { ...hamSat, tle1: line1, tle2: line2 };
+      } else {
+        tleData[key] = {
+          norad: noradId,
+          name,
+          color: '#cccccc',
+          priority: group === 'amateur' ? 3 : 4,
+          mode: 'Unknown',
+          tle1: line1,
+          tle2: line2,
+        };
+      }
+    }
+  }
+}
+
 app.get('/api/satellites/tle', async (req, res) => {
   try {
     const now = Date.now();
 
-    // Return memory cache if fresh (6-hour window)
+    // Return memory cache if fresh
     if (tleCache.data && now - tleCache.timestamp < TLE_CACHE_DURATION) {
       return res.json(tleCache.data);
     }
 
-    logDebug('[Satellites] Fetching fresh TLE data from multiple groups...');
-    const tleData = {};
+    // If all sources recently failed, serve stale cache or empty
+    if (now - tleNegativeCache < TLE_NEGATIVE_TTL) {
+      if (tleCache.data && now - tleCache.timestamp < TLE_STALE_SERVE_LIMIT) {
+        res.set('X-TLE-Stale', 'true');
+        return res.json(tleCache.data);
+      }
+      return res.json(tleCache.data || {});
+    }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 20000);
 
-    // This list tells the server to look in all three CelesTrak folders
     const groups = ['amateur', 'weather', 'goes'];
+    let tleData = {};
+    let sourceUsed = null;
 
-    for (const group of groups) {
+    // Try each source in order until one succeeds with meaningful data
+    for (const sourceKey of TLE_SOURCE_ORDER) {
+      const source = TLE_SOURCES[sourceKey];
       try {
-        const response = await fetch(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`, {
-          headers: { 'User-Agent': 'OpenHamClock/3.3' },
-          signal: controller.signal,
-        });
-
-        if (response.ok) {
-          const text = await response.text();
-          const lines = text.trim().split('\n');
-          // Parse 3 lines per satellite: Name, Line 1, Line 2
-          for (let i = 0; i < lines.length - 2; i += 3) {
-            const name = lines[i]?.trim();
-            const line1 = lines[i + 1]?.trim();
-            const line2 = lines[i + 2]?.trim();
-            if (name && line1 && line1.startsWith('1 ')) {
-              const noradId = parseInt(line1.substring(2, 7));
-
-              // Skip if this NORAD ID already exists (prevent duplicates)
-              const alreadyExists = Object.values(tleData).some((sat) => sat.norad === noradId);
-              if (alreadyExists) continue;
-
-              // Create a sanitized key from the satellite name
-              const key = name.replace(/[^A-Z0-9\-]/g, '_').toUpperCase();
-
-              // Check if we have metadata in HAM_SATELLITES
-              const hamSat = Object.values(HAM_SATELLITES).find((s) => s.norad === noradId);
-
-              if (hamSat) {
-                // Use defined metadata from HAM_SATELLITES
-                tleData[key] = { ...hamSat, tle1: line1, tle2: line2 };
-              } else {
-                // Include all satellites with default metadata
-                tleData[key] = {
-                  norad: noradId,
-                  name: name,
-                  color: '#cccccc',
-                  priority: group === 'amateur' ? 3 : 4,
-                  mode: 'Unknown',
-                  tle1: line1,
-                  tle2: line2,
-                };
-              }
-            }
-          }
+        tleData = await source.fetchGroups(groups, controller.signal);
+        if (Object.keys(tleData).length >= 5) {
+          sourceUsed = source.name;
+          break; // Got enough data
         }
+        logDebug(
+          `[Satellites] ${source.name} returned only ${Object.keys(tleData).length} satellites, trying next source...`,
+        );
       } catch (e) {
-        logDebug(`[Satellites] Failed to fetch group: ${group}`);
+        logWarn(`[Satellites] ${source.name} failed: ${e.message}`);
       }
     }
+
     clearTimeout(timeout);
 
-    // Check if ISS (NORAD 25544) was already added with any key
+    // ISS fallback — try CelesTrak direct if ISS not found
     const issExists = Object.values(tleData).some((sat) => sat.norad === 25544);
-
-    // Fallback for ISS if it wasn't found in the groups above
     if (!issExists) {
       try {
-        const issRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=tle');
+        const issRes = await fetch('https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=tle', {
+          signal: AbortSignal.timeout(5000),
+        });
         if (issRes.ok) {
-          const issText = await issRes.text();
-          const issLines = issText.trim().split('\n');
+          const issLines = (await issRes.text()).trim().split('\n');
           if (issLines.length >= 3) {
-            tleData['ISS'] = {
-              ...HAM_SATELLITES['ISS'],
-              tle1: issLines[1].trim(),
-              tle2: issLines[2].trim(),
-            };
+            tleData['ISS'] = { ...HAM_SATELLITES['ISS'], tle1: issLines[1].trim(), tle2: issLines[2].trim() };
           }
         }
       } catch (e) {
@@ -7575,7 +7710,19 @@ app.get('/api/satellites/tle', async (req, res) => {
       }
     }
 
-    tleCache = { data: tleData, timestamp: now };
+    if (Object.keys(tleData).length > 0) {
+      tleCache = { data: tleData, timestamp: now };
+      if (sourceUsed) logInfo(`[Satellites] Loaded ${Object.keys(tleData).length} satellites from ${sourceUsed}`);
+    } else {
+      // All sources failed — set negative cache to avoid hammering
+      tleNegativeCache = now;
+      logWarn('[Satellites] All TLE sources failed, backing off for 30 min');
+      // Serve stale if available
+      if (tleCache.data && now - tleCache.timestamp < TLE_STALE_SERVE_LIMIT) {
+        res.set('X-TLE-Stale', 'true');
+        return res.json(tleCache.data);
+      }
+    }
 
     res.json(tleData);
   } catch (error) {
@@ -10362,7 +10509,9 @@ function parseAprsPacket(line) {
     if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
 
     // Parse optional speed/course/altitude from comment
-    let speed = null, course = null, altitude = null;
+    let speed = null,
+      course = null,
+      altitude = null;
     const csMatch = comment?.match(/^(\d{3})\/(\d{3})/);
     if (csMatch) {
       course = parseInt(csMatch[1]);
@@ -10459,7 +10608,9 @@ function connectAprsIS() {
 
   aprsSocket.on('timeout', () => {
     logWarn('[APRS-IS] Socket timeout, reconnecting...');
-    try { aprsSocket.destroy(); } catch (e) {}
+    try {
+      aprsSocket.destroy();
+    } catch (e) {}
   });
 }
 

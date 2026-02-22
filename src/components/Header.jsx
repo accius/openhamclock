@@ -1,12 +1,14 @@
 /**
  * Header Component
- * Top bar with callsign, clocks, weather, and controls
+ * Top bar with callsign, clocks, weather, and controls.
+ * Responsive: wraps gracefully on tablet, collapses to essentials on mobile.
  */
 import React from 'react';
 import { IconGear, IconExpand, IconShrink } from './Icons.jsx';
 import { QRZToggle } from './CallsignLink.jsx';
 import { ctyLookup, isCtyLoaded } from '../utils/ctyLookup';
 import { getFlagForEntity } from '../utils/countryFlags';
+
 export const Header = ({
   config,
   utcTime,
@@ -25,34 +27,53 @@ export const Header = ({
   isFullscreen,
   updateInProgress,
   showUpdateButton,
+  breakpoint = 'desktop',
 }) => {
+  const isMobile = breakpoint === 'mobile';
+  const isTablet = breakpoint === 'tablet';
+
+  const callsignSize =
+    config.headerSize > 0.1 && config.headerSize <= 2
+      ? `${(isMobile ? 16 : 22) * config.headerSize}px`
+      : isMobile
+        ? '16px'
+        : '22px';
+  const clockSize =
+    config.headerSize > 0.1 && config.headerSize <= 2
+      ? `${(isMobile ? 16 : 24) * config.headerSize}px`
+      : isMobile
+        ? '16px'
+        : '24px';
+
   return (
     <div
       style={{
         gridColumn: '1 / -1',
         display: 'flex',
-        flexWrap: 'nowrap',
+        flexWrap: 'wrap',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: isMobile ? 'center' : 'space-between',
+        gap: isMobile ? '4px 8px' : '6px 12px',
         background: 'var(--bg-panel)',
         border: '1px solid var(--border-color)',
         borderRadius: '6px',
-        padding: '6px 12px',
-        minHeight: '50px',
+        padding: isMobile ? '4px 6px' : '6px 12px',
+        minHeight: isMobile ? '38px' : '46px',
         fontFamily: 'JetBrains Mono, monospace',
-        overflow: 'hidden',
+        boxSizing: 'border-box',
       }}
     >
-      {/* Callsign & Settings */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
+      {/* Callsign */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '12px', flexShrink: 0 }}>
         <span
           style={{
-            fontSize: config.headerSize > 0.1 && config.headerSize <= 2 ? `${22 * config.headerSize}px` : '22px',
+            fontSize: callsignSize,
             fontWeight: '900',
             color: 'var(--accent-amber)',
             cursor: 'pointer',
             fontFamily: 'Orbitron, monospace',
             whiteSpace: 'nowrap',
+            lineHeight: 1,
           }}
           onClick={onSettingsClick}
           title="Click for settings"
@@ -62,182 +83,164 @@ export const Header = ({
         {(() => {
           const info = isCtyLoaded() ? ctyLookup(config.callsign) : null;
           const flag = info ? getFlagForEntity(info.entity) : null;
-          if (flag) {
-            return (
-              <span
-                style={{
-                  fontSize: config.headerSize > 0.1 && config.headerSize <= 2 ? `${22 * config.headerSize}px` : '22px',
-                  marginLeft: '5px',
-                  marginRight: '5px',
-                }}
-                title={info.entity}
-              >
-                {flag}
-              </span>
-            );
-          }
-          return null;
+          return flag ? (
+            <span style={{ fontSize: callsignSize }} title={info.entity}>
+              {flag}
+            </span>
+          ) : null;
         })()}
-        {config.version && <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>v{config.version}</span>}
-        {(() => {
-          const touch = typeof window !== 'undefined' && ('ontouchstart' in window || navigator.maxTouchPoints > 0);
-          const narrow = typeof window !== 'undefined' && window.innerWidth <= 1024;
-          if (touch && narrow)
-            return <span className="ohc-mobile-badge">{window.innerWidth <= 768 ? '📱' : '📱 Tablet'}</span>;
-          return null;
-        })()}
-        <QRZToggle />
+        {config.version && !isMobile && (
+          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>v{config.version}</span>
+        )}
+        {!isMobile && <QRZToggle />}
       </div>
 
       {/* UTC Clock */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-        <span style={{ fontSize: '13px', color: 'var(--accent-cyan)', fontWeight: '600' }}>UTC</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+        <span style={{ fontSize: isMobile ? '10px' : '13px', color: 'var(--accent-cyan)', fontWeight: '600' }}>
+          UTC
+        </span>
         <span
           style={{
-            fontSize: config.headerSize > 0.1 && config.headerSize <= 2 ? `${24 * config.headerSize}px` : '24px',
+            fontSize: clockSize,
             fontWeight: '700',
             color: 'var(--accent-cyan)',
             fontFamily: 'JetBrains Mono, Consolas, monospace',
             whiteSpace: 'nowrap',
+            lineHeight: 1,
           }}
         >
           {utcTime}
         </span>
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{utcDate}</span>
+        {!isMobile && (
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{utcDate}</span>
+        )}
       </div>
 
-      {/* Local Clock - Clickable to toggle 12/24 hour format */}
+      {/* Local Clock */}
       <div
-        style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', flexShrink: 0 }}
+        style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}
         onClick={onTimeFormatToggle}
         title={`Click to switch to ${use12Hour ? '24-hour' : '12-hour'} format`}
       >
-        <span style={{ fontSize: '13px', color: 'var(--accent-amber)', fontWeight: '600' }}>LOCAL</span>
+        <span style={{ fontSize: isMobile ? '10px' : '13px', color: 'var(--accent-amber)', fontWeight: '600' }}>
+          LOCAL
+        </span>
         <span
           style={{
-            fontSize: config.headerSize > 0.1 && config.headerSize <= 2 ? `${24 * config.headerSize}px` : '24px',
+            fontSize: clockSize,
             fontWeight: '700',
             color: 'var(--accent-amber)',
             fontFamily: 'JetBrains Mono, Consolas, monospace',
             whiteSpace: 'nowrap',
+            lineHeight: 1,
           }}
         >
           {localTime}
         </span>
-        <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{localDate}</span>
+        {!isMobile && (
+          <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{localDate}</span>
+        )}
       </div>
 
-      {/* Weather & Solar Stats */}
-      <div
-        style={{
-          display: 'flex',
-          gap: '12px',
-          fontSize: '13px',
-          fontFamily: 'JetBrains Mono, Consolas, monospace',
-          whiteSpace: 'nowrap',
-          flexShrink: 0,
-        }}
-      >
-        {localWeather?.data &&
-          (() => {
-            // Always compute both F and C from the raw Celsius source
-            // This avoids ±1° rounding drift when toggling units
-            const rawC = localWeather.data.rawTempC;
-            const tempF = Math.round((rawC * 9) / 5 + 32);
-            const tempC = Math.round(rawC);
-            const windLabel = localWeather.data.windUnit || 'mph';
-            return (
-              <div title={`${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${windLabel}`}>
-                <span
-                  style={{
-                    marginRight: '3px',
-                    fontSize:
-                      config.headerSize > 0.1 && config.headerSize <= 2 ? `${12 * config.headerSize}px` : '12px',
-                  }}
+      {/* Weather & Solar Stats — hidden on mobile */}
+      {!isMobile && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: isTablet ? '6px' : '12px',
+            fontSize: isTablet ? '11px' : '13px',
+            fontFamily: 'JetBrains Mono, Consolas, monospace',
+            whiteSpace: 'nowrap',
+            flexShrink: 1,
+            minWidth: 0,
+            overflow: 'hidden',
+          }}
+        >
+          {localWeather?.data &&
+            (() => {
+              const rawC = localWeather.data.rawTempC;
+              return (
+                <div
+                  title={`${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${localWeather.data.windUnit || 'mph'}`}
                 >
-                  {localWeather.data.icon}
-                </span>
-                <span
-                  style={{
-                    color: 'var(--accent-cyan)',
-                    fontWeight: '600',
-                    fontSize:
-                      config.headerSize > 0.1 && config.headerSize <= 2 ? `${12 * config.headerSize}px` : '12px',
-                  }}
-                >
-                  {tempF}°F/{tempC}°C
-                </span>
-              </div>
-            );
-          })()}
-        <div>
-          <span style={{ color: 'var(--text-muted)' }}>SFI </span>
-          <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
-            {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
-          </span>
-        </div>
-        <div>
-          <span style={{ color: 'var(--text-muted)' }}>K </span>
-          <span
-            style={{
-              color:
-                parseInt(solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex) >= 4
-                  ? 'var(--accent-red)'
-                  : 'var(--accent-green)',
-              fontWeight: '700',
-            }}
-          >
-            {solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex ?? '--'}
-          </span>
-        </div>
-        <div>
-          <span style={{ color: 'var(--text-muted)' }}>SSN </span>
-          <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
-            {solarIndices?.data?.ssn?.current || spaceWeather?.data?.sunspotNumber || '--'}
-          </span>
-        </div>
-        {bandConditions?.extras?.aIndex && (
+                  <span style={{ marginRight: '3px' }}>{localWeather.data.icon}</span>
+                  <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
+                    {Math.round((rawC * 9) / 5 + 32)}°F/{Math.round(rawC)}°C
+                  </span>
+                </div>
+              );
+            })()}
           <div>
-            <span style={{ color: 'var(--text-muted)' }}>A </span>
+            <span style={{ color: 'var(--text-muted)' }}>SFI </span>
+            <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
+              {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
+            </span>
+          </div>
+          <div>
+            <span style={{ color: 'var(--text-muted)' }}>K </span>
             <span
               style={{
                 color:
-                  parseInt(bandConditions.extras.aIndex) >= 20
+                  parseInt(solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex) >= 4
                     ? 'var(--accent-red)'
-                    : parseInt(bandConditions.extras.aIndex) >= 10
-                      ? 'var(--accent-amber)'
-                      : 'var(--accent-green)',
+                    : 'var(--accent-green)',
                 fontWeight: '700',
               }}
             >
-              {bandConditions.extras.aIndex}
+              {solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex ?? '--'}
             </span>
           </div>
-        )}
-        {bandConditions?.extras?.geomagField && (
           <div>
-            <span
-              style={{
-                fontSize: '10px',
-                color:
-                  bandConditions.extras.geomagField === 'QUIET'
-                    ? 'var(--accent-green)'
-                    : bandConditions.extras.geomagField === 'ACTIVE' ||
-                        bandConditions.extras.geomagField.includes('STORM')
-                      ? 'var(--accent-red)'
-                      : 'var(--accent-amber)',
-                fontWeight: '600',
-              }}
-            >
-              {bandConditions.extras.geomagField}
+            <span style={{ color: 'var(--text-muted)' }}>SSN </span>
+            <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
+              {solarIndices?.data?.ssn?.current || spaceWeather?.data?.sunspotNumber || '--'}
             </span>
           </div>
-        )}
-      </div>
+          {!isTablet && bandConditions?.extras?.aIndex && (
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>A </span>
+              <span
+                style={{
+                  color:
+                    parseInt(bandConditions.extras.aIndex) >= 20
+                      ? 'var(--accent-red)'
+                      : parseInt(bandConditions.extras.aIndex) >= 10
+                        ? 'var(--accent-amber)'
+                        : 'var(--accent-green)',
+                  fontWeight: '700',
+                }}
+              >
+                {bandConditions.extras.aIndex}
+              </span>
+            </div>
+          )}
+          {!isTablet && bandConditions?.extras?.geomagField && (
+            <div>
+              <span
+                style={{
+                  fontSize: '10px',
+                  color:
+                    bandConditions.extras.geomagField === 'QUIET'
+                      ? 'var(--accent-green)'
+                      : bandConditions.extras.geomagField === 'ACTIVE' ||
+                          bandConditions.extras.geomagField.includes('STORM')
+                        ? 'var(--accent-red)'
+                        : 'var(--accent-amber)',
+                  fontWeight: '600',
+                }}
+              >
+                {bandConditions.extras.geomagField}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Settings & Fullscreen Buttons */}
-      <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-        {!isFullscreen && (
+      {/* Buttons */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '6px', flexShrink: 0 }}>
+        {!isFullscreen && !isMobile && (
           <>
             <a
               href="https://buymeacoffee.com/k0cjh"
@@ -246,7 +249,7 @@ export const Header = ({
               style={{
                 background: 'linear-gradient(135deg, #ff813f 0%, #ffdd00 100%)',
                 border: 'none',
-                padding: '6px 10px',
+                padding: isTablet ? '4px 6px' : '6px 10px',
                 borderRadius: '4px',
                 color: '#000',
                 fontSize: '12px',
@@ -260,7 +263,7 @@ export const Header = ({
               }}
               title="Buy me a coffee!"
             >
-              ☕ Donate
+              ☕{isTablet ? '' : ' Donate'}
             </a>
             <a
               href="https://www.paypal.com/donate/?hosted_button_id=MMYPQBLA6SW68"
@@ -269,7 +272,7 @@ export const Header = ({
               style={{
                 background: 'linear-gradient(135deg, #0070ba 0%, #003087 100%)',
                 border: 'none',
-                padding: '6px 10px',
+                padding: isTablet ? '4px 6px' : '6px 10px',
                 borderRadius: '4px',
                 color: '#fff',
                 fontSize: '12px',
@@ -283,11 +286,11 @@ export const Header = ({
               }}
               title="Donate via PayPal"
             >
-              💳 PayPal
+              💳{isTablet ? '' : ' PayPal'}
             </a>
           </>
         )}
-        {showUpdateButton && (
+        {showUpdateButton && !isMobile && (
           <button
             onClick={onUpdateClick}
             disabled={updateInProgress}
@@ -311,7 +314,7 @@ export const Header = ({
           style={{
             background: 'var(--bg-tertiary)',
             border: '1px solid var(--border-color)',
-            padding: '6px 10px',
+            padding: isMobile ? '4px 8px' : '6px 10px',
             borderRadius: '4px',
             color: 'var(--text-secondary)',
             fontSize: '12px',
@@ -319,15 +322,15 @@ export const Header = ({
             whiteSpace: 'nowrap',
           }}
         >
-          <IconGear size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-          Settings
+          <IconGear size={12} style={{ verticalAlign: 'middle', marginRight: isMobile ? 0 : '4px' }} />
+          {!isMobile && 'Settings'}
         </button>
         <button
           onClick={onFullscreenToggle}
           style={{
             background: isFullscreen ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
             border: `1px solid ${isFullscreen ? 'var(--accent-green)' : 'var(--border-color)'}`,
-            padding: '6px 10px',
+            padding: isMobile ? '4px 8px' : '6px 10px',
             borderRadius: '4px',
             color: isFullscreen ? 'var(--accent-green)' : 'var(--text-secondary)',
             fontSize: '12px',
@@ -336,17 +339,8 @@ export const Header = ({
           }}
           title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
         >
-          {isFullscreen ? (
-            <>
-              <IconShrink size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-              Exit
-            </>
-          ) : (
-            <>
-              <IconExpand size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-              Full
-            </>
-          )}
+          {isFullscreen ? <IconShrink size={12} /> : <IconExpand size={12} />}
+          {!isMobile && (isFullscreen ? ' Exit' : ' Full')}
         </button>
       </div>
     </div>

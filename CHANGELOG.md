@@ -2,31 +2,89 @@
 
 All notable changes to OpenHamClock will be documented in this file.
 
-## [15.5.4] - 2026-02-18
+> **📅 Schedule Change:** Starting with v15.5.10, OpenHamClock moves to a weekly release cycle. Updates will ship on **Tuesday nights (EST)** — one release per week for better testing and stability.
+
+## [15.5.10] - 2026-02-20
 
 ### Fixed
 
-- **WWFF cache validation bug**: Copy-paste error checked `potaCache.data` instead of `wwffCache.data`, causing stale or missing WWFF spots
-- **Stale spot fallback**: POTA, SOTA, and WWFF endpoints now cap stale cache at 10 minutes (was unlimited on upstream API failure)
-- **Client-side age filtering**: POTA and SOTA spots now filter out entries older than 60 minutes (WWFF already had this)
-- **QRZ login spam**: Credential failure cooldown only resets when credentials actually change, preventing repeated bad-login attempts across users
-- **Memory leaks**: rbnApiCaches now auto-cleaned every 60s, callsign cache cap reduced 10K→5K, IP tracking cap reduced 100K→50K
-- **Express error handling**: Added proper error middleware for BadRequestError/PayloadTooLargeError — no more stack traces from client disconnects
-- **DX Cluster mode filter**: Selecting SSB, FT8, CW etc. in cluster filters hid all spots because mode was only detected from comment text (most spots don't mention mode). Now infers mode from frequency using digital island detection (FT8/FT4 calling freqs) and band plan segments (CW/SSB regions)
-- **RBN skimmer locations**: Fixed skimmer callsigns appearing at wrong locations on the map. Serialized enrichment pipeline (was parallel), added callsign verification on API responses, and cross-validates returned coordinates against callsign prefix — locations >5000 km from expected country fall back to prefix estimation
-- **Map callsign labels**: Tightened bounding boxes on all map callsign labels (DX Cluster, POTA, WWFF, SOTA) — reduced padding, border, font-size, and added tight line-height for less map clutter
+- **Log flooding — 115K dropped messages in 30 minutes**: Six hot-path loggers (RBN spot responses, callsign mismatch warnings, WSPR heatmap, PSK-MQTT SSE connect/disconnect) were writing directly to `console.log` on every request instead of going through the log level system. All moved behind `logDebug`/`logInfo`/`logErrorOnce`. Added global token-bucket rate limiter (burst 20, refill 10/sec) as a safety net — excess logs silently dropped with 60-second summary.
+- **Moon Image retry storm**: When NASA Dial-A-Moon API was down, every client request triggered a fresh fetch attempt. Added 5-minute negative cache — stale Moon images served during outages instead of returning errors.
+- **RBN callsign lookup storm**: When QRZ/HamQTH was down, every uncached skimmer callsign triggered a failed lookup on every spot cycle. Failed lookups now cached for 10 minutes with automatic expiry.
+- **Header vertical centering**: Text in header bar (callsign, clocks, solar stats, buttons) was misaligned after layout changes. Fixed with `alignItems: 'center'` on stats and buttons rows, `lineHeight: 1` on large text spans, `boxSizing: border-box`, and `auto` grid row height.
+- **TLE data failures**: CelesTrak rate-limited/banned the cloud server IP from excessive TLE polling. See "TLE Multi-Source Failover" below.
+
+### Added
+
+- **TLE multi-source failover**: Satellite TLE data now automatically fails over across three sources: CelesTrak → CelesTrak legacy (.com) → AMSAT. Rate limit responses (429/403) trigger immediate failover. Cache extended 6h → 12h. Stale TLEs served up to 48 hours. 30-minute negative cache prevents hammering. `TLE_SOURCES` env var for self-hosters to reorder sources.
+- **Ultrawide monitor layout**: Sidebars scale proportionally with viewport using `clamp()` (left: 260–480px, right: 280–500px). On 2560px displays, sidebars grow to ~960px combined instead of being capped at 660px. Panel height caps removed — DXpeditions, POTA, Contests flex to fill space.
+- **Mobile single-module scroll**: Mobile layout (<768px) rebuilt with full-width cards, 60vh map, scroll-snap momentum, and proper vertical stacking order.
+- **Russian translation** (Русский 🇷🇺) — 379 keys, 100% coverage
+- **Georgian translation** (ქართული 🇬🇪) — 379 keys, 100% coverage
+- **13 languages total**: en, de, es, fr, it, ja, ko, ms, nl, pt, sl, ru, ka — all at 100%
+- **Global log rate limiter**: Token bucket wraps `console.log/warn/error` to prevent Railway/cloud log pipeline floods regardless of source. Burst of 20, refill 10/sec, 60-second drop summary.
+- **WhatsNew notice banner**: Release announcements can now include a highlighted notice bar (used for the Tuesday schedule announcement).
+
+## [15.5.9] - 2026-02-20
+
+### Added
+
+- **APRS-IS live tracking**: Full APRS integration via server-side APRS-IS connection (rotate.aprs2.net). Stations parsed in real-time with position, course, speed, altitude, and symbol. Watchlist groups for EmComm nets, ARES/RACES events, Field Day tracking.
+- **Wildfire map layer**: Active wildfires worldwide via NASA EONET satellite detection. Markers with severity indicators under new Natural Hazards category.
+- **Floods & Storms map layer**: Active floods and severe storms worldwide via NASA EONET. Grouped under Natural Hazards in Settings.
+- **PSKReporter TX/RX split view**: Separate "Being Heard" and "Hearing" tabs with per-direction counts, replacing combined view.
+- **Map layers categorized & sorted**: Settings groups layers by category (📡 Propagation, 📻 Amateur Radio, 🌤️ Weather, ☀️ Space Weather, ⚠️ Natural Hazards, 🪨 Geology, 🗺️ Overlays) with alphabetical sorting within each.
+- **100% translation coverage — all 11 languages**: Every string fully translated. Previously 45–61% coverage with 292 missing keys total.
+
+### Fixed
+
+- **Duplicate WSJT-X/PSK spots** (#396): Content-based dedup IDs replace timestamp-based. QSO logging checks call+freq+mode within 60s. MQTT ingestion deduplicates before buffering.
+- **Windows update mechanism**: Git operations use proper path resolution and restart handles Windows process semantics.
+- **DX Cluster time display**: Spot timestamps now show relative time ("5m ago") with original UTC in parentheses.
+
+## [15.5.8] - 2026-02-19
+
+### Fixed
+
+- **Memory leaks — three unbounded caches**: Propagation heatmap (200-entry cap, 10-min purge), custom DX sessions (15-min reap), DX path cache (100-key cap, 5-min cleanup).
+- **Merge conflict cleanup**: Duplicate zoom buttons, triplicated switch/case blocks, duplicate variable declarations, broken cache check.
+
+### Added
+
+- **Live NASA Moon imagery**: Dial-A-Moon 730×730 JPG with 1-hour server-side cache replaces static SVG.
+- **Map legend & band colors restored**: Clickable band color legend, rotator bearing line, satellite tracks, My Spots markers.
+
+## [15.5.7] - 2026-02-19
+
+### Added
+
+- **Settings export filenames include time**: e.g. `hamclock-current-2026-02-19-143022.json` — multiple exports no longer overwrite.
+
+## [15.5.6] - 2026-02-19
+
+### Fixed
+
+- **Draggable panel disappear bug**: Stale mousemove/mouseup listeners from layout switches teleported panels off-screen. Fixed with AbortController cleanup.
+- **Portable callsign location**: PJ2/W9WI, DL/W1ABC now resolve to correct DXCC entity via new `extractOperatingPrefix()`.
+- **Rig control CW mode**: Band plan JSON now labels CW segments correctly. Rewritten `mapModeToRig()` for proper CW/SSB/DATA switching.
+- **Rig Listener FT-DX10 & Windows serial**: DTR assertion fix for CP210x adapters, npm path resolution on Windows.
+- **Emoji icons on Linux**: Proper emoji font-family CSS stack, auto-installed `fonts-noto-color-emoji` in Pi setup.
+
+### Added
+
+- **Satellite info minimize button**: Collapse floating window to slim header during map viewing.
+
+## [15.5.5] - 2026-02-18
+
+### Fixed
+
+- **Leaflet load race condition**: Map polls up to 5 seconds for vendor script with actionable error message if it fails.
 
 ### Added
 
 - Prettier code formatting pipeline with `.prettierrc`, pre-commit hooks (Husky + lint-staged), and CI enforcement
-- `RBNapi=` metric in memory diagnostic logs
-- Express error middleware catches body-parser errors before they reach uncaughtException
 
-### Restored
-
-- `rig-bridge/` and `rig-control/` directories for power users who prefer flrig/rigctld or daemon-based rig control
-
-## [15.5.3] - 2026-02-17
+## [15.5.4] - 2026-02-18
 
 ### Added
 
