@@ -50,22 +50,53 @@ const styles = `
 OpenHamClock's UI is dynamic. If your script runs before the page is fully rendered, it might fail to find elements.
 Use `document.readyState` or a `MutationObserver` if you need to hook into specific React components.
 
-### 4. Best Practices
+### 4. Integration into the AddOn Drawer (🧩)
 
-- **Draggable UI**: Since the clock uses a lot of screen space, ensure any large UI elements are draggable.
-- **Persistence**: Use `localStorage` to save user preferences or last-used values.
-- **Toggle Button**: Provide a small floating button or a hotkey to show/hide your tool to keep the interface clean.
-- **Mobile Friendly**: Consider that many users run the clock on small touchscreens (e.g., Raspberry Pi 7" display).
+To keep the UI clean, all AddOns should integrate into the shared drawer. This creates a single **🧩 Launcher Icon** that reveals all AddOn buttons when clicked.
 
-### 5. Sharing your AddOn
+Add this logic to your `init()` function:
 
-1. Create your script in the `AddOns/` folder with the naming convention `name_of_tool.user.js`.
-2. Provide a short `.md` file explaining what the tool does.
-3. Submit a Pull Request to the repository!
+```javascript
+// 1. Define shared drawer styles
+const styles = `
+    #ohc-addon-drawer { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; z-index: 10000; pointer-events: none; }
+    .ohc-addon-icon { width: 45px; height: 45px; background: var(--bg-panel, rgba(17, 24, 32, 0.95)); border: 1px solid var(--border-color, rgba(255, 180, 50, 0.3)); border-radius: 50%; color: var(--accent-cyan, #00ddff); font-size: 20px; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.3); pointer-events: auto; transition: all 0.3s ease; }
+    #ohc-addon-launcher { background: var(--bg-tertiary); color: var(--accent-amber); }
+    .ohc-addon-item { display: none; } // Hidden by default
+`;
 
-## Example Reference
-Check out [hfj350m_calculator.user.js](./hfj350m_calculator.user.js) in this directory for a complete implementation including:
-- Theme-aware CSS
-- Draggable window logic
-- LocalStorage persistence
-- Toggle button implementation
+// 2. Get or create the shared drawer
+let drawer = document.getElementById("ohc-addon-drawer");
+if (!drawer) {
+    drawer = document.createElement("div");
+    drawer.id = "ohc-addon-drawer";
+    const launcher = document.createElement("div");
+    launcher.id = "ohc-addon-launcher";
+    launcher.className = "ohc-addon-icon";
+    launcher.innerHTML = "🧩";
+    launcher.onclick = () => {
+        const items = document.querySelectorAll(".ohc-addon-item");
+        const isHidden = items[0]?.style.display !== "flex";
+        items.forEach(el => el.style.display = isHidden ? "flex" : "none");
+    };
+    drawer.appendChild(launcher);
+    document.body.appendChild(drawer);
+}
+
+// 3. Append your icon as an .ohc-addon-item
+const myBtn = document.createElement("div");
+myBtn.className = "ohc-addon-icon ohc-addon-item";
+myBtn.innerHTML = "📍";
+drawer.appendChild(myBtn);
+```
+
+### 5. Notifying the App of Changes
+
+If your AddOn changes the station's configuration (like position or callsign), you must notify the React app so it can update the UI immediately:
+
+```javascript
+localStorage.setItem('openhamclock_config', JSON.stringify(newConfig));
+window.dispatchEvent(new CustomEvent('openhamclock-config-change', { detail: newConfig }));
+```
+
+### 6. Best Practices
