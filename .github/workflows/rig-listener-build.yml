@@ -23,6 +23,7 @@ permissions:
 
 jobs:
   build:
+    if: github.repository == 'accius/openhamclock'
     strategy:
       matrix:
         include:
@@ -67,9 +68,9 @@ jobs:
           retention-days: 30
 
   release:
+    if: github.repository == 'accius/openhamclock' && startsWith(github.ref, 'refs/tags/rig-listener-v')
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/rig-listener-v')
     name: Create Release
 
     steps:
