@@ -68,6 +68,7 @@
   "station.settings.theme.light.describe": "→ 适用于日间使用的浅色主题",
   "station.settings.theme.retro": "怀旧",
   "station.settings.theme.retro.describe": "→ 90年代 Windows 风格",
+  "station.settings.theme.retro.description": "→ 90年代 Windows 风格",
   "station.settings.timezone": "🕐 时区",
   "station.settings.timezone.describe": "如果您的本地时间显示错误请手动设置。某些隐私浏览器可能会伪造时区。",
   "station.settings.title": "电台设置",
@@ -266,7 +267,7 @@
   "weather.forecast": "天气预报",
   "weather.today": "今日",
   "station.settings.tab3.title": "⛊ 卫星",
-  "station.settings.locator.placeholder": "例如 FN20nc",
+  "station.settings.locator.placeholder": "FN20nc",
   "station.settings.layout.dockable": "可停靠面板",
   "station.settings.layout.dockable.describe": "可调整大小、可拖拽的选项卡面板",
   "station.settings.layout.reset.confirm": "重置面板布局为默认？",
@@ -378,6 +379,5 @@
   "propagation.heatmap.tooltip.voacap": "切换至 VOACAP 热力图颜色 (红色=优良)",
   "propagation.heatmap.tooltip.stoplight": "切换至红绿灯颜色 (绿色=优良)",
   "app.legend.sun": "太阳",
-  "app.legend.moon": "月亮",
-  "propagation.heatmap.tooltip.stoplight": "切换至红绿灯颜色 (绿色=优良)"
+  "app.legend.moon": "月亮"
 }
