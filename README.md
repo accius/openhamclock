@@ -1125,7 +1125,7 @@ PSKReporter MQTT ──────────────► React ──► P
   (direct WebSocket)
 
 WWBOTA API ──────────────► React ──►  Panel
-  (direct WebSocket)
+  (direct Server-Sent Events)
 ```
 
 ---
