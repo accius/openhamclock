@@ -4,6 +4,7 @@
 import { DXNewsTicker, WorldMap } from '../components';
 import { getBandColor, getBandColorForBand } from '../utils';
 import CallsignLink from '../components/CallsignLink.jsx';
+import DonateButton from '../components/DonateButton.jsx';
 import { useRig } from '../contexts/RigContext.jsx';
 
 export default function ClassicLayout(props) {
@@ -697,28 +698,7 @@ export default function ClassicLayout(props) {
         {/* Controls */}
         <div style={{ display: 'flex', gap: '4px' }}>
           {!isFullscreen && (
-            <a
-              href="https://www.paypal.com/donate/?hosted_button_id=MMYPQBLA6SW68"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                background: 'linear-gradient(135deg, #0070ba 0%, #003087 100%)',
-                border: 'none',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                color: '#fff',
-                fontSize: '11px',
-                fontWeight: '600',
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-              title={t('app.donate.paypal')}
-            >
-              💳
-            </a>
+            <DonateButton compact fontSize="11px" padding="4px 8px" />
           )}
           <button
             onClick={() => setShowSettings(true)}
@@ -1174,27 +1154,7 @@ export default function ClassicLayout(props) {
           </div>
           <div style={{ display: 'flex', gap: '4px' }}>
             {!isFullscreen && (
-              <a
-                href="https://www.paypal.com/donate/?hosted_button_id=MMYPQBLA6SW68"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  background: 'linear-gradient(135deg, #0070ba 0%, #003087 100%)',
-                  border: 'none',
-                  padding: '6px 10px',
-                  borderRadius: '4px',
-                  color: '#fff',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  textDecoration: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                }}
-                title={t('app.donate.paypal')}
-              >
-                💳
-              </a>
+              <DonateButton compact fontSize="13px" padding="6px 10px" />
             )}
             <button
               onClick={() => setShowSettings(true)}
