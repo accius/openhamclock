@@ -448,15 +448,21 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
   // Wrappers that persist to localStorage on change
   const setShowTwilight = (val) => {
     _setShowTwilight(val);
-    try { localStorage.setItem('openhamclock_grayline_twilight', String(val)); } catch {}
+    try {
+      localStorage.setItem('openhamclock_grayline_twilight', String(val));
+    } catch {}
   };
   const setShowEnhancedZone = (val) => {
     _setShowEnhancedZone(val);
-    try { localStorage.setItem('openhamclock_grayline_enhanced', String(val)); } catch {}
+    try {
+      localStorage.setItem('openhamclock_grayline_enhanced', String(val));
+    } catch {}
   };
   const setTwilightOpacity = (val) => {
     _setTwilightOpacity(val);
-    try { localStorage.setItem('openhamclock_grayline_twilightOpacity', String(val)); } catch {}
+    try {
+      localStorage.setItem('openhamclock_grayline_twilightOpacity', String(val));
+    } catch {}
   };
 
   const controlRef = useRef(null);

@@ -248,11 +248,7 @@ export const Header = ({
       {/* Buttons */}
       <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '6px', flexShrink: 0 }}>
         {!isFullscreen && !isMobile && (
-          <DonateButton
-            compact={isTablet}
-            fontSize="12px"
-            padding={isTablet ? '4px 6px' : '6px 10px'}
-          />
+          <DonateButton compact={isTablet} fontSize="12px" padding={isTablet ? '4px 6px' : '6px 10px'} />
         )}
         {showUpdateButton && !isMobile && (
           <button

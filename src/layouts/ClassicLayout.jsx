@@ -697,9 +697,7 @@ export default function ClassicLayout(props) {
 
         {/* Controls */}
         <div style={{ display: 'flex', gap: '4px' }}>
-          {!isFullscreen && (
-            <DonateButton compact fontSize="11px" padding="4px 8px" />
-          )}
+          {!isFullscreen && <DonateButton compact fontSize="11px" padding="4px 8px" />}
           <button
             onClick={() => setShowSettings(true)}
             style={{
@@ -1153,9 +1151,7 @@ export default function ClassicLayout(props) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '4px' }}>
-            {!isFullscreen && (
-              <DonateButton compact fontSize="13px" padding="6px 10px" />
-            )}
+            {!isFullscreen && <DonateButton compact fontSize="13px" padding="6px 10px" />}
             <button
               onClick={() => setShowSettings(true)}
               style={{

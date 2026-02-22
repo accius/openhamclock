@@ -16,7 +16,9 @@ export default function DonateButton({ compact = false, fontSize = '12px', paddi
   // Close on Escape
   useEffect(() => {
     if (!open) return;
-    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    const onKey = (e) => {
+      if (e.key === 'Escape') close();
+    };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [open, close]);
@@ -71,10 +73,10 @@ export default function DonateButton({ compact = false, fontSize = '12px', paddi
             }}
           >
             {/* Header */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0, color: 'var(--text-primary, #eee)', fontSize: '18px' }}>
-                Support OpenHamClock
-              </h3>
+            <div
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}
+            >
+              <h3 style={{ margin: 0, color: 'var(--text-primary, #eee)', fontSize: '18px' }}>Support OpenHamClock</h3>
               <button
                 onClick={close}
                 style={{
@@ -92,7 +94,9 @@ export default function DonateButton({ compact = false, fontSize = '12px', paddi
               </button>
             </div>
 
-            <p style={{ color: 'var(--text-secondary, #aaa)', fontSize: '13px', margin: '0 0 20px 0', lineHeight: 1.5 }}>
+            <p
+              style={{ color: 'var(--text-secondary, #aaa)', fontSize: '13px', margin: '0 0 20px 0', lineHeight: 1.5 }}
+            >
               OpenHamClock is free and open-source. Your support helps cover hosting costs and fund new features. 73!
             </p>
 
@@ -152,12 +156,22 @@ export default function DonateButton({ compact = false, fontSize = '12px', paddi
                 </div>
               </a>
 
-              <div style={{
-                borderTop: '1px solid var(--border-color, #333)',
-                margin: '6px 0 2px 0',
-                paddingTop: '14px',
-              }}>
-                <div style={{ color: 'var(--text-muted, #888)', fontSize: '11px', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div
+                style={{
+                  borderTop: '1px solid var(--border-color, #333)',
+                  margin: '6px 0 2px 0',
+                  paddingTop: '14px',
+                }}
+              >
+                <div
+                  style={{
+                    color: 'var(--text-muted, #888)',
+                    fontSize: '11px',
+                    marginBottom: '8px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                  }}
+                >
                   Merch Store
                 </div>
                 <a
@@ -184,7 +198,9 @@ export default function DonateButton({ compact = false, fontSize = '12px', paddi
                   <span style={{ fontSize: '22px' }}>🛍️</span>
                   <div>
                     <div>OpenHamClock Merch</div>
-                    <div style={{ fontSize: '11px', fontWeight: '400', color: 'var(--text-muted, #aaa)' }}>Shirts, mugs, stickers & more</div>
+                    <div style={{ fontSize: '11px', fontWeight: '400', color: 'var(--text-muted, #aaa)' }}>
+                      Shirts, mugs, stickers & more
+                    </div>
                   </div>
                 </a>
               </div>

@@ -1078,9 +1078,7 @@ export const DockableApp = ({
         <button
           onClick={toggleLayoutLock}
           title={
-            layoutLocked
-              ? 'Unlock layout — allow drag, resize, and close'
-              : 'Lock layout — prevent accidental changes'
+            layoutLocked ? 'Unlock layout — allow drag, resize, and close' : 'Lock layout — prevent accidental changes'
           }
           style={{
             display: 'flex',

@@ -398,10 +398,7 @@ app.use(
 // Permissions-Policy — declare which browser features the app uses
 // Presence of this header is a trust signal for endpoint-protection scanners
 app.use((req, res, next) => {
-  res.setHeader(
-    'Permissions-Policy',
-    'camera=(), microphone=(), geolocation=(self), payment=(), usb=()',
-  );
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=(), usb=()');
   next();
 });
 

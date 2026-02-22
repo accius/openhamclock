@@ -23,7 +23,7 @@ const CHANGELOG = [
       {
         icon: '🌅',
         title: 'Gray Line Twilight Zone Rendering Fixed',
-        desc: 'Fixed gaps in the twilight zone dashed lines where segments would disappear mid-curve (reported by Trev). The old Newton-Raphson iterative solver failed to converge at certain longitudes near the curve\'s polar tips. Replaced with a direct analytical solution using half-angle substitution — a simple quadratic equation that always produces an exact answer with zero gaps.',
+        desc: "Fixed gaps in the twilight zone dashed lines where segments would disappear mid-curve (reported by Trev). The old Newton-Raphson iterative solver failed to converge at certain longitudes near the curve's polar tips. Replaced with a direct analytical solution using half-angle substitution — a simple quadratic equation that always produces an exact answer with zero gaps.",
       },
       {
         icon: '💾',
@@ -38,12 +38,12 @@ const CHANGELOG = [
       {
         icon: '🛡️',
         title: 'Bitdefender False Positive Mitigation',
-        desc: 'Addressed Issue #356 — Bitdefender was flagging openhamclock.com URLs as malicious. Added a Permissions-Policy security header and an RFC 9116 security.txt endpoint declaring the site\'s legitimacy. Removed redundant cache-buster timestamps (_t=Date.now()) from four API hooks that made every polling request a unique URL — a pattern that heuristic antivirus scanners flag as command-and-control beaconing.',
+        desc: "Addressed Issue #356 — Bitdefender was flagging openhamclock.com URLs as malicious. Added a Permissions-Policy security header and an RFC 9116 security.txt endpoint declaring the site's legitimacy. Removed redundant cache-buster timestamps (_t=Date.now()) from four API hooks that made every polling request a unique URL — a pattern that heuristic antivirus scanners flag as command-and-control beaconing.",
       },
       {
         icon: '🌡️',
         title: 'Weather Data Fixed for Local Installs',
-        desc: 'Fixed Issue #555 — local/self-hosted installs showed stale weather data (19°F off) while openhamclock.com was correct. The Open-Meteo API fetch was missing cache: \'no-store\', allowing the browser to serve hours-old cached responses on localhost. Added diagnostic logging so users can verify coordinates and temperatures in DevTools.',
+        desc: "Fixed Issue #555 — local/self-hosted installs showed stale weather data (19°F off) while openhamclock.com was correct. The Open-Meteo API fetch was missing cache: 'no-store', allowing the browser to serve hours-old cached responses on localhost. Added diagnostic logging so users can verify coordinates and temperatures in DevTools.",
       },
       {
         icon: '📍',
@@ -57,8 +57,8 @@ const CHANGELOG = [
       },
       {
         icon: '🔖',
-        title: 'Version Number Opens What\'s New',
-        desc: 'The version number displayed next to your callsign in the header is now clickable — tap it to re-open this What\'s New popup anytime and review the latest release notes.',
+        title: "Version Number Opens What's New",
+        desc: "The version number displayed next to your callsign in the header is now clickable — tap it to re-open this What's New popup anytime and review the latest release notes.",
       },
     ],
   },

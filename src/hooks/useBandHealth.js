@@ -11,7 +11,23 @@
 import { useMemo } from 'react';
 import { getBandFromFreq, detectMode } from '../utils/callsign.js';
 
-const DEFAULT_BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '8m', '6m', '4m', '2m', '70cm'];
+const DEFAULT_BANDS = [
+  '160m',
+  '80m',
+  '60m',
+  '40m',
+  '30m',
+  '20m',
+  '17m',
+  '15m',
+  '12m',
+  '10m',
+  '8m',
+  '6m',
+  '4m',
+  '2m',
+  '70cm',
+];
 
 const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
 

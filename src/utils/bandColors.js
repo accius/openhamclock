@@ -6,7 +6,22 @@
 export const BAND_COLOR_STORAGE_KEY = 'openhamclock_bandColors';
 export const BAND_COLORS_CHANGE_EVENT = 'openhamclock-band-colors-change';
 
-export const BAND_LEGEND_ORDER = ['160m', '80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '8m', '6m', '4m', '2m', '70cm'];
+export const BAND_LEGEND_ORDER = [
+  '160m',
+  '80m',
+  '40m',
+  '30m',
+  '20m',
+  '17m',
+  '15m',
+  '12m',
+  '10m',
+  '8m',
+  '6m',
+  '4m',
+  '2m',
+  '70cm',
+];
 
 export const DEFAULT_BAND_COLORS = {
   '160m': '#ff6666',
