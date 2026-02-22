@@ -10,6 +10,59 @@ import { useState, useEffect } from 'react';
 // Each entry: { version, date, heading, features: [...] }
 const CHANGELOG = [
   {
+    version: '15.6.1',
+    date: '2026-02-25',
+    heading:
+      'Major propagation model fix, gray line rendering improvements, 8m & 4m band support, antivirus compatibility, and UI polish.',
+    features: [
+      {
+        icon: '📡',
+        title: 'VOACAP Propagation Model Overhaul',
+        desc: 'Fixed a critical bug where 160m and 80m bands showed incorrectly high reliability on long daytime paths (reported by W3AAX). Root cause: the MUF and LUF calculations used UTC hour instead of local solar time at the path midpoint, and D-layer absorption was far too weak for multi-hop paths. LUF now properly accounts for hop count (+50% absorption per additional hop), uses correct local solar time for day/night transitions, and applies realistic daytime penalties to low bands (160m essentially dead, 80m heavily absorbed). Transatlantic paths now correctly show 160m/80m open at night and closed during the day.',
+      },
+      {
+        icon: '🌅',
+        title: 'Gray Line Twilight Zone Rendering Fixed',
+        desc: 'Fixed gaps in the twilight zone dashed lines where segments would disappear mid-curve (reported by Trev). The old Newton-Raphson iterative solver failed to converge at certain longitudes near the curve\'s polar tips. Replaced with a direct analytical solution using half-angle substitution — a simple quadratic equation that always produces an exact answer with zero gaps.',
+      },
+      {
+        icon: '💾',
+        title: 'Gray Line Settings Now Persist',
+        desc: 'Fixed Issue #564 — Gray Line settings (Show Twilight Zones, Enhanced DX Zone, Twilight Opacity) were lost on browser restart because they were hardcoded defaults with no localStorage persistence. All three settings now save automatically and restore on reload. Checkboxes and slider sync with the loaded state when the control panel mounts.',
+      },
+      {
+        icon: '📻',
+        title: '8m & 4m Band Support',
+        desc: 'Added the 8m (40–42 MHz) and 4m (70–70.5 MHz) bands across the entire stack — popular in Europe and increasingly active worldwide. New bands appear in the map legend, band filter bars (DX Cluster, PSK Reporter, RBN, WSPR), band health tiles, and all spot/path coloring. Server-side frequency detection updated for DX Cluster, RBN, PSK Reporter, and WSJT-X.',
+      },
+      {
+        icon: '🛡️',
+        title: 'Bitdefender False Positive Mitigation',
+        desc: 'Addressed Issue #356 — Bitdefender was flagging openhamclock.com URLs as malicious. Added a Permissions-Policy security header and an RFC 9116 security.txt endpoint declaring the site\'s legitimacy. Removed redundant cache-buster timestamps (_t=Date.now()) from four API hooks that made every polling request a unique URL — a pattern that heuristic antivirus scanners flag as command-and-control beaconing.',
+      },
+      {
+        icon: '🌡️',
+        title: 'Weather Data Fixed for Local Installs',
+        desc: 'Fixed Issue #555 — local/self-hosted installs showed stale weather data (19°F off) while openhamclock.com was correct. The Open-Meteo API fetch was missing cache: \'no-store\', allowing the browser to serve hours-old cached responses on localhost. Added diagnostic logging so users can verify coordinates and temperatures in DevTools.',
+      },
+      {
+        icon: '📍',
+        title: 'DE/DX Markers Always Visible',
+        desc: 'Fixed APRS station markers rendering on top of the DE (home) and DX icons, hiding them from view. DE marker now has zIndexOffset 20000 and DX has 19000, ensuring they always render above APRS, DX Cluster, and other spot layers.',
+      },
+      {
+        icon: '❤️',
+        title: 'Unified Support Button & Merch Store',
+        desc: 'Consolidated the separate PayPal and Buy Me a Coffee buttons into a single "Support Us" button that opens a modal with three options: Buy Me a Coffee, PayPal donation, and a link to the new OpenHamClock merch store.',
+      },
+      {
+        icon: '🔖',
+        title: 'Version Number Opens What\'s New',
+        desc: 'The version number displayed next to your callsign in the header is now clickable — tap it to re-open this What\'s New popup anytime and review the latest release notes.',
+      },
+    ],
+  },
+  {
     version: '15.5.10',
     date: '2026-02-20',
     heading:
@@ -470,6 +523,13 @@ export default function WhatsNew() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Allow external components (e.g. version link in Header) to open the modal
+  useEffect(() => {
+    const onShow = () => setVisible(true);
+    window.addEventListener('openhamclock-show-whatsnew', onShow);
+    return () => window.removeEventListener('openhamclock-show-whatsnew', onShow);
+  }, []);
+
   const handleDismiss = () => {
     if (currentVersion) {
       localStorage.setItem(LS_KEY, currentVersion);
@@ -479,7 +539,7 @@ export default function WhatsNew() {
 
   if (!visible || !currentVersion) return null;
 
-  const entry = CHANGELOG.find((c) => c.version === currentVersion);
+  const entry = CHANGELOG.find((c) => c.version === currentVersion) || CHANGELOG[0];
   if (!entry) return null;
 
   return (

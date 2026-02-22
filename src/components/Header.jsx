@@ -91,7 +91,13 @@ export const Header = ({
           ) : null;
         })()}
         {config.version && !isMobile && (
-          <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>v{config.version}</span>
+          <span
+            onClick={() => window.dispatchEvent(new Event('openhamclock-show-whatsnew'))}
+            style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer' }}
+            title="What's new in this version"
+          >
+            v{config.version}
+          </span>
         )}
         {!isMobile && <QRZToggle />}
       </div>
