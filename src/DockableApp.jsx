@@ -153,6 +153,24 @@ export const DockableApp = ({
   const [showPanelPicker, setShowPanelPicker] = useState(false);
   const [targetTabSetId, setTargetTabSetId] = useState(null);
   const saveTimeoutRef = useRef(null);
+
+  // Layout lock — prevents accidental drag/resize/close of panels
+  const [layoutLocked, setLayoutLocked] = useState(() => {
+    try {
+      return localStorage.getItem('openhamclock_layoutLocked') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const toggleLayoutLock = useCallback(() => {
+    setLayoutLocked((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('openhamclock_layoutLocked', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
   const [effectiveUnits, setEffectiveUnits] = useState(() => getEffectiveUnits(config?.units));
   const [showDXLocalTime, setShowDXLocalTime] = useState(false);
 
@@ -270,6 +288,24 @@ export const DockableApp = ({
       return rest;
     });
   }, []);
+
+  // Block layout-altering actions when locked
+  const handleAction = useCallback(
+    (action) => {
+      if (layoutLocked) {
+        const blockedTypes = [
+          'FlexLayout_MoveNode',
+          'FlexLayout_AdjustSplit',
+          'FlexLayout_DeleteTab',
+          'FlexLayout_MaximizeToggle',
+          'FlexLayout_AdjustBorderSplit',
+        ];
+        if (blockedTypes.includes(action.type)) return undefined;
+      }
+      return action;
+    },
+    [layoutLocked],
+  );
 
   // Handle model changes with debounced save
   const handleModelChange = useCallback((newModel) => {
@@ -992,19 +1028,22 @@ export const DockableApp = ({
       renderValues.stickyButtons.push(
         <button
           key="add"
-          title="Add panel"
+          title={layoutLocked ? 'Unlock layout to add panels' : 'Add panel'}
           className="flexlayout__tab_toolbar_button"
+          disabled={layoutLocked}
           onClick={(e) => {
             e.stopPropagation();
+            if (layoutLocked) return;
             setTargetTabSetId(node.getId());
             setShowPanelPicker(true);
           }}
+          style={layoutLocked ? { opacity: 0.3, cursor: 'not-allowed' } : undefined}
         >
           <PlusIcon />
         </button>,
       );
     },
-    [panelZoom, adjustZoom, resetZoom],
+    [panelZoom, adjustZoom, resetZoom, layoutLocked],
   );
 
   // Get unused panels
@@ -1053,6 +1092,38 @@ export const DockableApp = ({
         />
       </div>
 
+      {/* Dockable toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          padding: '2px 16px 0',
+        }}
+      >
+        <button
+          onClick={toggleLayoutLock}
+          title={
+            layoutLocked ? 'Unlock layout — allow drag, resize, and close' : 'Lock layout — prevent accidental changes'
+          }
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: layoutLocked ? 'rgba(255, 170, 0, 0.15)' : 'var(--bg-tertiary)',
+            border: `1px solid ${layoutLocked ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+            borderRadius: '4px',
+            padding: '3px 8px',
+            fontSize: '11px',
+            fontFamily: 'JetBrains Mono, monospace',
+            color: layoutLocked ? 'var(--accent-amber)' : 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          {layoutLocked ? '🔒' : '🔓'} Layout {layoutLocked ? 'Locked' : 'Unlocked'}
+        </button>
+      </div>
+
       {/* Dockable Layout */}
       <div style={{ flex: 1, position: 'relative', padding: '8px', minHeight: 0 }}>
         <DockableLayoutProvider model={model}>
@@ -1060,6 +1131,7 @@ export const DockableApp = ({
             ref={layoutRef}
             model={model}
             factory={factory}
+            onAction={handleAction}
             onModelChange={handleModelChange}
             onRenderTabSet={onRenderTabSet}
           />

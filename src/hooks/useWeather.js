@@ -187,7 +187,7 @@ async function fetchOpenMeteoDirect(lat, lon) {
   if (apiKey) params.push(`apikey=${apiKey}`);
 
   const base = apiKey ? 'https://customer-api.open-meteo.com/v1/forecast' : 'https://api.open-meteo.com/v1/forecast';
-  const response = await fetch(`${base}?${params.join('&')}`);
+  const response = await fetch(`${base}?${params.join('&')}`, { cache: 'no-store' });
 
   if (response.status === 429) throw new Error('Rate limited');
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -213,7 +213,11 @@ export const useWeather = (location, tempUnit = 'F') => {
         const lat = normalizeLat(location.lat);
         const lon = normalizeLon(location.lon);
 
+        console.log(`[Weather] Fetching for ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
         const data = await fetchOpenMeteoDirect(lat, lon);
+        console.log(
+          `[Weather] Result: ${data?.current?.temperature_2m}°C (${Math.round((data?.current?.temperature_2m * 9) / 5 + 32)}°F) from ${data?._source || 'unknown'}`,
+        );
         setRawData(data);
         setError(null);
         retryCountRef.current = 0;

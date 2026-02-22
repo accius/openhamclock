@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 
-const BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
+const BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '8m', '6m', '4m', '2m', '70cm'];
 const MODES = [
   '-FT8',
   'CONTESTI',

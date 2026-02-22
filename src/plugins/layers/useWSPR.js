@@ -652,7 +652,9 @@ export function useLayer({
               <option value="15m">15m</option>
               <option value="12m">12m</option>
               <option value="10m">10m</option>
+              <option value="8m">8m</option>
               <option value="6m">6m</option>
+              <option value="4m">4m</option>
             </select>
           </div>
           

@@ -402,7 +402,9 @@ function freqToBand(freq) {
   if (freq >= 21.0 && freq < 21.45) return '15m';
   if (freq >= 24.89 && freq < 24.99) return '12m';
   if (freq >= 28.0 && freq < 29.7) return '10m';
+  if (freq >= 40.0 && freq < 42.0) return '8m';
   if (freq >= 50.0 && freq < 54.0) return '6m';
+  if (freq >= 70.0 && freq < 70.5) return '4m';
   return 'Other';
 }
 
@@ -693,7 +695,9 @@ export function useLayer({
             <option value="15m">15m</option>
             <option value="12m">12m</option>
             <option value="10m">10m</option>
+            <option value="8m">8m</option>
             <option value="6m">6m</option>
+            <option value="4m">4m</option>
           </select>
         </div>
         <div style="margin-bottom: 6px;">

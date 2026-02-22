@@ -31,6 +31,7 @@ export const SettingsPanel = ({
   onSatelliteFiltersChange,
   mapLayers,
   onToggleDXNews,
+  wakeLockStatus,
 }) => {
   const [callsign, setCallsign] = useState(config?.callsign || '');
   const [headerSize, setheaderSize] = useState(config?.headerSize || 1.0);
@@ -46,6 +47,7 @@ export const SettingsPanel = ({
     config?.customDxCluster || { enabled: false, host: '', port: 7300 },
   );
   const [lowMemoryMode, setLowMemoryMode] = useState(config?.lowMemoryMode || false);
+  const [preventSleep, setPreventSleep] = useState(config?.preventSleep || false);
   const [units, setUnits] = useState(config?.units || 'imperial');
   const [propMode, setPropMode] = useState(config?.propagation?.mode || 'SSB');
   const [propPower, setPropPower] = useState(config?.propagation?.power || 100);
@@ -139,6 +141,7 @@ export const SettingsPanel = ({
       setDxClusterSource(config.dxClusterSource || 'dxspider-proxy');
       setCustomDxCluster(config.customDxCluster || { enabled: false, host: '', port: 7300 });
       setLowMemoryMode(config.lowMemoryMode || false);
+      setPreventSleep(config.preventSleep || false);
       setUnits(config.units || 'imperial');
       setPropMode(config.propagation?.mode || 'SSB');
       setPropMode(config.propagation?.mode || 'SSB');
@@ -358,6 +361,7 @@ export const SettingsPanel = ({
       dxClusterSource,
       customDxCluster,
       lowMemoryMode,
+      preventSleep,
       units,
       propagation: { mode: propMode, power: parseFloat(propPower) || 100 },
 
@@ -1504,6 +1508,93 @@ export const SettingsPanel = ({
                 {lowMemoryMode
                   ? '✓ Low Memory Mode: Reduced animations, fewer map markers, smaller spot limits. Recommended for systems with <8GB RAM.'
                   : 'Full Mode: All features enabled. Requires 8GB+ RAM for best performance.'}
+              </div>
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
+                {t('station.settings.preventSleep')}
+              </label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => setPreventSleep(false)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: !preventSleep ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+                    border: `1px solid ${!preventSleep ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                    borderRadius: '6px',
+                    color: !preventSleep ? '#000' : 'var(--text-secondary)',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    fontWeight: !preventSleep ? '600' : '400',
+                  }}
+                >
+                  💤 {t('station.settings.preventSleep.off')}
+                </button>
+                <button
+                  onClick={() => setPreventSleep(true)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: preventSleep ? 'var(--accent-green)' : 'var(--bg-tertiary)',
+                    border: `1px solid ${preventSleep ? 'var(--accent-green)' : 'var(--border-color)'}`,
+                    borderRadius: '6px',
+                    color: preventSleep ? '#000' : 'var(--text-secondary)',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    fontWeight: preventSleep ? '600' : '400',
+                  }}
+                >
+                  🖥️ {t('station.settings.preventSleep.on')}
+                </button>
+              </div>
+              <div style={{ marginTop: '8px' }}>
+                {preventSleep && wakeLockStatus && (
+                  <div
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontFamily: 'JetBrains Mono, monospace',
+                      fontWeight: '600',
+                      marginBottom: '6px',
+                      background: wakeLockStatus.active ? 'rgba(0,200,100,0.15)' : 'rgba(255,160,0,0.15)',
+                      border: `1px solid ${wakeLockStatus.active ? 'var(--accent-green)' : 'var(--accent-amber)'}`,
+                      color: wakeLockStatus.active ? 'var(--accent-green)' : 'var(--accent-amber)',
+                    }}
+                  >
+                    {wakeLockStatus.active ? '🔒' : '⚠'}
+                    {wakeLockStatus.active
+                      ? t('station.settings.preventSleep.status.active')
+                      : t(`station.settings.preventSleep.status.${wakeLockStatus.reason}`, {
+                          defaultValue: t('station.settings.preventSleep.status.error'),
+                        })}
+                  </div>
+                )}
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: preventSleep && wakeLockStatus?.active ? 'var(--accent-green)' : 'var(--text-muted)',
+                  }}
+                >
+                  {t(
+                    preventSleep
+                      ? 'station.settings.preventSleep.describe.on'
+                      : 'station.settings.preventSleep.describe.off',
+                  )}
+                </div>
               </div>
             </div>
             <div style={{ marginBottom: '20px' }}>
