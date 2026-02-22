@@ -60,9 +60,10 @@ Add this logic to your `init()` function:
 // 1. Define shared drawer styles
 const styles = `
     #ohc-addon-drawer { position: fixed; bottom: 20px; right: 20px; display: flex; flex-direction: row-reverse; align-items: center; gap: 10px; z-index: 10000; pointer-events: none; }
+    #ohc-addon-drawer.ohc-vertical { flex-direction: column-reverse; }
     .ohc-addon-icon { width: 45px; height: 45px; background: var(--bg-panel, rgba(17, 24, 32, 0.95)); border: 1px solid var(--border-color, rgba(255, 180, 50, 0.3)); border-radius: 50%; color: var(--accent-cyan, #00ddff); font-size: 20px; cursor: pointer; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 10px rgba(0,0,0,0.3); pointer-events: auto; transition: all 0.3s ease; }
     #ohc-addon-launcher { background: var(--bg-tertiary); color: var(--accent-amber); }
-    .ohc-addon-item { display: none; } // Hidden by default
+    .ohc-addon-item { display: none; }
 `;
 
 // 2. Get or create the shared drawer
@@ -70,14 +71,23 @@ let drawer = document.getElementById("ohc-addon-drawer");
 if (!drawer) {
     drawer = document.createElement("div");
     drawer.id = "ohc-addon-drawer";
+    const savedLayout = localStorage.getItem('ohc_addon_layout') || 'horizontal';
+    if (savedLayout === 'vertical') drawer.classList.add('ohc-vertical');
+
     const launcher = document.createElement("div");
     launcher.id = "ohc-addon-launcher";
     launcher.className = "ohc-addon-icon";
     launcher.innerHTML = "🧩";
+    launcher.title = "L: Toggle | R: Rotate";
     launcher.onclick = () => {
         const items = document.querySelectorAll(".ohc-addon-item");
         const isHidden = items[0]?.style.display !== "flex";
         items.forEach(el => el.style.display = isHidden ? "flex" : "none");
+    };
+    launcher.oncontextmenu = (e) => {
+        e.preventDefault();
+        const isVert = drawer.classList.toggle('ohc-vertical');
+        localStorage.setItem('ohc_addon_layout', isVert ? 'vertical' : 'horizontal');
     };
     drawer.appendChild(launcher);
     document.body.appendChild(drawer);
