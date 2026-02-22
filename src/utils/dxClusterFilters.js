@@ -170,6 +170,10 @@ const applyBandFilter = (item, filters) => {
  */
 const applyModeFilter = (item, filters) => {
   if (filters.modes?.length > 0) {
+    // If the DX cluster spot has no comment at all, we cannot reliably infer mode.
+    // Fail closed when mode filtering is enabled.
+    if (item.comment == null) return false;
+
     const mode = detectMode(item.comment, item.freq);
     if (!mode || !filters.modes.includes(mode)) return false;
   }
