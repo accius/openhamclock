@@ -10,6 +10,28 @@ import { useState, useEffect } from 'react';
 // Each entry: { version, date, heading, features: [...] }
 const CHANGELOG = [
   {
+    version: '15.6.2',
+    date: '2026-02-22',
+    heading: 'Surprise! Sunday Updates',
+    features: [
+      {
+        icon: '🌡️',
+        title: 'Unified Weather Units',
+        desc: 'Weather displays now follow the global Settings unit choice (metric/imperial) everywhere — no more separate °F/°C toggle button inside each weather panel. Pressure reads correctly per system: hPa for metric, inHg for imperial. One setting, consistent behavior across all layouts.',
+      },
+      {
+        icon: '🔀',
+        title: 'Staging Branch Merge Cleanup',
+        desc: 'Resolved merge conflicts across DockableApp and WorldMap bringing all Staging features cleanly into the codebase: WWBOTA spots & labels, DX weather overlays, night darkness slider, and the map legend toggle. Zero conflict markers, zero duplicate functions.',
+      },
+      {
+        icon: '🗺️',
+        title: 'WWFF Legend Badge Fix',
+        desc: 'The WWFF entry in the map legend was rendering taller than POTA/SOTA/WWBOTA because the ▼ symbol and text could wrap to two lines. Fixed with a non-breaking space to match all other legend badges.',
+      },
+    ],
+  },
+  {
     version: '15.6.1',
     date: '2026-02-25',
     heading:

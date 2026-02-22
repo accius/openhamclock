@@ -62,13 +62,6 @@ const App = () => {
   const [showPSKFilters, setShowPSKFilters] = useState(false);
   const [layoutResetKey, setLayoutResetKey] = useState(0);
   const [, setBandColorChangeVersion] = useState(0);
-  const [tempUnit, setTempUnit] = useState(() => {
-    try {
-      return localStorage.getItem('openhamclock_tempUnit') || 'F';
-    } catch {
-      return 'F';
-    }
-  });
   const [updateInProgress, setUpdateInProgress] = useState(false);
 
   useEffect(() => {
@@ -175,8 +168,8 @@ const App = () => {
   const propagation = usePropagation(config.location, dxLocation, config.propagation);
   const mySpots = useMySpots(config.callsign);
   const satellites = useSatellites(config.location);
-  const localWeather = useWeather(config.location, tempUnit);
-  const dxWeather = useWeather(dxLocation, tempUnit);
+  const localWeather = useWeather(config.location, config.units);
+  const dxWeather = useWeather(dxLocation, config.units);
   const pskReporter = usePSKReporter(config.callsign, {
     minutes: config.lowMemoryMode ? 5 : 30,
     enabled: config.callsign !== 'N0CALL',
@@ -296,8 +289,6 @@ const App = () => {
     handleToggleDxLock,
     deSunTimes,
     dxSunTimes,
-    tempUnit,
-    setTempUnit,
     localWeather,
     dxWeather,
     spaceWeather,

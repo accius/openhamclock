@@ -2256,7 +2256,7 @@ export const WorldMap = ({
                   fontWeight: '600',
                 }}
               >
-                ▼ WWFF
+                ▼&nbsp;WWFF
               </span>
             </div>
           )}

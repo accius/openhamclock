@@ -193,7 +193,6 @@ const SYNC_KEYS = [
   'openhamclock_satelliteFilters',
   'openhamclock_solarImageType',
   'openhamclock_solarPanelMode',
-  'openhamclock_tempUnit',
   'openhamclock_use12Hour',
   'openhamclock_voacapColorScheme',
   'openhamclock_voacapViewMode',
