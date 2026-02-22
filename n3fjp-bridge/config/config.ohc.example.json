@@ -1,0 +1,13 @@
+{
+  "N3FJP_HOST": "192.168.1.43",
+  "N3FJP_PORT": 1100,
+  "MYCALL_FALLBACK": "YOURCALL",
+  "UDP_DEST_IP": "127.0.0.1",
+  "UDP_DEST_PORT": 12060,
+
+  "ENABLE_OHC_HTTP": true,
+  "OHC_BASE_URL": "http://localhost:3000",
+  "OHC_API_KEY": "",
+
+  "LOG_PATH": "C:\\N3FJP_Proxy\\bridge.log"
+}
