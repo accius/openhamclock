@@ -39,7 +39,7 @@ export const useAPRS = (options = {}) => {
   const fetchStations = useCallback(async () => {
     if (!enabled) return;
     try {
-      const res = await apiFetch(`/api/aprs/stations?_t=${Date.now()}`, { cache: 'no-store' });
+      const res = await apiFetch('/api/aprs/stations', { cache: 'no-store' });
       if (res?.ok) {
         const data = await res.json();
         setStations(data.stations || []);

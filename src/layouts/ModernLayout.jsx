@@ -68,6 +68,7 @@ export default function ModernLayout(props) {
     potaSpots,
     wwffSpots,
     sotaSpots,
+    wwbotaSpots,
     mySpots,
     dxpeditions,
     contests,
@@ -88,6 +89,7 @@ export default function ModernLayout(props) {
     togglePOTA,
     toggleWWFF,
     toggleSOTA,
+    toggleWWBOTA,
     toggleSatellites,
     togglePSKReporter,
     toggleWSJTX,
@@ -128,6 +130,7 @@ export default function ModernLayout(props) {
         potaSpots={potaSpots.data}
         wwffSpots={wwffSpots.data}
         sotaSpots={sotaSpots.data}
+        wwbotaSpots={wwbotaSpots.data}
         mySpots={mySpots.data}
         dxPaths={dxClusterData.paths}
         dxFilters={dxFilters}
@@ -141,6 +144,7 @@ export default function ModernLayout(props) {
         showPOTA={mapLayers.showPOTA}
         showWWFF={mapLayers.showWWFF}
         showSOTA={mapLayers.showSOTA}
+        showWWBOTA={mapLayers.showWWBOTA}
         showSatellites={mapLayers.showSatellites}
         showPSKReporter={mapLayers.showPSKReporter}
         wsjtxSpots={wsjtxMapSpots}
@@ -325,9 +329,16 @@ export default function ModernLayout(props) {
       wwffLastChecked={wwffSpots.lastChecked}
       showWWFF={mapLayers.showWWFF}
       onToggleWWFF={toggleWWFF}
+      wwbotaData={wwbotaSpots.data}
+      wwbotaLoading={wwbotaSpots.loading}
+      wwbotaLastUpdated={wwbotaSpots.lastUpdated}
+      wwbotaConnected={wwbotaSpots.connected}
+      showWWBOTA={mapLayers.showWWBOTA}
+      onToggleWWBOTA={toggleWWBOTA}
       onPOTASpotClick={handleParkSpotClick}
       onWWFFSpotClick={handleParkSpotClick}
       onSOTASpotClick={handleParkSpotClick}
+      onWWBOTASpotClick={handleParkSpotClick}
     />
   );
 

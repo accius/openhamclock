@@ -13,6 +13,7 @@ import {
   POTAPanel,
   WWFFPanel,
   SOTAPanel,
+  WWBOTAPanel,
   ContestPanel,
   SolarPanel,
   PropagationPanel,
@@ -91,6 +92,7 @@ export const DockableApp = ({
   potaSpots,
   wwffSpots,
   sotaSpots,
+  wwbotaSpots,
   mySpots,
   dxpeditions,
   contests,
@@ -120,6 +122,9 @@ export const DockableApp = ({
   toggleWWFF,
   toggleWWFFLabels,
   toggleSOTA,
+  toggleSOTALabels,
+  toggleWWBOTA,
+  toggleWWBOTALabels,
   toggleSatellites,
   togglePSKReporter,
   toggleWSJTX,
@@ -149,6 +154,24 @@ export const DockableApp = ({
   const [showPanelPicker, setShowPanelPicker] = useState(false);
   const [targetTabSetId, setTargetTabSetId] = useState(null);
   const saveTimeoutRef = useRef(null);
+
+  // Layout lock — prevents accidental drag/resize/close of panels
+  const [layoutLocked, setLayoutLocked] = useState(() => {
+    try {
+      return localStorage.getItem('openhamclock_layoutLocked') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const toggleLayoutLock = useCallback(() => {
+    setLayoutLocked((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('openhamclock_layoutLocked', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
   const [effectiveUnits, setEffectiveUnits] = useState(() => getEffectiveUnits(config?.units));
   const [showDXLocalTime, setShowDXLocalTime] = useState(false);
 
@@ -171,6 +194,8 @@ export const DockableApp = ({
   const toggleWWFFLabelsEff = useInternalMapLayers ? internalMap.toggleWWFFLabels : toggleWWFFLabels;
   const toggleSOTAEff = useInternalMapLayers ? internalMap.toggleSOTA : toggleSOTA;
   const toggleSOTALabelsEff = useInternalMapLayers ? internalMap.toggleSOTALabels : toggleSOTALabels;
+  const toggleWWBOTAEff = useInternalMapLayers ? internalMap.toggleWWBOTA : toggleWWBOTA;
+  const toggleWWBOTALabelsEff = useInternalMapLayers ? internalMap.toggleWWBOTALabels : toggleWWBOTALabels;
   const toggleSatellitesEff = useInternalMapLayers ? internalMap.toggleSatellites : toggleSatellites;
   const togglePSKReporterEff = useInternalMapLayers ? internalMap.togglePSKReporter : togglePSKReporter;
   const toggleWSJTXEff = useInternalMapLayers ? internalMap.toggleWSJTX : toggleWSJTX;
@@ -266,6 +291,24 @@ export const DockableApp = ({
     });
   }, []);
 
+  // Block layout-altering actions when locked
+  const handleAction = useCallback(
+    (action) => {
+      if (layoutLocked) {
+        const blockedTypes = [
+          'FlexLayout_MoveNode',
+          'FlexLayout_AdjustSplit',
+          'FlexLayout_DeleteTab',
+          'FlexLayout_MaximizeToggle',
+          'FlexLayout_AdjustBorderSplit',
+        ];
+        if (blockedTypes.includes(action.type)) return undefined;
+      }
+      return action;
+    },
+    [layoutLocked],
+  );
+
   // Handle model changes with debounced save
   const handleModelChange = useCallback((newModel) => {
     setModel(newModel);
@@ -313,6 +356,7 @@ export const DockableApp = ({
       pota: { name: 'POTA', icon: '🏕️' },
       wwff: { name: 'WWFF', icon: '🌲' },
       sota: { name: 'SOTA', icon: '⛰️' },
+      wwbota: { name: 'WWBOTA', icon: '☢️' },
       aprs: { name: 'APRS', icon: '📍' },
       ...(isLocalInstall ? { rotator: { name: 'Rotator', icon: '🧭' } } : {}),
       contests: { name: 'Contests', icon: '🏆' },
@@ -527,6 +571,7 @@ export const DockableApp = ({
         potaSpots={potaSpots.data}
         wwffSpots={wwffSpots.data}
         sotaSpots={sotaSpots.data}
+        wwbotaSpots={wwbotaSpots.data}
         mySpots={mySpots.data}
         dxPaths={dxClusterData.paths}
         dxFilters={dxFilters}
@@ -544,6 +589,8 @@ export const DockableApp = ({
         showWWFFLabels={mapLayersEff.showWWFFLabels}
         showSOTA={mapLayersEff.showSOTA}
         showSOTALabels={mapLayersEff.showSOTALabels}
+        showWWBOTA={mapLayersEff.showWWBOTA}
+        showWWBOTALabels={mapLayersEff.showWWBOTALabels}
         showSatellites={mapLayersEff.showSatellites}
         onToggleSatellites={toggleSatellitesEff}
         showPSKReporter={mapLayersEff.showPSKReporter}
@@ -767,6 +814,23 @@ export const DockableApp = ({
           );
           break;
 
+        case 'wwbota':
+          content = (
+            <WWBOTAPanel
+              data={wwbotaSpots.data}
+              loading={wwbotaSpots.loading}
+              lastUpdated={wwbotaSpots.lastUpdated}
+              connected={wwbotaSpots.connected}
+              showOnMap={mapLayersEff.showWWBOTA}
+              onToggleMap={toggleWWBOTAEff}
+              onHoverSpot={setHoveredSpot}
+              showLabelsOnMap={mapLayersEff.showWWBOTALabels}
+              onToggleLabelsOnMap={toggleWWBOTALabelsEff}
+              onSpotClick={handleSpotClick}
+            />
+          );
+          break;
+
         case 'aprs':
           content = (
             <APRSPanel
@@ -966,19 +1030,22 @@ export const DockableApp = ({
       renderValues.stickyButtons.push(
         <button
           key="add"
-          title="Add panel"
+          title={layoutLocked ? 'Unlock layout to add panels' : 'Add panel'}
           className="flexlayout__tab_toolbar_button"
+          disabled={layoutLocked}
           onClick={(e) => {
             e.stopPropagation();
+            if (layoutLocked) return;
             setTargetTabSetId(node.getId());
             setShowPanelPicker(true);
           }}
+          style={layoutLocked ? { opacity: 0.3, cursor: 'not-allowed' } : undefined}
         >
           <PlusIcon />
         </button>,
       );
     },
-    [panelZoom, adjustZoom, resetZoom],
+    [panelZoom, adjustZoom, resetZoom, layoutLocked],
   );
 
   // Get unused panels
@@ -1027,6 +1094,38 @@ export const DockableApp = ({
         />
       </div>
 
+      {/* Dockable toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          padding: '2px 16px 0',
+        }}
+      >
+        <button
+          onClick={toggleLayoutLock}
+          title={
+            layoutLocked ? 'Unlock layout — allow drag, resize, and close' : 'Lock layout — prevent accidental changes'
+          }
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: layoutLocked ? 'rgba(255, 170, 0, 0.15)' : 'var(--bg-tertiary)',
+            border: `1px solid ${layoutLocked ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+            borderRadius: '4px',
+            padding: '3px 8px',
+            fontSize: '11px',
+            fontFamily: 'JetBrains Mono, monospace',
+            color: layoutLocked ? 'var(--accent-amber)' : 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          {layoutLocked ? '🔒' : '🔓'} Layout {layoutLocked ? 'Locked' : 'Unlocked'}
+        </button>
+      </div>
+
       {/* Dockable Layout */}
       <div style={{ flex: 1, position: 'relative', padding: '8px', minHeight: 0 }}>
         <DockableLayoutProvider model={model}>
@@ -1034,6 +1133,7 @@ export const DockableApp = ({
             ref={layoutRef}
             model={model}
             factory={factory}
+            onAction={handleAction}
             onModelChange={handleModelChange}
             onRenderTabSet={onRenderTabSet}
           />

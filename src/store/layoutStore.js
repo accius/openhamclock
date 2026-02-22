@@ -98,6 +98,7 @@ export const PANEL_DEFINITIONS = {
   dxpeditions: { name: 'DXpeditions', icon: '🏝️', description: 'Upcoming DXpeditions' },
   pota: { name: 'POTA', icon: '🏕️', description: 'Parks on the Air activators' },
   sota: { name: 'SOTA', icon: '⛰️', description: 'Summits on the Air activators' },
+  wwbota: { name: 'WWBOTA', icon: '☢️', description: 'World Wide Bunker On The Air activators' },
   contests: { name: 'Contests', icon: '🏆', description: 'Upcoming and active contests' },
   'id-timer': { name: 'ID Timer', icon: '📢', description: '10-minute station identification reminder' },
   'world-map': { name: 'World Map', icon: '🗺️', description: 'Interactive world map' },
