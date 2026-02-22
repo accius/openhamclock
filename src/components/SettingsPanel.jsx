@@ -2357,7 +2357,14 @@ export const SettingsPanel = ({
                       marginBottom: '12px',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '8px',
+                      }}
+                    >
                       <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', flex: 1 }}>
                         <input
                           type="checkbox"
@@ -2367,7 +2374,14 @@ export const SettingsPanel = ({
                         />
                         <span style={{ fontSize: '18px' }}>{layer.icon}</span>
                         <div>
-                          <div style={{ color: layer.enabled ? 'var(--accent-amber)' : 'var(--text-primary)', fontSize: '14px', fontWeight: '600', fontFamily: 'JetBrains Mono, monospace' }}>
+                          <div
+                            style={{
+                              color: layer.enabled ? 'var(--accent-amber)' : 'var(--text-primary)',
+                              fontSize: '14px',
+                              fontWeight: '600',
+                              fontFamily: 'JetBrains Mono, monospace',
+                            }}
+                          >
                             {layer.name.startsWith('plugins.') ? t(layer.name) : layer.name}
                           </div>
                           {layer.description && (
@@ -2381,7 +2395,16 @@ export const SettingsPanel = ({
 
                     {layer.enabled && (
                       <div style={{ paddingLeft: '38px', marginTop: '12px' }}>
-                        <label style={{ display: 'block', fontSize: '11px', color: 'var(--text-muted)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                        <label
+                          style={{
+                            display: 'block',
+                            fontSize: '11px',
+                            color: 'var(--text-muted)',
+                            marginBottom: '6px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                          }}
+                        >
                           {t('station.settings.layers.opacity')}: {Math.round(layer.opacity * 100)}%
                         </label>
                         <input
@@ -2393,10 +2416,24 @@ export const SettingsPanel = ({
                           style={{ width: '100%', cursor: 'pointer' }}
                         />
                         {ctrlPressed &&
-                          ['lightning', 'wspr', 'rbn', 'grayline', 'n3fjp_logged_qsos', 'voacap-heatmap'].includes(layer.id) && (
+                          ['lightning', 'wspr', 'rbn', 'grayline', 'n3fjp_logged_qsos', 'voacap-heatmap'].includes(
+                            layer.id,
+                          ) && (
                             <button
                               onClick={() => resetPopupPositions(layer.id)}
-                              style={{ marginTop: '12px', padding: '8px 12px', background: 'var(--accent-red)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: '600', textTransform: 'uppercase', width: '100%' }}
+                              style={{
+                                marginTop: '12px',
+                                padding: '8px 12px',
+                                background: 'var(--accent-red)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '11px',
+                                fontWeight: '600',
+                                textTransform: 'uppercase',
+                                width: '100%',
+                              }}
                             >
                               🔄 RESET POPUPS
                             </button>
@@ -2433,9 +2470,11 @@ export const SettingsPanel = ({
                   });
                 });
                 // Any uncategorized leftovers
-                nonSatLayers.filter((l) => !rendered.has(l.id)).forEach((layer) => {
-                  result.push(renderLayerCard(layer));
-                });
+                nonSatLayers
+                  .filter((l) => !rendered.has(l.id))
+                  .forEach((layer) => {
+                    result.push(renderLayerCard(layer));
+                  });
                 return result;
               })()
             ) : (

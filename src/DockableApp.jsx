@@ -402,11 +402,7 @@ export const DockableApp = ({
         </div>
       </div>
 
-      <WeatherPanel
-        weatherData={localWeather}
-        units={config.units}
-        nodeId={nodeId}
-      />
+      <WeatherPanel weatherData={localWeather} units={config.units} nodeId={nodeId} />
     </div>
   );
 
@@ -506,13 +502,7 @@ export const DockableApp = ({
           </div>
         </div>
 
-        {showDxWeather && (
-          <WeatherPanel
-            weatherData={dxWeather}
-            units={config.units}
-            nodeId={nodeId}
-          />
-        )}
+        {showDxWeather && <WeatherPanel weatherData={dxWeather} units={config.units} nodeId={nodeId} />}
       </div>
     );
   };
@@ -846,11 +836,7 @@ export const DockableApp = ({
           );
 
         case 'ambient':
-          content = (
-            <AmbientPanel
-              units={config.units}
-            />
-          );
+          content = <AmbientPanel units={config.units} />;
           break;
 
         case 'rig-control':
