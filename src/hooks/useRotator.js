@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * useRotator (V2)
  * - Polls endpointUrl for rotator status
- * - Auto-disables polling if server reports source === 'none'
+ * - If server reports source === 'none', pauses polling briefly (but does NOT disable forever)
  * - mock mode: smooth rotating azimuth for UI dev
  *
  * Return:
@@ -13,6 +13,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
  *  isStale: boolean
  *  ageMs: number
  *  available: boolean  — whether a rotator is configured server-side
+ *  status: 'connected' | 'connecting' | 'disconnected'
+ *  lastError: string | null
+ *  reconnect: () => void  — clears any temporary disable and forces an immediate poll
  */
 export default function useRotator({ endpointUrl, pollMs = 2000, staleMs = 5000, mock = false } = {}) {
   const [azimuth, setAzimuth] = useState(null);
@@ -20,9 +23,12 @@ export default function useRotator({ endpointUrl, pollMs = 2000, staleMs = 5000,
   const [source, setSource] = useState(mock ? 'mock' : 'unknown');
   const [lastUpdate, setLastUpdate] = useState(0);
   const [available, setAvailable] = useState(false);
+  const [live, setLive] = useState(false);
+  const [lastError, setLastError] = useState(null);
 
   const timerRef = useRef(null);
-  const disabledRef = useRef(false); // sticky: once server says 'none', stop forever
+  const noneUntilRef = useRef(0); // when server says source==='none', pause polling until this time
+  const pollRef = useRef(null);
 
   const ageMs = useMemo(() => {
     if (!lastUpdate) return Number.POSITIVE_INFINITY;
@@ -33,6 +39,28 @@ export default function useRotator({ endpointUrl, pollMs = 2000, staleMs = 5000,
     if (!lastUpdate) return true;
     return Date.now() - lastUpdate > staleMs;
   }, [lastUpdate, staleMs]);
+
+  const status = useMemo(() => {
+    if (!endpointUrl && !mock) return 'disconnected';
+
+    if (mock) return 'connected';
+
+    // Explicit provider-down state
+    if (live === false) return 'disconnected';
+
+    // If we’ve never successfully connected yet
+    if (!lastUpdate) return 'connecting';
+
+    if (isStale) return 'disconnected';
+
+    return 'connected';
+  }, [endpointUrl, mock, live, lastUpdate, isStale]);
+
+  const reconnect = useCallback(() => {
+    noneUntilRef.current = 0;
+    setLastError(null);
+    pollRef.current?.();
+  }, []);
 
   useEffect(() => {
     if (timerRef.current) {
@@ -66,24 +94,40 @@ export default function useRotator({ endpointUrl, pollMs = 2000, staleMs = 5000,
     if (!endpointUrl) return;
 
     async function poll() {
-      // Once server told us 'none', stop polling entirely
-      if (disabledRef.current) return;
+      if (noneUntilRef.current && Date.now() < noneUntilRef.current) return;
 
       try {
         const res = await fetch(endpointUrl, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
         const data = await res.json();
-
-        // If server says rotator provider is 'none', stop all future polling
+        if (typeof data?.live === 'boolean') setLive(data.live);
         if (data?.source === 'none') {
-          disabledRef.current = true;
           setSource('none');
           setAvailable(false);
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
+          setLastError(null);
+
+          setLastUpdate(0);
+          setAzimuth(null);
+          setLastGoodAzimuth(null);
+
+          noneUntilRef.current = Date.now() + 30_000;
+          return;
+        }
+
+        if (data?.live === false) {
+          // Provider configured, but not currently connected/running
+          setAvailable(true); // provider exists
+          setSource(String(data?.source ?? 'unknown'));
+          setLastError(data?.error ? String(data.error) : null);
+
+          // Mark as disconnected immediately
+          setLastUpdate(0);
+          setAzimuth(null);
+          setLastGoodAzimuth(null);
+
+          // Retry soon (no need to wait 30s here)
+          noneUntilRef.current = Date.now() + 2000;
           return;
         }
 
@@ -96,23 +140,32 @@ export default function useRotator({ endpointUrl, pollMs = 2000, staleMs = 5000,
         }
 
         const ts = Number(data?.lastSeen);
-        setLastUpdate(Number.isFinite(ts) && ts > 0 ? ts : Date.now());
+        if (Number.isFinite(ts) && ts > 0) {
+          setLastUpdate(ts);
+        }
 
         if (data?.source) setSource(String(data.source));
+
+        setLastError(null);
       } catch {
-        // Keep last value; staleness will indicate trouble
+        setLastError('Unable to reach rotator service');
       }
     }
 
+    // Expose poll for reconnect()
+    pollRef.current = poll;
+
     // Initial poll
     poll();
+
     // Poll at a reasonable interval (default 2s, minimum 1s)
     timerRef.current = setInterval(poll, Math.max(1000, pollMs));
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      pollRef.current = null;
     };
   }, [endpointUrl, pollMs, staleMs, mock]);
 
-  return { azimuth, lastGoodAzimuth, source, isStale, ageMs, available };
+  return { azimuth, lastGoodAzimuth, source, isStale, ageMs, available, live, status, lastError, reconnect };
 }

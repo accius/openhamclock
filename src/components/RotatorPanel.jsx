@@ -20,7 +20,14 @@ export default function RotatorPanel({
   onStop,
   controlsEnabled = true,
 }) {
-  const { azimuth, lastGoodAzimuth, isStale } = state ?? useRotator({ endpointUrl, pollMs, staleMs });
+  const {
+    azimuth,
+    lastGoodAzimuth,
+    isStale,
+    status = 'disconnected',
+    lastError = null,
+    reconnect,
+  } = state ?? useRotator({ endpointUrl, pollMs, staleMs });
 
   const displayAngleRef = useRef(null); // continuous angle
   const prevAzRef = useRef(null);
@@ -47,10 +54,11 @@ export default function RotatorPanel({
   }, [lastGoodAzimuth, azimuth]);
 
   const bearingText = useMemo(() => {
+    if (status !== 'connected') return '---';
     if (azimuth == null || Number.isNaN(azimuth)) return '--';
     const a = ((Math.round(azimuth) % 360) + 360) % 360;
     return String(a).padStart(3, '0');
-  }, [azimuth]);
+  }, [azimuth, status]);
 
   const [showCompass, setShowCompass] = React.useState(() => {
     try {
@@ -75,6 +83,41 @@ export default function RotatorPanel({
     <div className="ohc-rotator-panel">
       <div className="ohc-rotator-header">
         <div className="ohc-rotator-meta">
+          <div
+            className="ohc-rotator-conn"
+            title={
+              status === 'connected'
+                ? 'Rotator connected'
+                : status === 'connecting'
+                  ? 'Rotator connecting…'
+                  : lastError
+                    ? `Rotator disconnected: ${lastError}`
+                    : 'Rotator disconnected'
+            }
+            aria-label="Rotator connection status"
+          >
+            <span className={`ohc-led ohc-led--${status}`} />
+
+            {status !== 'connected' && (
+              <button
+                onClick={() => reconnect?.()}
+                disabled={typeof reconnect !== 'function'}
+                style={{
+                  padding: '4px 10px',
+                  borderRadius: 999,
+                  fontSize: 11,
+                  fontFamily: 'JetBrains Mono',
+                  cursor: typeof reconnect === 'function' ? 'pointer' : 'not-allowed',
+                  background: 'rgba(0,0,0,0.35)',
+                  border: '1px solid rgba(255,255,255,0.18)',
+                  color: 'rgba(255,255,255,0.75)',
+                }}
+                title="Reconnect to rotator"
+              >
+                RECONNECT
+              </button>
+            )}
+          </div>
           <button
             onClick={toggleCompass}
             style={{
@@ -200,7 +243,11 @@ export default function RotatorPanel({
       )}
       <div className="ohc-rotator-body">
         {showCompass && (
-          <Compass azimuth={azimuth ?? lastGoodAzimuth ?? 0} displayAngle={displayAngle} isStale={isStale} />
+          <Compass
+            azimuth={azimuth ?? lastGoodAzimuth}
+            displayAngle={displayAngle}
+            isStale={isStale || status !== 'connected'}
+          />
         )}
 
         <div
@@ -257,6 +304,7 @@ export default function RotatorPanel({
 }
 
 function Compass({ azimuth, displayAngle, isStale }) {
+  const safeAngle = azimuth == null ? null : azimuth;
   return (
     <div className={'ohc-compass ' + (isStale ? 'ohc-compass--stale' : '')}>
       <svg viewBox="0 0 200 200" className="ohc-compass-svg" aria-label="Compass">
@@ -307,6 +355,7 @@ function Compass({ azimuth, displayAngle, isStale }) {
           style={{
             transform: displayAngle == null ? 'none' : `rotate(${displayAngle}deg)`,
             transition: 'transform 250ms linear',
+            opacity: safeAngle == null ? 0.25 : 1,
           }}
         >
           {/* Needle body */}
@@ -375,6 +424,47 @@ function AzGoto({ disabled, onGo }) {
   );
 }
 const css = `
+.ohc-rotator-conn{
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+
+.ohc-led{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  display:inline-block;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.12) inset;
+}
+
+.ohc-led--connected{
+  background: rgba(0, 255, 140, 0.85);
+  box-shadow:
+    0 0 0 1px rgba(0, 255, 140, 0.35) inset,
+    0 0 10px rgba(0, 255, 140, 0.22);
+}
+
+.ohc-led--disconnected{
+  background: rgba(255, 70, 70, 0.75);
+  box-shadow:
+    0 0 0 1px rgba(255, 70, 70, 0.28) inset,
+    0 0 10px rgba(255, 70, 70, 0.10);
+}
+
+.ohc-led--connecting{
+  background: rgba(255, 205, 60, 0.85);
+  box-shadow:
+    0 0 0 1px rgba(255, 205, 60, 0.30) inset,
+    0 0 10px rgba(255, 205, 60, 0.12);
+  animation: ohcPulse 900ms ease-in-out infinite;
+}
+
+@keyframes ohcPulse{
+  0%, 100% { transform: scale(1); opacity: 0.85; }
+  50% { transform: scale(1.25); opacity: 1; }
+}
+  
 .ohc-rotator-panel{
   height:100%;
   width:100%;
