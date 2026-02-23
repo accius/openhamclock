@@ -18,7 +18,7 @@ export const metadata = {
   icon: '🌐',
   category: 'propagation',
   defaultEnabled: false,
-  defaultOpacity: 0.35,
+  defaultOpacity: 0.55,
   version: '1.0.0',
 };
 
@@ -35,22 +35,45 @@ const BANDS = [
   { label: '10m', freq: 28 },
 ];
 
-// Reliability to color: red (0%) → yellow (50%) → green (100%)
+// Reliability to color: HamClock-style wide spectrum
+// magenta (0%) → red → orange → yellow → green (100%)
 function reliabilityColor(r) {
-  if (r <= 0) return 'rgba(180,0,0,0.6)';
-  if (r >= 99) return 'rgba(0,180,0,0.6)';
+  if (r <= 0) return 'rgba(160,0,120,0.85)';
+  if (r >= 99) return 'rgba(0,220,0,0.85)';
 
-  let red, green;
-  if (r < 50) {
-    // Red → Yellow
-    red = 180;
-    green = Math.round((r / 50) * 180);
+  let red, green, blue;
+  if (r < 20) {
+    // Magenta → Red (0–20%)
+    const t = r / 20;
+    red = 160 + Math.round(t * 95);
+    green = 0;
+    blue = Math.round(120 * (1 - t));
+  } else if (r < 40) {
+    // Red → Orange (20–40%)
+    const t = (r - 20) / 20;
+    red = 255;
+    green = Math.round(t * 140);
+    blue = 0;
+  } else if (r < 60) {
+    // Orange → Yellow (40–60%)
+    const t = (r - 40) / 20;
+    red = 255;
+    green = 140 + Math.round(t * 115);
+    blue = 0;
+  } else if (r < 80) {
+    // Yellow → Yellow-Green (60–80%)
+    const t = (r - 60) / 20;
+    red = 255 - Math.round(t * 130);
+    green = 255;
+    blue = 0;
   } else {
-    // Yellow → Green
-    red = Math.round(((100 - r) / 50) * 180);
-    green = 180;
+    // Yellow-Green → Green (80–100%)
+    const t = (r - 80) / 20;
+    red = 125 - Math.round(t * 125);
+    green = 220 + Math.round(t * 35);
+    blue = 0;
   }
-  return `rgba(${red},${green},0,0.6)`;
+  return `rgba(${red},${green},${blue},0.85)`;
 }
 
 // Make control panel draggable with CTRL+drag
@@ -357,11 +380,13 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
                 display: flex; justify-content: space-between; align-items: center;
                 background: rgba(0,0,0,0.3); border-radius: 4px; padding: 4px 6px;
               ">
-                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(180,0,0,0.8); border-radius: 2px;"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(160,0,120,0.9); border-radius: 2px;"></span>
                 <span style="color: #888; font-size: 9px;">Poor</span>
-                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(180,180,0,0.8); border-radius: 2px;"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(255,80,0,0.9); border-radius: 2px;"></span>
+                <span style="color: #888; font-size: 9px;">Low</span>
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(255,255,0,0.9); border-radius: 2px;"></span>
                 <span style="color: #888; font-size: 9px;">Fair</span>
-                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(0,180,0,0.8); border-radius: 2px;"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(0,220,0,0.9); border-radius: 2px;"></span>
                 <span style="color: #888; font-size: 9px;">Good</span>
               </div>
               <div id="voacap-status" style="color: #666; font-size: 9px; margin-top: 6px; text-align: center;">
