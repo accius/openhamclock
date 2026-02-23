@@ -1,10 +1,10 @@
 /**
- * PSKFilterManager Component
- * Filter modal for PSKReporter spots - Bands, Grids, Modes
+ * ActivateFilterManager Component
+ * Filter modal for ActivatePanel type spots - Bands, Grids, Modes
  */
 import React, { useState } from 'react';
 
-const BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '8m', '6m', '4m', '2m', '70cm'];
+const BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
 const MODES = [
   '-FT8',
   'CONTESTI',
@@ -81,7 +81,7 @@ const GRID_REGIONS = [
   { name: 'Africa', grids: ['KH', 'KG', 'JH', 'JG', 'IH', 'IG'] },
 ];
 
-export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose }) => {
+export const ActivateFilterManager = ({ filters, onFilterChange, isOpen, onClose, name }) => {
   const [activeTab, setActiveTab] = useState('bands');
   const [customGrid, setCustomGrid] = useState('');
 
@@ -125,76 +125,6 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =
     if (filters?.modes?.length) count += filters.modes.length;
     if (filters?.direction && filters.direction !== 'both') count += 1;
     return count;
-  };
-
-  const renderMapTab = () => {
-    const direction = filters?.direction || 'both';
-    const options = [
-      { value: 'both', label: 'Both TX & RX', desc: 'Show all PSKReporter spots on the map' },
-      { value: 'tx', label: 'TX Only — Who Hears Me', desc: 'Stations that reported hearing your signal' },
-      { value: 'rx', label: 'RX Only — Who I Hear', desc: 'Stations you are hearing (via WSJT-X)' },
-    ];
-
-    return (
-      <div>
-        <div style={{ marginBottom: '15px' }}>
-          <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>
-            Map Direction Filter
-          </span>
-          <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
-            Useful when WSJT-X is also enabled — avoids duplicate plots for the same stations.
-          </div>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {options.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => onFilterChange({ ...filters, direction: opt.value === 'both' ? undefined : opt.value })}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'flex-start',
-                padding: '12px 16px',
-                background: direction === opt.value ? 'rgba(255, 170, 0, 0.15)' : 'var(--bg-tertiary)',
-                border: direction === opt.value ? '2px solid var(--accent-amber)' : '1px solid var(--border-color)',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                textAlign: 'left',
-              }}
-            >
-              <span
-                style={{
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  color: direction === opt.value ? 'var(--accent-amber)' : 'var(--text-primary)',
-                }}
-              >
-                {direction === opt.value ? '● ' : '○ '}
-                {opt.label}
-              </span>
-              <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>{opt.desc}</span>
-            </button>
-          ))}
-        </div>
-        <div
-          style={{
-            marginTop: '16px',
-            padding: '10px 12px',
-            background: 'var(--bg-tertiary)',
-            borderRadius: '6px',
-            fontSize: '11px',
-            color: 'var(--text-muted)',
-          }}
-        >
-          <strong style={{ color: 'var(--text-secondary)' }}>Map Legend:</strong>
-          <div style={{ display: 'flex', gap: '16px', marginTop: '6px' }}>
-            <span>━━ TX (solid line, ● circle)</span>
-            <span>╌╌ RX (dashed line, ◆ diamond)</span>
-          </div>
-        </div>
-      </div>
-    );
   };
 
   const tabStyle = (active) => ({
@@ -461,7 +391,7 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =
           }}
         >
           <div>
-            <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-primary)' }}>⌇ PSKReporter Filters</h3>
+            <h3 style={{ margin: 0, fontSize: '16px', color: 'var(--text-primary)' }}>⌇ {name} Filters</h3>
             <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
               {getActiveFilterCount()} filter{getActiveFilterCount() !== 1 ? 's' : ''} active
             </span>
@@ -498,9 +428,6 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =
           <button onClick={() => setActiveTab('modes')} style={tabStyle(activeTab === 'modes')}>
             Modes {filters?.modes?.length ? `(${filters.modes.length})` : ''}
           </button>
-          <button onClick={() => setActiveTab('map')} style={tabStyle(activeTab === 'map')}>
-            Map {filters?.direction && filters.direction !== 'both' ? '(1)' : ''}
-          </button>
         </div>
 
         {/* Tab Content */}
@@ -514,7 +441,6 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =
           {activeTab === 'bands' && renderBandsTab()}
           {activeTab === 'grids' && renderGridsTab()}
           {activeTab === 'modes' && renderModesTab()}
-          {activeTab === 'map' && renderMapTab()}
         </div>
 
         {/* Footer */}
@@ -562,4 +488,4 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =
   );
 };
 
-export default PSKFilterManager;
+export default ActivateFilterManager;

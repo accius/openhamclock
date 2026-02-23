@@ -5,6 +5,8 @@
 import { useState, useEffect, useRef } from 'react';
 import { useVisibilityRefresh } from './useVisibilityRefresh';
 import { apiFetch } from '../utils/apiFetch';
+import { WGS84ToMaidenhead } from '@hamset/maidenhead-locator';
+import { getBandFromFreq } from '../utils/callsign';
 
 export const useSOTASpots = () => {
   const [data, setData] = useState([]);
@@ -70,6 +72,7 @@ export const useSOTASpots = () => {
                 altM: details.altM || details.altitude || null,
                 points: details.points || s.points || null,
                 freq,
+                band: getBandFromFreq(s.frequency),
                 mode: s.mode || '',
                 comments: s.comments || '',
                 lat,
@@ -83,6 +86,7 @@ export const useSOTASpots = () => {
                       return new Date(ts).toISOString().substr(11, 5) + 'z';
                     })()
                   : '',
+                grid: WGS84ToMaidenhead({ lat: lat, lng: lon }),
               };
             });
 

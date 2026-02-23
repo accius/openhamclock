@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import CallsignLink from './CallsignLink.jsx';
+import { IconSearch, IconRefresh, IconMap, IconTag } from './Icons.jsx';
 
 export const ActivatePanel = ({
   name,
@@ -19,10 +20,20 @@ export const ActivatePanel = ({
   onToggleLabelsOnMap,
   onSpotClick,
   onHoverSpot,
+  filters,
+  onOpenFilters,
+  filteredData,
 }) => {
   const staleMinutes = lastUpdated ? Math.floor((Date.now() - lastUpdated) / 60000) : null;
   const isStale = staleMinutes !== null && staleMinutes >= 5;
   const checkedTime = lastChecked ? new Date(lastChecked).toISOString().substr(11, 5) + 'z' : '';
+  const filterActiveColor = '#ffaa00';
+  const spots = filteredData ? filteredData : data;
+
+  let filterCount = 0;
+  if (filters?.bands?.length) filterCount += filters.bands.length;
+  if (filters?.grids?.length) filterCount += filters.grids.length;
+  if (filters?.modes?.length) filterCount += filters.modes.length;
 
   return (
     <div className="panel" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -61,24 +72,27 @@ export const ActivatePanel = ({
             </span>
           )}
         </span>
+
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <button
-            onClick={onToggleMap}
-            title={showOnMap ? `Hide ${name} activators on map` : `Show ${name} activators on map`}
-            style={{
-              // background: showOnMap ? 'rgba(68, 204, 68, 0.3)' : 'rgba(100, 100, 100, 0.3)',
-              background: showOnMap ? 'rgba(255, 170, 0, 0.22)' : 'rgba(100, 100, 100, 0.3)',
-              border: `1px solid ${showOnMap ? '#ffaa00' : '#666'}`,
-              color: showOnMap ? '#ffaa00' : '#888',
-              padding: '1px 6px',
-              borderRadius: '3px',
-              fontSize: '9px',
-              fontFamily: 'JetBrains Mono',
-              cursor: 'pointer',
-            }}
-          >
-            ⊞ Map {showOnMap ? 'ON' : 'OFF'}
-          </button>
+          {typeof onOpenFilters === 'function' && (
+            <button
+              onClick={onOpenFilters}
+              title={'Filter spots by band, mode or grid'}
+              style={{
+                background: filterCount > 0 ? `${filterActiveColor}30` : 'rgba(100,100,100,0.3)',
+                border: `1px solid ${filterCount > 0 ? filterActiveColor : '#555'}`,
+                color: filterCount > 0 ? filterActiveColor : '#777',
+                padding: '2px 6px',
+                borderRadius: '3px',
+                fontSize: '10px',
+                cursor: 'pointer',
+                lineHeight: 1,
+              }}
+            >
+              <IconSearch size={11} style={{ verticalAlign: 'middle' }} />
+              {filterCount > 0 ? filterCount : ''}
+            </button>
+          )}
 
           {typeof onToggleLabelsOnMap === 'function' && (
             <button
@@ -95,9 +109,27 @@ export const ActivatePanel = ({
                 cursor: 'pointer',
               }}
             >
-              ⊞ Calls {showLabelsOnMap ? 'ON' : 'OFF'}
+              <IconTag size={11} style={{ verticalAlign: 'middle' }} />
             </button>
           )}
+
+          <button
+            onClick={onToggleMap}
+            title={showOnMap ? `Hide ${name} activators on map` : `Show ${name} activators on map`}
+            style={{
+              // background: showOnMap ? 'rgba(68, 204, 68, 0.3)' : 'rgba(100, 100, 100, 0.3)',
+              background: showOnMap ? 'rgba(255, 170, 0, 0.22)' : 'rgba(100, 100, 100, 0.3)',
+              border: `1px solid ${showOnMap ? '#ffaa00' : '#666'}`,
+              color: showOnMap ? '#ffaa00' : '#888',
+              padding: '1px 6px',
+              borderRadius: '3px',
+              fontSize: '9px',
+              fontFamily: 'JetBrains Mono',
+              cursor: 'pointer',
+            }}
+          >
+            <IconMap size={11} style={{ verticalAlign: 'middle' }} />
+          </button>
         </div>
       </div>
 
@@ -106,9 +138,9 @@ export const ActivatePanel = ({
           <div style={{ display: 'flex', justifyContent: 'center', padding: '10px' }}>
             <div className="loading-spinner" />
           </div>
-        ) : data && data.length > 0 ? (
+        ) : spots && spots.length > 0 ? (
           <div style={{ fontSize: '10px', fontFamily: 'JetBrains Mono, monospace' }}>
-            {data.map((spot, i) => (
+            {spots.map((spot, i) => (
               <div
                 key={`${spot.call}-${spot.ref}-${i}`}
                 style={{
