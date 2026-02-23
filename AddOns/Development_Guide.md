@@ -7,6 +7,7 @@ This directory is intended for community-driven extensions, primarily in the for
 A typical AddOn for OpenHamClock consists of a JavaScript file with a metadata block at the top.
 
 ### 1. Script Metadata
+
 Your script should start with a header that tells the browser where to run the script.
 
 ```javascript
@@ -33,6 +34,7 @@ OpenHamClock uses CSS variables for its themes. To ensure your AddOn looks nativ
 - **Accents**: `var(--accent-cyan)`, `var(--accent-amber)`, `var(--accent-green)`, `var(--accent-red)`, `var(--accent-purple)`
 
 Example of a native-looking container:
+
 ```javascript
 const styles = `
     #my-tool-container {
@@ -67,36 +69,36 @@ const styles = `
 `;
 
 // 2. Get or create the shared drawer
-let drawer = document.getElementById("ohc-addon-drawer");
+let drawer = document.getElementById('ohc-addon-drawer');
 if (!drawer) {
-    drawer = document.createElement("div");
-    drawer.id = "ohc-addon-drawer";
-    const savedLayout = localStorage.getItem('ohc_addon_layout') || 'horizontal';
-    if (savedLayout === 'vertical') drawer.classList.add('ohc-vertical');
+  drawer = document.createElement('div');
+  drawer.id = 'ohc-addon-drawer';
+  const savedLayout = localStorage.getItem('ohc_addon_layout') || 'horizontal';
+  if (savedLayout === 'vertical') drawer.classList.add('ohc-vertical');
 
-    const launcher = document.createElement("div");
-    launcher.id = "ohc-addon-launcher";
-    launcher.className = "ohc-addon-icon";
-    launcher.innerHTML = "🧩";
-    launcher.title = "L: Toggle | R: Rotate";
-    launcher.onclick = () => {
-        const items = document.querySelectorAll(".ohc-addon-item");
-        const isHidden = items[0]?.style.display !== "flex";
-        items.forEach(el => el.style.display = isHidden ? "flex" : "none");
-    };
-    launcher.oncontextmenu = (e) => {
-        e.preventDefault();
-        const isVert = drawer.classList.toggle('ohc-vertical');
-        localStorage.setItem('ohc_addon_layout', isVert ? 'vertical' : 'horizontal');
-    };
-    drawer.appendChild(launcher);
-    document.body.appendChild(drawer);
+  const launcher = document.createElement('div');
+  launcher.id = 'ohc-addon-launcher';
+  launcher.className = 'ohc-addon-icon';
+  launcher.innerHTML = '🧩';
+  launcher.title = 'L: Toggle | R: Rotate';
+  launcher.onclick = () => {
+    const items = document.querySelectorAll('.ohc-addon-item');
+    const isHidden = items[0]?.style.display !== 'flex';
+    items.forEach((el) => (el.style.display = isHidden ? 'flex' : 'none'));
+  };
+  launcher.oncontextmenu = (e) => {
+    e.preventDefault();
+    const isVert = drawer.classList.toggle('ohc-vertical');
+    localStorage.setItem('ohc_addon_layout', isVert ? 'vertical' : 'horizontal');
+  };
+  drawer.appendChild(launcher);
+  document.body.appendChild(drawer);
 }
 
 // 3. Append your icon as an .ohc-addon-item
-const myBtn = document.createElement("div");
-myBtn.className = "ohc-addon-icon ohc-addon-item";
-myBtn.innerHTML = "📍";
+const myBtn = document.createElement('div');
+myBtn.className = 'ohc-addon-icon ohc-addon-item';
+myBtn.innerHTML = '📍';
 drawer.appendChild(myBtn);
 ```
 

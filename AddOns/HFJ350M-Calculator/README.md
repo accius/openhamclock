@@ -15,6 +15,7 @@ A portable antenna calculator specifically designed for the **Comet HFJ-350M** m
 ## Supported Bands & Data
 
 The calculator includes data derived from the official manual for:
+
 - **160m**: Requires 3.5 + 1.8 coil.
 - **80m**: Requires 3.5 coil.
 - **40m**: Standard base coil.
@@ -33,4 +34,5 @@ The calculator includes data derived from the official manual for:
 The tool also displays the **Sensitivity** (kHz/cm) for each band, helping you understand how much a small change in length affects your SWR.
 
 ---
-*Developed by DO3EET*
+
+_Developed by DO3EET_

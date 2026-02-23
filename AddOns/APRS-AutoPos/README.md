@@ -28,4 +28,5 @@ Automatically updates your station's geographic position and Maidenhead locator 
 The script polls the `aprs.fi` API at the configured interval. If a new position is found, it updates the `openhamclock_config` in your browser's local storage and broadcasts a change event. The app then re-centers your station marker and re-calculates all propagation paths.
 
 ---
-*Developed by DO3EET*
+
+_Developed by DO3EET_
