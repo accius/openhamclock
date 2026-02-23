@@ -13,6 +13,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'accius/openhamclock'
     strategy:
       matrix:
         include:
@@ -68,8 +69,8 @@ jobs:
 
   # Attach all binaries to the GitHub release
   attach-to-release:
+    if: github.repository == 'accius/openhamclock' && github.event_name == 'release'
     needs: build
-    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: write

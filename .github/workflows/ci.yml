@@ -8,6 +8,7 @@ on:
 
 jobs:
   format:
+    if: github.repository == 'accius/openhamclock'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -24,6 +25,7 @@ jobs:
         run: npm run format:check
 
   test:
+    if: github.repository == 'accius/openhamclock'
     runs-on: ubuntu-latest
     needs: format
 
@@ -69,10 +71,9 @@ jobs:
           exit 1
 
   docker:
+    if: github.repository == 'accius/openhamclock' && github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: test
-    # Only run docker build on push to main, not PRs
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:
       - uses: actions/checkout@v4
