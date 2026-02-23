@@ -291,3 +291,297 @@
 .flexlayout__tab::-webkit-scrollbar-thumb:hover {
   background: #00ffcc;
 }
+/* === UI Polish: FlexLayout Header Density (v0.7.15) === */
+
+.flexlayout__tabset_tabbar_outer {
+  min-height: 28px;
+  container-type: inline-size;
+}
+
+.flexlayout__tab_button {
+  padding: 0 8px;
+  min-height: 28px;
+}
+
+.flexlayout__tab_button_content {
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.flexlayout__tab_toolbar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 6px;
+}
+
+.flexlayout__tab_toolbar_button {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+}
+
+/* Hide toolbar until hover */
+.flexlayout__tabset_tabbar_outer .flexlayout__tab_toolbar {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.flexlayout__tabset_tabbar_outer:hover .flexlayout__tab_toolbar {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Auto-hide controls when header is narrow
+@container (max-width: 380px) {
+  .flexlayout__tab_toolbar {
+    display: none !important;
+  }
+}*/
+
+/* =======================================================
+   OHC TAB HEADER: Dot tabs + tool drawer (stable + easy)
+   - Dot hover: shows label only
+   - Header box hover (not on tabs): opens drawer
+   - Drawer stays open anywhere in drawer area
+   flexlayout-react 0.7.x (OHC)
+   ======================================================= */
+
+:root {
+  --ohc-tabbar-h: 28px;
+  --ohc-drawer-h: 26px;
+}
+
+/* ---------- TABBAR CONTAINER ---------- */
+.flexlayout__tabset_tabbar_outer {
+  position: relative !important;
+  height: var(--ohc-tabbar-h) !important;
+  min-height: var(--ohc-tabbar-h) !important;
+  overflow: visible !important; /* drawer must be clickable */
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove any theme highlight on selected tabset */
+.flexlayout__tabset-selected .flexlayout__tabset_tabbar_outer,
+.flexlayout__tabset_tabbar_outer.flexlayout__tabset-selected,
+.flexlayout__tabset_tabbar_outer:focus,
+.flexlayout__tabset_tabbar_outer:focus-within {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Keep the strip on the top row */
+.flexlayout__tabset_tabbar_outer .flexlayout__tabset_tabbar_strip,
+.flexlayout__tabset_tabbar_outer .flexlayout__tabset_tabbar,
+.flexlayout__tabset_tabbar_outer .flexlayout__tabset_tabbar_inner {
+  height: var(--ohc-tabbar-h) !important;
+  align-items: center !important;
+}
+
+/* ---------- DRAWER BACKGROUND (row 2) ----------
+   IMPORTANT: pointer-events auto so it "catches" hover between buttons */
+.flexlayout__tabset_tabbar_outer::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  top: var(--ohc-tabbar-h) !important;
+  height: var(--ohc-drawer-h) !important;
+
+  background: var(--bg-secondary, #0f172a) !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+
+  opacity: 0 !important;
+  transition: opacity 120ms ease !important;
+
+  pointer-events: auto !important; /* <- catches hover in empty drawer space */
+  z-index: 5 !important;
+}
+
+/* ---------- TOOLBAR (lives in drawer row) ---------- */
+.flexlayout__tabset_tabbar_outer .flexlayout__tab_toolbar {
+  position: absolute !important;
+  left: 6px !important;
+  right: 6px !important;
+  top: var(--ohc-tabbar-h) !important;
+  height: var(--ohc-drawer-h) !important;
+
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+
+  opacity: 0 !important;
+  pointer-events: none !important;
+  transition: opacity 120ms ease !important;
+
+  z-index: 20 !important; /* above background */
+}
+
+/* Toolbar buttons */
+.flexlayout__tab_toolbar_button {
+  width: 24px !important;
+  height: 24px !important;
+  display: grid !important;
+  place-items: center !important;
+  border-radius: 6px !important;
+}
+
+/* ---------- DOT-ONLY TAB LABELS ---------- */
+.flexlayout__tab_button {
+  position: relative !important;
+  padding: 4px 8px !important;
+  padding-left: 18px !important; /* room for dot */
+  min-height: var(--ohc-tabbar-h) !important;
+}
+
+/* Dot */
+.flexlayout__tab_button::before {
+  content: '' !important;
+  position: absolute !important;
+  left: 6px !important;
+  top: 50% !important;
+  transform: translateY(-50%) !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35) inset !important;
+}
+
+/* Selected dot pops */
+.flexlayout__tab_button--selected::before,
+.flexlayout__tab_button_selected::before {
+  background: var(--accent-cyan, #22d3ee) !important;
+}
+
+/* Hide label text unless hovering the TAB */
+.flexlayout__tab_button_text {
+  display: none !important;
+}
+
+.flexlayout__tab_button:hover .flexlayout__tab_button_text,
+.flexlayout__tab_button:focus-within .flexlayout__tab_button_text {
+  display: inline !important;
+}
+
+/* Collapse/expand label content */
+.flexlayout__tab_button_content {
+  max-width: 0 !important;
+  overflow: hidden !important;
+  white-space: nowrap !important;
+  transition: max-width 140ms ease !important;
+}
+
+.flexlayout__tab_button:hover .flexlayout__tab_button_content,
+.flexlayout__tab_button:focus-within .flexlayout__tab_button_content {
+  max-width: 220px !important;
+}
+
+/* =======================================================
+   DRAWER OPEN LOGIC (key behavior)
+   - Open drawer when hovering header box BUT NOT a tab
+   - Stay open when hovering drawer background OR toolbar
+   Requires :has()
+   ======================================================= */
+
+/* Default: keep drawer closed even if hovering a tab */
+.flexlayout__tabset_tabbar_outer:hover {
+  height: var(--ohc-tabbar-h) !important;
+}
+
+/* Open drawer only when hovering tabbar_outer AND NOT hovering a tab button */
+.flexlayout__tabset_tabbar_outer:hover:not(:has(.flexlayout__tab_button:hover)),
+.flexlayout__tabset_tabbar_outer:focus-within:not(:has(.flexlayout__tab_button:focus-within)) {
+  height: calc(var(--ohc-tabbar-h) + var(--ohc-drawer-h)) !important;
+}
+
+/* Show drawer background only when drawer is open */
+.flexlayout__tabset_tabbar_outer:hover:not(:has(.flexlayout__tab_button:hover))::before,
+.flexlayout__tabset_tabbar_outer:focus-within:not(:has(.flexlayout__tab_button:focus-within))::before,
+.flexlayout__tab_toolbar:hover ~ .flexlayout__tabset_tabbar_outer::before {
+  opacity: 1 !important;
+}
+
+/* Reveal toolbar when drawer is open OR when hovering toolbar itself */
+.flexlayout__tabset_tabbar_outer:hover:not(:has(.flexlayout__tab_button:hover)) .flexlayout__tab_toolbar,
+.flexlayout__tabset_tabbar_outer:focus-within:not(:has(.flexlayout__tab_button:focus-within)) .flexlayout__tab_toolbar,
+.flexlayout__tab_toolbar:hover {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+}
+/* =======================================================
+   Overflow dropdown (popup menu) polish for dot-tabs
+   Paste AFTER the OHC TAB HEADER block
+   ======================================================= */
+
+/* Popup container */
+.flexlayout__popup_menu {
+  background: var(--bg-secondary, #0f172a) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 10px !important;
+  padding: 6px !important;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(6px) !important;
+}
+
+/* Each row */
+.flexlayout__popup_menu_item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+
+  padding: 8px 10px !important;
+  border-radius: 8px !important;
+
+  color: rgba(255, 255, 255, 0.88) !important;
+  font-size: 12px !important;
+  letter-spacing: 0.02em !important;
+}
+
+/* Hover state */
+.flexlayout__popup_menu_item:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+
+/* Selected-ish (some builds apply this class) */
+.flexlayout__popup_menu_item--selected,
+.flexlayout__popup_menu_item_selected {
+  background: rgba(34, 211, 238, 0.12) !important;
+}
+
+/* In the popup, ALWAYS show the label text (dot-mode should NOT hide it here) */
+.flexlayout__popup_menu .flexlayout__tab_button_text {
+  display: inline !important;
+}
+
+/* And allow content to size naturally */
+.flexlayout__popup_menu .flexlayout__tab_button_content {
+  max-width: none !important;
+  overflow: visible !important;
+  white-space: nowrap !important;
+}
+
+/* Add a dot inside the popup item (so it matches dot-tabs) */
+.flexlayout__popup_menu .flexlayout__tab_button_content::before {
+  content: '' !important;
+  width: 10px !important;
+  height: 10px !important;
+  border-radius: 999px !important;
+  background: rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35) inset !important;
+  display: inline-block !important;
+  margin-right: 8px !important;
+}
+
+/* If the item corresponds to the selected tab, make its dot pop (best-effort) */
+.flexlayout__popup_menu_item--selected .flexlayout__tab_button_content::before,
+.flexlayout__popup_menu_item_selected .flexlayout__tab_button_content::before {
+  background: var(--accent-cyan, #22d3ee) !important;
+}
