@@ -3,7 +3,6 @@
  * Top bar with callsign, clocks, weather, and controls.
  * Responsive: wraps gracefully on tablet, collapses to essentials on mobile.
  */
-import React from 'react';
 import { IconGear, IconExpand, IconShrink } from './Icons.jsx';
 import DonateButton from './DonateButton.jsx';
 import { QRZToggle } from './CallsignLink.jsx';
@@ -212,7 +211,7 @@ export const Header = ({
           <div>
             <span style={{ color: 'var(--text-muted)' }}>SSN </span>
             <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
-              {solarIndices?.data?.ssn?.current || spaceWeather?.data?.sunspotNumber || '--'}
+              {solarIndices?.data?.ssn?.current ?? spaceWeather?.data?.sunspotNumber ?? '--'}
             </span>
           </div>
           {!isTablet && bandConditions?.extras?.aIndex && (

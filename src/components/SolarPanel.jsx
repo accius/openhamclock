@@ -2,7 +2,7 @@
  * SolarPanel Component
  * Cycles between: Solar Image → Solar Indices → X-Ray Flux Chart → Lunar Phase
  */
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getMoonPhase } from '../utils/geo.js';
 
 const MODES = ['image', 'indices', 'xray', 'lunar'];
@@ -377,7 +377,7 @@ export const SolarPanel = ({ solarIndices, forcedMode }) => {
     else if (phase >= 0.8125 && phase < 0.9375) phaseName = 'Waning Crescent';
 
     // Find next full moon & new moon by scanning forward
-    const findNextPhase = (targetPhase, label) => {
+    const findNextPhase = (targetPhase) => {
       const d = new Date(now);
       for (let i = 1; i <= 35; i++) {
         d.setDate(d.getDate() + 1);
@@ -876,12 +876,12 @@ export const SolarPanel = ({ solarIndices, forcedMode }) => {
                   <div
                     style={{ fontSize: '22px', fontWeight: '700', color: '#aa88ff', fontFamily: 'Orbitron, monospace' }}
                   >
-                    {solarIndices.data.ssn?.current || '--'}
+                    {solarIndices.data.ssn?.current ?? '--'}
                   </div>
                   <div style={{ fontSize: '8px', color: 'var(--text-muted)', lineHeight: 1.2 }}>
                     {(() => {
                       const v = solarIndices.data.ssn?.current;
-                      if (!v) return '';
+                      if (v == null) return '';
                       if (v >= 150) return 'Very High';
                       if (v >= 100) return 'High';
                       if (v >= 50) return 'Moderate';
