@@ -10,6 +10,126 @@ import { useState, useEffect } from 'react';
 // Each entry: { version, date, heading, features: [...] }
 const CHANGELOG = [
   {
+    version: '15.6.2',
+    date: '2026-02-22',
+    heading: 'Surprise! Sunday Updates',
+    features: [
+      {
+        icon: '🌡️',
+        title: 'Unified Weather Units',
+        desc: 'Weather displays now follow the global Settings unit choice (metric/imperial) everywhere — no more separate °F/°C toggle button inside each weather panel. Pressure reads correctly per system: hPa for metric, inHg for imperial. One setting, consistent behavior across all layouts.',
+      },
+      {
+        icon: '🔀',
+        title: 'Staging Branch Merge Cleanup',
+        desc: 'Resolved merge conflicts across DockableApp and WorldMap bringing all Staging features cleanly into the codebase: WWBOTA spots & labels, DX weather overlays, night darkness slider, and the map legend toggle. Zero conflict markers, zero duplicate functions.',
+      },
+      {
+        icon: '🗺️',
+        title: 'WWFF Legend Badge Fix',
+        desc: 'The WWFF entry in the map legend was rendering taller than POTA/SOTA/WWBOTA because the ▼ symbol and text could wrap to two lines. Fixed with a non-breaking space to match all other legend badges.',
+      },
+    ],
+  },
+  {
+    version: '15.6.1',
+    date: '2026-02-25',
+    heading:
+      'Major propagation model fix, gray line rendering improvements, 8m & 4m band support, antivirus compatibility, and UI polish.',
+    features: [
+      {
+        icon: '📡',
+        title: 'VOACAP Propagation Model Overhaul',
+        desc: 'Fixed a critical bug where 160m and 80m bands showed incorrectly high reliability on long daytime paths (reported by W3AAX). Root cause: the MUF and LUF calculations used UTC hour instead of local solar time at the path midpoint, and D-layer absorption was far too weak for multi-hop paths. LUF now properly accounts for hop count (+50% absorption per additional hop), uses correct local solar time for day/night transitions, and applies realistic daytime penalties to low bands (160m essentially dead, 80m heavily absorbed). Transatlantic paths now correctly show 160m/80m open at night and closed during the day.',
+      },
+      {
+        icon: '🌅',
+        title: 'Gray Line Twilight Zone Rendering Fixed',
+        desc: "Fixed gaps in the twilight zone dashed lines where segments would disappear mid-curve (reported by Trev). The old Newton-Raphson iterative solver failed to converge at certain longitudes near the curve's polar tips. Replaced with a direct analytical solution using half-angle substitution — a simple quadratic equation that always produces an exact answer with zero gaps.",
+      },
+      {
+        icon: '💾',
+        title: 'Gray Line Settings Now Persist',
+        desc: 'Fixed Issue #564 — Gray Line settings (Show Twilight Zones, Enhanced DX Zone, Twilight Opacity) were lost on browser restart because they were hardcoded defaults with no localStorage persistence. All three settings now save automatically and restore on reload. Checkboxes and slider sync with the loaded state when the control panel mounts.',
+      },
+      {
+        icon: '📻',
+        title: '8m & 4m Band Support',
+        desc: 'Added the 8m (40–42 MHz) and 4m (70–70.5 MHz) bands across the entire stack — popular in Europe and increasingly active worldwide. New bands appear in the map legend, band filter bars (DX Cluster, PSK Reporter, RBN, WSPR), band health tiles, and all spot/path coloring. Server-side frequency detection updated for DX Cluster, RBN, PSK Reporter, and WSJT-X.',
+      },
+      {
+        icon: '🛡️',
+        title: 'Bitdefender False Positive Mitigation',
+        desc: "Addressed Issue #356 — Bitdefender was flagging openhamclock.com URLs as malicious. Added a Permissions-Policy security header and an RFC 9116 security.txt endpoint declaring the site's legitimacy. Removed redundant cache-buster timestamps (_t=Date.now()) from four API hooks that made every polling request a unique URL — a pattern that heuristic antivirus scanners flag as command-and-control beaconing.",
+      },
+      {
+        icon: '🌡️',
+        title: 'Weather Data Fixed for Local Installs',
+        desc: "Fixed Issue #555 — local/self-hosted installs showed stale weather data (19°F off) while openhamclock.com was correct. The Open-Meteo API fetch was missing cache: 'no-store', allowing the browser to serve hours-old cached responses on localhost. Added diagnostic logging so users can verify coordinates and temperatures in DevTools.",
+      },
+      {
+        icon: '📍',
+        title: 'DE/DX Markers Always Visible',
+        desc: 'Fixed APRS station markers rendering on top of the DE (home) and DX icons, hiding them from view. DE marker now has zIndexOffset 20000 and DX has 19000, ensuring they always render above APRS, DX Cluster, and other spot layers.',
+      },
+      {
+        icon: '❤️',
+        title: 'Unified Support Button & Merch Store',
+        desc: 'Consolidated the separate PayPal and Buy Me a Coffee buttons into a single "Support Us" button that opens a modal with three options: Buy Me a Coffee, PayPal donation, and a link to the new OpenHamClock merch store.',
+      },
+      {
+        icon: '🔖',
+        title: "Version Number Opens What's New",
+        desc: "The version number displayed next to your callsign in the header is now clickable — tap it to re-open this What's New popup anytime and review the latest release notes.",
+      },
+    ],
+  },
+  {
+    version: '15.5.10',
+    date: '2026-02-20',
+    heading:
+      "Server stability, smarter failovers, ultrawide layout support, and two new languages. Also — we're moving to weekly Tuesday releases!",
+    notice:
+      '📅 Starting now, OpenHamClock updates will ship on Tuesday nights (EST) only. One release per week means more testing, fewer surprises, and better stability for everyone.',
+    features: [
+      {
+        icon: '🔇',
+        title: 'Log Flooding Fix — 115K Dropped Messages Resolved',
+        desc: 'The Railway server was generating 60-100+ log lines/second, overwhelming the log pipeline and dropping 115,000 messages in 30 minutes. Root cause: six hot-path loggers (RBN spots, callsign lookups, WSPR heatmap, PSK-MQTT SSE connects) were writing directly to console on every request instead of going through the log level system. All moved behind logDebug/logInfo/logErrorOnce. Added a global token-bucket rate limiter (burst 20, refill 10/sec) as a safety net — excess logs are silently dropped with a 60-second summary.',
+      },
+      {
+        icon: '🛰️',
+        title: 'TLE Multi-Source Failover',
+        desc: 'Satellite TLE data was failing because CelesTrak rate-limited our server IP. TLEs now automatically failover across three sources: CelesTrak → CelesTrak legacy → AMSAT. If a source returns 429/403 it immediately tries the next. Cache extended from 6 to 12 hours, with stale data served up to 48 hours while retrying. 30-minute negative cache prevents hammering when all sources are down. Self-hosters can reorder sources via TLE_SOURCES env var.',
+      },
+      {
+        icon: '🌙',
+        title: 'Moon Image & RBN Negative Caching',
+        desc: "When NASA's Dial-A-Moon API or QRZ callsign lookups were down, every client request triggered a fresh retry — hundreds per minute. Both now cache failures: Moon Image backs off 5 minutes, RBN callsign lookups cache failures for 10 minutes with automatic expiry. Stale Moon images are served during outages instead of returning errors.",
+      },
+      {
+        icon: '🖥️',
+        title: 'Ultrawide Monitor Layout',
+        desc: 'Sidebars now scale proportionally with viewport width using CSS clamp() instead of fixed pixel widths. On a 2560px ultrawide, sidebars grow to ~460px + 500px (was capped at 320 + 340px), using the extra space instead of giving the map an absurdly wide center column. Panel height caps removed so DXpeditions, POTA, and Contests panels flex to fill available space.',
+      },
+      {
+        icon: '📱',
+        title: 'Mobile Single-Module Scroll',
+        desc: 'Mobile layout (<768px) rebuilt for true vertical scrolling. Each panel gets its own full-width card: Map (60vh) → DE/DX → Cluster → PSK Reporter → Solar → Propagation → DXpeditions → POTA → Contests. Scroll-snap for smooth momentum scrolling. No more cramped side-by-side panels on small screens.',
+      },
+      {
+        icon: '🇷🇺',
+        title: 'Russian & Georgian Translations',
+        desc: 'Two new languages: Русский (Russian) and ქართული (Georgian), both at 100% coverage (379 keys). OpenHamClock now supports 13 languages total. Language selector entries added to all existing translation files.',
+      },
+      {
+        icon: '🔧',
+        title: 'Header Vertical Centering Fixed',
+        desc: 'The header bar text (callsign, clocks, solar stats, buttons) was misaligned vertically after layout changes. Fixed with consistent alignItems, lineHeight normalization on large text spans, and switching the grid row from fixed 55px to auto sizing.',
+      },
+    ],
+  },
+  {
     version: '15.5.9',
     date: '2026-02-20',
     heading: 'APRS tracking, wildfire & flood maps, full internationalization, and a stack of quality-of-life fixes.',
@@ -425,6 +545,13 @@ export default function WhatsNew() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Allow external components (e.g. version link in Header) to open the modal
+  useEffect(() => {
+    const onShow = () => setVisible(true);
+    window.addEventListener('openhamclock-show-whatsnew', onShow);
+    return () => window.removeEventListener('openhamclock-show-whatsnew', onShow);
+  }, []);
+
   const handleDismiss = () => {
     if (currentVersion) {
       localStorage.setItem(LS_KEY, currentVersion);
@@ -434,7 +561,7 @@ export default function WhatsNew() {
 
   if (!visible || !currentVersion) return null;
 
-  const entry = CHANGELOG.find((c) => c.version === currentVersion);
+  const entry = CHANGELOG.find((c) => c.version === currentVersion) || CHANGELOG[0];
   if (!entry) return null;
 
   return (
@@ -506,6 +633,22 @@ export default function WhatsNew() {
           >
             {entry.heading}
           </div>
+          {entry.notice && (
+            <div
+              style={{
+                fontSize: '12px',
+                color: 'var(--accent-amber, #ffb800)',
+                marginTop: '10px',
+                padding: '8px 12px',
+                background: 'rgba(255, 184, 0, 0.08)',
+                borderRadius: '6px',
+                border: '1px solid rgba(255, 184, 0, 0.2)',
+                lineHeight: '1.5',
+              }}
+            >
+              {entry.notice}
+            </div>
+          )}
         </div>
 
         {/* Feature list — scrollable */}

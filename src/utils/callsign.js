@@ -20,7 +20,9 @@ export const HF_BANDS = [
   '12m',
   '11m',
   '10m',
+  '8m',
   '6m',
+  '4m',
   '2m',
   '70cm',
 ];
@@ -61,7 +63,9 @@ export const getBandFromFreq = (freq) => {
   if (freqKhz >= 24890 && freqKhz <= 24990) return '12m';
   if (freqKhz >= 26000 && freqKhz <= 28000) return '11m'; // CB band
   if (freqKhz >= 28000 && freqKhz <= 29700) return '10m';
+  if (freqKhz >= 40000 && freqKhz <= 42000) return '8m';
   if (freqKhz >= 50000 && freqKhz <= 54000) return '6m';
+  if (freqKhz >= 70000 && freqKhz <= 70500) return '4m';
   if (freqKhz >= 144000 && freqKhz <= 148000) return '2m';
   if (freqKhz >= 420000 && freqKhz <= 450000) return '70cm';
   return 'other';

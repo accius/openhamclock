@@ -31,22 +31,10 @@ const universal = {
   'weather.unit.mi': 'mi',
   'weather.unit.mph': 'mph',
   // Wind directions are universal abbreviations
-  'weather.wind.N': 'N',
-  'weather.wind.NNE': 'NNE',
-  'weather.wind.NE': 'NE',
-  'weather.wind.ENE': 'ENE',
-  'weather.wind.E': 'E',
-  'weather.wind.ESE': 'ESE',
-  'weather.wind.SE': 'SE',
-  'weather.wind.SSE': 'SSE',
-  'weather.wind.S': 'S',
-  'weather.wind.SSW': 'SSW',
-  'weather.wind.SW': 'SW',
-  'weather.wind.WSW': 'WSW',
-  'weather.wind.W': 'W',
-  'weather.wind.WNW': 'WNW',
-  'weather.wind.NW': 'NW',
-  'weather.wind.NNW': 'NNW',
+  'weather.wind.N': 'N', 'weather.wind.NNE': 'NNE', 'weather.wind.NE': 'NE', 'weather.wind.ENE': 'ENE',
+  'weather.wind.E': 'E', 'weather.wind.ESE': 'ESE', 'weather.wind.SE': 'SE', 'weather.wind.SSE': 'SSE',
+  'weather.wind.S': 'S', 'weather.wind.SSW': 'SSW', 'weather.wind.SW': 'SW', 'weather.wind.WSW': 'WSW',
+  'weather.wind.W': 'W', 'weather.wind.WNW': 'WNW', 'weather.wind.NW': 'NW', 'weather.wind.NNW': 'NNW',
   // Plugin layer names that are proper nouns / brand names
   'plugins.layers.wspr.name': 'WSPR',
   'plugins.layers.rbn.title': 'RBN',
@@ -238,8 +226,7 @@ const translations = {
     'station.settings.dx.custom.port': 'Port',
     'station.settings.dx.custom.port.placeholder': '7300',
     'station.settings.dx.custom.title': '📡 Eigener Telnet-Server',
-    'station.settings.dx.custom.warning':
-      '⚠️ Eigener Telnet erfordert Selbsthosting (Pi/lokal). Cloud-Hosting (Railway/openhamclock.app) blockiert ausgehende Telnet-Verbindungen.',
+    'station.settings.dx.custom.warning': '⚠️ Eigener Telnet erfordert Selbsthosting (Pi/lokal). Cloud-Hosting (Railway/openhamclock.app) blockiert ausgehende Telnet-Verbindungen.',
     'station.settings.headerSize': 'Rufzeichengröße',
     'station.settings.layers.noLayers': 'Keine Kartenebenen verfügbar',
     'station.settings.layers.opacity': 'Deckkraft',
@@ -262,16 +249,14 @@ const translations = {
     'station.settings.tab3.title': '⛊ Satelliten',
     'station.settings.timezone.auto': 'Auto (Browser-Standard)',
     'station.settings.timezone.currentDefault': ' Aktuell wird der Browser-Standard verwendet.',
-    'station.settings.timezone.describe':
-      'Setzen Sie dies, wenn Ihre Ortszeit falsch angezeigt wird (z.B. gleich wie UTC). Datenschutzbrowser wie Librewolf können Ihre Zeitzone verschleiern.',
+    'station.settings.timezone.describe': 'Setzen Sie dies, wenn Ihre Ortszeit falsch angezeigt wird (z.B. gleich wie UTC). Datenschutzbrowser wie Librewolf können Ihre Zeitzone verschleiern.',
     'station.settings.timezone.group.africa': 'Afrika',
     'station.settings.timezone.group.asiaPacific': 'Asien & Pazifik',
     'station.settings.timezone.group.europe': 'Europa',
     'station.settings.timezone.group.northAmerica': 'Nordamerika',
     'station.settings.timezone.group.other': 'Sonstige',
     'station.settings.timezone.group.southAmerica': 'Südamerika',
-    'station.settings.tip.env':
-      '💡 Tipp: Für permanente Konfiguration <envExample>.env.example</envExample> nach <env>.env</env> kopieren und CALLSIGN und LOCATOR setzen',
+    'station.settings.tip.env': '💡 Tipp: Für permanente Konfiguration <envExample>.env.example</envExample> nach <env>.env</env> kopieren und CALLSIGN und LOCATOR setzen',
     'weather.clouds': '☁️ Wolken',
     'weather.condition.0': 'Klarer Himmel',
     'weather.condition.1': 'Überwiegend klar',
@@ -322,8 +307,7 @@ const translations = {
   es: {
     'plugins.layers.floods.description': 'Inundaciones y tormentas severas activas en todo el mundo vía NASA EONET',
     'plugins.layers.floods.name': 'Inundaciones y Tormentas',
-    'plugins.layers.wildfires.description':
-      'Incendios forestales activos en todo el mundo vía detección satelital NASA EONET',
+    'plugins.layers.wildfires.description': 'Incendios forestales activos en todo el mundo vía detección satelital NASA EONET',
     'plugins.layers.wildfires.name': 'Incendios Forestales',
   },
 
@@ -405,7 +389,7 @@ const translations = {
     'plugins.layers.wspr.veryWeak': 'Très faible (< -20 dB)',
     'plugins.layers.wspr.weak': 'Faible (-20 à -10 dB)',
     'plugins.layers.wxradar.attribution': 'Données météo © Iowa State University Mesonet',
-    'plugins.layers.wxradar.description': "Superposition radar météo NEXRAD pour l'Amérique du Nord",
+    'plugins.layers.wxradar.description': 'Superposition radar météo NEXRAD pour l\'Amérique du Nord',
     'plugins.layers.wxradar.name': 'Radar météo',
     'propagation.day': 'Jour',
     'propagation.estimated': 'estimé',
@@ -431,8 +415,7 @@ const translations = {
     'station.settings.dx.custom.port': 'Port',
     'station.settings.dx.custom.port.placeholder': '7300',
     'station.settings.dx.custom.title': '📡 Serveur Telnet personnalisé',
-    'station.settings.dx.custom.warning':
-      "⚠️ Le telnet personnalisé nécessite un hébergement local (Pi/local). L'hébergement cloud (Railway/openhamclock.app) bloque les connexions telnet sortantes.",
+    'station.settings.dx.custom.warning': '⚠️ Le telnet personnalisé nécessite un hébergement local (Pi/local). L\'hébergement cloud (Railway/openhamclock.app) bloque les connexions telnet sortantes.',
     'station.settings.layers.noLayers': 'Aucune couche disponible',
     'station.settings.layers.opacity': 'Opacité',
     'station.settings.layers.title': 'Couches de carte',
@@ -476,7 +459,7 @@ const translations = {
     'weather.humidity': '💧 Humidité',
     'weather.pressure': '🔵 Pression',
     'weather.switchUnit': 'Passer en °{{unit}}',
-    'weather.today': "Aujourd'hui",
+    'weather.today': 'Aujourd\'hui',
     'weather.uv': '☀️ UV',
     'weather.visibility': '👁️ Visibilité',
     'weather.wind': '💨 Vent',
@@ -517,11 +500,7 @@ function applyTranslations(langCode, newTranslations) {
 
   // Sort keys alphabetically for consistency
   const sorted = {};
-  Object.keys(merged)
-    .sort()
-    .forEach((k) => {
-      sorted[k] = merged[k];
-    });
+  Object.keys(merged).sort().forEach(k => { sorted[k] = merged[k]; });
 
   fs.writeFileSync(filePath, JSON.stringify(sorted, null, 2) + '\n', 'utf8');
   return added;
@@ -546,9 +525,9 @@ for (const lang of universalOnly) {
 
 // Final report
 console.log('\n--- Coverage After ---');
-for (const lang of ['de', 'es', 'fr', 'it', 'ja', 'ko', 'ms', 'nl', 'pt', 'sl']) {
+for (const lang of ['de','es','fr','it','ja','ko','ms','nl','pt','sl']) {
   const data = JSON.parse(fs.readFileSync(path.join(LANG_DIR, lang + '.json'), 'utf8'));
   const count = Object.keys(data).length;
-  const pct = Math.round((count / enKeys.length) * 100);
+  const pct = Math.round(count / enKeys.length * 100);
   console.log(`${lang.toUpperCase().padEnd(4)} ${count}/${enKeys.length} = ${pct}%`);
 }

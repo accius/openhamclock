@@ -1,6 +1,6 @@
 /**
  * WorldMap Component
- * Leaflet map with DE/DX markers, terminator, DX paths, POTA, satellites, PSKReporter
+ * Leaflet map with DE/DX markers, terminator, DX paths, POTA/WWFF/SOTA/WWBOTA, satellites, PSKReporter, WSJT-X
  */
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +52,12 @@ function esc(str) {
 // Normalize callsign keys used for DX hover/highlight matching
 const normalizeCallsignKey = (v) => (v || '').toString().toUpperCase().trim();
 
+function windArrow(deg) {
+  if (deg == null || Number.isNaN(deg)) return '';
+  const dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  return dirs[Math.round(deg / 22.5) % 16];
+}
+
 const normalizeBandKey = (band) => {
   if (band == null) return null;
   const raw = String(band).trim().toLowerCase();
@@ -76,6 +82,7 @@ export const WorldMap = ({
   potaSpots,
   wwffSpots,
   sotaSpots,
+  wwbotaSpots,
   dxPaths,
   dxFilters,
   mapBandFilter,
@@ -92,6 +99,8 @@ export const WorldMap = ({
   showWWFFLabels = true,
   showSOTA,
   showSOTALabels = true,
+  showWWBOTA,
+  showWWBOTALabels = true,
   showPSKReporter,
   showWSJTX,
   showAPRS,
@@ -127,6 +136,7 @@ export const WorldMap = ({
   const potaMarkersRef = useRef([]);
   const wwffMarkersRef = useRef([]);
   const sotaMarkersRef = useRef([]);
+  const wwbotaMarkersRef = useRef([]);
   const dxPathsLinesRef = useRef([]);
   const dxPathsMarkersRef = useRef([]);
   const pskMarkersRef = useRef([]);
@@ -268,11 +278,13 @@ export const WorldMap = ({
     try {
       window.addEventListener('ohc-n3fjp-config-changed', bump);
       window.addEventListener('ohc-rotator-config-changed', bump);
+      window.addEventListener('ohc-dx-weather-config-changed', bump);
     } catch {}
     return () => {
       try {
         window.removeEventListener('ohc-n3fjp-config-changed', bump);
         window.removeEventListener('ohc-rotator-config-changed', bump);
+        window.removeEventListener('ohc-dx-weather-config-changed', bump);
       } catch {}
     };
   }, []);
@@ -291,6 +303,95 @@ export const WorldMap = ({
       // N3FJP is local-only + feature-gated (so hosted never shows it and local users must opt-in)
       if (l.id === 'n3fjp_logged_qsos' && !n3fjpEnabled) return false;
       return true;
+    });
+  };
+
+  // --- DX Weather local-only gate ---
+  const [dxWeatherEnabled, setDxWeatherEnabled] = useState(() => {
+    try {
+      return localStorage.getItem('ohc_dx_weather_enabled') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const dxWeatherAllowed = isLocalInstall && dxWeatherEnabled;
+  const dxWeatherAllowedRef = useRef(dxWeatherAllowed);
+  useEffect(() => {
+    dxWeatherAllowedRef.current = !!dxWeatherAllowed;
+  }, [dxWeatherAllowed]);
+
+  // Sync DX weather toggle when config changes
+  useEffect(() => {
+    const sync = () => {
+      try {
+        setDxWeatherEnabled(localStorage.getItem('ohc_dx_weather_enabled') === '1');
+      } catch {}
+    };
+    window.addEventListener('ohc-dx-weather-config-changed', sync);
+    return () => window.removeEventListener('ohc-dx-weather-config-changed', sync);
+  }, []);
+
+  // --- Weather cache for popup injection ---
+  const wxCacheRef = useRef(new Map());
+  const WX_TTL_MS = 10 * 60 * 1000;
+
+  const withTimeout = (p, ms = 7000) =>
+    Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error(`WX timeout after ${ms}ms`)), ms))]);
+
+  const getWxCached = async (lat, lon) => {
+    if (!dxWeatherAllowedRef.current) throw new Error('DX weather disabled');
+    const key = `${lat.toFixed(3)},${lon.toFixed(3)}`;
+    const now = Date.now();
+    const hit = wxCacheRef.current.get(key);
+    if (hit && now - hit.t < WX_TTL_MS) return hit.wx;
+    const wx = await withTimeout(getCallsignWeather(lat, lon), 7000);
+    wxCacheRef.current.set(key, { t: now, wx });
+    return wx;
+  };
+
+  const fmtWxHtml = (wx) => {
+    if (!wx?.current) return `<div style="margin-top:6px;color:#888">Weather unavailable</div>`;
+    const c = wx.current;
+    let temp = c.temperature_2m;
+    let wind = c.wind_speed_10m;
+    const windDir = c.wind_direction_10m;
+    const humidity = c.relative_humidity_2m;
+    const pressure = c.pressure_msl;
+    const precipProb = wx?.hourly?.precipitation_probability?.[0];
+    if (units === 'imperial') {
+      temp = (temp * 9) / 5 + 32;
+      wind = wind * 0.621371;
+    }
+    return `
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.12)">
+        <div style="font-weight:800;margin-bottom:4px">Weather</div>
+        <div style="display:flex;flex-direction:column;gap:3px;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;font-size:12px">
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">🌡</span><span>${Math.round(temp)}°${units === 'imperial' ? 'F' : 'C'}</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">💨</span><span>${Math.round(wind)} ${units === 'imperial' ? 'mph' : 'km/h'} ${windArrow(windDir)}</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">💧</span><span>${humidity != null ? `${Math.round(humidity)}%` : '—'}</span><span style="width:18px;text-align:center;margin-left:6px">🧭</span><span>${pressure != null ? `${Math.round(pressure)} hPa` : '—'}</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">🌧</span><span>${precipProb != null ? `${Math.round(precipProb)}%` : '—'}</span></div>
+        </div>
+      </div>`;
+  };
+
+  const attachPopupWeather = (layer, lat, lon, baseHtml) => {
+    layer.bindPopup(baseHtml);
+    layer.on('popupopen', async (e) => {
+      const target = e?.target || layer;
+      if (!dxWeatherAllowedRef.current) {
+        target.setPopupContent(
+          baseHtml +
+            `<div style="margin-top:6px;color:#888;line-height:1.2;">Enable DX Weather<br/><span style="opacity:0.85;">(Local mode)</span></div>`,
+        );
+        return;
+      }
+      target.setPopupContent(baseHtml + `<div style="margin-top:6px;color:#888">Weather: loading...</div>`);
+      try {
+        const wx = await getWxCached(lat, lon);
+        target.setPopupContent(baseHtml + fmtWxHtml(wx));
+      } catch {
+        target.setPopupContent(baseHtml + `<div style="margin-top:6px;color:#888">Weather unavailable</div>`);
+      }
     });
   };
 
@@ -358,6 +459,24 @@ export const WorldMap = ({
       return false;
     }
   });
+
+  // Legend visibility toggle (persisted)
+  const [showLegend, setShowLegend] = useState(() => {
+    try {
+      return localStorage.getItem('openhamclock_showLegend') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const toggleLegend = useCallback(() => {
+    setShowLegend((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('openhamclock_showLegend', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
 
   const destinationPoint = (latDeg, lonDeg, bearingDeg, distanceDeg) => {
     const toRad = (d) => (d * Math.PI) / 180;
@@ -878,11 +997,9 @@ export const WorldMap = ({
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       });
-      const m = L.marker([lat, lon], { icon: deIcon })
-        .bindPopup(
-          `<b>DE - Your Location</b><br>${calculateGridSquare(deLocation.lat, deLocation.lon)}<br>${deLocation.lat.toFixed(4)}°, ${deLocation.lon.toFixed(4)}°`,
-        )
-        .addTo(map);
+      const html = `<b>DE - Your Location</b><br>${esc(calculateGridSquare(deLocation.lat, deLocation.lon))}<br>${deLocation.lat.toFixed(4)}°, ${deLocation.lon.toFixed(4)}°`;
+      const m = L.marker([lat, lon], { icon: deIcon, zIndexOffset: 20000 }).addTo(map);
+      attachPopupWeather(m, lat, lon, html);
       deMarkerRef.current.push(m);
     });
 
@@ -894,14 +1011,12 @@ export const WorldMap = ({
         iconSize: [32, 32],
         iconAnchor: [16, 16],
       });
-      const m = L.marker([lat, lon], { icon: dxIcon })
-        .bindPopup(
-          `<b>DX - Target</b><br>${calculateGridSquare(dxLocation.lat, dxLocation.lon)}<br>${dxLocation.lat.toFixed(4)}°, ${dxLocation.lon.toFixed(4)}°`,
-        )
-        .addTo(map);
+      const baseHtml = `<b>DX - Target</b><br>${esc(calculateGridSquare(dxLocation.lat, dxLocation.lon))}<br>${dxLocation.lat.toFixed(4)}°, ${dxLocation.lon.toFixed(4)}°`;
+      const m = L.marker([lat, lon], { icon: dxIcon, zIndexOffset: 19000 }).addTo(map);
+      attachPopupWeather(m, lat, lon, baseHtml);
       dxMarkerRef.current.push(m);
     });
-  }, [deLocation, dxLocation]);
+  }, [deLocation, dxLocation, units, dxWeatherAllowed]);
 
   // Update sun/moon markers every 60 seconds (matches terminator refresh)
   useEffect(() => {
@@ -1295,6 +1410,62 @@ export const WorldMap = ({
       });
     }
   }, [sotaSpots, showSOTA, showSOTALabels, bandPassesMapFilter]);
+
+  // Update WWBOTA markers
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    wwbotaMarkersRef.current.forEach((m) => map.removeLayer(m));
+    wwbotaMarkersRef.current = [];
+
+    if (showWWBOTA && wwbotaSpots) {
+      wwbotaSpots.forEach((spot) => {
+        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
+        if (!bandPassesMapFilter(band)) return;
+
+        if (spot.lat && spot.lon) {
+          // Purple square marker for WWBOTA activators — replicate across world copies
+          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+            const squareIcon = L.divIcon({
+              className: '',
+              html: `<span style="display:inline-block;width:12px;height:12px;background:#8b7fff;border:1px solid rgba(0,0,0,0.4);border-radius:2px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
+              iconSize: [12, 12],
+              iconAnchor: [6, 6],
+            });
+            const marker = L.marker([lat, lon], { icon: squareIcon })
+              .bindPopup(
+                `<b data-qrz-call="${esc(spot.call)}" style="color:#8b7fff; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
+              )
+              .addTo(map);
+
+            if (onSpotClick) {
+              marker.on('click', () => onSpotClick(spot));
+            }
+
+            wwbotaMarkersRef.current.push(marker);
+          });
+
+          // Only show callsign label when labels are enabled — replicate
+          if (showWWBOTALabels) {
+            const labelIcon = L.divIcon({
+              className: '',
+              html: `<span style="display:inline-block;background:#8b7fff;color:#000;padding:2px 5px;border-radius:3px;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;border:1px solid rgba(0,0,0,0.5);box-shadow:0 1px 2px rgba(0,0,0,0.3);line-height:1.1;">${esc(spot.call)}</span>`,
+              iconSize: [0, 0],
+              iconAnchor: [0, -2],
+            });
+            replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+              const label = L.marker([lat, lon], {
+                icon: labelIcon,
+                interactive: false,
+              }).addTo(map);
+              wwbotaMarkersRef.current.push(label);
+            });
+          }
+        }
+      });
+    }
+  }, [wwbotaSpots, showWWBOTA, showWWBOTALabels, bandPassesMapFilter]);
 
   // Plugin layer system - properly load saved states
   useEffect(() => {
@@ -1752,9 +1923,6 @@ export const WorldMap = ({
             callsign={callsign}
             locator={deLocator}
             lowMemoryMode={lowMemoryMode}
-            onDXChange={onDXChange}
-            dxLocked={dxLocked}
-            dxLocation={dxLocation}
           />
         ))}
 
@@ -1926,11 +2094,40 @@ export const WorldMap = ({
         </button>
       )}
 
+      {/* DX weather hover overlay */}
+      {!hideOverlays && <CallsignWeatherOverlay hoveredSpot={hoveredSpot} enabled={dxWeatherAllowed} units={units} />}
+
       {/* DX News Ticker - left side of bottom bar */}
       {!hideOverlays && showDXNews && <DXNewsTicker />}
 
-      {/* Legend - centered above news ticker */}
+      {/* Legend toggle button */}
       {!hideOverlays && (
+        <button
+          onClick={toggleLegend}
+          title={showLegend ? 'Hide legend' : 'Show legend'}
+          style={{
+            position: 'absolute',
+            bottom: showLegend ? '80px' : '44px',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            background: 'rgba(0, 0, 0, 0.85)',
+            border: '1px solid #444',
+            borderRadius: '4px',
+            padding: '2px 8px',
+            zIndex: 1001,
+            cursor: 'pointer',
+            fontSize: '10px',
+            fontFamily: 'JetBrains Mono, monospace',
+            color: '#888',
+            lineHeight: 1.2,
+          }}
+        >
+          {showLegend ? '▼ Legend' : '▲ Legend'}
+        </button>
+      )}
+
+      {/* Legend - centered above news ticker */}
+      {!hideOverlays && showLegend && (
         <div
           style={{
             position: 'absolute',
@@ -1950,64 +2147,66 @@ export const WorldMap = ({
             flexWrap: 'nowrap',
           }}
         >
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <span style={{ color: '#888' }}>Bands:</span>
-            <button
-              type="button"
-              onClick={() => clearMapBandFilter()}
-              title="Show all bands"
-              style={{
-                background: hasMapBandFilter ? 'rgba(120,120,120,0.35)' : '#00ffcc',
-                color: hasMapBandFilter ? '#ccc' : '#001f1a',
-                padding: '2px 5px',
-                borderRadius: '3px',
-                fontWeight: '700',
-                border: hasMapBandFilter ? '1px solid #666' : '1px solid rgba(0,0,0,0.35)',
-                cursor: 'pointer',
-                lineHeight: 1.1,
-              }}
-            >
-              ALL
-            </button>
-            {BAND_LEGEND_ORDER.map((band) => {
-              const bg = getBandColorForBand(band, effectiveBandColors);
-              const fg = getBandTextColor(bg);
-              const isEditing = editingBand === band;
-              const isSelected = selectedMapBands.has(normalizeBandKey(band));
-              const isDimmed = hasMapBandFilter && !isSelected;
-              return (
-                <button
-                  key={band}
-                  type="button"
-                  onClick={(e) => {
-                    if (e.shiftKey) {
-                      openBandColorEditor(band);
-                      return;
-                    }
-                    toggleMapBand(band);
-                  }}
-                  title={`Click to filter ${band}; Shift+Click to edit color`}
-                  style={{
-                    background: bg,
-                    color: fg,
-                    padding: '2px 5px',
-                    borderRadius: '3px',
-                    fontWeight: '600',
-                    border: isEditing
-                      ? '2px solid #ffffff'
-                      : isSelected
-                        ? '1px solid #00ffcc'
-                        : '1px solid rgba(0,0,0,0.35)',
-                    cursor: 'pointer',
-                    lineHeight: 1.1,
-                    opacity: isDimmed ? 0.35 : 1,
-                  }}
-                >
-                  {band}
-                </button>
-              );
-            })}
-          </div>
+          {showDXPaths && (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span style={{ color: '#888' }}>Bands:</span>
+              <button
+                type="button"
+                onClick={() => clearMapBandFilter()}
+                title="Show all bands"
+                style={{
+                  background: hasMapBandFilter ? 'rgba(120,120,120,0.35)' : '#00ffcc',
+                  color: hasMapBandFilter ? '#ccc' : '#001f1a',
+                  padding: '2px 5px',
+                  borderRadius: '3px',
+                  fontWeight: '700',
+                  border: hasMapBandFilter ? '1px solid #666' : '1px solid rgba(0,0,0,0.35)',
+                  cursor: 'pointer',
+                  lineHeight: 1.1,
+                }}
+              >
+                ALL
+              </button>
+              {BAND_LEGEND_ORDER.map((band) => {
+                const bg = getBandColorForBand(band, effectiveBandColors);
+                const fg = getBandTextColor(bg);
+                const isEditing = editingBand === band;
+                const isSelected = selectedMapBands.has(normalizeBandKey(band));
+                const isDimmed = hasMapBandFilter && !isSelected;
+                return (
+                  <button
+                    key={band}
+                    type="button"
+                    onClick={(e) => {
+                      if (e.shiftKey) {
+                        openBandColorEditor(band);
+                        return;
+                      }
+                      toggleMapBand(band);
+                    }}
+                    title={`Click to filter ${band}; Shift+Click to edit color`}
+                    style={{
+                      background: bg,
+                      color: fg,
+                      padding: '2px 5px',
+                      borderRadius: '3px',
+                      fontWeight: '600',
+                      border: isEditing
+                        ? '2px solid #ffffff'
+                        : isSelected
+                          ? '1px solid #00ffcc'
+                          : '1px solid rgba(0,0,0,0.35)',
+                      cursor: 'pointer',
+                      lineHeight: 1.1,
+                      opacity: isDimmed ? 0.35 : 1,
+                    }}
+                  >
+                    {band}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span
               style={{
@@ -2058,7 +2257,7 @@ export const WorldMap = ({
                   fontWeight: '600',
                 }}
               >
-                ▼ WWFF
+                ▼&nbsp;WWFF
               </span>
             </div>
           )}
@@ -2077,13 +2276,28 @@ export const WorldMap = ({
               </span>
             </div>
           )}
+          {showWWBOTA && (
+            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+              <span
+                style={{
+                  background: '#8b7fff',
+                  color: '#000',
+                  padding: '2px 5px',
+                  borderRadius: '3px',
+                  fontWeight: '600',
+                }}
+              >
+                ■&nbsp;WWBOTA
+              </span>
+            </div>
+          )}
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <span style={{ color: '#ffcc00' }}>☼&nbsp;{t('app.legend.sun')}</span>
             <span style={{ color: '#aaaaaa' }}>☽&nbsp;{t('app.legend.moon')}</span>
           </div>
         </div>
       )}
-      {!hideOverlays && editingBand && (
+      {!hideOverlays && showLegend && editingBand && (
         <div
           style={{
             position: 'absolute',

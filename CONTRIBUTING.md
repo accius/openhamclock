@@ -10,6 +10,7 @@ Thank you for helping build OpenHamClock! Whether you're fixing a bug, adding a 
 # 1. Fork and clone
 git clone https://github.com/YOUR_USERNAME/openhamclock.git
 cd openhamclock
+git checkout Staging
 
 # 2. Install dependencies
 npm install
@@ -79,14 +80,28 @@ See an issue you want to fix? Claim it so others know it's being worked on:
 
 No write access required — any GitHub user can self-assign. Once assigned, feel free to ask questions in the issue thread before diving in. If you claimed something and it's no longer on your radar, just leave a comment so someone else can pick it up.
 
+### Closing an Issue
+
+Fixed the bug or confirmed a resolution? Close the issue directly:
+
+1. Leave a comment containing exactly:
+   ```
+   /close
+   ```
+2. The bot will close the issue and react with 🚀
+
 ### Submitting Code
 
-1. **Fork** the repo and create a branch from `main`
+1. **Fork** the repo and create a branch from `Staging`
 2. **Make your changes** — keep commits focused and descriptive
 3. **Test** across all three themes (dark, light, retro) and at different screen sizes
-4. **Open a PR** against `main` with a clear description of what changed and why
+4. **Open a PR** against `Staging` with a clear description of what changed and why
+
+> **⚠️ Important:** All pull requests should target the **`Staging`** branch, not `main`. The `Staging` branch is always the most up-to-date version of the codebase. We merge `Staging` into `main` on a weekly release cycle.
 
 #### Branch Naming
+
+Branch off `Staging` and use a descriptive prefix:
 
 ```
 feature/my-new-panel

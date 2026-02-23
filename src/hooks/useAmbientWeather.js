@@ -51,7 +51,7 @@ function getEnv(name) {
   return undefined;
 }
 
-export const useAmbientWeather = (tempUnit = 'F') => {
+export const useAmbientWeather = (units = 'imperial') => {
   const [rawDevice, setRawDevice] = useState(null); // { macAddress, info, lastData }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -113,7 +113,7 @@ export const useAmbientWeather = (tempUnit = 'F') => {
   const data = useMemo(() => {
     if (!rawDevice?.lastData) return null;
 
-    const isMetric = tempUnit === 'C';
+    const isMetric = units === 'metric';
     const ld = rawDevice.lastData;
 
     const updatedAtMs = safeNum(ld.dateutc) ?? (ld.date ? Date.parse(ld.date) : null);
@@ -201,7 +201,7 @@ export const useAmbientWeather = (tempUnit = 'F') => {
       rainUnit: isMetric ? 'mm' : 'in',
       pressureUnit: isMetric ? 'hPa' : 'inHg',
     };
-  }, [rawDevice, tempUnit]);
+  }, [rawDevice, units]);
 
   return { data, loading, error };
 };

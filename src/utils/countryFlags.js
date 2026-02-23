@@ -1,8 +1,36 @@
 /**
  * Country Flags Utility
- * Maps DXCC entity names to emoji flags
+ * Maps DXCC entity names to emoji flags + ISO image rendering
  * Based on ARRL DXCC List
  */
+
+/**
+ * Extract ISO 3166-1 alpha-2 code from a flag emoji.
+ * Flag emojis are pairs of Regional Indicator Symbols:
+ *   🇺 = U+1F1FA (letter U), 🇸 = U+1F1F8 (letter S) → "us"
+ */
+export const emojiToIso2 = (emoji) => {
+  if (!emoji) return null;
+  const codePoints = [...emoji].map((c) => c.codePointAt(0));
+  // Regional indicator symbols live at U+1F1E6 (A) through U+1F1FF (Z)
+  const letters = codePoints
+    .filter((cp) => cp >= 0x1f1e6 && cp <= 0x1f1ff)
+    .map((cp) => String.fromCharCode(cp - 0x1f1e6 + 65));
+  if (letters.length === 2) return letters.join('').toLowerCase();
+  return null;
+};
+
+/**
+ * Get a flag image URL for a DXCC entity name.
+ * Uses flagcdn.com (free, no API key, SVG flags).
+ * Returns null if entity not found.
+ */
+export const getFlagUrl = (entityName, size = 'w40') => {
+  const emoji = getFlagForEntity(entityName);
+  const iso = emojiToIso2(emoji);
+  if (!iso) return null;
+  return `https://flagcdn.com/${size}/${iso}.png`;
+};
 
 export const getFlagForEntity = (entityName) => {
   if (!entityName) return null;
@@ -226,7 +254,7 @@ export const getFlagForEntity = (entityName) => {
     Liberia: '🇱🇷',
     'Ivory Coast': '🇨🇮',
     "Cote d'Ivoire": '🇨🇮',
-    'Burkina Faso': '🇧e', // Typo in original thoughts? No: 🇧🇫
+    'Burkina Faso': '🇧🇫',
     Ghana: '🇬🇭',
     Togo: '🇹🇬',
     Benin: '🇧🇯',

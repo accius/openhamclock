@@ -2,7 +2,7 @@
 
 **A real-time amateur radio dashboard for the modern operator.**
 
-OpenHamClock brings DX cluster spots, space weather, propagation predictions, POTA activations, SOTA activations, WWFF activations, PSKReporter, satellite tracking, WSJT-X integration, direct rig control, and more into a single browser-based interface. Run it locally on a Raspberry Pi, on your desktop, or access it from anywhere via a cloud deployment.
+OpenHamClock brings DX cluster spots, space weather, propagation predictions, POTA activations, SOTA activations, WWFF activations, WWBOTA activations, PSKReporter, satellite tracking, WSJT-X integration, direct rig control, and more into a single browser-based interface. Run it locally on a Raspberry Pi, on your desktop, or access it from anywhere via a cloud deployment.
 
 **🌐 Live Site:** [openhamclock.com](https://openhamclock.com)
 
@@ -59,6 +59,7 @@ npm run dev
   - [PSKReporter](#pskreporter)
   - [POTA — Parks on the Air](#pota--parks-on-the-air)
   - [WWFF — World Wide Flora and Fauna](#wwff---world-wide-flora-and-fauna)
+  - [WWBOTA — World Wide Bunkers on the Air](#wwbota---world-wide-bunkers-on-the-air)
   - [Space Weather](#space-weather)
   - [Solar Panel](#solar-panel)
   - [Band Conditions](#band-conditions)
@@ -104,7 +105,7 @@ OpenHamClock is built from independent modules, each focused on a specific data 
 
 ### World Map
 
-The central interactive map is the heart of the dashboard. It ties every other module together visually — DX spots, POTA/WWFF activators, satellite orbits, signal paths, and your own station location all appear here.
+The central interactive map is the heart of the dashboard. It ties every other module together visually — DX spots, POTA/WWFF/SOTA/WWBOTA activators, satellite orbits, signal paths, and your own station location all appear here.
 
 **What it shows:**
 
@@ -113,6 +114,8 @@ The central interactive map is the heart of the dashboard. It ties every other m
 - **Great-circle signal paths** — Lines drawn from your station to each DX spot showing the shortest path on the globe. These are true great-circle paths, not straight lines.
 - **POTA activators** — Green triangle markers for Parks on the Air activators. Click for park name, reference number, frequency, mode, and spot time.
 - **WWFF activators** - Light Green inverted triangle markers for World Wide Flora and Fauna activators. Click for park name, reference number, frequency, mode, and spot time.
+- **SOTA activators** - Orange diamond markers for Summits on the Air activators. Click for summit name, reference number, frequency, mode, and spot time.
+- **WWBOTA activators** - Light purple square markers for World Wide Bunkers on the Air activators. Click for bunker name, reference numbers, frequency, mode, and spot time.
 - **Satellite positions** — Colored markers for amateur radio satellites with orbital track lines showing their predicted path.
 - **PSKReporter paths** — Signal paths from the PSKReporter network showing who is hearing whom on digital modes.
 - **Day/night terminator** — A shaded overlay showing which parts of the Earth are in darkness, updated in real time.
@@ -121,7 +124,7 @@ The central interactive map is the heart of the dashboard. It ties every other m
 **How to use it:**
 
 - **Pan and zoom:** Click and drag to pan, scroll wheel to zoom. Double-click to zoom in.
-- **Toggle overlays:** Use the header bar buttons to turn DX Paths, DX Labels, POTA, WWFF, Satellites, PSKReporter, and WSJT-X overlays on and off. Each button shows its current state (highlighted = on).
+- **Toggle overlays:** Use the header bar buttons to turn DX Paths, DX Labels, POTA, WWFF, SOTA, WWBOTA, Satellites, PSKReporter, and WSJT-X overlays on and off. Each button shows its current state (highlighted = on).
 - **Click any marker** to see detailed information in a popup.
 - **Set a DX target:** Click anywhere on the map to set a DX target location for propagation predictions. The DX panel on the right sidebar updates with the bearing, distance, and grid square of wherever you clicked.
 
@@ -277,6 +280,39 @@ Shows all currently active WWFF activators worldwide with their park references,
 - Spots are sorted newest-first so the freshest activations are always at the top
 
 **How it works under the hood:** The server proxies the WWFF API (`spots.wwff.co/static/spots.json`) with a 90 second cache to reduce load on the upstream service. The `useWWFFSpots` hook fetches spots every 60 seconds, filters out QRT/expired entries, sorts by recency, and resolves coordinates from the API's latitude/longitude fields.
+
+---
+
+### WWBOTA - World Wide Bunkers on the Air
+
+Shows all currently active WWBOTA activators worldwide with their bunker references, frequencies, and map locations. If you're a WWBOTA chaser, this panel tells you exactly who is on the air right now and where.
+
+**What it shows:**
+
+- A scrollable list of all active WWBOTA activators with:
+  - Callsign (green)
+  - Bunker References (grouped and commma delimited)
+  - Frequency (KHz)
+  - Spot time (UTC)
+- Total activator count in the panel header (e.g., "☢ WWBOTA ACTIVATORS (42)")
+- Light purple square markers on the map for each activator
+- Callsign labels on map (visible when Labels are enabled)
+- Click a map marker to see the first bunker name, reference numbers (e.g. B/G-1234,1235 ), frequency, mode, and spot time
+
+**How to use it:**
+
+1. **Scan the panel** for interesting activations — look for new references that you need.
+2. **Click "⊞ Map ON/OFF"** to toggle WWBOTA markers on the map. Light purple square appear at each activator's bunker location. Where multiple bunkers are being activated, the location of first reference is used.
+3. **Click any light purple square** on the map for full details including bunker name.
+4. **Enable Labels** (in the dockable view) to see callsign labels next to each triangle on the map.
+
+**Smart filtering (automatic, no configuration needed):**
+
+- Operators who have signed off ("QRT" spot status) are automatically hidden
+- Spots older than 60 minutes are filtered out
+- Spots are sorted newest-first so the freshest activations are always at the top
+
+**How it works under the hood:** The browser connects directly to WWBOTA API via server-sent events, fetching the initial last 60 minutes of spots, and then has new and updated spots pushed directly to the browser. QRT spots are filtered out, and where multiple bunkers are being activated at once, the first bunker's name and location are used.
 
 ---
 
@@ -1011,6 +1047,7 @@ openhamclock/
 │   │   ├── PSKFilterManager.jsx  # PSKReporter filter modal (bands, modes, time window)
 │   │   ├── POTAPanel.jsx         # POTA activators scrollable list with map toggle
 │   │   ├── WWFFPanel.jsx         # WWFF activators scrollable list with map toggle
+│   │   ├── WWBOTAPanel.jsx       # WWBOTA activators scrollable list with map toggle
 │   │   ├── SpaceWeatherPanel.jsx # SFI / K-index / SSN gauges
 │   │   ├── SolarPanel.jsx        # 4-view cycling: solar image, indices, x-ray flux, lunar phase
 │   │   ├── BandConditionsPanel.jsx # HF band open/closed indicators
@@ -1027,6 +1064,7 @@ openhamclock/
 │   │   ├── usePSKReporter.js     # PSKReporter MQTT + HTTP fallback — real-time
 │   │   ├── usePOTASpots.js       # POTA activators — polls every 60 seconds
 │   │   ├── useWWFFSpots.js       # WWFF activators — polls every 60 seconds
+│   │   ├── useWWBOTASpots.js     # WWBOTA activators — opens live SSE connection from browser
 │   │   ├── useSpaceWeather.js    # NOAA SFI/Kp/SSN — polls every 5 minutes
 │   │   ├── useSolarIndices.js    # Extended solar data with history — polls every 15 minutes
 │   │   ├── useBandConditions.js  # Band conditions — recalculates when SFI/Kp change
@@ -1066,7 +1104,7 @@ openhamclock/
 
 ### Data Flow
 
-All external API calls go through the Node.js backend, which caches responses to reduce load on upstream services. The frontend never contacts external APIs directly (except PSKReporter MQTT, which uses a WebSocket connection from the browser).
+All external API calls go through the Node.js backend, which caches responses to reduce load on upstream services. The frontend never contacts external APIs directly (except PSKReporter MQTT and WWBOTA, which use WebSocket and Server-Sent Events connection from the browser respectivley).
 
 ```
 NOAA SWPC ──┐
@@ -1085,6 +1123,9 @@ WSJT-X UDP ──► Server listener ──► React ──► WSJT-X Panel
 
 PSKReporter MQTT ──────────────► React ──► PSKReporter Panel
   (direct WebSocket)
+
+WWBOTA API ──────────────► React ──►  Panel
+  (direct Server-Sent Events)
 ```
 
 ---
@@ -1222,6 +1263,7 @@ Thank you to everyone who has contributed code, features, bug fixes, and ideas:
 - **POTA (Parks on the Air)** — Activator spot API
 - **SOTA (Summits on the Air)** — Activator spot API and summits database
 - **WWFF (World Wide Flora and Fauna)** — Activator spot API
+- **WWBOTA (World Wide Bunkers on the Air)** — Activator spot API
 - **PSKReporter** — Digital mode reception report network
 - **Open-Meteo** — Free weather API
 - **Leaflet** — Open-source mapping library

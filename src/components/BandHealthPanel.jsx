@@ -26,7 +26,23 @@ const WINDOW_OPTIONS = [
   { value: 60, label: '60m' },
 ];
 
-const BAND_TILES = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
+const BAND_TILES = [
+  '160m',
+  '80m',
+  '60m',
+  '40m',
+  '30m',
+  '20m',
+  '17m',
+  '15m',
+  '12m',
+  '10m',
+  '8m',
+  '6m',
+  '4m',
+  '2m',
+  '70cm',
+];
 
 const STORAGE_MODE_KEY = 'openhamclock_bandHealth_mode';
 const STORAGE_WINDOW_KEY = 'openhamclock_bandHealth_window';

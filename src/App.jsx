@@ -21,6 +21,7 @@ import {
   usePOTASpots,
   useWWFFSpots,
   useSOTASpots,
+  useWWBOTASpots,
   useContests,
   useWeather,
   usePropagation,
@@ -40,6 +41,7 @@ import useFilters from './hooks/app/useFilters';
 import useSatellitesFilters from './hooks/app/useSatellitesFilters';
 import useTimeState from './hooks/app/useTimeState';
 import useFullscreen from './hooks/app/useFullscreen';
+import useScreenWakeLock from './hooks/app/useScreenWakeLock';
 import useResponsiveScale from './hooks/app/useResponsiveScale';
 import useLocalInstall from './hooks/app/useLocalInstall';
 import useVersionCheck from './hooks/app/useVersionCheck';
@@ -64,13 +66,6 @@ const App = () => {
   const [showWwffFilters, setShowWwffFilters] = useState(false);
   const [layoutResetKey, setLayoutResetKey] = useState(0);
   const [, setBandColorChangeVersion] = useState(0);
-  const [tempUnit, setTempUnit] = useState(() => {
-    try {
-      return localStorage.getItem('openhamclock_tempUnit') || 'F';
-    } catch {
-      return 'F';
-    }
-  });
   const [updateInProgress, setUpdateInProgress] = useState(false);
 
   useEffect(() => {
@@ -150,6 +145,7 @@ const App = () => {
     toggleWWFFLabels,
     toggleSOTA,
     toggleSOTALabels,
+    toggleWWBOTA,
     toggleSatellites,
     togglePSKReporter,
     toggleWSJTX,
@@ -166,6 +162,7 @@ const App = () => {
   } = useFilters();
 
   const { isFullscreen, handleFullscreenToggle } = useFullscreen();
+  const { wakeLockStatus } = useScreenWakeLock(config);
   const scale = useResponsiveScale();
   const isLocalInstall = useLocalInstall();
   useVersionCheck();
@@ -177,14 +174,15 @@ const App = () => {
   const potaSpots = usePOTASpots();
   const wwffSpots = useWWFFSpots();
   const sotaSpots = useSOTASpots();
+  const wwbotaSpots = useWWBOTASpots();
   const dxClusterData = useDXClusterData(dxFilters, config);
   const dxpeditions = useDXpeditions();
   const contests = useContests();
   const propagation = usePropagation(config.location, dxLocation, config.propagation);
   const mySpots = useMySpots(config.callsign);
   const satellites = useSatellites(config.location);
-  const localWeather = useWeather(config.location, tempUnit);
-  const dxWeather = useWeather(dxLocation, tempUnit);
+  const localWeather = useWeather(config.location, config.units);
+  const dxWeather = useWeather(dxLocation, config.units);
   const pskReporter = usePSKReporter(config.callsign, {
     minutes: config.lowMemoryMode ? 5 : 30,
     enabled: config.callsign !== 'N0CALL',
@@ -335,8 +333,6 @@ const App = () => {
     handleToggleDxLock,
     deSunTimes,
     dxSunTimes,
-    tempUnit,
-    setTempUnit,
     localWeather,
     dxWeather,
     spaceWeather,
@@ -350,6 +346,7 @@ const App = () => {
     filteredWwffSpots,
     sotaSpots,
     filteredSotaSpots,
+    wwbotaSpots,
     mySpots,
     dxpeditions,
     contests,
@@ -380,6 +377,7 @@ const App = () => {
     toggleWWFFLabels,
     toggleSOTA,
     toggleSOTALabels,
+    toggleWWBOTA,
     toggleSatellites,
     togglePSKReporter,
     toggleWSJTX,
@@ -428,6 +426,7 @@ const App = () => {
         onSatelliteFiltersChange={setSatelliteFilters}
         mapLayers={mapLayers}
         onToggleDXNews={toggleDXNews}
+        wakeLockStatus={wakeLockStatus}
       />
       <DXFilterManager
         filters={dxFilters}

@@ -11,6 +11,7 @@ import { useState, useEffect, useRef } from 'react';
  * - Color-coded by propagation potential
  * - Minimizable control panel
  * - Corrected sine wave calculation (v1.0.1)
+ * - Analytical quadratic solver eliminates twilight line gaps (v1.0.3)
  *
  * Use Case: Identify optimal times for long-distance DX contacts
  * The gray line provides enhanced HF propagation for several hours
@@ -24,7 +25,7 @@ export const metadata = {
   category: 'propagation',
   defaultEnabled: false,
   defaultOpacity: 0.5,
-  version: '1.0.2',
+  version: '1.0.3',
 };
 
 // Solar calculations based on astronomical algorithms
@@ -152,91 +153,68 @@ function unwrapAndCopyPolygon(upperPoints, lowerPoints) {
 }
 
 // Generate terminator line for a specific solar altitude
+// Uses half-angle substitution (t = tan(lat/2)) to get an analytical quadratic solution.
+// This eliminates gaps from Newton-Raphson convergence failures in v1.0.1.
 function generateTerminatorLine(date, solarAltitude = 0, numPoints = 360) {
   const points = [];
   const { declination } = calculateSolarPosition(date);
   const decRad = (declination * Math.PI) / 180;
-  const altRad = (solarAltitude * Math.PI) / 180;
+  const sinDec = Math.sin(decRad);
+  const cosDec = Math.cos(decRad);
+  const sinAlt = Math.sin((solarAltitude * Math.PI) / 180);
 
-  // For each longitude, calculate the latitude where the sun is at the specified altitude
   for (let i = 0; i <= numPoints; i++) {
     const lon = (i / numPoints) * 360 - 180;
     const hourAngle = calculateHourAngle(date, lon);
     const haRad = (hourAngle * Math.PI) / 180;
-
     const cosHA = Math.cos(haRad);
-    const sinDec = Math.sin(decRad);
-    const cosDec = Math.cos(decRad);
-    const sinAlt = Math.sin(altRad);
+
+    // Solve: sin(lat)*sinDec + cos(lat)*cosDec*cosHA = sinAlt
+    // Substituting t = tan(lat/2), sin = 2t/(1+t²), cos = (1-t²)/(1+t²):
+    //   (C+B)t² - 2At + (C-B) = 0
+    // where A = sinDec, B = cosDec*cosHA, C = sinAlt
+    const A = sinDec;
+    const B = cosDec * cosHA;
+    const C = sinAlt;
+    const qa = C + B;
+    const qb = -2 * A;
+    const qc = C - B;
 
     let lat;
 
-    // Check if solution exists (sun can reach this altitude at this longitude)
-    // For terminator and twilight, check if |cos(HA) * cos(dec)| <= 1 - sin(alt) * sin(dec)
-    const testValue = (sinAlt - sinDec * sinDec) / (cosDec * cosDec * cosHA * cosHA);
-
-    if (Math.abs(declination) < 0.01) {
-      // Near equinox: terminator is nearly straight along equator
-      lat = 0;
-    } else if (Math.abs(cosDec) < 0.001) {
-      // Near solstice: sun is directly over tropic, skip this point
-      continue;
+    if (Math.abs(qa) < 1e-10) {
+      // Linear case (B ≈ -C): solve qb*t + qc = 0
+      if (Math.abs(qb) < 1e-10) continue;
+      lat = 2 * Math.atan(-qc / qb);
     } else {
-      // Standard case: calculate terminator latitude
-      const tanDec = Math.tan(decRad);
+      const disc = qb * qb - 4 * qa * qc;
+      if (disc < -1e-10) continue; // No real solution at this longitude
 
-      if (solarAltitude === 0) {
-        // Terminator (sunrise/sunset line)
-        // Formula: tan(lat) = -cos(HA) / tan(dec)
-        if (Math.abs(tanDec) > 0.0001) {
-          lat = (Math.atan(-cosHA / tanDec) * 180) / Math.PI;
-        } else {
-          lat = 0;
-        }
+      const sqrtDisc = Math.sqrt(Math.max(0, disc));
+      const t1 = (-qb + sqrtDisc) / (2 * qa);
+      const t2 = (-qb - sqrtDisc) / (2 * qa);
+      const lat1 = 2 * Math.atan(t1);
+      const lat2 = 2 * Math.atan(t2);
+
+      // Pick the root in valid latitude range [-π/2, π/2]
+      // One root traces the main S-curve, the other is typically out of range
+      const v1 = Math.abs(lat1) <= Math.PI / 2 + 0.01;
+      const v2 = Math.abs(lat2) <= Math.PI / 2 + 0.01;
+
+      if (v1 && v2) {
+        lat = Math.abs(lat1) < Math.abs(lat2) ? lat1 : lat2;
+      } else if (v1) {
+        lat = lat1;
+      } else if (v2) {
+        lat = lat2;
       } else {
-        // Twilight zones (negative solar altitude)
-        // Use Newton-Raphson iteration to solve for latitude
-        // Equation: sin(lat) * sin(dec) + cos(lat) * cos(dec) * cos(HA) = sin(alt)
-
-        // Initial guess based on terminator
-        let testLat = Math.atan(-cosHA / tanDec);
-
-        // Iterate to find solution
-        let converged = false;
-        for (let iter = 0; iter < 10; iter++) {
-          const f = Math.sin(testLat) * sinDec + Math.cos(testLat) * cosDec * cosHA - sinAlt;
-          const fPrime = Math.cos(testLat) * sinDec - Math.sin(testLat) * cosDec * cosHA;
-
-          if (Math.abs(f) < 0.0001) {
-            converged = true;
-            break;
-          }
-
-          if (Math.abs(fPrime) > 0.0001) {
-            testLat = testLat - f / fPrime;
-          } else {
-            break;
-          }
-
-          // Constrain to valid latitude range during iteration
-          testLat = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, testLat));
-        }
-
-        // Only use the point if iteration converged
-        if (!converged) {
-          continue;
-        }
-
-        lat = (testLat * 180) / Math.PI;
+        continue;
       }
     }
 
-    // Strict clamping to valid latitude range
-    lat = Math.max(-85, Math.min(85, lat));
-
-    // Only add point if it's valid and not at extreme latitude
-    if (isFinite(lat) && isFinite(lon) && Math.abs(lat) < 85) {
-      points.push([lat, lon]);
+    const latDeg = (lat * 180) / Math.PI;
+    if (isFinite(latDeg) && Math.abs(latDeg) <= 85) {
+      points.push([latDeg, lon]);
     }
   }
 
@@ -442,9 +420,50 @@ function addMinimizeToggle(element, storageKey) {
 export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
   const [layers, setLayers] = useState([]);
   const [currentTime, setCurrentTime] = useState(new Date());
-  const [showTwilight, setShowTwilight] = useState(true);
-  const [showEnhancedZone, setShowEnhancedZone] = useState(true);
-  const [twilightOpacity, setTwilightOpacity] = useState(0.5);
+  const [showTwilight, _setShowTwilight] = useState(() => {
+    try {
+      const v = localStorage.getItem('openhamclock_grayline_twilight');
+      return v !== null ? v === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [showEnhancedZone, _setShowEnhancedZone] = useState(() => {
+    try {
+      const v = localStorage.getItem('openhamclock_grayline_enhanced');
+      return v !== null ? v === 'true' : true;
+    } catch {
+      return true;
+    }
+  });
+  const [twilightOpacity, _setTwilightOpacity] = useState(() => {
+    try {
+      const v = localStorage.getItem('openhamclock_grayline_twilightOpacity');
+      return v !== null ? parseFloat(v) : 0.5;
+    } catch {
+      return 0.5;
+    }
+  });
+
+  // Wrappers that persist to localStorage on change
+  const setShowTwilight = (val) => {
+    _setShowTwilight(val);
+    try {
+      localStorage.setItem('openhamclock_grayline_twilight', String(val));
+    } catch {}
+  };
+  const setShowEnhancedZone = (val) => {
+    _setShowEnhancedZone(val);
+    try {
+      localStorage.setItem('openhamclock_grayline_enhanced', String(val));
+    } catch {}
+  };
+  const setTwilightOpacity = (val) => {
+    _setTwilightOpacity(val);
+    try {
+      localStorage.setItem('openhamclock_grayline_twilightOpacity', String(val));
+    } catch {}
+  };
 
   const controlRef = useRef(null);
   const updateIntervalRef = useRef(null);
@@ -559,6 +578,12 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
       const enhancedCheck = document.getElementById('grayline-enhanced');
       const twilightOpacitySlider = document.getElementById('grayline-twilight-opacity');
       const twilightOpacityValue = document.getElementById('twilight-opacity-value');
+
+      // Sync DOM with persisted state (may differ from hardcoded HTML defaults)
+      if (twilightCheck) twilightCheck.checked = showTwilight;
+      if (enhancedCheck) enhancedCheck.checked = showEnhancedZone;
+      if (twilightOpacitySlider) twilightOpacitySlider.value = Math.round(twilightOpacity * 100);
+      if (twilightOpacityValue) twilightOpacityValue.textContent = Math.round(twilightOpacity * 100);
 
       if (twilightCheck) {
         twilightCheck.addEventListener('change', (e) => setShowTwilight(e.target.checked));

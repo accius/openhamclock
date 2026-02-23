@@ -6,7 +6,22 @@
 export const BAND_COLOR_STORAGE_KEY = 'openhamclock_bandColors';
 export const BAND_COLORS_CHANGE_EVENT = 'openhamclock-band-colors-change';
 
-export const BAND_LEGEND_ORDER = ['160m', '80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
+export const BAND_LEGEND_ORDER = [
+  '160m',
+  '80m',
+  '40m',
+  '30m',
+  '20m',
+  '17m',
+  '15m',
+  '12m',
+  '10m',
+  '8m',
+  '6m',
+  '4m',
+  '2m',
+  '70cm',
+];
 
 export const DEFAULT_BAND_COLORS = {
   '160m': '#ff6666',
@@ -20,7 +35,9 @@ export const DEFAULT_BAND_COLORS = {
   '12m': '#6699ff',
   '11m': '#8866ff',
   '10m': '#9966ff',
+  '8m': '#cc66ff',
   '6m': '#ff66ff',
+  '4m': '#ff66cc',
   '2m': '#44ddff',
   '70cm': '#4488ff',
 };
@@ -37,7 +54,9 @@ const BAND_RANGES_MHZ = [
   { min: 24, max: 25, band: '12m' },
   { min: 26, max: 28, band: '11m' },
   { min: 28, max: 30, band: '10m' },
+  { min: 40, max: 42, band: '8m' },
   { min: 50, max: 54, band: '6m' },
+  { min: 70, max: 70.5, band: '4m' },
   { min: 144, max: 148, band: '2m' },
   { min: 420, max: 450, band: '70cm' },
 ];

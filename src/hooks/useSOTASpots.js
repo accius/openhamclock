@@ -19,8 +19,8 @@ export const useSOTASpots = () => {
   useEffect(() => {
     const fetchSOTA = async () => {
       try {
-        // Cache-bust to bypass browser cache AND Cloudflare edge cache
-        const res = await apiFetch(`/api/sota/spots?_t=${Date.now()}`, { cache: 'no-store' });
+        // Server sets Cache-Control: no-store; fetch no-store bypasses browser cache
+        const res = await apiFetch('/api/sota/spots', { cache: 'no-store' });
         if (res?.ok) {
           const spots = await res.json();
           console.log(`[SOTA] Fetched ${Array.isArray(spots) ? spots.length : 0} spots`);
@@ -40,8 +40,6 @@ export const useSOTASpots = () => {
             setLastUpdated(Date.now());
           }
 
-          let entry = []; // to weed out duplicate entries. We only want the most recent (first) spot matching "callsign summit"
-
           // Map SOTA API response to our standard spot format
           const mapped = (Array.isArray(spots) ? spots : [])
             .filter((s) => {
@@ -54,14 +52,6 @@ export const useSOTASpots = () => {
                 const ts = s.timeStamp.endsWith('Z') || s.timeStamp.endsWith('z') ? s.timeStamp : s.timeStamp + 'Z';
                 const ageMs = Date.now() - new Date(ts).getTime();
                 if (ageMs > 60 * 60 * 1000) return false;
-              }
-
-              // check to see if we already have already seen a spot for key.
-              const key = `${s.activatorCallsign} ${s.associationCode}/${s.summitCode}`;
-              if (entry.includes(key)) {
-                return false;
-              } else {
-                entry.push(key);
               }
               return true;
             })

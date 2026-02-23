@@ -29,14 +29,13 @@ const bandFromAnyFrequency = (freq) => {
   return normalizeBandKey(getBandFromFreq(n));
 };
 
-export function useLayer({ enabled = false, opacity = 0.7, map = null, mapBandFilter, onDXChange = null }) {
+export function useLayer({ enabled = false, opacity = 0.7, map = null, mapBandFilter }) {
   const [qsos, setQsos] = useState([]);
   const [deLocation, setDeLocation] = useState(null);
   const markersRef = useRef([]);
   const linesRef = useRef([]);
   const pollRef = useRef(null);
   const configLoadedRef = useRef(false);
-  const lastAutoDxQsoIdRef = useRef(null);
 
   useEffect(() => {
     if (!enabled || configLoadedRef.current) return;
@@ -161,33 +160,6 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, mapBandFi
       });
     });
   }, [qsos, enabled, opacity, map, deLocation, mapBandFilter]);
-
-  useEffect(() => {
-    if (!enabled || typeof onDXChange !== 'function' || !Array.isArray(qsos) || qsos.length === 0) return;
-
-    const latestWithCoords = [...qsos]
-      .reverse()
-      .find((qso) => Number.isFinite(parseFloat(qso?.lat)) && Number.isFinite(parseFloat(qso?.lon)));
-
-    if (!latestWithCoords) return;
-
-    const qsoId =
-      latestWithCoords.id ||
-      `${latestWithCoords.dxCall || ''}-${latestWithCoords.timestamp || ''}-${latestWithCoords.lat}-${latestWithCoords.lon}`;
-
-    if (!qsoId || qsoId === lastAutoDxQsoIdRef.current) return;
-
-    const lat = parseFloat(latestWithCoords.lat);
-    let lon = parseFloat(latestWithCoords.lon);
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-
-    while (lon > 180) lon -= 360;
-    while (lon < -180) lon += 360;
-
-    // Auto-follow newest contest QSO so propagation/DX panel refresh from logger activity.
-    onDXChange({ lat, lon });
-    lastAutoDxQsoIdRef.current = qsoId;
-  }, [enabled, qsos, onDXChange]);
 
   return { layer: markersRef.current };
 }
