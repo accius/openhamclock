@@ -6,7 +6,7 @@ export default function CustomThemeEditor({ id, customTheme, updateCustomVar }) 
   const { t } = useTranslation();
 
   return (
-    <div id={id} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+    <div id={id}>
       {Object.entries(THEME_COLOR_CONFIG).map(([key, cfg]) => {
         const Picker = cfg.alpha ? RgbaColorPicker : HexColorPicker;
 

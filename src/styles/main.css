@@ -622,6 +622,24 @@ body::before {
   font-weight: 600;
 }
 
+#custom-theme-editor-component {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+@media screen and (max-width: 768px) {
+  #custom-theme-editor-component {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (max-width: 480px) {
+  #custom-theme-editor-component {
+    grid-template-columns: 1fr;
+  }
+}
+
 #custom-theme-editor-component .custom-theme-colorpicker {
   margin: 1em auto;
   text-align: center;
@@ -637,6 +655,7 @@ body::before {
   margin-bottom: 8px;
   color: var(--text-muted);
   font-size: 11px;
+  display: block;
 }
 
 /* Hide the hue slider for variables that have color names */
