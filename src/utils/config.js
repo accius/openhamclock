@@ -191,6 +191,7 @@ const SYNC_KEYS = [
   'openhamclock_potaFilters',
   'openhamclock_sotaFilters',
   'openhamclock_wwffFilters',
+  'openhamclock_wwbotaFilters',
   'openhamclock_pskPanelMode',
   'openhamclock_bandColors',
   'openhamclock_satelliteFilters',

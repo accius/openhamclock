@@ -6,6 +6,7 @@
  * Handles spot data with frequency, callsign, bunker reference, and coordinates
  */
 import { useState, useEffect, useRef } from 'react';
+import { getBandFromFreq } from '../utils';
 
 export const useWWBOTASpots = () => {
   const [data, setData] = useState([]);
@@ -112,6 +113,7 @@ export const useWWBOTASpots = () => {
                 call,
                 ref: refs,
                 freq,
+                band: getBandFromFreq(freq),
                 mode,
                 spotter,
                 name: name,

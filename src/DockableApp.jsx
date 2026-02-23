@@ -94,6 +94,7 @@ export const DockableApp = ({
   sotaSpots,
   filteredSotaSpots,
   wwbotaSpots,
+  filteredWwbotaSpots,
   mySpots,
   dxpeditions,
   contests,
@@ -119,6 +120,8 @@ export const DockableApp = ({
   setShowSotaFilters,
   wwffFilters,
   setShowWwffFilters,
+  wwbotaFilters,
+  setShowWwbotaFilters,
 
   // Map layers
   mapLayers,
@@ -566,7 +569,7 @@ export const DockableApp = ({
         potaSpots={filteredPotaSpots ? filteredPotaSpots : potaSpots.data}
         wwffSpots={filteredWwffSpots ? filteredWwffSpots : wwffSpots.data}
         sotaSpots={filteredSotaSpots ? filteredSotaSpots : sotaSpots.data}
-        wwbotaSpots={wwbotaSpots.data}
+        wwbotaSpots={filteredWwbotaSpots ? filteredWwbotaSpots : wwbotaSpots.data}
         mySpots={mySpots.data}
         dxPaths={dxClusterData.paths}
         dxFilters={dxFilters}
@@ -831,23 +834,9 @@ export const DockableApp = ({
               showLabelsOnMap={mapLayersEff.showWWBOTALabels}
               onToggleLabelsOnMap={toggleWWBOTALabelsEff}
               onSpotClick={handleSpotClick}
-            />
-          );
-          break;
-
-        case 'wwbota':
-          content = (
-            <WWBOTAPanel
-              data={wwbotaSpots.data}
-              loading={wwbotaSpots.loading}
-              lastUpdated={wwbotaSpots.lastUpdated}
-              connected={wwbotaSpots.connected}
-              showOnMap={mapLayersEff.showWWBOTA}
-              onToggleMap={toggleWWBOTAEff}
-              onHoverSpot={setHoveredSpot}
-              showLabelsOnMap={mapLayersEff.showWWBOTALabels}
-              onToggleLabelsOnMap={toggleWWBOTALabelsEff}
-              onSpotClick={handleSpotClick}
+              filters={wwbotaFilters}
+              onOpenFilters={() => setShowWwbotaFilters(true)}
+              filteredData={filteredWwbotaSpots}
             />
           );
           break;

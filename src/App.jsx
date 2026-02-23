@@ -64,6 +64,7 @@ const App = () => {
   const [showPotaFilters, setShowPotaFilters] = useState(false);
   const [showSotaFilters, setShowSotaFilters] = useState(false);
   const [showWwffFilters, setShowWwffFilters] = useState(false);
+  const [showWwbotaFilters, setShowWwbotaFilters] = useState(false);
   const [layoutResetKey, setLayoutResetKey] = useState(0);
   const [, setBandColorChangeVersion] = useState(0);
   const [updateInProgress, setUpdateInProgress] = useState(false);
@@ -146,6 +147,7 @@ const App = () => {
     toggleSOTA,
     toggleSOTALabels,
     toggleWWBOTA,
+    toggleWWBOTALabels,
     toggleSatellites,
     togglePSKReporter,
     toggleWSJTX,
@@ -159,6 +161,7 @@ const App = () => {
     potaFilters, setPotaFilters,
     sotaFilters, setSotaFilters,
     wwffFilters, setWwffFilters,
+    wwbotaFilters, setWwbotaFilters,
   } = useFilters();
 
   const { isFullscreen, handleFullscreenToggle } = useFullscreen();
@@ -263,6 +266,10 @@ const App = () => {
     return ActivateFilter(sotaSpots, sotaFilters);
   }, [sotaSpots, sotaFilters]);
 
+  const filteredWwbotaSpots = useMemo(() => {
+    return ActivateFilter(wwbotaSpots, wwbotaFilters);
+  }, [wwbotaSpots, wwbotaFilters]);
+
   const wsjtxMapSpots = useMemo(() => {
     // Apply same age filter as panel (stored in localStorage)
     let ageMinutes = 30;
@@ -322,6 +329,7 @@ const App = () => {
     setShowPotaFilters,
     setShowSotaFilters,
     setShowWwffFilters,
+    setShowWwbotaFilters,
     handleUpdateClick,
     updateInProgress,
     isLocalInstall,
@@ -347,6 +355,7 @@ const App = () => {
     sotaSpots,
     filteredSotaSpots,
     wwbotaSpots,
+    filteredWwbotaSpots,
     mySpots,
     dxpeditions,
     contests,
@@ -368,6 +377,8 @@ const App = () => {
     setSotaFilters,
     wwffFilters,
     setWwffFilters,
+    wwbotaFilters,
+    setWwbotaFilters,
     mapLayers,
     toggleDXPaths,
     toggleDXLabels,
@@ -378,6 +389,7 @@ const App = () => {
     toggleSOTA,
     toggleSOTALabels,
     toggleWWBOTA,
+    toggleWWBOTALabels,
     toggleSatellites,
     togglePSKReporter,
     toggleWSJTX,
@@ -460,6 +472,13 @@ const App = () => {
         onFilterChange={setWwffFilters}
         isOpen={showWwffFilters}
         onClose={() => setShowWwffFilters(false)}
+      />
+      <ActivateFilterManager
+        name='WWBOTA'
+        filters={wwbotaFilters}
+        onFilterChange={setWwbotaFilters}
+        isOpen={showWwbotaFilters}
+        onClose={() => setShowWwbotaFilters(false)}
       />
       <WhatsNew />
     </div>

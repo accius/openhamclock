@@ -85,6 +85,21 @@ export default function useFilters() {
       syncAllSettingsToServer();
   }, [wwffFilters]);
 
+  // WWBOTA Filters
+  const [wwbotaFilters, setWwbotaFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem('openhamclock_wwbotaFilters');
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('openhamclock_wwbotaFilters', JSON.stringify(wwbotaFilters));
+      syncAllSettingsToServer();
+  }, [wwffFilters]);
+
   const [mapBandFilter, setMapBandFilter] = useState(() => {
     try {
       const stored = localStorage.getItem('openhamclock_mapBandFilter');
@@ -109,10 +124,12 @@ export default function useFilters() {
     potaFilters,
     sotaFilters,
     wwffFilters,
+    wwbotaFilters,
     setPskFilters,
     setPotaFilters,
     setSotaFilters,
     setWwffFilters,
+    setWwbotaFilters,
     mapBandFilter,
     setMapBandFilter,
   };

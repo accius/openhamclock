@@ -20,6 +20,11 @@ export const PotaSotaPanel = ({
   onTogglePOTA,
   showPOTALabels,
   togglePOTALabels,
+  onPOTASpotClick,
+  potaFilters,
+  setShowPotaFilters,
+  filteredPotaSpots,
+
   wwffData,
   wwffLoading,
   wwffLastUpdated,
@@ -28,6 +33,11 @@ export const PotaSotaPanel = ({
   onToggleWWFF,
   showWWFFLabels,
   toggleWWFFLabels,
+  onWWFFSpotClick,
+  wwffFilters,
+  setShowWwffFilters,
+  filteredWwffSpots,
+
   sotaData,
   sotaLoading,
   sotaLastUpdated,
@@ -36,25 +46,23 @@ export const PotaSotaPanel = ({
   onToggleSOTA,
   showSOTALabels,
   toggleSOTALabels,
+  onSOTASpotClick,
+  sotaFilters,
+  setShowSotaFilters,
+  filteredSotaSpots,
+
   wwbotaData,
   wwbotaLoading,
   wwbotaLastUpdated,
   wwbotaConnected,
   showWWBOTA,
   onToggleWWBOTA,
-  onPOTASpotClick,
-  onWWFFSpotClick,
-  onSOTASpotClick,
-  potaFilters,
-  setShowPotaFilters,
-  filteredPotaSpots,
-  sotaFilters,
-  setShowSotaFilters,
-  filteredSotaSpots,
-  wwffFilters,
-  setShowWwffFilters,
-  filteredWwffSpots,
+  showWWBOTALabels,
+  toggleWWBOTALabels,
   onWWBOTASpotClick,
+  wwbotaFilters,
+  setShowWwbotaFilters,
+  filteredWwbotaSpots,
 }) => {
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -172,16 +180,11 @@ export const PotaSotaPanel = ({
             showOnMap={showWWBOTA}
             onToggleMap={onToggleWWBOTA}
             onSpotClick={onWWBOTASpotClick}
-          />
-        ) : activeTab === 'wwbota' ? (
-          <WWBOTAPanel
-            data={wwbotaData}
-            loading={wwbotaLoading}
-            lastUpdated={wwbotaLastUpdated}
-            connected={wwbotaConnected}
-            showOnMap={showWWBOTA}
-            onToggleMap={onToggleWWBOTA}
-            onSpotClick={onWWBOTASpotClick}
+            showLabelsOnMap={showWWBOTALabels}
+            onToggleLabelsOnMap={toggleWWBOTALabels}
+            filters={wwbotaFilters}
+            onOpenFilters={setShowWwbotaFilters}
+            filteredData={filteredWwbotaSpots}
           />
         ) : (
           <WWFFPanel
