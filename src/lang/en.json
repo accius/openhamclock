@@ -408,6 +408,12 @@
   "propagation.heatmap.tooltip.voacap": "Switch to VOACAP heatmap colors (red=good)",
   "propagation.heatmap.tooltip.stoplight": "Switch to stoplight colors (green=good)",
   "app.legend.sun": "Sun",
+  "app.mapUi.hide": "Hide UI",
+  "app.mapUi.show": "Show UI",
+  "app.mapControls.lock": "Lock",
+  "app.mapControls.unlock": "Unlock",
+  "app.mapControls.calls.hide": "Hide Calls",
+  "app.mapControls.calls.show": "Show Calls",
   "app.legend.moon": "Moon",
   "propagation.heatmap.tooltip.stoplight": "Switch to stoplight colors (green=good)"
 }

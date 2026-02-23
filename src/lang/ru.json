@@ -397,5 +397,11 @@
   "propagation.heatmap.tooltip.voacap": "Переключить на цвета VOACAP (красный = хорошо)",
   "propagation.heatmap.tooltip.stoplight": "Переключить на цвета светофора (зелёный = хорошо)",
   "app.legend.sun": "Солнце",
+  "app.mapUi.hide": "Скрыть интерфейс",
+  "app.mapUi.show": "Показать интерфейс",
+  "app.mapControls.lock": "Заблокировать",
+  "app.mapControls.unlock": "Разблокировать",
+  "app.mapControls.calls.hide": "Скрыть позывные",
+  "app.mapControls.calls.show": "Показать позывные",
   "app.legend.moon": "Луна"
 }

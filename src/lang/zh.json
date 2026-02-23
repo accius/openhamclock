@@ -379,6 +379,12 @@
   "propagation.heatmap.tooltip.voacap": "切换至 VOACAP 热力图颜色 (红色=优良)",
   "propagation.heatmap.tooltip.stoplight": "切换至红绿灯颜色 (绿色=优良)",
   "app.legend.sun": "太阳",
+  "app.mapUi.hide": "隐藏界面",
+  "app.mapUi.show": "显示界面",
+  "app.mapControls.lock": "锁定",
+  "app.mapControls.unlock": "解锁",
+  "app.mapControls.calls.hide": "隐藏呼号",
+  "app.mapControls.calls.show": "显示呼号",
   "app.legend.moon": "月亮",
   "propagation.heatmap.tooltip.stoplight": "切换至红绿灯颜色 (绿色=优良)"
 }

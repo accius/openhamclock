@@ -12,9 +12,6 @@ import {
   getGreatCirclePoints,
   replicatePath,
   replicatePoint,
-  normalizeLon,
-  classifyTwilight,
-  calculateSolarElevation,
 } from '../utils/geo.js';
 import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
 import {
@@ -28,7 +25,6 @@ import {
 import { createTerminator } from '../utils/terminator.js';
 import { getAllLayers } from '../plugins/layerRegistry.js';
 import useLocalInstall from '../hooks/app/useLocalInstall.js';
-import { IconSatellite, IconTag, IconSun, IconMoon } from './Icons.jsx';
 import PluginLayer from './PluginLayer.jsx';
 import AzimuthalMap from './AzimuthalMap.jsx';
 import { DXNewsTicker } from './DXNewsTicker.jsx';
@@ -48,9 +44,6 @@ function esc(str) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#39;');
 }
-
-// Normalize callsign keys used for DX hover/highlight matching
-const normalizeCallsignKey = (v) => (v || '').toString().toUpperCase().trim();
 
 function windArrow(deg) {
   if (deg == null || Number.isNaN(deg)) return '';
@@ -120,9 +113,6 @@ export const WorldMap = ({
   rotatorIsStale = false,
   rotatorControlEnabled,
   onRotatorTurnRequest,
-  mySpots,
-  onToggleSatellites,
-  onHoverSpot,
 }) => {
   const { t } = useTranslation();
   const mapRef = useRef(null);
@@ -149,14 +139,6 @@ export const WorldMap = ({
   const rotatorTurnRef = useRef(onRotatorTurnRequest);
   const rotatorEnabledRef = useRef(rotatorControlEnabled);
   const deRef = useRef(deLocation);
-  const mySpotsMarkersRef = useRef([]);
-  const mySpotsLinesRef = useRef([]);
-  const satMarkersRef = useRef([]);
-  const satTracksRef = useRef([]);
-  // DX highlight state (style existing polylines via refs; no layer rebuilds)
-  const dxLineIndexRef = useRef(new Map());
-  const dxHighlightKeyRef = useRef('');
-  const dxHighlightLockedRef = useRef(false);
 
   // Calculate grid locator from DE location for plugins
   const deLocator = useMemo(() => {
@@ -206,37 +188,6 @@ export const WorldMap = ({
   const clearMapBandFilter = useCallback(() => {
     writeMapBandFilter([]);
   }, [writeMapBandFilter]);
-
-  // ── DX highlight helpers (click highlight + DX Cluster panel hover highlight) ──
-  const clearDXHighlight = useCallback(() => {
-    const prevKey = dxHighlightKeyRef.current;
-    if (!prevKey) return;
-    const prevLines = dxLineIndexRef.current.get(prevKey) || [];
-    prevLines.forEach((ln) => {
-      const base = ln._ohcBaseStyle || {
-        color: ln.options.color,
-        weight: ln.options.weight,
-        opacity: ln.options.opacity,
-      };
-      ln.setStyle(base);
-    });
-    dxHighlightKeyRef.current = '';
-  }, []);
-
-  const setDXHighlight = useCallback(
-    (key) => {
-      const k = normalizeCallsignKey(key);
-      if (!k) return;
-      if (dxHighlightKeyRef.current === k) return;
-      clearDXHighlight();
-      dxHighlightKeyRef.current = k;
-      const lines = dxLineIndexRef.current.get(k) || [];
-      lines.forEach((ln) => {
-        ln.setStyle({ color: '#ffffff', weight: 3, opacity: 1 });
-      });
-    },
-    [clearDXHighlight],
-  );
 
   // Expose DE location to window for plugins (e.g., RBN)
   useEffect(() => {
@@ -459,6 +410,13 @@ export const WorldMap = ({
       return false;
     }
   });
+  const [mapUiHidden, setMapUiHidden] = useState(() => {
+    try {
+      return localStorage.getItem('openhamclock_mapUiHidden') === 'true';
+    } catch {
+      return false;
+    }
+  });
 
   // Legend visibility toggle (persisted)
   const [showLegend, setShowLegend] = useState(() => {
@@ -596,7 +554,7 @@ export const WorldMap = ({
       minZoom: 1,
       maxZoom: 18,
       worldCopyJump: true,
-      zoomControl: true,
+      zoomControl: false,
       zoomSnap: 0.1,
       zoomDelta: 0.25,
       wheelPxPerZoomLevel: getScaledZoomLevel(mouseZoom),
@@ -697,8 +655,10 @@ export const WorldMap = ({
           if (h) h.disable();
         },
       );
-      const zc = map.zoomControl?.getContainer();
-      if (zc) zc.style.display = 'none';
+    }
+    if (mapUiHidden) {
+      const controlContainer = map._controlContainer;
+      if (controlContainer) controlContainer.style.display = 'none';
     }
 
     const resizeObserver = new ResizeObserver(() => {
@@ -733,18 +693,46 @@ export const WorldMap = ({
       if (h) mapLocked ? h.disable() : h.enable();
     });
 
-    // Hide/show zoom control
-    const zoomControl = map.zoomControl;
-    if (zoomControl) {
-      const el = zoomControl.getContainer();
-      if (el) el.style.display = mapLocked ? 'none' : '';
-    }
-
     // Persist to localStorage
     try {
       localStorage.setItem('openhamclock_mapLocked', mapLocked ? 'true' : 'false');
     } catch {}
   }, [mapLocked]);
+
+  // Persist global map UI visibility toggle
+  useEffect(() => {
+    try {
+      localStorage.setItem('openhamclock_mapUiHidden', mapUiHidden ? 'true' : 'false');
+    } catch {}
+  }, [mapUiHidden]);
+
+  // Hide/show Leaflet controls and plugin widgets created outside React
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    const display = mapUiHidden ? 'none' : '';
+    const controlContainer = map._controlContainer;
+    if (controlContainer) controlContainer.style.display = display;
+
+    const externalWidgetSelectors = [
+      '.grayline-control',
+      '.muf-map-control',
+      '.voacap-heatmap-control',
+      '.rbn-control',
+      '.lightning-stats',
+      '.lightning-proximity',
+      '.wspr-filter-control',
+      '.wspr-stats',
+      '.wspr-legend',
+      '.wspr-chart',
+    ];
+    externalWidgetSelectors.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((el) => {
+        el.style.display = display;
+      });
+    });
+  }, [mapUiHidden, pluginLayerStates]);
 
   // Update tile layer and handle night light clipping
   useEffect(() => {
@@ -1864,6 +1852,20 @@ export const WorldMap = ({
     saveBandColorOverrides({});
   };
 
+  const adjustMapZoom = useCallback(
+    (delta) => {
+      if (mapLocked) return;
+      const map = mapInstanceRef.current;
+      if (!map) return;
+      const current = map.getZoom();
+      const min = map.getMinZoom();
+      const max = map.getMaxZoom();
+      const next = Math.max(min, Math.min(max, current + delta));
+      map.setZoom(next);
+    },
+    [mapLocked],
+  );
+
   return (
     <div style={{ position: 'relative', height: '100%', minHeight: '200px' }}>
       {/* Azimuthal equidistant projection (canvas-based) */}
@@ -1891,6 +1893,7 @@ export const WorldMap = ({
           hoveredSpot={hoveredSpot}
           callsign={callsign}
           hideOverlays={hideOverlays}
+          hideUi={mapUiHidden}
         />
       )}
 
@@ -1925,85 +1928,168 @@ export const WorldMap = ({
           />
         ))}
 
-      {/* MODIS Control (Only shows when MODIS map style is active) */}
-
-      {/* Map lock toggle — below Leaflet zoom controls (Leaflet only) */}
-      {mapStyle !== 'azimuthal' && (
+      {/* Unified map control dock */}
+      <div
+        style={{
+          position: 'absolute',
+          top: '10px',
+          left: '10px',
+          zIndex: 1100,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '5px',
+          alignItems: 'stretch',
+        }}
+      >
         <button
-          onClick={() => setMapLocked((prev) => !prev)}
-          title={mapLocked ? 'Unlock map (enable panning/zooming)' : 'Lock map (prevent accidental panning/zooming)'}
+          onClick={() => setMapUiHidden((prev) => !prev)}
+          title={mapUiHidden ? t('app.mapUi.show') : t('app.mapUi.hide')}
           style={{
-            position: 'absolute',
-            top: '72px',
-            left: '10px',
-            width: '30px',
-            height: '30px',
-            background: mapLocked ? 'rgba(255, 80, 80, 0.25)' : 'rgba(0, 0, 0, 0.6)',
-            border: `2px solid ${mapLocked ? 'rgba(255, 80, 80, 0.7)' : 'rgba(0,0,0,0.3)'}`,
+            background: 'rgba(0, 0, 0, 0.85)',
+            border: `1px solid ${mapUiHidden ? '#00ffcc' : '#444'}`,
+            color: mapUiHidden ? '#00ffcc' : '#aaa',
+            padding: '6px 8px',
             borderRadius: '4px',
-            color: mapLocked ? '#ff5050' : '#ccc',
-            fontSize: '14px',
+            minHeight: '30px',
+            fontFamily: 'JetBrains Mono, monospace',
             cursor: 'pointer',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             lineHeight: 1,
           }}
         >
-          {mapLocked ? '🔒' : '🔓'}
+          {mapUiHidden ? '👁' : '🙈'}
         </button>
-      )}
 
-      {/* Night darkness slider (Leaflet only) */}
-      {mapStyle !== 'azimuthal' && (
-        <div
-          title="Adjust night overlay darkness"
-          style={{
-            position: 'absolute',
-            top: '108px',
-            left: '10px',
-            background: 'rgba(0, 0, 0, 0.7)',
-            border: '1px solid #444',
-            borderRadius: '4px',
-            padding: '6px 8px',
-            zIndex: 1000,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: '3px',
-            width: '30px',
-          }}
-        >
-          <span style={{ fontSize: '12px', lineHeight: 1 }}>🌙</span>
-          <input
-            type="range"
-            min="0"
-            max="90"
-            value={nightDarkness}
-            onChange={(e) => setNightDarkness(parseInt(e.target.value))}
+        {!mapUiHidden && mapStyle !== 'azimuthal' && (
+          <div
             style={{
-              cursor: 'pointer',
-              width: '80px',
-              transform: 'rotate(-90deg)',
-              transformOrigin: 'center center',
-              margin: '32px 0',
-            }}
-          />
-          <span
-            style={{
-              fontSize: '9px',
-              fontFamily: 'JetBrains Mono, monospace',
-              color: '#999',
-              lineHeight: 1,
+              width: '52px',
+              background: 'rgba(0, 0, 0, 0.8)',
+              border: '1px solid #444',
+              borderRadius: '6px',
+              padding: '10px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '5px',
             }}
           >
-            {nightDarkness}%
-          </span>
-        </div>
-      )}
+            <button
+              onClick={() => setMapLocked((prev) => !prev)}
+              title={mapLocked ? t('app.mapControls.unlock') : t('app.mapControls.lock')}
+              style={{
+                width: '100%',
+                minHeight: '30px',
+                background: mapLocked ? 'rgba(255, 80, 80, 0.25)' : 'rgba(0, 0, 0, 0.65)',
+                border: `1px solid ${mapLocked ? 'rgba(255, 80, 80, 0.7)' : '#444'}`,
+                borderRadius: '4px',
+                color: mapLocked ? '#ff5050' : '#ccc',
+                fontFamily: 'JetBrains Mono, monospace',
+                cursor: 'pointer',
+                lineHeight: 1,
+                textAlign: 'center',
+                padding: '0 8px',
+              }}
+            >
+              {mapLocked ? '🔒' : '🔓'}
+            </button>
 
-      {mapStyle === 'MODIS' && (
+            {onToggleDXLabels && showDXPaths && Array.isArray(dxPaths) && dxPaths.length > 0 && (
+              <button
+                onClick={onToggleDXLabels}
+                title={showDXLabels ? t('app.mapControls.calls.hide') : t('app.mapControls.calls.show')}
+                style={{
+                  width: '100%',
+                  background: showDXLabels ? 'rgba(255, 170, 0, 0.2)' : 'rgba(0, 0, 0, 0.65)',
+                  border: `1px solid ${showDXLabels ? '#ffaa00' : '#444'}`,
+                  color: showDXLabels ? '#ffaa00' : '#888',
+                  padding: '6px 8px',
+                  borderRadius: '4px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  cursor: 'pointer',
+                  textAlign: 'center',
+                  minHeight: '30px',
+                }}
+              >
+                ⊞
+              </button>
+            )}
+
+            <button
+              onClick={() => adjustMapZoom(0.25)}
+              disabled={mapLocked}
+              title="Zoom in"
+              style={{
+                width: '100%',
+                minHeight: '30px',
+                background: 'rgba(0, 0, 0, 0.65)',
+                border: '1px solid #444',
+                borderRadius: '4px',
+                color: '#ccc',
+                fontFamily: 'JetBrains Mono, monospace',
+                cursor: mapLocked ? 'not-allowed' : 'pointer',
+                opacity: mapLocked ? 0.45 : 1,
+                textAlign: 'center',
+                padding: '0 8px',
+              }}
+            >
+              +
+            </button>
+
+            <button
+              onClick={() => adjustMapZoom(-0.25)}
+              disabled={mapLocked}
+              title="Zoom out"
+              style={{
+                width: '100%',
+                minHeight: '30px',
+                background: 'rgba(0, 0, 0, 0.65)',
+                border: '1px solid #444',
+                borderRadius: '4px',
+                color: '#ccc',
+                fontFamily: 'JetBrains Mono, monospace',
+                cursor: mapLocked ? 'not-allowed' : 'pointer',
+                opacity: mapLocked ? 0.45 : 1,
+                textAlign: 'center',
+                padding: '0 8px',
+              }}
+            >
+              −
+            </button>
+
+            <div
+              title="Adjust night overlay darkness"
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '5px',
+                color: '#999',
+                fontSize: '14px',
+                fontFamily: 'JetBrains Mono, monospace',
+                textAlign: 'center',
+              }}
+            >
+              <span>{nightDarkness}%</span>
+              <input
+                type="range"
+                min="0"
+                max="90"
+                value={nightDarkness}
+                onChange={(e) => setNightDarkness(parseInt(e.target.value, 10))}
+                style={{
+                  cursor: 'pointer',
+                  width: '18px',
+                  margin: 0,
+                  writingMode: 'vertical-lr',
+                  WebkitAppearance: 'slider-vertical',
+                  transform: 'rotate(180deg)',
+                }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {mapStyle === 'MODIS' && !mapUiHidden && (
         <div
           style={{
             position: 'absolute',
@@ -2041,66 +2127,46 @@ export const WorldMap = ({
       )}
 
       {/* Map style dropdown */}
-      <select
-        value={mapStyle}
-        onChange={(e) => setMapStyle(e.target.value)}
-        style={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          background: 'rgba(0, 0, 0, 0.8)',
-          border: '1px solid #444',
-          color: '#00ffcc',
-          padding: '6px 10px',
-          borderRadius: '4px',
-          fontSize: '11px',
-          fontFamily: 'JetBrains Mono',
-          cursor: 'pointer',
-          zIndex: 1000,
-          outline: 'none',
-        }}
-      >
-        {Object.entries(MAP_STYLES).map(([key, style]) => (
-          <option key={key} value={key}>
-            {style.name}
-          </option>
-        ))}
-      </select>
-
-      {/* Satellite toggle */}
-
-      {/* Labels toggle */}
-      {onToggleDXLabels && showDXPaths && Array.isArray(dxPaths) && dxPaths.length > 0 && (
-        <button
-          onClick={onToggleDXLabels}
-          title={showDXLabels ? 'Hide callsign labels on map' : 'Show callsign labels on map'}
+      {!mapUiHidden && (
+        <select
+          value={mapStyle}
+          onChange={(e) => setMapStyle(e.target.value)}
           style={{
             position: 'absolute',
             top: '10px',
-            left: '50px',
-            background: showDXLabels ? 'rgba(255, 170, 0, 0.2)' : 'rgba(0, 0, 0, 0.8)',
-            border: `1px solid ${showDXLabels ? '#ffaa00' : '#666'}`,
-            color: showDXLabels ? '#ffaa00' : '#888',
+            right: '10px',
+            background: 'rgba(0, 0, 0, 0.8)',
+            border: '1px solid #444',
+            color: '#00ffcc',
             padding: '6px 10px',
             borderRadius: '4px',
             fontSize: '11px',
             fontFamily: 'JetBrains Mono',
             cursor: 'pointer',
             zIndex: 1000,
+            outline: 'none',
           }}
         >
-          ⊞ CALLS {showDXLabels ? 'ON' : 'OFF'}
-        </button>
+          {Object.entries(MAP_STYLES).map(([key, style]) => (
+            <option key={key} value={key}>
+              {style.name}
+            </option>
+          ))}
+        </select>
       )}
 
+      {/* Satellite toggle */}
+
       {/* DX weather hover overlay */}
-      {!hideOverlays && <CallsignWeatherOverlay hoveredSpot={hoveredSpot} enabled={dxWeatherAllowed} units={units} />}
+      {!hideOverlays && !mapUiHidden && (
+        <CallsignWeatherOverlay hoveredSpot={hoveredSpot} enabled={dxWeatherAllowed} units={units} />
+      )}
 
       {/* DX News Ticker - left side of bottom bar */}
-      {!hideOverlays && showDXNews && <DXNewsTicker />}
+      {!hideOverlays && !mapUiHidden && showDXNews && <DXNewsTicker />}
 
       {/* Legend toggle button */}
-      {!hideOverlays && (
+      {!hideOverlays && !mapUiHidden && (
         <button
           onClick={toggleLegend}
           title={showLegend ? 'Hide legend' : 'Show legend'}
@@ -2126,7 +2192,7 @@ export const WorldMap = ({
       )}
 
       {/* Legend - centered above news ticker */}
-      {!hideOverlays && showLegend && (
+      {!hideOverlays && !mapUiHidden && showLegend && (
         <div
           style={{
             position: 'absolute',
@@ -2296,7 +2362,7 @@ export const WorldMap = ({
           </div>
         </div>
       )}
-      {!hideOverlays && showLegend && editingBand && (
+      {!hideOverlays && !mapUiHidden && showLegend && editingBand && (
         <div
           style={{
             position: 'absolute',
@@ -2401,6 +2467,7 @@ export const WorldMap = ({
         </div>
       )}
       <style>{`
+        ${mapUiHidden ? '.leaflet-control-container,.grayline-control,.muf-map-control,.voacap-heatmap-control,.rbn-control,.lightning-stats,.lightning-proximity,.wspr-filter-control,.wspr-stats,.wspr-legend,.wspr-chart{display:none !important;}' : ''}
         .ohc-rotator-bearing {
           stroke-dasharray: 10 10;
           animation: ohcRotDash 2.8s linear infinite, ohcRotPulse 3.2s ease-in-out infinite;

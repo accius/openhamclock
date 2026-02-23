@@ -3,9 +3,8 @@
  * Displays real-time APRS station positions with watchlist group management.
  * Supports tagging callsigns into named groups for EmComm and public service tracking.
  */
-import React, { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import CallsignLink from './CallsignLink.jsx';
-import { getBandColor } from '../utils/bandColors.js';
 
 const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
   const {
@@ -14,7 +13,6 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onSpotClick, onHoverSpot 
     connected,
     aprsEnabled,
     loading,
-    lastUpdate,
     watchlist = { groups: {}, activeGroup: 'all' },
     allWatchlistCalls = new Set(),
     addGroup,
