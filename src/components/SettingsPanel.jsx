@@ -380,13 +380,6 @@ export const SettingsPanel = ({
     <code style={{ background: 'var(--bg-tertiary)', padding: '2px 4px', borderRadius: '3px' }}>{children}</code>
   );
 
-  const themeDescriptions = {
-    dark: t('station.settings.theme.dark.describe'),
-    light: t('station.settings.theme.light.describe'),
-    legacy: t('station.settings.theme.legacy.describe'),
-    retro: t('station.settings.theme.retro.describe'),
-  };
-
   const layoutDescriptions = {
     modern: t('station.settings.layout.modern.describe'),
     classic: t('station.settings.layout.classic.describe'),
@@ -2259,9 +2252,10 @@ export const SettingsPanel = ({
               >
                 {t('station.settings.theme')}
               </label>
-
               <ThemeSelector theme={theme} setTheme={setTheme} id="theme-selector-component" />
-
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                {t('station.settings.theme.' + theme + '.describe')}
+              </div>
               {theme === 'custom' && customTheme && (
                 <CustomThemeEditor
                   customTheme={customTheme}
@@ -2269,10 +2263,6 @@ export const SettingsPanel = ({
                   id="custom-theme-editor-component"
                 />
               )}
-
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                {themeDescriptions[theme]}
-              </div>
             </div>
           </div>
         )}
