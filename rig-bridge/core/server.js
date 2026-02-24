@@ -238,6 +238,9 @@ const SETUP_HTML = `<!DOCTYPE html>
           <option value="flrig">flrig (XML-RPC)</option>
           <option value="rigctld">rigctld / Hamlib (TCP)</option>
         </optgroup>
+        <optgroup label="Development">
+          <option value="mock">Simulated Radio (Mock)</option>
+        </optgroup>
       </select>
 
       <!-- Serial options (Yaesu/Kenwood/Icom) -->

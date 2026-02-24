@@ -42,7 +42,7 @@ class PluginRegistry {
     }
 
     // Single-export plugins
-    for (const file of ['rigctld', 'flrig']) {
+    for (const file of ['rigctld', 'flrig', 'mock']) {
       const p = require(`../plugins/${file}`);
       this._descriptors.set(p.id, p);
     }
