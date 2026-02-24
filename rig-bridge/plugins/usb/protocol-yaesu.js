@@ -71,15 +71,15 @@ function parse(resp, updateState, getState) {
         const freq = parseInt(freqStr, 10);
         if (freq > 0) updateState('freq', freq);
 
-        const modeDigit = resp.charAt(21);
+        // IF response layout (FT-991A CAT manual):
+        // IF [P1:9 freq] [P2:4 blank] [P3:5 RIT offset] [P4:1 RIT] [P5:1 XIT] [P6:3 mem] [P7:1 TX/RX] [P8:1 mode] ...
+        // pos 2-10: freq, pos 20: RIT, pos 21: XIT, pos 22-24: mem, pos 25: TX/RX, pos 26: mode
+        const modeDigit = resp.charAt(26); // P8 — operating mode
         const mode = MODES[modeDigit] || getState('mode');
         updateState('mode', mode);
 
-        // PTT status at position 28 (TX state)
-        if (resp.length >= 29) {
-          const txState = resp.charAt(28);
-          updateState('ptt', txState !== '0');
-        }
+        const txState = resp.charAt(25); // P7 — 0=RX, 1=TX, 2=Tune
+        updateState('ptt', txState !== '0');
       }
       break;
     }
