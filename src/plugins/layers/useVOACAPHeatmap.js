@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { makeDraggable } from "./makeDraggable.js";
 
 /**
  * VOACAP-Style Propagation Heatmap Plugin v1.0.0
@@ -76,97 +77,6 @@ function reliabilityColor(r) {
   return `rgba(${red},${green},${blue},0.85)`;
 }
 
-// Make control panel draggable with CTRL+drag
-function makeDraggable(element, storageKey, skipPositionLoad = false) {
-  if (!element) return;
-
-  // Load saved position only if not already loaded
-  if (!skipPositionLoad) {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        element.style.position = 'fixed';
-
-        // Check if saved as percentage (new format) or pixels (old format)
-        if (data.topPercent !== undefined && data.leftPercent !== undefined) {
-          // Use percentage-based positioning (scales with zoom)
-          element.style.top = data.topPercent + '%';
-          element.style.left = data.leftPercent + '%';
-        } else {
-          // Legacy pixel format - convert to percentage
-          const topPercent = (data.top / window.innerHeight) * 100;
-          const leftPercent = (data.left / window.innerWidth) * 100;
-          element.style.top = topPercent + '%';
-          element.style.left = leftPercent + '%';
-        }
-
-        element.style.right = 'auto';
-        element.style.bottom = 'auto';
-        element.style.transform = 'none';
-      } catch (e) {}
-    } else {
-      // Convert from Leaflet control position to fixed
-      const rect = element.getBoundingClientRect();
-      element.style.position = 'fixed';
-      element.style.top = rect.top + 'px';
-      element.style.left = rect.left + 'px';
-      element.style.right = 'auto';
-      element.style.bottom = 'auto';
-    }
-  }
-
-  element.title = 'Hold CTRL and drag to reposition';
-
-  let isDragging = false;
-  let startX, startY, startLeft, startTop;
-
-  const updateCursor = (e) => {
-    element.style.cursor = e.ctrlKey ? 'grab' : 'default';
-  };
-
-  element.addEventListener('mouseenter', updateCursor);
-  element.addEventListener('mousemove', updateCursor);
-
-  element.addEventListener('mousedown', (e) => {
-    if (!e.ctrlKey) return;
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    startLeft = parseInt(element.style.left) || 0;
-    startTop = parseInt(element.style.top) || 0;
-    element.style.cursor = 'grabbing';
-    e.preventDefault();
-    e.stopPropagation();
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    element.style.left = startLeft + dx + 'px';
-    element.style.top = startTop + dy + 'px';
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (!isDragging) return;
-    isDragging = false;
-    element.style.cursor = 'default';
-
-    // Save position as percentage of viewport for zoom compatibility
-    const topPercent = (element.offsetTop / window.innerHeight) * 100;
-    const leftPercent = (element.offsetLeft / window.innerWidth) * 100;
-
-    const position = {
-      topPercent,
-      leftPercent,
-      // Keep pixel values for backward compatibility
-      top: element.offsetTop,
-      left: element.offsetLeft,
-    };
-    localStorage.setItem(storageKey, JSON.stringify(position));
-  });
-}
 
 // Minimize/maximize toggle
 function addMinimizeToggle(container, storageKey) {

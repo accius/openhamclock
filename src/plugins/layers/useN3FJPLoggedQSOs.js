@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { makeDraggable } from "./makeDraggable.js";
 
 export const metadata = {
   id: 'n3fjp_logged_qsos',
@@ -20,122 +21,6 @@ const STORAGE_COLOR_KEY = 'n3fjp_line_color';
 
 // Make control draggable with CTRL+drag
 // Registry so a second call for the same storageKey cancels the previous listeners.
-const _makeDraggableControllers = {};
-
-function makeDraggable(element, storageKey, skipPositionLoad = false) {
-  if (!element) return;
-
-  // Cancel any previous listener set attached to this storageKey (e.g. after layout change)
-  if (_makeDraggableControllers[storageKey]) {
-    _makeDraggableControllers[storageKey].abort();
-  }
-  const controller = new AbortController();
-  const signal = controller.signal;
-  _makeDraggableControllers[storageKey] = controller;
-
-  // Load saved position
-  if (!skipPositionLoad) {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        element.style.position = 'fixed';
-        if (data.topPercent !== undefined && data.leftPercent !== undefined) {
-          element.style.top = data.topPercent + '%';
-          element.style.left = data.leftPercent + '%';
-        } else {
-          element.style.top = (data.top / window.innerHeight) * 100 + '%';
-          element.style.left = (data.left / window.innerWidth) * 100 + '%';
-        }
-        element.style.right = 'auto';
-        element.style.bottom = 'auto';
-        element.style.transform = 'none';
-      } catch (e) {}
-    } else {
-      const rect = element.getBoundingClientRect();
-      element.style.position = 'fixed';
-      element.style.top = rect.top + 'px';
-      element.style.left = rect.left + 'px';
-      element.style.right = 'auto';
-      element.style.bottom = 'auto';
-    }
-  }
-
-  element.title = 'Hold CTRL and drag to reposition';
-
-  let isDragging = false;
-  let startX, startY, startLeft, startTop;
-
-  const updateCursor = (e) => {
-    element.style.cursor = e.ctrlKey ? 'grab' : 'default';
-  };
-
-  element.addEventListener('mouseenter', updateCursor, { signal });
-  element.addEventListener('mousemove', updateCursor, { signal });
-  document.addEventListener(
-    'keydown',
-    (e) => {
-      if (e.key === 'Control') updateCursor(e);
-    },
-    { signal },
-  );
-  document.addEventListener(
-    'keyup',
-    (e) => {
-      if (e.key === 'Control') updateCursor(e);
-    },
-    { signal },
-  );
-
-  element.addEventListener(
-    'mousedown',
-    function (e) {
-      if (!e.ctrlKey) return;
-      if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') return;
-      isDragging = true;
-      startX = e.clientX;
-      startY = e.clientY;
-      startLeft = element.offsetLeft;
-      startTop = element.offsetTop;
-      element.style.cursor = 'grabbing';
-      element.style.opacity = '0.8';
-      e.preventDefault();
-    },
-    { signal },
-  );
-
-  document.addEventListener(
-    'mousemove',
-    function (e) {
-      if (!isDragging) return;
-      element.style.left = startLeft + (e.clientX - startX) + 'px';
-      element.style.top = startTop + (e.clientY - startY) + 'px';
-    },
-    { signal },
-  );
-
-  document.addEventListener(
-    'mouseup',
-    function (e) {
-      if (!isDragging) return;
-      isDragging = false;
-      element.style.opacity = '1';
-      updateCursor(e);
-      const topPercent = (element.offsetTop / window.innerHeight) * 100;
-      const leftPercent = (element.offsetLeft / window.innerWidth) * 100;
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          topPercent,
-          leftPercent,
-          top: element.offsetTop,
-          left: element.offsetLeft,
-        }),
-      );
-    },
-    { signal },
-  );
-}
 
 // Add minimize/maximize toggle
 function addMinimizeToggle(element, storageKey) {
