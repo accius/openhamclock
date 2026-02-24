@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getModeFromFreq, mapModeToRig } from '../utils/bandPlan.js';
 
 // Default config
@@ -6,6 +6,18 @@ import { getModeFromFreq, mapModeToRig } from '../utils/bandPlan.js';
 const DEFAULT_RIG_URL = 'http://localhost:5555';
 
 const RigContext = createContext(null);
+
+const buildRigUrl = (rigConfig) => {
+  const host = rigConfig?.host?.trim();
+  if (!host) return DEFAULT_RIG_URL;
+
+  const rawPort = String(rigConfig?.port ?? '').trim();
+  if (rawPort === '0') return host;
+
+  const parsedPort = parseInt(rawPort, 10);
+  const port = Number.isFinite(parsedPort) && parsedPort > 0 ? parsedPort : 5555;
+  return `${host}:${port}`;
+};
 
 export const useRig = () => {
   const context = useContext(RigContext);
@@ -28,8 +40,7 @@ export const RigProvider = ({ children, rigConfig }) => {
   const [error, setError] = useState(null);
 
   // Construct URL from config or default
-  const rigUrl =
-    rigConfig && rigConfig.host && rigConfig.port ? `${rigConfig.host}:${rigConfig.port}` : DEFAULT_RIG_URL;
+  const rigUrl = buildRigUrl(rigConfig);
 
   // Connect to SSE Stream
   useEffect(() => {
@@ -43,8 +54,7 @@ export const RigProvider = ({ children, rigConfig }) => {
 
     const connectSSE = () => {
       // Construct URL from config or default
-      const rigUrl =
-        rigConfig && rigConfig.host && rigConfig.port ? `${rigConfig.host}:${rigConfig.port}` : DEFAULT_RIG_URL;
+      const rigUrl = buildRigUrl(rigConfig);
 
       // console.log('[RigContext] Connecting to SSE stream...', `${rigUrl}/stream`);
       eventSource = new EventSource(`${rigUrl}/stream`);

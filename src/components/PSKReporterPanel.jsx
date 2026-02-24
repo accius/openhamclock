@@ -19,6 +19,8 @@ const PSKReporterPanel = ({
   onSpotClick, // New unified handler
   showOnMap,
   onToggleMap,
+  showPaths = true,
+  onTogglePaths,
   filters = {},
   onOpenFilters,
   // PSK data from App-level hook (single SSE connection)
@@ -352,6 +354,21 @@ const PSKReporterPanel = ({
               title={isMapOn ? t('pskReporterPanel.map.hide') : t('pskReporterPanel.map.show')}
             >
               <IconMap size={11} style={{ verticalAlign: 'middle' }} />
+            </button>
+          )}
+
+          {/* PSK path lines toggle (visible when PSK map is on) */}
+          {panelMode === 'psk' && isMapOn && onTogglePaths && (
+            <button
+              onClick={onTogglePaths}
+              style={iconBtn(showPaths, '#4488ff')}
+              title={showPaths ? 'Hide path lines' : 'Show path lines'}
+            >
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: 'middle' }}>
+                <path d="M2 14L14 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 3" />
+                <circle cx="2" cy="14" r="2" fill="currentColor" />
+                <circle cx="14" cy="2" r="2" fill="currentColor" />
+              </svg>
             </button>
           )}
         </div>

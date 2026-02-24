@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { makeDraggable } from "./makeDraggable.js";
 import { getBandFromFreq } from '../../utils/callsign.js';
 
 /**
@@ -200,121 +201,6 @@ function calculatePropagationScore(spots) {
   return Math.round(snrScore + countScore + strongScore);
 }
 
-// Make control panel draggable with CTRL+drag and save position
-function makeDraggable(element, storageKey, skipPositionLoad = false) {
-  if (!element) return;
-
-  // Load saved position only if not already loaded
-  if (!skipPositionLoad) {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        element.style.position = 'fixed';
-
-        // Check if saved as percentage (new format) or pixels (old format)
-        if (data.topPercent !== undefined && data.leftPercent !== undefined) {
-          // Use percentage-based positioning (scales with zoom)
-          element.style.top = data.topPercent + '%';
-          element.style.left = data.leftPercent + '%';
-        } else {
-          // Legacy pixel format - convert to percentage
-          const topPercent = (data.top / window.innerHeight) * 100;
-          const leftPercent = (data.left / window.innerWidth) * 100;
-          element.style.top = topPercent + '%';
-          element.style.left = leftPercent + '%';
-        }
-
-        element.style.right = 'auto';
-        element.style.bottom = 'auto';
-        element.style.transform = 'none';
-      } catch (e) {}
-    } else {
-      // Convert from Leaflet control position to fixed
-      const rect = element.getBoundingClientRect();
-      element.style.position = 'fixed';
-      element.style.top = rect.top + 'px';
-      element.style.left = rect.left + 'px';
-      element.style.right = 'auto';
-      element.style.bottom = 'auto';
-    }
-  }
-
-  // Add drag hint
-  element.title = 'Hold CTRL and drag to reposition';
-
-  let isDragging = false;
-  let startX, startY, startLeft, startTop;
-
-  // Update cursor based on CTRL key
-  const updateCursor = (e) => {
-    if (e.ctrlKey) {
-      element.style.cursor = 'grab';
-    } else {
-      element.style.cursor = 'default';
-    }
-  };
-
-  element.addEventListener('mouseenter', updateCursor);
-  element.addEventListener('mousemove', updateCursor);
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Control') updateCursor(e);
-  });
-  document.addEventListener('keyup', (e) => {
-    if (e.key === 'Control') updateCursor(e);
-  });
-
-  element.addEventListener('mousedown', function (e) {
-    // Only allow dragging with CTRL key
-    if (!e.ctrlKey) return;
-
-    // Only allow dragging from empty areas (not inputs/selects)
-    if (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT' || e.target.tagName === 'LABEL') {
-      return;
-    }
-
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    startLeft = element.offsetLeft;
-    startTop = element.offsetTop;
-
-    element.style.cursor = 'grabbing';
-    element.style.opacity = '0.8';
-    e.preventDefault();
-  });
-
-  document.addEventListener('mousemove', function (e) {
-    if (!isDragging) return;
-
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-
-    element.style.left = startLeft + dx + 'px';
-    element.style.top = startTop + dy + 'px';
-  });
-
-  document.addEventListener('mouseup', function (e) {
-    if (isDragging) {
-      isDragging = false;
-      element.style.opacity = '1';
-      updateCursor(e);
-
-      // Save position as percentage of viewport for zoom compatibility
-      const topPercent = (element.offsetTop / window.innerHeight) * 100;
-      const leftPercent = (element.offsetLeft / window.innerWidth) * 100;
-
-      const position = {
-        topPercent,
-        leftPercent,
-        // Keep pixel values for backward compatibility
-        top: element.offsetTop,
-        left: element.offsetLeft,
-      };
-      localStorage.setItem(storageKey, JSON.stringify(position));
-    }
-  });
-}
 
 // Add minimize/maximize functionality to control panels
 function addMinimizeToggle(element, storageKey) {

@@ -23,7 +23,7 @@ echo ""
 if [ ! -f "server.js" ] || [ ! -f "package.json" ]; then
     echo "❌ Error: Please run this script from the openhamclock directory"
     echo "   cd /path/to/openhamclock"
-    echo "   ./scripts/update.sh"
+    echo "   bash scripts/update.sh"
     exit 1
 fi
 
@@ -48,8 +48,15 @@ fi
 # (e.g. chmod +x on scripts, different umask on Pi vs desktop)
 git config core.fileMode false 2>/dev/null
 
-echo "📋 Current version:"
-grep '"version"' package.json | head -1
+# Mark this directory as safe for git (fixes "dubious ownership" errors
+# when the server runs as a different user than the repo owner, e.g.
+# systemd running as root but the repo owned by the 'pi' user)
+git config --global --add safe.directory "$(pwd)" 2>/dev/null || true
+
+# Save version BEFORE update so we can verify it changed
+OLD_VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": *"//;s/".*//')
+
+echo "📋 Current version: $OLD_VERSION"
 
 echo ""
 echo "🔍 Checking for updates..."
@@ -87,10 +94,16 @@ fi
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "")
 if [ -z "$CURRENT_BRANCH" ]; then
     echo "   ⚠️  Detached HEAD detected — checking out $BRANCH..."
-    git checkout -B "$BRANCH" "origin/$BRANCH" 2>/dev/null || git checkout "$BRANCH" 2>/dev/null || true
+    git checkout -B "$BRANCH" "origin/$BRANCH" 2>&1 || git checkout "$BRANCH" 2>&1 || {
+        echo "   ❌ Could not checkout $BRANCH — trying hard reset"
+        git reset --hard "origin/$BRANCH"
+    }
 elif [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
     echo "   ⚠️  On branch '$CURRENT_BRANCH', switching to '$BRANCH'..."
-    git checkout "$BRANCH" 2>/dev/null || true
+    git checkout "$BRANCH" 2>&1 || {
+        echo "   ❌ Could not switch to $BRANCH"
+        exit 1
+    }
 fi
 
 # Set upstream tracking if not configured
@@ -163,15 +176,40 @@ done
 # Stash any local changes (permission changes, build artifacts, etc.)
 if [ -n "$(git status --porcelain)" ]; then
     echo "   Stashing local changes..."
-    git stash --include-untracked 2>/dev/null || git checkout . 2>/dev/null
+    git stash --include-untracked 2>&1 || {
+        echo "   ⚠️  Stash failed, resetting tracked files..."
+        git checkout . 2>&1 || true
+    }
 fi
 
 # Pull latest (with fallback to hard reset if pull fails)
 if ! git pull origin $BRANCH 2>&1; then
     echo "   ⚠️  git pull failed — falling back to hard reset..."
-    git fetch origin --prune 2>/dev/null
+    if ! git fetch origin --prune 2>&1; then
+        echo "   ❌ git fetch also failed — check internet connection and permissions"
+        exit 1
+    fi
     git reset --hard "origin/$BRANCH"
 fi
+
+# Verify git operations actually updated the files
+POST_PULL_HEAD=$(git rev-parse HEAD)
+if [ "$LOCAL" = "$POST_PULL_HEAD" ]; then
+    echo ""
+    echo "   ⚠️  git pull did not advance HEAD — attempting hard reset..."
+    git reset --hard "origin/$BRANCH"
+    POST_PULL_HEAD=$(git rev-parse HEAD)
+    if [ "$LOCAL" = "$POST_PULL_HEAD" ]; then
+        echo "   ❌ Hard reset also failed. Please try manually:"
+        echo "      cd $(pwd)"
+        echo "      git fetch origin"
+        echo "      git reset --hard origin/$BRANCH"
+        exit 1
+    fi
+fi
+
+# Restore execute permissions on scripts (git pull may reset them)
+chmod +x scripts/*.sh 2>/dev/null || true
 
 # Restore preserved helper scripts
 for f in "${PRESERVED_SCRIPTS[@]}"; do
@@ -251,9 +289,15 @@ sed -i '"'"'s/"exit_type":"Crashed"/"exit_type":"Normal"/'"'"' "$KIOSK_PROFILE/D
     fi
 fi
 
+# Verify the update actually changed the version
+NEW_VERSION=$(grep '"version"' package.json | head -1 | sed 's/.*"version": *"//;s/".*//')
+
 echo ""
-echo "📋 New version:"
-grep '"version"' package.json | head -1
+if [ "$OLD_VERSION" = "$NEW_VERSION" ]; then
+    echo "📋 Version: $NEW_VERSION (unchanged — update may have included non-version changes)"
+else
+    echo "📋 Updated: $OLD_VERSION → $NEW_VERSION"
+fi
 
 echo ""
 echo "╔═══════════════════════════════════════════════════════╗"

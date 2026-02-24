@@ -150,7 +150,9 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
       // Source links
       const sources = (event.sources || [])
-        .map((s) => `<a href="${s.url}" target="_blank" style="color: var(--accent-cyan); font-size: 11px;">${s.id}</a>`)
+        .map(
+          (s) => `<a href="${s.url}" target="_blank" style="color: var(--accent-cyan); font-size: 11px;">${s.id}</a>`,
+        )
         .join(' · ');
 
       marker.bindPopup(`

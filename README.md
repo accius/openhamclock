@@ -1219,7 +1219,7 @@ Then restart your browser (or reboot if running in kiosk mode). The Raspberry Pi
 
 ## Contributing
 
-OpenHamClock is built by the ham radio community. We have 22+ contributors and growing — whether it's a bug fix, a new panel, a map layer plugin, or better docs, PRs are welcome.
+OpenHamClock is built by the ham radio community. We have 28+ contributors and growing — whether it's a bug fix, a new panel, a map layer plugin, or better docs, PRs are welcome.
 
 **Getting started:**
 
@@ -1248,7 +1248,7 @@ npm run dev      # Terminal 2 — Frontend on :3000
 
 Thank you to everyone who has contributed code, features, bug fixes, and ideas:
 
-[creinemann](https://github.com/creinemann) · [ceotjoe](https://github.com/ceotjoe) · [alanhargreaves](https://github.com/alanhargreaves) · [dmazan](https://github.com/dmazan) · [Delerius](https://github.com/Delerius) · [rfreedman](https://github.com/rfreedman) · [SebFox2011](https://github.com/SebFox2011) · [infopcgood](https://github.com/infopcgood) · [thomas-schreck](https://github.com/thomas-schreck) · [echo-gravitas](https://github.com/echo-gravitas) · [yuryja](https://github.com/yuryja) · [Holyszewski](https://github.com/Holyszewski) · [trancen](https://github.com/trancen) · [ThePangel](https://github.com/ThePangel) · [w8mej](https://github.com/w8mej) · [JoshuaNewport](https://github.com/JoshuaNewport) · [denete](https://github.com/denete) · [kmanwar89](https://github.com/kmanwar89) · [KentenRoth](https://github.com/KentenRoth) · [s53zo](https://github.com/s53zo) · [theodeurne76](https://github.com/theodeurne76) · [m1dst](https://github.com/m1dst) · [brianbruff](https://github.com/brianbruff)
+[creinemann](https://github.com/creinemann) · [ceotjoe](https://github.com/ceotjoe) · [alanhargreaves](https://github.com/alanhargreaves) · [dmazan](https://github.com/dmazan) · [Delerius](https://github.com/Delerius) · [rfreedman](https://github.com/rfreedman) · [SebFox2011](https://github.com/SebFox2011) · [infopcgood](https://github.com/infopcgood) · [thomas-schreck](https://github.com/thomas-schreck) · [echo-gravitas](https://github.com/echo-gravitas) · [yuryja](https://github.com/yuryja) · [Holyszewski](https://github.com/Holyszewski) · [trancen](https://github.com/trancen) · [ThePangel](https://github.com/ThePangel) · [w8mej](https://github.com/w8mej) · [JoshuaNewport](https://github.com/JoshuaNewport) · [denete](https://github.com/denete) · [kmanwar89](https://github.com/kmanwar89) · [KentenRoth](https://github.com/KentenRoth) · [s53zo](https://github.com/s53zo) · [theodeurne76](https://github.com/theodeurne76) · [m1dst](https://github.com/m1dst) · [brianbruff](https://github.com/brianbruff) · [agocs](https://github.com/agocs) · [kwirk](https://github.com/kwirk) · [Oukagen](https://github.com/Oukagen) · [ftl](https://github.com/ftl) · [phether](https://github.com/phether)
 
 ---
 

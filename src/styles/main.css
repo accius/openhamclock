@@ -1,103 +1,4 @@
-/* ============================================
-   THEME: DARK (Default)
-   ============================================ */
-:root,
-[data-theme='dark'] {
-  --bg-primary: #0a0e14;
-  --bg-secondary: #111820;
-  --bg-tertiary: #1a2332;
-  --bg-panel: rgba(17, 24, 32, 0.92);
-  --border-color: rgba(255, 180, 50, 0.25);
-  --text-primary: #f0f4f8;
-  --text-secondary: #a0b0c0;
-  --text-muted: #8899aa;
-  --accent-amber: #ffb432;
-  --accent-amber-dim: rgba(255, 180, 50, 0.6);
-  --accent-green: #00ff88;
-  --accent-green-dim: rgba(0, 255, 136, 0.6);
-  --accent-red: #ff4466;
-  --accent-blue: #4488ff;
-  --accent-cyan: #00ddff;
-  --accent-purple: #aa66ff;
-  --map-ocean: #0a0e14;
-  --scanline-opacity: 0.02;
-}
-
-/* ============================================
-   THEME: LIGHT
-   ============================================ */
-[data-theme='light'] {
-  --bg-primary: #f5f7fa;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #e8ecf0;
-  --bg-panel: rgba(255, 255, 255, 0.95);
-  --border-color: rgba(0, 100, 200, 0.2);
-  --text-primary: #1a2332;
-  --text-secondary: #4a5a6a;
-  --text-muted: #7a8a9a;
-  --accent-amber: #d4940a;
-  --accent-amber-dim: rgba(212, 148, 10, 0.4);
-  --accent-green: #00aa55;
-  --accent-green-dim: rgba(0, 170, 85, 0.4);
-  --accent-red: #cc3344;
-  --accent-blue: #2266cc;
-  --accent-cyan: #0099bb;
-  --accent-purple: #7744cc;
-  --map-ocean: #f0f4f8;
-  --scanline-opacity: 0;
-}
-
-/* ============================================
-   THEME: LEGACY (Green Terminal Style)
-   ============================================ */
-[data-theme='legacy'] {
-  --bg-primary: #000000;
-  --bg-secondary: #0a0a0a;
-  --bg-tertiary: #151515;
-  --bg-panel: rgba(0, 0, 0, 0.95);
-  --border-color: rgba(0, 255, 0, 0.3);
-  --text-primary: #00ff00;
-  --text-secondary: #00dd00;
-  --text-muted: #00bb00;
-  --accent-amber: #ffaa00;
-  --accent-amber-dim: rgba(255, 170, 0, 0.5);
-  --accent-green: #00ff00;
-  --accent-green-dim: rgba(0, 255, 0, 0.5);
-  --accent-red: #ff0000;
-  --accent-blue: #00aaff;
-  --accent-cyan: #00ffff;
-  --accent-purple: #ff00ff;
-  --map-ocean: #000008;
-  --scanline-opacity: 0.05;
-}
-
-/* ============================================
-   THEME: RETRO (90s Windows Style)
-   ============================================ */
-[data-theme='retro'] {
-  --bg-primary: #008080;
-  --bg-secondary: #c0c0c0;
-  --bg-tertiary: #dfdfdf;
-  --bg-panel: #c0c0c0;
-  --border-color: #808080;
-  --border-light: #ffffff;
-  --border-dark: #404040;
-  --text-primary: #000000;
-  --text-secondary: #000000;
-  --text-muted: #404040;
-  --accent-amber: #ffff00;
-  --accent-amber-dim: #c0c000;
-  --accent-green: #00ff00;
-  --accent-green-dim: #00c000;
-  --accent-red: #ff0000;
-  --accent-blue: #000080;
-  --accent-cyan: #008080;
-  --accent-purple: #800080;
-  --title-bar: linear-gradient(90deg, #000080, #1084d0);
-  --title-bar-text: #ffffff;
-  --map-ocean: #000080;
-  --scanline-opacity: 0;
-}
+@import './themes.css';
 
 * {
   margin: 0;
@@ -695,6 +596,71 @@ body::before {
 }
 .bg-tertiary {
   background: var(--bg-tertiary);
+}
+
+/* Theme controls */
+
+#theme-selector-component .theme-select-button {
+  padding: 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+#theme-selector-component .theme-select-button span.icon {
+  text-shadow: 0 0 5px #000;
+}
+
+#theme-selector-component .theme-select-button.active {
+  border-color: var(--accent-amber);
+  background-color: var(--accent-amber);
+  color: #000;
+  font-weight: 600;
+}
+
+#custom-theme-editor-component {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+@media screen and (max-width: 768px) {
+  #custom-theme-editor-component {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media screen and (max-width: 480px) {
+  #custom-theme-editor-component {
+    grid-template-columns: 1fr;
+  }
+}
+
+#custom-theme-editor-component .custom-theme-colorpicker {
+  margin: 1em auto;
+  text-align: center;
+  width: 100%;
+}
+
+#custom-theme-editor-component .custom-theme-colorpicker .react-colorful {
+  width: 100%;
+  height: 200px;
+}
+
+#custom-theme-editor-component .custom-theme-colorpicker label {
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 11px;
+  display: block;
+}
+
+/* Hide the hue slider for variables that have color names */
+#custom-theme-editor-component .hue-locked .react-colorful__hue {
+  display: none;
 }
 
 /* ============================================

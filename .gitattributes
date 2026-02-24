@@ -1,0 +1,4 @@
+# Ensure shell scripts always use LF line endings and stay executable
+# (prevents "permission denied" and "/bin/bash\r: bad interpreter" errors
+# when cloning or pulling on Windows then deploying to Linux/Pi)
+*.sh text eol=lf

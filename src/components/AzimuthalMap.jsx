@@ -95,6 +95,7 @@ export default function AzimuthalMap({
   showWWFF,
   showSOTA,
   showPSKReporter,
+  showPSKPaths = true,
   showWSJTX,
   onSpotClick,
   hoveredSpot,
@@ -361,17 +362,19 @@ export default function AzimuthalMap({
         const color = getBandColor(parseFloat(freqMHz));
         const p = toCanvas(lat, lon);
 
-        // Line from center
-        ctx.beginPath();
-        ctx.moveTo(cx, cy);
-        ctx.lineTo(p.x, p.y);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1;
-        ctx.globalAlpha = 0.3;
-        ctx.setLineDash([3, 3]);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.globalAlpha = 1;
+        // Line from center (only if paths enabled)
+        if (showPSKPaths) {
+          ctx.beginPath();
+          ctx.moveTo(cx, cy);
+          ctx.lineTo(p.x, p.y);
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.globalAlpha = 0.3;
+          ctx.setLineDash([3, 3]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+        }
 
         // Dot
         ctx.beginPath();
@@ -561,6 +564,7 @@ export default function AzimuthalMap({
     showSOTA,
     pskReporterSpots,
     showPSKReporter,
+    showPSKPaths,
     wsjtxSpots,
     showWSJTX,
     hideOverlays,

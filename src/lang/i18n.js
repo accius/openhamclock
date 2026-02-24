@@ -5,6 +5,7 @@ import { initReactI18next } from 'react-i18next';
 import translationEN from './en.json';
 import translationFR from './fr.json';
 import translationES from './es.json';
+import translationCA from './ca.json';
 import translationDE from './de.json';
 import translationPT from './pt.json';
 import translationJA from './ja.json';
@@ -20,6 +21,7 @@ export const LANGUAGES = [
   { code: 'en', name: 'English', flag: '🇬🇧' },
   { code: 'fr', name: 'Français', flag: '🇫🇷' },
   { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'ca', name: 'Catala', flag: '🇦🇩' },
   { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
   { code: 'nl', name: 'Nederlands', flag: '🇳🇱' },
   { code: 'pt', name: 'Português', flag: '🇧🇷' },
@@ -36,6 +38,7 @@ export const resources = {
   en: { translation: translationEN },
   fr: { translation: translationFR },
   es: { translation: translationES },
+  ca: { translation: translationCA },
   de: { translation: translationDE },
   nl: { translation: translationNL },
   pt: { translation: translationPT },

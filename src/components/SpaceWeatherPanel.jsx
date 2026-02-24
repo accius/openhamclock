@@ -2,7 +2,6 @@
  * SpaceWeatherPanel Component
  * Displays solar flux, K-index, and sunspot number
  */
-import React from 'react';
 
 export const SpaceWeatherPanel = ({ data, loading }) => {
   const getKIndexColor = (kIndex) => {
@@ -65,7 +64,7 @@ export const SpaceWeatherPanel = ({ data, loading }) => {
                 fontFamily: 'Orbitron, monospace',
               }}
             >
-              {data?.sunspotNumber || '--'}
+              {data?.sunspotNumber ?? '--'}
             </div>
           </div>
         </div>

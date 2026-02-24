@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { makeDraggable } from './makeDraggable.js';
 
 /**
  * MUF (Maximum Usable Frequency) Map Layer v1.0.0
@@ -168,111 +169,6 @@ function buildMUFCanvas(stations) {
   sctx.drawImage(canvas, 0, 0, smooth.width, smooth.height);
 
   return smooth.toDataURL('image/png');
-}
-
-// ── Draggable + minimize helpers (shared with VOACAP) ──────────────
-// Registry so a second call for the same storageKey cancels the previous listeners.
-const _makeDraggableControllers = {};
-
-function makeDraggable(el, storageKey) {
-  if (!el) return;
-
-  // Cancel any previous listener set for this storageKey (e.g. after layout change)
-  if (_makeDraggableControllers[storageKey]) {
-    _makeDraggableControllers[storageKey].abort();
-  }
-  const controller = new AbortController();
-  const signal = controller.signal;
-  _makeDraggableControllers[storageKey] = controller;
-
-  const saved = localStorage.getItem(storageKey);
-  if (saved) {
-    try {
-      const d = JSON.parse(saved);
-      el.style.position = 'fixed';
-      if (d.topPercent !== undefined) {
-        el.style.top = d.topPercent + '%';
-        el.style.left = d.leftPercent + '%';
-      } else {
-        el.style.top = (d.top / window.innerHeight) * 100 + '%';
-        el.style.left = (d.left / window.innerWidth) * 100 + '%';
-      }
-      el.style.right = 'auto';
-      el.style.bottom = 'auto';
-      el.style.transform = 'none';
-    } catch (e) {}
-  } else {
-    const rect = el.getBoundingClientRect();
-    el.style.position = 'fixed';
-    el.style.top = rect.top + 'px';
-    el.style.left = rect.left + 'px';
-    el.style.right = 'auto';
-    el.style.bottom = 'auto';
-  }
-
-  el.title = 'Hold CTRL and drag to reposition';
-  let dragging = false,
-    sx,
-    sy,
-    sl,
-    st;
-
-  el.addEventListener(
-    'mouseenter',
-    (e) => {
-      el.style.cursor = e.ctrlKey ? 'grab' : 'default';
-    },
-    { signal },
-  );
-  el.addEventListener(
-    'mousemove',
-    (e) => {
-      el.style.cursor = e.ctrlKey ? 'grab' : 'default';
-    },
-    { signal },
-  );
-  el.addEventListener(
-    'mousedown',
-    (e) => {
-      if (!e.ctrlKey) return;
-      dragging = true;
-      sx = e.clientX;
-      sy = e.clientY;
-      sl = parseInt(el.style.left) || 0;
-      st = parseInt(el.style.top) || 0;
-      el.style.cursor = 'grabbing';
-      e.preventDefault();
-      e.stopPropagation();
-    },
-    { signal },
-  );
-  document.addEventListener(
-    'mousemove',
-    (e) => {
-      if (!dragging) return;
-      el.style.left = sl + e.clientX - sx + 'px';
-      el.style.top = st + e.clientY - sy + 'px';
-    },
-    { signal },
-  );
-  document.addEventListener(
-    'mouseup',
-    () => {
-      if (!dragging) return;
-      dragging = false;
-      el.style.cursor = 'default';
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          topPercent: (el.offsetTop / window.innerHeight) * 100,
-          leftPercent: (el.offsetLeft / window.innerWidth) * 100,
-          top: el.offsetTop,
-          left: el.offsetLeft,
-        }),
-      );
-    },
-    { signal },
-  );
 }
 
 function addMinimizeToggle(container, storageKey) {

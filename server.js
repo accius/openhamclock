@@ -1627,6 +1627,15 @@ async function hasGitUpdates() {
 if (fs.existsSync(path.join(__dirname, '.git'))) {
   try {
     execFile('git', ['config', 'core.fileMode', 'false'], { cwd: __dirname }, () => {});
+    // Mark directory as safe for git — fixes "dubious ownership" errors when
+    // the server runs as a different user than the repo owner (e.g. systemd
+    // running as root, repo owned by 'pi')
+    execFile(
+      'git',
+      ['config', '--global', '--add', 'safe.directory', __dirname],
+      { cwd: __dirname },
+      () => {},
+    );
   } catch {}
 }
 
@@ -1994,11 +2003,20 @@ app.get('/api/solar-indices', async (req, res) => {
         const recent = data.slice(-12);
         result.ssn.history = recent.map((d) => ({
           date: `${d['time-tag'] || d.time_tag || ''}`,
-          value: Math.round(d.ssn || 0),
+          // Prefer SIDC ssn; fall back to SWPC observed (more current)
+          value: Math.round(d.ssn ?? d.observed_swpc_ssn ?? 0),
         }));
-        // Only use monthly archive for current if we still don't have one
+        // Only use monthly archive for current if we still don't have one.
+        // Walk backward to find the most recent entry with a valid SSN
+        // (the last few months often have null SIDC values).
         if (result.ssn.current == null) {
-          result.ssn.current = result.ssn.history[result.ssn.history.length - 1]?.value || null;
+          for (let i = recent.length - 1; i >= 0; i--) {
+            const val = recent[i].ssn ?? recent[i].observed_swpc_ssn ?? null;
+            if (val != null && val > 0) {
+              result.ssn.current = Math.round(val);
+              break;
+            }
+          }
         }
       }
     }
@@ -8679,21 +8697,12 @@ function calculateLUF(distance, midLat, midLon, hour, sfi, kIndex) {
   const localHour = (hour + midLon / 15 + 24) % 24;
 
   // Day/night factor: D-layer absorption is dramatically higher during daytime
-  // D-layer essentially disappears at night, making low bands usable
-  let dayFactor;
-  if (localHour >= 7 && localHour <= 17) {
-    // Full daytime — strong D-layer absorption, peaks at local noon
-    dayFactor = 0.7 + 0.3 * Math.cos(((localHour - 12) * Math.PI) / 5);
-  } else if (localHour >= 5 && localHour < 7) {
-    // Sunrise transition — D-layer building
-    dayFactor = 0.15 + 0.55 * ((localHour - 5) / 2);
-  } else if (localHour > 17 && localHour <= 19) {
-    // Sunset transition — D-layer decaying
-    dayFactor = 0.15 + 0.55 * ((19 - localHour) / 2);
-  } else {
-    // Night — minimal D-layer, low bands open
-    dayFactor = 0.15;
-  }
+  // D-layer essentially disappears at night, making low bands usable.
+  // Smooth cosine curve avoids hard vertical seams on the heatmap.
+  const solarAngle = ((localHour - 12) * Math.PI) / 12;
+  const dayFraction = Math.max(0, Math.min(1, 0.5 + 0.5 * Math.cos(solarAngle)));
+  // Blend from 0.15 (night) to 1.0 (noon peak)
+  const dayFactor = 0.15 + 0.85 * dayFraction;
 
   // Solar flux factor: higher SFI = stronger D-layer = more absorption
   const sfiFactor = 1 + (sfi - 70) / 150;
@@ -8880,30 +8889,30 @@ function calculateEnhancedReliability(
 
   // Low bands work better at night due to D-layer dissipation
   const localHour = (hour + midLon / 15 + 24) % 24;
-  const isNight = localHour < 6 || localHour > 18;
-  const isTwilight = (localHour >= 5 && localHour < 7) || (localHour > 17 && localHour <= 19);
+
+  // Smooth day/night factor: 1.0 = full day, 0.0 = full night
+  // Uses cosine curve centered on noon (12:00) with smooth sunrise/sunset
+  // transitions instead of hard cutoffs at fixed hours.
+  // Sunrise ~5-7, sunset ~17-19, with smooth interpolation between.
+  const solarAngle = ((localHour - 12) * Math.PI) / 12; // -π at midnight, 0 at noon
+  const dayFraction = Math.max(0, Math.min(1, 0.5 + 0.5 * Math.cos(solarAngle)));
+  // dayFraction ≈ 1.0 at noon, ≈ 0.0 at midnight, smooth transition
 
   if (freq <= 2) {
     // 160m: almost exclusively a nighttime DX band
-    if (isNight) {
-      reliability *= 1.15;
-    } else if (isTwilight) {
-      reliability *= 0.4; // Gray-line openings possible
-    } else {
-      reliability *= 0.08; // Daytime 160m DX is essentially dead
-    }
+    // Blends smoothly from 1.15× at night to 0.08× at day
+    const nightBoost = 1.15;
+    const dayPenalty = 0.08;
+    reliability *= dayPenalty * dayFraction + nightBoost * (1 - dayFraction);
   } else if (freq <= 4) {
-    // 80m: primarily nighttime, some gray-line, very limited daytime DX
-    if (isNight) {
-      reliability *= 1.1;
-    } else if (isTwilight) {
-      reliability *= 0.6;
-    } else {
-      reliability *= 0.25;
-    }
+    // 80m: primarily nighttime, some gray-line, limited daytime DX
+    const nightBoost = 1.1;
+    const dayPenalty = 0.25;
+    reliability *= dayPenalty * dayFraction + nightBoost * (1 - dayFraction);
   } else if (freq <= 7.5) {
     // 40m: usable day and night, but better at night for DX
-    if (isNight) reliability *= 1.1;
+    const nightBoost = 1.1;
+    reliability *= 1.0 * dayFraction + nightBoost * (1 - dayFraction);
   }
 
   return Math.min(99, Math.max(0, reliability));

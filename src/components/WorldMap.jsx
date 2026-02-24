@@ -102,6 +102,7 @@ export const WorldMap = ({
   showWWBOTA,
   showWWBOTALabels = true,
   showPSKReporter,
+  showPSKPaths = true,
   showWSJTX,
   showAPRS,
   aprsStations,
@@ -1588,25 +1589,27 @@ export const WorldMap = ({
           const bandColor = getBandColor(parseFloat(freqMHzRaw));
 
           try {
-            // Draw line from DE to spot location
+            // Draw line from DE to spot location (only if paths enabled)
             // TX = solid line (my signal going out), RX = dashed line (signals coming in)
-            const points = getGreatCirclePoints(deLocation.lat, deLocation.lon, spotLat, spotLon, 50);
+            if (showPSKPaths) {
+              const points = getGreatCirclePoints(deLocation.lat, deLocation.lon, spotLat, spotLon, 50);
 
-            if (
-              points &&
-              Array.isArray(points) &&
-              points.length > 1 &&
-              points.every((p) => Array.isArray(p) && !isNaN(p[0]) && !isNaN(p[1]))
-            ) {
-              replicatePath(points).forEach((copy) => {
-                const line = L.polyline(copy, {
-                  color: bandColor,
-                  weight: isRx ? 1.5 : 2,
-                  opacity: isRx ? 0.4 : 0.6,
-                  dashArray: isRx ? '4, 6' : null,
-                }).addTo(map);
-                pskMarkersRef.current.push(line);
-              });
+              if (
+                points &&
+                Array.isArray(points) &&
+                points.length > 1 &&
+                points.every((p) => Array.isArray(p) && !isNaN(p[0]) && !isNaN(p[1]))
+              ) {
+                replicatePath(points).forEach((copy) => {
+                  const line = L.polyline(copy, {
+                    color: bandColor,
+                    weight: isRx ? 1.5 : 2,
+                    opacity: isRx ? 0.4 : 0.6,
+                    dashArray: isRx ? '4, 6' : null,
+                  }).addTo(map);
+                  pskMarkersRef.current.push(line);
+                });
+              }
             }
 
             // TX = circle marker, RX = diamond marker (colorblind-friendly shape distinction)
@@ -1662,7 +1665,7 @@ export const WorldMap = ({
         }
       });
     }
-  }, [pskReporterSpots, showPSKReporter, deLocation, bandColorVersion, bandPassesMapFilter]);
+  }, [pskReporterSpots, showPSKReporter, showPSKPaths, deLocation, bandColorVersion, bandPassesMapFilter]);
 
   // Update WSJT-X markers (CQ callers with grid locators)
   useEffect(() => {
@@ -1886,6 +1889,7 @@ export const WorldMap = ({
           showWWFF={showWWFF}
           showSOTA={showSOTA}
           showPSKReporter={showPSKReporter}
+          showPSKPaths={showPSKPaths}
           showWSJTX={showWSJTX}
           onSpotClick={onSpotClick}
           hoveredSpot={hoveredSpot}

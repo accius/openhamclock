@@ -15,6 +15,7 @@ export default function useMapLayers() {
     showWWBOTALabels: true,
     showSatellites: false,
     showPSKReporter: true,
+    showPSKPaths: true,
     showWSJTX: true,
     showDXNews: true,
     showRotatorBearing: false,
@@ -82,6 +83,10 @@ export default function useMapLayers() {
     () => setMapLayers((prev) => ({ ...prev, showPSKReporter: !prev.showPSKReporter })),
     [],
   );
+  const togglePSKPaths = useCallback(
+    () => setMapLayers((prev) => ({ ...prev, showPSKPaths: !prev.showPSKPaths })),
+    [],
+  );
   const toggleWSJTX = useCallback(() => setMapLayers((prev) => ({ ...prev, showWSJTX: !prev.showWSJTX })), []);
   const toggleDXNews = useCallback(() => setMapLayers((prev) => ({ ...prev, showDXNews: !prev.showDXNews })), []);
   const toggleRotatorBearing = useCallback(
@@ -105,6 +110,7 @@ export default function useMapLayers() {
     toggleWWBOTALabels,
     toggleSatellites,
     togglePSKReporter,
+    togglePSKPaths,
     toggleWSJTX,
     toggleDXNews,
     toggleRotatorBearing,

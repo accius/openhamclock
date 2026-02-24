@@ -2,10 +2,8 @@
  * DXClusterPanel Component
  * Displays DX cluster spots with filtering controls and ON/OFF toggle
  */
-import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { getBandColor, detectMode } from '../utils/callsign.js';
-import { useRig } from '../contexts/RigContext.jsx';
+import { getBandColor } from '../utils/callsign.js';
 import { IconSearch, IconMap, IconGlobe } from './Icons.jsx';
 import CallsignLink from './CallsignLink.jsx';
 
@@ -52,10 +50,14 @@ export const DXClusterPanel = ({
     const ts = parseSpotTimeToTimestamp(spot);
     if (!ts) return spot?.time || '';
 
+    const diffMs = Math.max(0, Date.now() - ts);
+    const minutes = Math.floor(diffMs / 60000);
     const utc = new Date(ts);
     const hh = String(utc.getUTCHours()).padStart(2, '0');
     const mm = String(utc.getUTCMinutes()).padStart(2, '0');
-    return `${hh}:${mm}z`;
+    const clock = `${hh}:${mm}z`;
+
+    return t('dxClusterPanel.relativeTime', { minutes, time: clock });
   };
 
   const getActiveFilterCount = () => {
@@ -76,7 +78,6 @@ export const DXClusterPanel = ({
     return count;
   };
 
-  const { tuneTo, tuneEnabled } = useRig();
   const filterCount = getActiveFilterCount();
   const spots = data || [];
 
@@ -225,7 +226,7 @@ export const DXClusterPanel = ({
                 }}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '55px 1fr auto 42px',
+                  gridTemplateColumns: '55px 1fr auto auto',
                   gap: '6px',
                   padding: '5px 6px',
                   borderRadius: '3px',

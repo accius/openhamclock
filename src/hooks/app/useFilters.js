@@ -36,6 +36,74 @@ export default function useFilters() {
     } catch (e) {}
   }, [pskFilters]);
 
+  // POTA Filters
+  const [potaFilters, setPotaFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem('openhamclock_potaFilters');
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('openhamclock_potaFilters', JSON.stringify(potaFilters));
+      syncAllSettingsToServer();
+    } catch (e) {}
+  }, [potaFilters]);
+
+  // SOTA Filters
+  const [sotaFilters, setSotaFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem('openhamclock_sotaFilters');
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('openhamclock_sotaFilters', JSON.stringify(sotaFilters));
+      syncAllSettingsToServer();
+    } catch (e) {}
+  }, [sotaFilters]);
+
+  // WWFF Filters
+  const [wwffFilters, setWwffFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem('openhamclock_wwffFilters');
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('openhamclock_wwffFilters', JSON.stringify(wwffFilters));
+      syncAllSettingsToServer();
+    } catch (e) {}
+  }, [wwffFilters]);
+
+  // WWBOTA Filters
+  const [wwbotaFilters, setWwbotaFilters] = useState(() => {
+    try {
+      const stored = localStorage.getItem('openhamclock_wwbotaFilters');
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('openhamclock_wwbotaFilters', JSON.stringify(wwbotaFilters));
+      syncAllSettingsToServer();
+    } catch (e) {}
+  }, [wwbotaFilters]);
+
   const [mapBandFilter, setMapBandFilter] = useState(() => {
     try {
       const stored = localStorage.getItem('openhamclock_mapBandFilter');
@@ -57,7 +125,15 @@ export default function useFilters() {
     dxFilters,
     setDxFilters,
     pskFilters,
+    potaFilters,
+    sotaFilters,
+    wwffFilters,
+    wwbotaFilters,
     setPskFilters,
+    setPotaFilters,
+    setSotaFilters,
+    setWwffFilters,
+    setWwbotaFilters,
     mapBandFilter,
     setMapBandFilter,
   };

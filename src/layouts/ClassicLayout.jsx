@@ -174,7 +174,7 @@ export default function ClassicLayout(props) {
                   fontFamily: 'Orbitron, monospace',
                 }}
               >
-                {solarIndices?.data?.ssn?.current || '--'}
+                {solarIndices?.data?.ssn?.current ?? '--'}
               </div>
             </div>
             <div
@@ -439,6 +439,7 @@ export default function ClassicLayout(props) {
             showWWBOTA={mapLayers.showWWBOTA}
             showSatellites={mapLayers.showSatellites}
             showPSKReporter={mapLayers.showPSKReporter}
+            showPSKPaths={mapLayers.showPSKPaths}
             wsjtxSpots={wsjtxMapSpots}
             showWSJTX={mapLayers.showWSJTX}
             showDXNews={mapLayers.showDXNews}
@@ -658,7 +659,7 @@ export default function ClassicLayout(props) {
           <span>
             <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.ssnShort')} </span>
             <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
-              {solarIndices?.data?.ssn?.current || '--'}
+              {solarIndices?.data?.ssn?.current ?? '--'}
             </span>
           </span>
           {bandConditions?.extras?.aIndex && (
@@ -759,6 +760,7 @@ export default function ClassicLayout(props) {
             showWWBOTA={mapLayers.showWWBOTA}
             showSatellites={mapLayers.showSatellites}
             showPSKReporter={mapLayers.showPSKReporter}
+            showPSKPaths={mapLayers.showPSKPaths}
             wsjtxSpots={wsjtxMapSpots}
             showWSJTX={mapLayers.showWSJTX}
             showDXNews={mapLayers.showDXNews}
@@ -1220,7 +1222,7 @@ export default function ClassicLayout(props) {
           <span>
             <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.ssnShort')} </span>
             <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
-              {solarIndices?.data?.ssn?.current || '--'}
+              {solarIndices?.data?.ssn?.current ?? '--'}
             </span>
           </span>
           {bandConditions?.extras?.aIndex && (
@@ -1386,6 +1388,7 @@ export default function ClassicLayout(props) {
             showWWBOTA={mapLayers.showWWBOTA}
             showSatellites={mapLayers.showSatellites}
             showPSKReporter={mapLayers.showPSKReporter}
+            showPSKPaths={mapLayers.showPSKPaths}
             wsjtxSpots={wsjtxMapSpots}
             showWSJTX={mapLayers.showWSJTX}
             showDXNews={mapLayers.showDXNews}

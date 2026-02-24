@@ -28,6 +28,7 @@ import {
   RigControlPanel,
   OnAirPanel,
   IDTimerPanel,
+  DXLocalTime,
 } from './components';
 
 import { loadLayout, saveLayout } from './store/layoutStore.js';
@@ -90,9 +91,13 @@ export const DockableApp = ({
   // Spots & data
   dxClusterData,
   potaSpots,
+  filteredPotaSpots,
   wwffSpots,
+  filteredWwffSpots,
   sotaSpots,
+  filteredSotaSpots,
   wwbotaSpots,
+  filteredWwbotaSpots,
   mySpots,
   dxpeditions,
   contests,
@@ -112,6 +117,14 @@ export const DockableApp = ({
   pskFilters,
   setShowDXFilters,
   setShowPSKFilters,
+  potaFilters,
+  setShowPotaFilters,
+  sotaFilters,
+  setShowSotaFilters,
+  wwffFilters,
+  setShowWwffFilters,
+  wwbotaFilters,
+  setShowWwbotaFilters,
 
   // Map layers
   mapLayers,
@@ -127,6 +140,7 @@ export const DockableApp = ({
   toggleWWBOTALabels,
   toggleSatellites,
   togglePSKReporter,
+  togglePSKPaths,
   toggleWSJTX,
   toggleAPRS,
   toggleRotatorBearing,
@@ -203,6 +217,7 @@ export const DockableApp = ({
   const toggleWWBOTALabelsEff = useInternalMapLayers ? internalMap.toggleWWBOTALabels : toggleWWBOTALabels;
   const toggleSatellitesEff = useInternalMapLayers ? internalMap.toggleSatellites : toggleSatellites;
   const togglePSKReporterEff = useInternalMapLayers ? internalMap.togglePSKReporter : togglePSKReporter;
+  const togglePSKPathsEff = useInternalMapLayers ? internalMap.togglePSKPaths : togglePSKPaths;
   const toggleWSJTXEff = useInternalMapLayers ? internalMap.toggleWSJTX : toggleWSJTX;
   const toggleRotatorBearingEff = useInternalMapLayers ? internalMap.toggleRotatorBearing : toggleRotatorBearing;
   const toggleAPRSEff = useInternalMapLayers ? internalMap.toggleAPRS : toggleAPRS;
@@ -501,28 +516,13 @@ export const DockableApp = ({
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px', flex: '1 1 auto', minWidth: 0 }}>
             <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}>{dxGrid}</div>
-            {(() => {
-              const utcOffsetH = Math.round(dxLocation.lon / 15);
-              const localDxDate = new Date(currentTime.getTime() + utcOffsetH * 3600000);
-              const utcHh = String(currentTime.getUTCHours()).padStart(2, '0');
-              const utcMm = String(currentTime.getUTCMinutes()).padStart(2, '0');
-              const localHh = String(localDxDate.getUTCHours()).padStart(2, '0');
-              const localMm = String(localDxDate.getUTCMinutes()).padStart(2, '0');
-              const sign = utcOffsetH >= 0 ? '+' : '';
-              const isLocal = showDXLocalTime;
-              return (
-                <div style={{ color: 'var(--accent-cyan)', fontSize: '13px', marginTop: '2px' }}>
-                  {isLocal ? `${localHh}:${localMm}` : `${utcHh}:${utcMm}`}{' '}
-                  <span
-                    onClick={() => setShowDXLocalTime((prev) => !prev)}
-                    title={isLocal ? 'Show UTC time' : `Show local time at DX destination (UTC${sign}${utcOffsetH})`}
-                    style={{ color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', userSelect: 'none' }}
-                  >
-                    ({isLocal ? `Local UTC${sign}${utcOffsetH}` : 'UTC'}) ⇄
-                  </span>
-                </div>
-              );
-            })()}
+            <DXLocalTime
+              currentTime={currentTime}
+              dxLocation={dxLocation}
+              isLocal={showDXLocalTime}
+              onToggle={() => setShowDXLocalTime((prev) => !prev)}
+              marginTop="2px"
+            />
             <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
               {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
             </div>
@@ -602,10 +602,10 @@ export const DockableApp = ({
         onDXChange={handleDXChange}
         dxLocked={dxLocked}
         onHoverSpot={setHoveredSpot}
-        potaSpots={potaSpots.data}
-        wwffSpots={wwffSpots.data}
-        sotaSpots={sotaSpots.data}
-        wwbotaSpots={wwbotaSpots.data}
+        potaSpots={filteredPotaSpots ? filteredPotaSpots : potaSpots.data}
+        wwffSpots={filteredWwffSpots ? filteredWwffSpots : wwffSpots.data}
+        sotaSpots={filteredSotaSpots ? filteredSotaSpots : sotaSpots.data}
+        wwbotaSpots={filteredWwbotaSpots ? filteredWwbotaSpots : wwbotaSpots.data}
         mySpots={mySpots.data}
         dxPaths={dxClusterData.paths}
         dxFilters={dxFilters}
@@ -628,6 +628,7 @@ export const DockableApp = ({
         showSatellites={mapLayersEff.showSatellites}
         onToggleSatellites={toggleSatellitesEff}
         showPSKReporter={mapLayersEff.showPSKReporter}
+        showPSKPaths={mapLayersEff.showPSKPaths}
         showWSJTX={mapLayersEff.showWSJTX}
         showDXNews={mapLayersEff.showDXNews}
         showAPRS={mapLayersEff.showAPRS}
@@ -774,6 +775,8 @@ export const DockableApp = ({
               pskReporter={pskReporter}
               showOnMap={mapLayersEff.showPSKReporter}
               onToggleMap={togglePSKReporterEff}
+              showPaths={mapLayersEff.showPSKPaths}
+              onTogglePaths={togglePSKPathsEff}
               filters={pskFilters}
               onOpenFilters={() => setShowPSKFilters(true)}
               onSpotClick={handleSpotClick}
@@ -810,6 +813,9 @@ export const DockableApp = ({
               showLabelsOnMap={mapLayersEff.showPOTALabels}
               onToggleLabelsOnMap={togglePOTALabelsEff}
               onSpotClick={handleSpotClick}
+              filters={potaFilters}
+              onOpenFilters={() => setShowPotaFilters(true)}
+              filteredData={filteredPotaSpots}
             />
           );
           break;
@@ -827,6 +833,9 @@ export const DockableApp = ({
               showLabelsOnMap={mapLayersEff.showWWFFLabels}
               onToggleLabelsOnMap={toggleWWFFLabelsEff}
               onSpotClick={handleSpotClick}
+              filters={wwffFilters}
+              onOpenFilters={() => setShowWwffFilters(true)}
+              filteredData={filteredWwffSpots}
             />
           );
           break;
@@ -844,6 +853,9 @@ export const DockableApp = ({
               showLabelsOnMap={mapLayersEff.showSOTALabels}
               onToggleLabelsOnMap={toggleSOTALabelsEff}
               onSpotClick={handleSpotClick}
+              filters={sotaFilters}
+              onOpenFilters={() => setShowSotaFilters(true)}
+              filteredData={filteredSotaSpots}
             />
           );
           break;
@@ -861,6 +873,9 @@ export const DockableApp = ({
               showLabelsOnMap={mapLayersEff.showWWBOTALabels}
               onToggleLabelsOnMap={toggleWWBOTALabelsEff}
               onSpotClick={handleSpotClick}
+              filters={wwbotaFilters}
+              onOpenFilters={() => setShowWwbotaFilters(true)}
+              filteredData={filteredWwbotaSpots}
             />
           );
           break;
@@ -968,6 +983,7 @@ export const DockableApp = ({
       toggleSOTA,
       toggleSatellites,
       togglePSKReporter,
+      togglePSKPaths,
       toggleWSJTX,
       dxLocked,
       handleToggleDxLock,

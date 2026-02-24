@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { makeDraggable } from "./makeDraggable.js";
 
 /**
  * VOACAP-Style Propagation Heatmap Plugin v1.0.0
@@ -18,7 +19,7 @@ export const metadata = {
   icon: '🌐',
   category: 'propagation',
   defaultEnabled: false,
-  defaultOpacity: 0.35,
+  defaultOpacity: 0.55,
   version: '1.0.0',
 };
 
@@ -35,115 +36,57 @@ const BANDS = [
   { label: '10m', freq: 28 },
 ];
 
-// Reliability to color: red (0%) → yellow (50%) → green (100%)
+// Reliability to color: HamClock-style wide spectrum
+// magenta (0%) → red → orange → yellow → green (100%)
 function reliabilityColor(r) {
-  if (r <= 0) return 'rgba(180,0,0,0.6)';
-  if (r >= 99) return 'rgba(0,180,0,0.6)';
+  if (r >= 99) return { color: 'rgb(0,220,0)', alpha: 0.85 };
 
-  let red, green;
-  if (r < 50) {
-    // Red → Yellow
-    red = 180;
-    green = Math.round((r / 50) * 180);
+  let red, green, blue, alpha;
+  if (r < 10) {
+    // Very poor: subtle dark blue-gray tint so map stays visible
+    red = 40;
+    green = 30;
+    blue = 80;
+    alpha = 0.25;
+  } else if (r < 25) {
+    // Poor: dark red-purple, fading in
+    const t = (r - 10) / 15;
+    red = 40 + Math.round(t * 180);
+    green = 30;
+    blue = 80 - Math.round(t * 80);
+    alpha = 0.25 + t * 0.35;
+  } else if (r < 40) {
+    // Low: Red → Orange
+    const t = (r - 25) / 15;
+    red = 220 + Math.round(t * 35);
+    green = Math.round(t * 120);
+    blue = 0;
+    alpha = 0.6 + t * 0.15;
+  } else if (r < 60) {
+    // Fair: Orange → Yellow
+    const t = (r - 40) / 20;
+    red = 255;
+    green = 120 + Math.round(t * 135);
+    blue = 0;
+    alpha = 0.75 + t * 0.05;
+  } else if (r < 80) {
+    // Good: Yellow → Yellow-Green
+    const t = (r - 60) / 20;
+    red = 255 - Math.round(t * 140);
+    green = 255;
+    blue = 0;
+    alpha = 0.8;
   } else {
-    // Yellow → Green
-    red = Math.round(((100 - r) / 50) * 180);
-    green = 180;
+    // Excellent: Yellow-Green → Green
+    const t = (r - 80) / 20;
+    red = 115 - Math.round(t * 115);
+    green = 220 + Math.round(t * 35);
+    blue = 0;
+    alpha = 0.85;
   }
-  return `rgba(${red},${green},0,0.6)`;
+  return { color: `rgb(${red},${green},${blue})`, alpha };
 }
 
-// Make control panel draggable with CTRL+drag
-function makeDraggable(element, storageKey, skipPositionLoad = false) {
-  if (!element) return;
-
-  // Load saved position only if not already loaded
-  if (!skipPositionLoad) {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      try {
-        const data = JSON.parse(saved);
-        element.style.position = 'fixed';
-
-        // Check if saved as percentage (new format) or pixels (old format)
-        if (data.topPercent !== undefined && data.leftPercent !== undefined) {
-          // Use percentage-based positioning (scales with zoom)
-          element.style.top = data.topPercent + '%';
-          element.style.left = data.leftPercent + '%';
-        } else {
-          // Legacy pixel format - convert to percentage
-          const topPercent = (data.top / window.innerHeight) * 100;
-          const leftPercent = (data.left / window.innerWidth) * 100;
-          element.style.top = topPercent + '%';
-          element.style.left = leftPercent + '%';
-        }
-
-        element.style.right = 'auto';
-        element.style.bottom = 'auto';
-        element.style.transform = 'none';
-      } catch (e) {}
-    } else {
-      // Convert from Leaflet control position to fixed
-      const rect = element.getBoundingClientRect();
-      element.style.position = 'fixed';
-      element.style.top = rect.top + 'px';
-      element.style.left = rect.left + 'px';
-      element.style.right = 'auto';
-      element.style.bottom = 'auto';
-    }
-  }
-
-  element.title = 'Hold CTRL and drag to reposition';
-
-  let isDragging = false;
-  let startX, startY, startLeft, startTop;
-
-  const updateCursor = (e) => {
-    element.style.cursor = e.ctrlKey ? 'grab' : 'default';
-  };
-
-  element.addEventListener('mouseenter', updateCursor);
-  element.addEventListener('mousemove', updateCursor);
-
-  element.addEventListener('mousedown', (e) => {
-    if (!e.ctrlKey) return;
-    isDragging = true;
-    startX = e.clientX;
-    startY = e.clientY;
-    startLeft = parseInt(element.style.left) || 0;
-    startTop = parseInt(element.style.top) || 0;
-    element.style.cursor = 'grabbing';
-    e.preventDefault();
-    e.stopPropagation();
-  });
-
-  document.addEventListener('mousemove', (e) => {
-    if (!isDragging) return;
-    const dx = e.clientX - startX;
-    const dy = e.clientY - startY;
-    element.style.left = startLeft + dx + 'px';
-    element.style.top = startTop + dy + 'px';
-  });
-
-  document.addEventListener('mouseup', () => {
-    if (!isDragging) return;
-    isDragging = false;
-    element.style.cursor = 'default';
-
-    // Save position as percentage of viewport for zoom compatibility
-    const topPercent = (element.offsetTop / window.innerHeight) * 100;
-    const leftPercent = (element.offsetLeft / window.innerWidth) * 100;
-
-    const position = {
-      topPercent,
-      leftPercent,
-      // Keep pixel values for backward compatibility
-      top: element.offsetTop,
-      left: element.offsetLeft,
-    };
-    localStorage.setItem(storageKey, JSON.stringify(position));
-  });
-}
 
 // Minimize/maximize toggle
 function addMinimizeToggle(container, storageKey) {
@@ -177,7 +120,7 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
   });
   const [gridSize, setGridSize] = useState(() => {
     const saved = localStorage.getItem('voacap-heatmap-grid');
-    return saved ? parseInt(saved) : 10;
+    return saved ? parseInt(saved) : 5;
   });
   const [propMode, setPropMode] = useState(() => {
     try {
@@ -357,11 +300,13 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
                 display: flex; justify-content: space-between; align-items: center;
                 background: rgba(0,0,0,0.3); border-radius: 4px; padding: 4px 6px;
               ">
-                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(180,0,0,0.8); border-radius: 2px;"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(40,30,80,0.5); border-radius: 2px;" title="< 10% reliability"></span>
                 <span style="color: #888; font-size: 9px;">Poor</span>
-                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(180,180,0,0.8); border-radius: 2px;"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(255,80,0,0.9); border-radius: 2px;"></span>
+                <span style="color: #888; font-size: 9px;">Low</span>
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(255,255,0,0.9); border-radius: 2px;"></span>
                 <span style="color: #888; font-size: 9px;">Fair</span>
-                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(0,180,0,0.8); border-radius: 2px;"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(0,220,0,0.9); border-radius: 2px;"></span>
                 <span style="color: #888; font-size: 9px;">Good</span>
               </div>
               <div id="voacap-status" style="color: #666; font-size: 9px; margin-top: 6px; text-align: center;">
@@ -484,9 +429,16 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
     const half = (data.gridSize || 10) / 2;
     const newLayers = [];
 
+    // Use a shared canvas renderer for all cells — avoids SVG anti-aliasing
+    // seams and is significantly faster for hundreds of rectangles
+    const renderer = L.canvas({ padding: 0.5 });
+
     data.cells.forEach((cell) => {
-      const color = reliabilityColor(cell.r);
+      const { color, alpha } = reliabilityColor(cell.r);
       const band = BANDS[selectedBand];
+
+      // Scale alpha by the user opacity slider (slider default 0.6 = 60%)
+      const cellAlpha = alpha * (opacity / 0.6);
 
       // Create rectangles in 3 world copies for dateline support
       for (const offset of [-360, 0, 360]) {
@@ -496,12 +448,13 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
         ];
 
         const rect = L.rectangle(bounds, {
-          color: 'transparent',
+          stroke: false,
           fillColor: color,
-          fillOpacity: opacity,
+          fillOpacity: Math.min(1, cellAlpha),
           weight: 0,
           interactive: false,
           bubblingMouseEvents: true,
+          renderer,
         });
 
         rect.addTo(map);

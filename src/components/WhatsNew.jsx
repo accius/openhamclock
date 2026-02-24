@@ -10,6 +10,63 @@ import { useState, useEffect } from 'react';
 // Each entry: { version, date, heading, features: [...] }
 const CHANGELOG = [
   {
+    version: '15.6.3',
+    date: '2026-02-24',
+    heading: 'Propagation heatmap overhaul, draggable legend fix, activate filters, custom themes, and a stack of stability fixes.',
+    features: [
+      {
+        icon: '🗺️',
+        title: 'VOACAP Heatmap Overhaul',
+        desc: 'Complete rewrite of the propagation heatmap renderer. Switched from SVG to a canvas renderer eliminating grid seams. Day/night transitions now use smooth cosine curves instead of hard cutoffs — no more vertical line at the solar terminator. Full map coverage with opacity-scaled coloring: poor areas show a subtle tint instead of disappearing. Default resolution increased from 10° to 5° for smoother gradients.',
+      },
+      {
+        icon: '🔧',
+        title: 'Draggable Legends Fixed — No More Lost Panels',
+        desc: 'Fixed #600 — dragging a map legend off-screen made it permanently disappear with no way to recover. All 7 layer legends (MUF, GrayLine, Lightning, N3FJP, RBN, VOACAP, WSPR) now share a single makeDraggable utility with viewport clamping, resize tracking, and double-click to reset position.',
+      },
+      {
+        icon: '🔍',
+        title: 'Activate Spot Filters',
+        desc: 'POTA, SOTA, WWFF, and WWBOTA panels now have a filter button to narrow spots by band, grid square, and mode. Filters persist in localStorage and show an active filter count badge. Spot data is also enriched with computed grid squares and band labels.',
+      },
+      {
+        icon: '📡',
+        title: 'PSK Reporter Path Lines Toggle',
+        desc: 'New toggle button in the PSK Reporter panel header to show/hide the path lines on the map independently from spot markers. Useful when you want to see spots without visual clutter from hundreds of crossing lines.',
+      },
+      {
+        icon: '🎨',
+        title: 'Custom Theme Editor',
+        desc: 'Full theme customization system — pick colors for every UI element (backgrounds, borders, accents, map ocean) with a live color picker. Your custom theme saves to localStorage and persists across sessions.',
+      },
+      {
+        icon: '🕐',
+        title: 'DX Local Time Display',
+        desc: 'The DX info card now shows the approximate solar local time at the DX station\'s location. Click to toggle between UTC and local time. Available in Modern and Dockable layouts.',
+      },
+      {
+        icon: '☀️',
+        title: 'Sunspot Number Fixed',
+        desc: 'SSN was displaying as zero because NOAA monthly data returns null for recent months (smoothing not yet complete). Now walks backward through the last 12 months to find the most recent valid value, with fallback to SWPC daily data.',
+      },
+      {
+        icon: '🔄',
+        title: 'RPi Update Script Fixed',
+        desc: 'Fixed #594 — the update button showed success but the version never changed on Raspberry Pi. Root causes: missing git safe.directory config, silent error suppression, and no version verification. Script now reports real errors and confirms the version actually changed.',
+      },
+      {
+        icon: '🖼️',
+        title: 'Custom Image Panel',
+        desc: 'New dockable panel for displaying a custom image — useful for station photos, QSL cards, or reference charts in your dashboard layout.',
+      },
+      {
+        icon: '🇦🇩',
+        title: 'Catalan Language',
+        desc: 'New Catalan (Català) translation at full coverage. OpenHamClock now supports 14 languages.',
+      },
+    ],
+  },
+  {
     version: '15.6.2',
     date: '2026-02-22',
     heading: 'Surprise! Sunday Updates',

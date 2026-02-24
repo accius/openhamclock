@@ -18,28 +18,51 @@ export const PotaSotaPanel = ({
   potaLastChecked,
   showPOTA,
   onTogglePOTA,
+  showPOTALabels,
+  togglePOTALabels,
+  onPOTASpotClick,
+  potaFilters,
+  setShowPotaFilters,
+  filteredPotaSpots,
+
   wwffData,
   wwffLoading,
   wwffLastUpdated,
   wwffLastChecked,
   showWWFF,
   onToggleWWFF,
+  showWWFFLabels,
+  toggleWWFFLabels,
+  onWWFFSpotClick,
+  wwffFilters,
+  setShowWwffFilters,
+  filteredWwffSpots,
+
   sotaData,
   sotaLoading,
   sotaLastUpdated,
   sotaLastChecked,
   showSOTA,
   onToggleSOTA,
+  showSOTALabels,
+  toggleSOTALabels,
+  onSOTASpotClick,
+  sotaFilters,
+  setShowSotaFilters,
+  filteredSotaSpots,
+
   wwbotaData,
   wwbotaLoading,
   wwbotaLastUpdated,
   wwbotaConnected,
   showWWBOTA,
   onToggleWWBOTA,
-  onPOTASpotClick,
-  onWWFFSpotClick,
-  onSOTASpotClick,
+  showWWBOTALabels,
+  toggleWWBOTALabels,
   onWWBOTASpotClick,
+  wwbotaFilters,
+  setShowWwbotaFilters,
+  filteredWwbotaSpots,
 }) => {
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -127,6 +150,11 @@ export const PotaSotaPanel = ({
             showOnMap={showPOTA}
             onToggleMap={onTogglePOTA}
             onSpotClick={onPOTASpotClick}
+            showLabelsOnMap={showPOTALabels}
+            onToggleLabelsOnMap={togglePOTALabels}
+            filters={potaFilters}
+            onOpenFilters={setShowPotaFilters}
+            filteredData={filteredPotaSpots}
           />
         ) : activeTab === 'sota' ? (
           <SOTAPanel
@@ -137,6 +165,11 @@ export const PotaSotaPanel = ({
             showOnMap={showSOTA}
             onToggleMap={onToggleSOTA}
             onSpotClick={onSOTASpotClick}
+            showLabelsOnMap={showSOTALabels}
+            onToggleLabelsOnMap={toggleSOTALabels}
+            filters={sotaFilters}
+            onOpenFilters={setShowSotaFilters}
+            filteredData={filteredSotaSpots}
           />
         ) : activeTab === 'wwbota' ? (
           <WWBOTAPanel
@@ -147,6 +180,11 @@ export const PotaSotaPanel = ({
             showOnMap={showWWBOTA}
             onToggleMap={onToggleWWBOTA}
             onSpotClick={onWWBOTASpotClick}
+            showLabelsOnMap={showWWBOTALabels}
+            onToggleLabelsOnMap={toggleWWBOTALabels}
+            filters={wwbotaFilters}
+            onOpenFilters={setShowWwbotaFilters}
+            filteredData={filteredWwbotaSpots}
           />
         ) : (
           <WWFFPanel
@@ -157,6 +195,11 @@ export const PotaSotaPanel = ({
             showOnMap={showWWFF}
             onToggleMap={onToggleWWFF}
             onSpotClick={onWWFFSpotClick}
+            showLabelsOnMap={showWWFFLabels}
+            onToggleLabelsOnMap={toggleWWFFLabels}
+            filters={wwffFilters}
+            onOpenFilters={setShowWwffFilters}
+            filteredData={filteredWwffSpots}
           />
         )}
       </div>
