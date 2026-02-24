@@ -51,13 +51,20 @@ module.exports = {
 
       if (req.cmd === 'f') {
         const freq = parseInt(line);
-        if (freq > 0) updateState('freq', freq);
+        if (freq > 0) {
+          if (state.freq !== freq) console.log(`[Rigctld] freq → ${(freq / 1e6).toFixed(6)} MHz`);
+          updateState('freq', freq);
+        }
       } else if (req.cmd === 'm') {
         const parts = line.split(' ');
-        updateState('mode', parts[0]);
+        const mode = parts[0];
+        if (mode && state.mode !== mode) console.log(`[Rigctld] mode → ${mode}`);
+        updateState('mode', mode);
         if (parts[1]) updateState('width', parseInt(parts[1]));
       } else if (req.cmd === 't') {
-        updateState('ptt', line === '1');
+        const ptt = line === '1';
+        if (state.ptt !== ptt) console.log(`[Rigctld] PTT → ${ptt ? 'TX' : 'RX'}`);
+        updateState('ptt', ptt);
       }
       if (req.cb) req.cb(null, line);
       state.lastUpdate = Date.now();
@@ -98,6 +105,7 @@ module.exports = {
       });
 
       s.on('close', () => {
+        console.log('[Rigctld] Connection lost — retrying in 5 s…');
         updateState('connected', false);
         socket = null;
         stopPolling();
@@ -127,17 +135,21 @@ module.exports = {
       pending = null;
       queue = [];
       updateState('connected', false);
+      console.log('[Rigctld] Disconnected');
     }
 
     function setFreq(hz) {
+      console.log(`[Rigctld] SET FREQ: ${(hz / 1e6).toFixed(6)} MHz`);
       send(`F ${hz}`);
     }
 
     function setMode(mode) {
+      console.log(`[Rigctld] SET MODE: ${mode}`);
       send(`M ${mode} 0`);
     }
 
     function setPTT(on) {
+      console.log(`[Rigctld] SET PTT: ${on ? 'TX' : 'RX'}`);
       send(on ? 'T 1' : 'T 0');
     }
 

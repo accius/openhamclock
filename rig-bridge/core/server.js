@@ -14,6 +14,8 @@
  *   POST /api/config   Update config and reconnect
  *   POST /api/test     Test a serial port connection
  *   GET  /api/log/stream  SSE stream of live console log output
+ *   GET  /api/logging     Get console logging enabled state
+ *   POST /api/logging     Enable or disable console log capture { logging: bool }
  */
 
 const express = require('express');
@@ -37,6 +39,7 @@ function broadcastLog(entry) {
 }
 
 function pushLog(level, args) {
+  if (!config.logging) return; // logging disabled — skip capture & broadcast
   const text = args.map((a) => (typeof a === 'string' ? a : JSON.stringify(a))).join(' ');
   const entry = { ts: Date.now(), level, text };
   logBuffer.push(entry);
@@ -475,6 +478,7 @@ const SETUP_HTML = `<!DOCTYPE html>
         <span class="log-badge lvl-warn active" data-level="warn" onclick="toggleFilter('warn', this)">WARN</span>
         <span class="log-badge lvl-error active" data-level="error" onclick="toggleFilter('error', this)">ERROR</span>
         <span style="flex:1"></span>
+        <button id="logToggleBtn" class="btn btn-secondary" onclick="toggleLogging()" style="width:auto; padding:5px 14px; font-size:12px;">⏸ Pause</button>
         <button class="btn btn-secondary" onclick="clearLog()" style="width:auto; padding:5px 14px; font-size:12px;">🗑 Clear</button>
       </div>
 
@@ -514,9 +518,11 @@ const SETUP_HTML = `<!DOCTYPE html>
 
     async function init() {
       try {
-        const res = await fetch('/api/config');
-        currentConfig = await res.json();
+        const [cfgRes, logRes] = await Promise.all([fetch('/api/config'), fetch('/api/logging')]);
+        currentConfig = await cfgRes.json();
+        const logData = await logRes.json();
         populateForm(currentConfig);
+        setLoggingBtn(logData.logging !== false); // default true
         refreshPorts();
         startStatusPoll();
         startLogStream();
@@ -697,6 +703,31 @@ const SETUP_HTML = `<!DOCTYPE html>
       renderLog();
     }
 
+    let loggingEnabled = true;
+
+    function setLoggingBtn(enabled) {
+      loggingEnabled = enabled;
+      const btn = document.getElementById('logToggleBtn');
+      if (btn) {
+        btn.textContent = enabled ? '⏸ Pause' : '▶ Resume';
+        btn.title = enabled ? 'Pause console log capture' : 'Resume console log capture';
+      }
+    }
+
+    async function toggleLogging() {
+      try {
+        const res = await fetch('/api/logging', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ logging: !loggingEnabled }),
+        });
+        const data = await res.json();
+        if (data.success) setLoggingBtn(data.logging);
+      } catch (e) {
+        showToast('Failed to toggle logging: ' + e.message, 'error');
+      }
+    }
+
     function fmtTime(ts) {
       const d = new Date(ts);
       return d.toTimeString().substring(0, 8) + '.' + String(d.getMilliseconds()).padStart(3, '0');
@@ -842,6 +873,20 @@ function createServer(registry) {
     });
   });
 
+  // ─── API: Console logging toggle ───
+  app.get('/api/logging', (req, res) => {
+    res.json({ logging: config.logging });
+  });
+
+  app.post('/api/logging', (req, res) => {
+    const { logging } = req.body;
+    if (typeof logging !== 'boolean') return res.status(400).json({ error: 'logging must be a boolean' });
+    config.logging = logging;
+    saveConfig();
+    console.log(`[Server] Console logging ${logging ? 'enabled' : 'disabled'}`);
+    res.json({ success: true, logging: config.logging });
+  });
+
   // ─── API: List serial ports ───
   app.get('/api/ports', async (req, res) => {
     const ports = await listPorts();
@@ -858,6 +903,9 @@ function createServer(registry) {
     if (newConfig.port) config.port = newConfig.port;
     if (newConfig.radio) {
       config.radio = { ...config.radio, ...newConfig.radio };
+    }
+    if (typeof newConfig.logging === 'boolean') {
+      config.logging = newConfig.logging;
     }
     saveConfig();
 

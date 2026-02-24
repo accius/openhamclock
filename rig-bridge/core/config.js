@@ -12,6 +12,7 @@ const CONFIG_PATH = path.join(CONFIG_DIR, 'rig-bridge-config.json');
 
 const DEFAULT_CONFIG = {
   port: 5555,
+  logging: true, // Enable/disable console log capture & broadcast to UI
   radio: {
     type: 'none', // none | yaesu | kenwood | icom | flrig | rigctld
     serialPort: '', // COM3, /dev/ttyUSB0, etc.
@@ -40,6 +41,8 @@ function loadConfig() {
         ...DEFAULT_CONFIG,
         ...raw,
         radio: { ...DEFAULT_CONFIG.radio, ...(raw.radio || {}) },
+        // Coerce logging to boolean in case the stored value is a string
+        logging: raw.logging !== undefined ? !!raw.logging : DEFAULT_CONFIG.logging,
       };
       console.log(`[Config] Loaded from ${CONFIG_PATH}`);
     }

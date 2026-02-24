@@ -63,6 +63,22 @@ function createUsbPlugin(radioType) {
         }
       }
 
+      // Wrap updateState so state changes going to the UI are also visible in the log
+      function loggedUpdateState(prop, value) {
+        const prev = state[prop];
+        updateState(prop, value);
+        // Only log if the value actually changed (updateState skips no-ops internally)
+        if (prev !== value) {
+          if (prop === 'freq') {
+            console.log(`[USB/${radioType}] freq → ${(value / 1e6).toFixed(6)} MHz`);
+          } else if (prop === 'mode') {
+            console.log(`[USB/${radioType}] mode → ${value}`);
+          } else if (prop === 'ptt') {
+            console.log(`[USB/${radioType}] PTT → ${value ? 'TX' : 'RX'}`);
+          }
+        }
+      }
+
       function startPolling() {
         stopPolling();
         pollTimer = setInterval(() => {
@@ -80,7 +96,7 @@ function createUsbPlugin(radioType) {
         while ((idx = rxBuffer.indexOf(';')) !== -1) {
           const response = rxBuffer.substring(0, idx);
           rxBuffer = rxBuffer.substring(idx + 1);
-          proto.parse(response, updateState, (prop) => state[prop]);
+          proto.parse(response, loggedUpdateState, (prop) => state[prop]);
         }
         if (rxBuffer.length > 1000) rxBuffer = rxBuffer.slice(-200);
       }
@@ -113,6 +129,7 @@ function createUsbPlugin(radioType) {
           if (err) {
             console.error(`[USB/${radioType}] Failed to open: ${err.message}`);
             updateState('connected', false);
+            console.log(`[USB/${radioType}] Retrying in 5 s…`);
             reconnectTimer = setTimeout(connect, 5000);
             return;
           }
@@ -123,7 +140,7 @@ function createUsbPlugin(radioType) {
 
         serialPort.on('data', (data) => {
           if (radioType === 'icom') {
-            rxBinaryBuffer = proto.handleData(data, rxBinaryBuffer, updateState, (prop) => state[prop]);
+            rxBinaryBuffer = proto.handleData(data, rxBinaryBuffer, loggedUpdateState, (prop) => state[prop]);
           } else {
             rxBuffer += data.toString('ascii');
             processAsciiBuffer();
@@ -135,7 +152,7 @@ function createUsbPlugin(radioType) {
         });
 
         serialPort.on('close', () => {
-          console.log(`[USB/${radioType}] Port closed`);
+          console.log(`[USB/${radioType}] Port closed — retrying in 5 s…`);
           updateState('connected', false);
           stopPolling();
           serialPort = null;
@@ -156,9 +173,11 @@ function createUsbPlugin(radioType) {
         }
         serialPort = null;
         updateState('connected', false);
+        console.log(`[USB/${radioType}] Disconnected`);
       }
 
       function setFreq(hz) {
+        console.log(`[USB/${radioType}] SET FREQ: ${(hz / 1e6).toFixed(6)} MHz`);
         if (radioType === 'icom') {
           proto.setFreq(hz, write, getIcomAddress());
         } else {
@@ -167,6 +186,7 @@ function createUsbPlugin(radioType) {
       }
 
       function setMode(mode) {
+        console.log(`[USB/${radioType}] SET MODE: ${mode}`);
         if (radioType === 'icom') {
           proto.setMode(mode, write, getIcomAddress());
         } else {
@@ -175,6 +195,7 @@ function createUsbPlugin(radioType) {
       }
 
       function setPTT(on) {
+        console.log(`[USB/${radioType}] SET PTT: ${on ? 'TX' : 'RX'}`);
         if (radioType === 'icom') {
           proto.setPTT(on, write, getIcomAddress());
         } else {
