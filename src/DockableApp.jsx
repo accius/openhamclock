@@ -1035,10 +1035,46 @@ export const DockableApp = ({
           type="button"
           className="ohc-header-cycle-hitarea"
           title="Click to cycle panels (Shift = previous)"
-          onMouseDown={(e) => {
+          aria-label="Cycle panels (Shift = previous)"
+          onPointerDown={(e) => {
+            // Tablet/touch safety:
+            // First tap should OPEN the drawer (via :focus-within), not immediately cycle.
+            // Once the drawer is open (hover or focus-within), tap/click cycles.
             e.preventDefault();
             e.stopPropagation();
+
+            const outer = e.currentTarget.closest('.flexlayout__tabset_tabbar_outer');
+            const drawerOpen = !!outer && outer.matches(':hover, :focus-within');
+            if (!drawerOpen) {
+              try {
+                e.currentTarget.focus();
+              } catch {
+                /* noop */
+              }
+              return;
+            }
+
             cycleTab(e.shiftKey ? -1 : 1);
+          }}
+          onKeyDown={(e) => {
+            const outer = e.currentTarget.closest('.flexlayout__tabset_tabbar_outer');
+            const drawerOpen = !!outer && outer.matches(':hover, :focus-within');
+            if (!drawerOpen) return;
+
+            const key = e.key;
+            if (key === 'Enter' || key === ' ') {
+              e.preventDefault();
+              e.stopPropagation();
+              cycleTab(e.shiftKey ? -1 : 1);
+            } else if (key === 'ArrowLeft') {
+              e.preventDefault();
+              e.stopPropagation();
+              cycleTab(-1);
+            } else if (key === 'ArrowRight') {
+              e.preventDefault();
+              e.stopPropagation();
+              cycleTab(1);
+            }
           }}
           onDoubleClick={(e) => {
             e.preventDefault();
@@ -1053,7 +1089,7 @@ export const DockableApp = ({
           key="ohc-panels"
           title="Panels"
           className="flexlayout__tab_toolbar_button ohc-drawer-tool"
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
             setTargetTabSetId(node.getId());
@@ -1075,7 +1111,7 @@ export const DockableApp = ({
             key="zoom-out"
             title="Decrease font size"
             className="flexlayout__tab_toolbar_button ohc-drawer-tool"
-            onMouseDown={(e) => {
+            onPointerDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
               adjustZoom(selectedComponent, -1);
@@ -1098,7 +1134,7 @@ export const DockableApp = ({
               key="zoom-reset"
               title="Reset font size"
               className="flexlayout__tab_toolbar_button ohc-drawer-tool"
-              onMouseDown={(e) => {
+              onPointerDown={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
                 resetZoom(selectedComponent);
@@ -1120,7 +1156,7 @@ export const DockableApp = ({
             key="zoom-in"
             title="Increase font size"
             className="flexlayout__tab_toolbar_button ohc-drawer-tool"
-            onMouseDown={(e) => {
+            onPointerDown={(e) => {
               e.preventDefault();
               e.stopPropagation();
               adjustZoom(selectedComponent, 1);
@@ -1144,7 +1180,7 @@ export const DockableApp = ({
           key="maximize"
           title="Maximize panel"
           className="flexlayout__tab_toolbar_button ohc-drawer-tool"
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
             try {
@@ -1165,7 +1201,7 @@ export const DockableApp = ({
           key="close"
           title="Close panel"
           className="flexlayout__tab_toolbar_button ohc-drawer-tool"
-          onMouseDown={(e) => {
+          onPointerDown={(e) => {
             e.preventDefault();
             e.stopPropagation();
             try {

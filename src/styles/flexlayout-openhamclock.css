@@ -458,6 +458,40 @@
   cursor: pointer !important;
 }
 
+/* Keyboard focus hint (desktop) */
+.flexlayout__tabset_tabbar_outer:focus-within {
+  box-shadow: 0 0 0 1px rgba(0, 255, 204, 0.22) !important;
+  border-radius: 6px !important;
+}
+
+/* Touch/tablet: larger hit targets + allow first tap to focus the header (opens drawer via :focus-within). */
+@media (pointer: coarse) {
+  :root {
+    --ohc-tabbar-h: 24px;
+    --ohc-drawer-h: 36px;
+  }
+
+  .flexlayout__tabset_tabbar_outer {
+    padding: 0 10px !important;
+  }
+
+  .flexlayout__tab_toolbar {
+    gap: 10px !important;
+  }
+
+  .flexlayout__tab_toolbar_button.ohc-drawer-tool {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: 14px !important;
+    border-radius: 8px !important;
+  }
+
+  /* Enable tapping the (invisible) header hit-area to receive focus and open the drawer. */
+  .ohc-header-cycle-hitarea {
+    pointer-events: auto !important;
+  }
+}
+
 .flexlayout__tabset_tabbar_outer:hover .ohc-header-cycle-hitarea:hover {
   opacity: 1 !important;
   box-shadow:
