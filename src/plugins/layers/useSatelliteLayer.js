@@ -42,7 +42,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     window.toggleSat = (name) => toggleSatellite(name);
   }, [selectedSats]);
 
-  // 2. Inject Styles (Narrower, more transparent, and blinking status)
+  // 2. Inject Styles (Narrower, more transparent, and blinking status update)
   useEffect(() => {
     const styleId = 'sat-layer-ui-styles';
     if (!document.getElementById(styleId)) {
