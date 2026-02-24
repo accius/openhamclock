@@ -4,6 +4,7 @@
 import { DXNewsTicker, WorldMap } from '../components';
 import { getBandColor, getBandColorForBand } from '../utils';
 import CallsignLink from '../components/CallsignLink.jsx';
+import DonateButton from '../components/DonateButton.jsx';
 import { useRig } from '../contexts/RigContext.jsx';
 
 export default function ClassicLayout(props) {
@@ -41,6 +42,7 @@ export default function ClassicLayout(props) {
     propagation,
     potaSpots,
     sotaSpots,
+    wwbotaSpots,
     mySpots,
     satellites,
     filteredSatellites,
@@ -54,8 +56,8 @@ export default function ClassicLayout(props) {
     toggleSatellites,
   } = props;
 
-  const liveSpotBands = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m'];
-  const mapLegendBands = ['160', '80', '40', '30', '20', '17', '15', '12', '10', '6'];
+  const liveSpotBands = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '8m', '6m', '4m'];
+  const mapLegendBands = ['160', '80', '40', '30', '20', '17', '15', '12', '10', '8', '6', '4'];
 
   const { tuneTo } = useRig();
 
@@ -281,6 +283,9 @@ export default function ClassicLayout(props) {
                         '15m': [21, 21.45],
                         '12m': [24.89, 24.99],
                         '10m': [28, 29.7],
+                        '8m': [40, 42],
+                        '6m': [50, 54],
+                        '4m': [70, 70.5],
                       };
                       const r = bands[band];
                       return r && freq >= r[0] && freq <= r[1];
@@ -418,6 +423,7 @@ export default function ClassicLayout(props) {
             dxLocked={dxLocked}
             potaSpots={potaSpots.data}
             sotaSpots={sotaSpots.data}
+            wwbotaSpots={wwbotaSpots.data}
             mySpots={mySpots.data}
             dxPaths={dxClusterData.paths}
             dxFilters={dxFilters}
@@ -430,6 +436,7 @@ export default function ClassicLayout(props) {
             onToggleDXLabels={toggleDXLabels}
             showPOTA={mapLayers.showPOTA}
             showSOTA={mapLayers.showSOTA}
+            showWWBOTA={mapLayers.showWWBOTA}
             showSatellites={mapLayers.showSatellites}
             showPSKReporter={mapLayers.showPSKReporter}
             wsjtxSpots={wsjtxMapSpots}
@@ -693,30 +700,7 @@ export default function ClassicLayout(props) {
 
         {/* Controls */}
         <div style={{ display: 'flex', gap: '4px' }}>
-          {!isFullscreen && (
-            <a
-              href="https://www.paypal.com/donate/?hosted_button_id=MMYPQBLA6SW68"
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                background: 'linear-gradient(135deg, #0070ba 0%, #003087 100%)',
-                border: 'none',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                color: '#fff',
-                fontSize: '11px',
-                fontWeight: '600',
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-              title={t('app.donate.paypal')}
-            >
-              💳
-            </a>
-          )}
+          {!isFullscreen && <DonateButton compact fontSize="11px" padding="4px 8px" />}
           <button
             onClick={() => setShowSettings(true)}
             style={{
@@ -759,6 +743,7 @@ export default function ClassicLayout(props) {
             dxLocked={dxLocked}
             potaSpots={potaSpots.data}
             sotaSpots={sotaSpots.data}
+            wwbotaSpots={wwbotaSpots.data}
             mySpots={mySpots.data}
             dxPaths={dxClusterData.paths}
             dxFilters={dxFilters}
@@ -771,6 +756,7 @@ export default function ClassicLayout(props) {
             onToggleDXLabels={toggleDXLabels}
             showPOTA={mapLayers.showPOTA}
             showSOTA={mapLayers.showSOTA}
+            showWWBOTA={mapLayers.showWWBOTA}
             showSatellites={mapLayers.showSatellites}
             showPSKReporter={mapLayers.showPSKReporter}
             wsjtxSpots={wsjtxMapSpots}
@@ -1170,29 +1156,7 @@ export default function ClassicLayout(props) {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '4px' }}>
-            {!isFullscreen && (
-              <a
-                href="https://www.paypal.com/donate/?hosted_button_id=MMYPQBLA6SW68"
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{
-                  background: 'linear-gradient(135deg, #0070ba 0%, #003087 100%)',
-                  border: 'none',
-                  padding: '6px 10px',
-                  borderRadius: '4px',
-                  color: '#fff',
-                  fontSize: '13px',
-                  fontWeight: '600',
-                  textDecoration: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  cursor: 'pointer',
-                }}
-                title={t('app.donate.paypal')}
-              >
-                💳
-              </a>
-            )}
+            {!isFullscreen && <DonateButton compact fontSize="13px" padding="6px 10px" />}
             <button
               onClick={() => setShowSettings(true)}
               style={{
@@ -1406,6 +1370,7 @@ export default function ClassicLayout(props) {
             dxLocked={dxLocked}
             potaSpots={potaSpots.data}
             sotaSpots={sotaSpots.data}
+            wwbotaSpots={wwbotaSpots.data}
             mySpots={mySpots.data}
             dxPaths={dxClusterData.paths}
             dxFilters={dxFilters}
@@ -1418,6 +1383,7 @@ export default function ClassicLayout(props) {
             onToggleDXLabels={toggleDXLabels}
             showPOTA={mapLayers.showPOTA}
             showSOTA={mapLayers.showSOTA}
+            showWWBOTA={mapLayers.showWWBOTA}
             showSatellites={mapLayers.showSatellites}
             showPSKReporter={mapLayers.showPSKReporter}
             wsjtxSpots={wsjtxMapSpots}

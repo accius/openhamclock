@@ -23,6 +23,7 @@ import {
   AnalogClockPanel,
 } from '../components';
 import { useRig } from '../contexts/RigContext.jsx';
+import { calculateDistance, formatDistance } from '../utils/geo.js';
 import useBreakpoint from '../hooks/app/useBreakpoint';
 
 export default function ModernLayout(props) {
@@ -71,6 +72,10 @@ export default function ModernLayout(props) {
     dxpeditions,
     contests,
     satellites,
+    wwbotaSpots,
+    mySpots,
+    dxpeditions,
+    contests,
     pskReporter,
     wsjtx,
     filteredPskSpots,
@@ -88,6 +93,7 @@ export default function ModernLayout(props) {
     togglePOTA,
     toggleWWFF,
     toggleSOTA,
+    toggleWWBOTA,
     toggleSatellites,
     togglePSKReporter,
     toggleWSJTX,
@@ -97,10 +103,9 @@ export default function ModernLayout(props) {
   } = props;
 
   const { tuneTo } = useRig();
-  const { breakpoint, width } = useBreakpoint();
+  const { breakpoint } = useBreakpoint();
   const isMobile = breakpoint === 'mobile';
   const isTablet = breakpoint === 'tablet';
-  const isDesktop = breakpoint === 'desktop';
 
   const handleParkSpotClick = (spot) => tuneTo(spot);
   const handleDXSpotClick = (spot) => {
@@ -129,6 +134,7 @@ export default function ModernLayout(props) {
         potaSpots={potaSpots.data}
         wwffSpots={wwffSpots.data}
         sotaSpots={sotaSpots.data}
+        wwbotaSpots={wwbotaSpots.data}
         mySpots={mySpots.data}
         dxPaths={dxClusterData.paths}
         dxFilters={dxFilters}
@@ -142,6 +148,7 @@ export default function ModernLayout(props) {
         showPOTA={mapLayers.showPOTA}
         showWWFF={mapLayers.showWWFF}
         showSOTA={mapLayers.showSOTA}
+        showWWBOTA={mapLayers.showWWBOTA}
         showSatellites={mapLayers.showSatellites}
         showPSKReporter={mapLayers.showPSKReporter}
         wsjtxSpots={wsjtxMapSpots}
@@ -193,7 +200,7 @@ export default function ModernLayout(props) {
           <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{deSunTimes.sunset}</span>
         </div>
       </div>
-      <WeatherPanel weatherData={localWeather} tempUnit={tempUnit} onTempUnitChange={tempUnitToggle} />
+      <WeatherPanel weatherData={localWeather} units={config.units} />
     </div>
   );
 
@@ -255,6 +262,8 @@ export default function ModernLayout(props) {
                 const dLon = dLon2 - dLon1;
                 const a = Math.sin(dLat / 2) ** 2 + Math.cos(dLat1) * Math.cos(dLat2) * Math.sin(dLon / 2) ** 2;
                 return `📏 ${Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toLocaleString()} km`;
+                const km = calculateDistance(config.location.lat, config.location.lon, dxLocation.lat, dxLocation.lon);
+                return `📏 ${formatDistance(km, config.units)}`;
               })()}
             </span>
           </span>
@@ -266,7 +275,7 @@ export default function ModernLayout(props) {
           <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
         </div>
       </div>
-      {showDxWeather && <WeatherPanel weatherData={dxWeather} tempUnit={tempUnit} onTempUnitChange={tempUnitToggle} />}
+      {showDxWeather && <WeatherPanel weatherData={dxWeather} units={config.units} />}
     </div>
   );
 
@@ -336,6 +345,16 @@ export default function ModernLayout(props) {
       onPOTASpotClick={handleParkSpotClick}
       onWWFFSpotClick={handleParkSpotClick}
       onSOTASpotClick={handleParkSpotClick}
+      wwbotaData={wwbotaSpots.data}
+      wwbotaLoading={wwbotaSpots.loading}
+      wwbotaLastUpdated={wwbotaSpots.lastUpdated}
+      wwbotaConnected={wwbotaSpots.connected}
+      showWWBOTA={mapLayers.showWWBOTA}
+      onToggleWWBOTA={toggleWWBOTA}
+      onPOTASpotClick={handleParkSpotClick}
+      onWWFFSpotClick={handleParkSpotClick}
+      onSOTASpotClick={handleParkSpotClick}
+      onWWBOTASpotClick={handleParkSpotClick}
     />
   );
 

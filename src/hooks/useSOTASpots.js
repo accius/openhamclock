@@ -17,8 +17,8 @@ export const useSOTASpots = () => {
   useEffect(() => {
     const fetchSOTA = async () => {
       try {
-        // Cache-bust to bypass browser cache AND Cloudflare edge cache
-        const res = await apiFetch(`/api/sota/spots?_t=${Date.now()}`, { cache: 'no-store' });
+        // Server sets Cache-Control: no-store; fetch no-store bypasses browser cache
+        const res = await apiFetch('/api/sota/spots', { cache: 'no-store' });
         if (res?.ok) {
           const spots = await res.json();
           console.log(`[SOTA] Fetched ${Array.isArray(spots) ? spots.length : 0} spots`);

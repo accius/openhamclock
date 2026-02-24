@@ -41,8 +41,8 @@ export const usePOTASpots = () => {
     const fetchPOTA = async () => {
       try {
         // Use server proxy for caching - reduces external API calls
-        // Cache-bust to bypass browser cache AND Cloudflare edge cache
-        const res = await apiFetch(`/api/pota/spots?_t=${Date.now()}`, { cache: 'no-store' });
+        // Server sets Cache-Control: no-store; fetch no-store bypasses browser cache
+        const res = await apiFetch('/api/pota/spots', { cache: 'no-store' });
         if (res?.ok) {
           const spots = await res.json();
           console.log(`[POTA] Fetched ${Array.isArray(spots) ? spots.length : 0} spots`);

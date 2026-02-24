@@ -22,7 +22,24 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
     { code: 'AN', name: 'Antarctica' },
   ];
 
-  const bands = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '11m', '10m', '6m', '2m', '70cm'];
+  const bands = [
+    '160m',
+    '80m',
+    '60m',
+    '40m',
+    '30m',
+    '20m',
+    '17m',
+    '15m',
+    '12m',
+    '11m',
+    '10m',
+    '8m',
+    '6m',
+    '4m',
+    '2m',
+    '70cm',
+  ];
   const modes = ['CW', 'SSB', 'FT8', 'FT4', 'RTTY', 'PSK', 'JT65', 'JS8', 'SSTV', 'AM', 'FM'];
 
   // noinspection DuplicatedCode

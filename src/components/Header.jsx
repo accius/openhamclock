@@ -5,9 +5,10 @@
  */
 import React from 'react';
 import { IconGear, IconExpand, IconShrink } from './Icons.jsx';
+import DonateButton from './DonateButton.jsx';
 import { QRZToggle } from './CallsignLink.jsx';
 import { ctyLookup, isCtyLoaded } from '../utils/ctyLookup';
-import { getFlagForEntity } from '../utils/countryFlags';
+import { getFlagUrl } from '../utils/countryFlags';
 
 export const Header = ({
   config,
@@ -91,6 +92,31 @@ export const Header = ({
         })()}
         {config.version && !isMobile && (
           <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>v{config.version}</span>
+          const flagUrl = info ? getFlagUrl(info.entity) : null;
+          return flagUrl ? (
+            <img
+              src={flagUrl}
+              alt={info.entity}
+              title={info.entity}
+              style={{
+                height: '1em',
+                verticalAlign: 'middle',
+                borderRadius: '2px',
+                objectFit: 'contain',
+              }}
+              crossOrigin="anonymous"
+              loading="eager"
+            />
+          ) : null;
+        })()}
+        {config.version && !isMobile && (
+          <span
+            onClick={() => window.dispatchEvent(new Event('openhamclock-show-whatsnew'))}
+            style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer' }}
+            title="What's new in this version"
+          >
+            v{config.version}
+          </span>
         )}
         {!isMobile && <QRZToggle />}
       </div>
@@ -289,6 +315,7 @@ export const Header = ({
               💳{isTablet ? '' : ' PayPal'}
             </a>
           </>
+          <DonateButton compact={isTablet} fontSize="12px" padding={isTablet ? '4px 6px' : '6px 10px'} />
         )}
         {showUpdateButton && !isMobile && (
           <button

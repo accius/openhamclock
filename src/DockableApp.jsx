@@ -13,6 +13,7 @@ import {
   POTAPanel,
   WWFFPanel,
   SOTAPanel,
+  WWBOTAPanel,
   ContestPanel,
   SolarPanel,
   PropagationPanel,
@@ -29,12 +30,26 @@ import {
   IDTimerPanel,
 } from './components';
 
-import { loadLayout, saveLayout, DEFAULT_LAYOUT } from './store/layoutStore.js';
+import { loadLayout, saveLayout } from './store/layoutStore.js';
 import { DockableLayoutProvider } from './contexts';
 import { useRig } from './contexts/RigContext.jsx';
+import { calculateBearing, calculateDistance, formatDistance } from './utils/geo.js';
 import './styles/flexlayout-openhamclock.css';
 import useMapLayers from './hooks/app/useMapLayers';
 import useRotator from './hooks/useRotator';
+
+const getEffectiveUnits = (fallback = 'imperial') => {
+  try {
+    const raw = localStorage.getItem('openhamclock_config');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.units === 'metric' || parsed?.units === 'imperial') {
+        return parsed.units;
+      }
+    }
+  } catch {}
+  return fallback === 'metric' || fallback === 'imperial' ? fallback : 'imperial';
+};
 
 // Icons
 const PlusIcon = () => (
@@ -46,6 +61,7 @@ const PlusIcon = () => (
 export const DockableApp = ({
   // Config & state from parent
   config,
+  t,
   currentTime,
 
   // Location data
@@ -61,8 +77,6 @@ export const DockableApp = ({
   // Weather
   localWeather,
   dxWeather,
-  tempUnit,
-  setTempUnit,
   showDxWeather,
 
   // Space weather & solar
@@ -76,6 +90,7 @@ export const DockableApp = ({
   potaSpots,
   wwffSpots,
   sotaSpots,
+  wwbotaSpots,
   mySpots,
   dxpeditions,
   contests,
@@ -105,6 +120,9 @@ export const DockableApp = ({
   toggleWWFF,
   toggleWWFFLabels,
   toggleSOTA,
+  toggleSOTALabels,
+  toggleWWBOTA,
+  toggleWWBOTALabels,
   toggleSatellites,
   togglePSKReporter,
   toggleWSJTX,
@@ -135,6 +153,26 @@ export const DockableApp = ({
   const [targetTabSetId, setTargetTabSetId] = useState(null);
   const saveTimeoutRef = useRef(null);
 
+  // Layout lock — prevents accidental drag/resize/close of panels
+  const [layoutLocked, setLayoutLocked] = useState(() => {
+    try {
+      return localStorage.getItem('openhamclock_layoutLocked') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const toggleLayoutLock = useCallback(() => {
+    setLayoutLocked((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('openhamclock_layoutLocked', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+  const [effectiveUnits, setEffectiveUnits] = useState(() => getEffectiveUnits(config?.units));
+  const [showDXLocalTime, setShowDXLocalTime] = useState(false);
+
   // Fallback: if parent did not provide map-layer toggles (seen with rotator),
   // use the internal hook so the map buttons still work.
   const internalMap = useMapLayers();
@@ -154,6 +192,8 @@ export const DockableApp = ({
   const toggleWWFFLabelsEff = useInternalMapLayers ? internalMap.toggleWWFFLabels : toggleWWFFLabels;
   const toggleSOTAEff = useInternalMapLayers ? internalMap.toggleSOTA : toggleSOTA;
   const toggleSOTALabelsEff = useInternalMapLayers ? internalMap.toggleSOTALabels : toggleSOTALabels;
+  const toggleWWBOTAEff = useInternalMapLayers ? internalMap.toggleWWBOTA : toggleWWBOTA;
+  const toggleWWBOTALabelsEff = useInternalMapLayers ? internalMap.toggleWWBOTALabels : toggleWWBOTALabels;
   const toggleSatellitesEff = useInternalMapLayers ? internalMap.toggleSatellites : toggleSatellites;
   const togglePSKReporterEff = useInternalMapLayers ? internalMap.togglePSKReporter : togglePSKReporter;
   const toggleWSJTXEff = useInternalMapLayers ? internalMap.toggleWSJTX : toggleWSJTX;
@@ -175,6 +215,17 @@ export const DockableApp = ({
       localStorage.setItem('openhamclock_panelZoom', JSON.stringify(panelZoom));
     } catch {}
   }, [panelZoom]);
+
+  useEffect(() => {
+    const syncUnits = () => setEffectiveUnits(getEffectiveUnits(config?.units));
+    syncUnits();
+    window.addEventListener('storage', syncUnits);
+    window.addEventListener('openhamclock-config-change', syncUnits);
+    return () => {
+      window.removeEventListener('storage', syncUnits);
+      window.removeEventListener('openhamclock-config-change', syncUnits);
+    };
+  }, [config?.units]);
 
   const ZOOM_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.5, 1.75, 2.0];
   const adjustZoom = useCallback((component, delta) => {
@@ -238,6 +289,24 @@ export const DockableApp = ({
     });
   }, []);
 
+  // Block layout-altering actions when locked
+  const handleAction = useCallback(
+    (action) => {
+      if (layoutLocked) {
+        const blockedTypes = [
+          'FlexLayout_MoveNode',
+          'FlexLayout_AdjustSplit',
+          'FlexLayout_DeleteTab',
+          'FlexLayout_MaximizeToggle',
+          'FlexLayout_AdjustBorderSplit',
+        ];
+        if (blockedTypes.includes(action.type)) return undefined;
+      }
+      return action;
+    },
+    [layoutLocked],
+  );
+
   // Handle model changes with debounced save
   const handleModelChange = useCallback((newModel) => {
     setModel(newModel);
@@ -285,6 +354,7 @@ export const DockableApp = ({
       pota: { name: 'POTA', icon: '🏕️' },
       wwff: { name: 'WWFF', icon: '🌲' },
       sota: { name: 'SOTA', icon: '⛰️' },
+      wwbota: { name: 'WWBOTA', icon: '☢️' },
       aprs: { name: 'APRS', icon: '📍' },
       ...(isLocalInstall ? { rotator: { name: 'Rotator', icon: '🧭' } } : {}),
       contests: { name: 'Contests', icon: '🏆' },
@@ -334,88 +404,118 @@ export const DockableApp = ({
 
       <WeatherPanel
         weatherData={localWeather}
-        tempUnit={tempUnit}
-        onTempUnitChange={(unit) => {
-          setTempUnit(unit);
-          try {
-            localStorage.setItem('openhamclock_tempUnit', unit);
-          } catch {}
-        }}
+        units={config.units}
         nodeId={nodeId}
       />
     </div>
   );
 
   // Render DX Location panel
-  const renderDXLocation = (nodeId) => (
-    <div style={{ padding: '14px', height: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-        <div style={{ fontSize: '14px', color: 'var(--accent-green)', fontWeight: '700' }}>🎯 DX - TARGET</div>
-        {handleToggleDxLock && (
-          <button
-            onClick={handleToggleDxLock}
-            title={dxLocked ? 'Unlock DX position (allow map clicks)' : 'Lock DX position (prevent map clicks)'}
+  const renderDXLocation = (nodeId) => {
+    const spBearing = Math.round(
+      calculateBearing(config.location.lat, config.location.lon, dxLocation.lat, dxLocation.lon),
+    );
+    const lpBearing = (spBearing + 180) % 360;
+    const distanceKm = calculateDistance(config.location.lat, config.location.lon, dxLocation.lat, dxLocation.lon);
+
+    return (
+      <div style={{ padding: '14px', height: '100%', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+          <div style={{ fontSize: '14px', color: 'var(--accent-green)', fontWeight: '700' }}>🎯 DX - TARGET</div>
+          {handleToggleDxLock && (
+            <button
+              onClick={handleToggleDxLock}
+              title={dxLocked ? 'Unlock DX position (allow map clicks)' : 'Lock DX position (prevent map clicks)'}
+              style={{
+                background: dxLocked ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+                color: dxLocked ? '#000' : 'var(--text-secondary)',
+                border: '1px solid ' + (dxLocked ? 'var(--accent-amber)' : 'var(--border-color)'),
+                borderRadius: '4px',
+                padding: '2px 6px',
+                fontSize: '10px',
+                fontFamily: 'JetBrains Mono, monospace',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '3px',
+              }}
+            >
+              {dxLocked ? '🔒' : '🔓'}
+            </button>
+          )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+          <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px', flex: '1 1 auto', minWidth: 0 }}>
+            <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}>{dxGrid}</div>
+            {(() => {
+              const utcOffsetH = Math.round(dxLocation.lon / 15);
+              const localDxDate = new Date(currentTime.getTime() + utcOffsetH * 3600000);
+              const utcHh = String(currentTime.getUTCHours()).padStart(2, '0');
+              const utcMm = String(currentTime.getUTCMinutes()).padStart(2, '0');
+              const localHh = String(localDxDate.getUTCHours()).padStart(2, '0');
+              const localMm = String(localDxDate.getUTCMinutes()).padStart(2, '0');
+              const sign = utcOffsetH >= 0 ? '+' : '';
+              const isLocal = showDXLocalTime;
+              return (
+                <div style={{ color: 'var(--accent-cyan)', fontSize: '13px', marginTop: '2px' }}>
+                  {isLocal ? `${localHh}:${localMm}` : `${utcHh}:${utcMm}`}{' '}
+                  <span
+                    onClick={() => setShowDXLocalTime((prev) => !prev)}
+                    title={isLocal ? 'Show UTC time' : `Show local time at DX destination (UTC${sign}${utcOffsetH})`}
+                    style={{ color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', userSelect: 'none' }}
+                  >
+                    ({isLocal ? `Local UTC${sign}${utcOffsetH}` : 'UTC'}) ⇄
+                  </span>
+                </div>
+              );
+            })()}
+            <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
+              {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
+            </div>
+            <div style={{ marginTop: '8px', fontSize: '13px' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
+              <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{dxSunTimes.sunrise}</span>
+              <span style={{ color: 'var(--text-secondary)' }}> → </span>
+              <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
+            </div>
+          </div>
+
+          <div
             style={{
-              background: dxLocked ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
-              color: dxLocked ? '#000' : 'var(--text-secondary)',
-              border: '1px solid ' + (dxLocked ? 'var(--accent-amber)' : 'var(--border-color)'),
-              borderRadius: '4px',
-              padding: '2px 6px',
-              fontSize: '10px',
-              fontFamily: 'JetBrains Mono, monospace',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '3px',
+              borderLeft: '1px solid var(--border-color)',
+              paddingLeft: '12px',
+              flex: '0 0 auto',
             }}
           >
-            {dxLocked ? '🔒' : '🔓'}
-          </button>
-        )}
-      </div>
-      <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
-        <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}>{dxGrid}</div>
-        {(() => {
-          const utcOffsetH = Math.round(dxLocation.lon / 15);
-          const dxDate = new Date(currentTime.getTime() + utcOffsetH * 3600000);
-          const hh = String(dxDate.getUTCHours()).padStart(2, '0');
-          const mm = String(dxDate.getUTCMinutes()).padStart(2, '0');
-          const sign = utcOffsetH >= 0 ? '+' : '';
-          return (
-            <div style={{ color: 'var(--accent-cyan)', fontSize: '13px', marginTop: '2px' }}>
-              {hh}:{mm}{' '}
-              <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
-                (UTC{sign}
-                {utcOffsetH})
+            <div style={{ color: 'var(--text-secondary)', fontSize: '11px', marginBottom: '6px' }}>
+              {t?.('app.dxLocation.beamDir') || 'Beam Dir:'}
+            </div>
+            <div style={{ fontSize: '13px', marginBottom: '4px' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>{t?.('app.dxLocation.sp') || 'SP:'} </span>
+              <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{spBearing}°</span>
+            </div>
+            <div style={{ fontSize: '13px', marginBottom: '8px' }}>
+              <span style={{ color: 'var(--text-secondary)' }}>{t?.('app.dxLocation.lp') || 'LP:'} </span>
+              <span style={{ color: 'var(--accent-purple)', fontWeight: '700' }}>{lpBearing}°</span>
+            </div>
+            <div style={{ fontSize: '13px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
+              <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
+                📏 {formatDistance(distanceKm, effectiveUnits)}
               </span>
             </div>
-          );
-        })()}
-        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
-          {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
+          </div>
         </div>
-        <div style={{ marginTop: '8px', fontSize: '13px' }}>
-          <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{dxSunTimes.sunrise}</span>
-          <span style={{ color: 'var(--text-secondary)' }}> → </span>
-          <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
-        </div>
+
+        {showDxWeather && (
+          <WeatherPanel
+            weatherData={dxWeather}
+            units={config.units}
+            nodeId={nodeId}
+          />
+        )}
       </div>
-      {showDxWeather && (
-        <WeatherPanel
-          weatherData={dxWeather}
-          tempUnit={tempUnit}
-          onTempUnitChange={(unit) => {
-            setTempUnit(unit);
-            try {
-              localStorage.setItem('openhamclock_tempUnit', unit);
-            } catch {}
-          }}
-          nodeId={nodeId}
-        />
-      )}
-    </div>
-  );
+    );
+  };
 
   const rot = useRotator({
     mock: false,
@@ -457,6 +557,7 @@ export const DockableApp = ({
         potaSpots={potaSpots.data}
         wwffSpots={wwffSpots.data}
         sotaSpots={sotaSpots.data}
+        wwbotaSpots={wwbotaSpots.data}
         mySpots={mySpots.data}
         dxPaths={dxClusterData.paths}
         dxFilters={dxFilters}
@@ -474,6 +575,8 @@ export const DockableApp = ({
         showWWFFLabels={mapLayersEff.showWWFFLabels}
         showSOTA={mapLayersEff.showSOTA}
         showSOTALabels={mapLayersEff.showSOTALabels}
+        showWWBOTA={mapLayersEff.showWWBOTA}
+        showWWBOTALabels={mapLayersEff.showWWBOTALabels}
         showSatellites={mapLayersEff.showSatellites}
         onToggleSatellites={toggleSatellitesEff}
         showPSKReporter={mapLayersEff.showPSKReporter}
@@ -697,6 +800,23 @@ export const DockableApp = ({
           );
           break;
 
+        case 'wwbota':
+          content = (
+            <WWBOTAPanel
+              data={wwbotaSpots.data}
+              loading={wwbotaSpots.loading}
+              lastUpdated={wwbotaSpots.lastUpdated}
+              connected={wwbotaSpots.connected}
+              showOnMap={mapLayersEff.showWWBOTA}
+              onToggleMap={toggleWWBOTAEff}
+              onHoverSpot={setHoveredSpot}
+              showLabelsOnMap={mapLayersEff.showWWBOTALabels}
+              onToggleLabelsOnMap={toggleWWBOTALabelsEff}
+              onSpotClick={handleSpotClick}
+            />
+          );
+          break;
+
         case 'aprs':
           content = (
             <APRSPanel
@@ -728,13 +848,7 @@ export const DockableApp = ({
         case 'ambient':
           content = (
             <AmbientPanel
-              tempUnit={tempUnit}
-              onTempUnitChange={(unit) => {
-                setTempUnit(unit);
-                try {
-                  localStorage.setItem('openhamclock_tempUnit', unit);
-                } catch {}
-              }}
+              units={config.units}
             />
           );
           break;
@@ -775,7 +889,6 @@ export const DockableApp = ({
       deSunTimes,
       dxSunTimes,
       showDxWeather,
-      tempUnit,
       localWeather,
       dxWeather,
       solarIndices,
@@ -896,19 +1009,22 @@ export const DockableApp = ({
       renderValues.stickyButtons.push(
         <button
           key="add"
-          title="Add panel"
+          title={layoutLocked ? 'Unlock layout to add panels' : 'Add panel'}
           className="flexlayout__tab_toolbar_button"
+          disabled={layoutLocked}
           onClick={(e) => {
             e.stopPropagation();
+            if (layoutLocked) return;
             setTargetTabSetId(node.getId());
             setShowPanelPicker(true);
           }}
+          style={layoutLocked ? { opacity: 0.3, cursor: 'not-allowed' } : undefined}
         >
           <PlusIcon />
         </button>,
       );
     },
-    [panelZoom, adjustZoom, resetZoom],
+    [panelZoom, adjustZoom, resetZoom, layoutLocked],
   );
 
   // Get unused panels
@@ -957,6 +1073,38 @@ export const DockableApp = ({
         />
       </div>
 
+      {/* Dockable toolbar */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
+          padding: '2px 16px 0',
+        }}
+      >
+        <button
+          onClick={toggleLayoutLock}
+          title={
+            layoutLocked ? 'Unlock layout — allow drag, resize, and close' : 'Lock layout — prevent accidental changes'
+          }
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px',
+            background: layoutLocked ? 'rgba(255, 170, 0, 0.15)' : 'var(--bg-tertiary)',
+            border: `1px solid ${layoutLocked ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+            borderRadius: '4px',
+            padding: '3px 8px',
+            fontSize: '11px',
+            fontFamily: 'JetBrains Mono, monospace',
+            color: layoutLocked ? 'var(--accent-amber)' : 'var(--text-muted)',
+            cursor: 'pointer',
+          }}
+        >
+          {layoutLocked ? '🔒' : '🔓'} Layout {layoutLocked ? 'Locked' : 'Unlocked'}
+        </button>
+      </div>
+
       {/* Dockable Layout */}
       <div style={{ flex: 1, position: 'relative', padding: '8px', minHeight: 0 }}>
         <DockableLayoutProvider model={model}>
@@ -964,6 +1112,7 @@ export const DockableApp = ({
             ref={layoutRef}
             model={model}
             factory={factory}
+            onAction={handleAction}
             onModelChange={handleModelChange}
             onRenderTabSet={onRenderTabSet}
           />

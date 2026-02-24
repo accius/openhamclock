@@ -1,6 +1,10 @@
 services:
   openhamclock:
-    env_file: .env
+    env_file:
+      - path: stack.env
+        required: false
+      - path: .env
+        required: false
     build: .
     container_name: openhamclock
     ports:
