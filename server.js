@@ -2003,11 +2003,20 @@ app.get('/api/solar-indices', async (req, res) => {
         const recent = data.slice(-12);
         result.ssn.history = recent.map((d) => ({
           date: `${d['time-tag'] || d.time_tag || ''}`,
-          value: Math.round(d.ssn || 0),
+          // Prefer SIDC ssn; fall back to SWPC observed (more current)
+          value: Math.round(d.ssn ?? d.observed_swpc_ssn ?? 0),
         }));
-        // Only use monthly archive for current if we still don't have one
+        // Only use monthly archive for current if we still don't have one.
+        // Walk backward to find the most recent entry with a valid SSN
+        // (the last few months often have null SIDC values).
         if (result.ssn.current == null) {
-          result.ssn.current = result.ssn.history[result.ssn.history.length - 1]?.value || null;
+          for (let i = recent.length - 1; i >= 0; i--) {
+            const val = recent[i].ssn ?? recent[i].observed_swpc_ssn ?? null;
+            if (val != null && val > 0) {
+              result.ssn.current = Math.round(val);
+              break;
+            }
+          }
         }
       }
     }

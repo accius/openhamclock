@@ -32,7 +32,19 @@ export const useSpaceWeather = () => {
         }
         if (sunspotRes.status === 'fulfilled' && sunspotRes.value.ok) {
           const d = await sunspotRes.value.json();
-          if (d?.length) sunspotNumber = Math.round(d[d.length - 1].ssn || 0);
+          if (d?.length) {
+            // Walk backward to find the most recent entry with a valid SSN.
+            // The SIDC 'ssn' field is often null for the last few months
+            // because the monthly mean hasn't been finalized yet.
+            // Fall back to 'observed_swpc_ssn' (SWPC daily) if available.
+            for (let i = d.length - 1; i >= Math.max(0, d.length - 12); i--) {
+              const val = d[i].ssn ?? d[i].observed_swpc_ssn ?? null;
+              if (val != null && val > 0) {
+                sunspotNumber = Math.round(val);
+                break;
+              }
+            }
+          }
         }
 
         let conditions = 'UNKNOWN';
