@@ -1,7 +1,7 @@
 {
   "name": "openhamclock-rig-bridge",
-  "version": "1.0.0",
-  "description": "Standalone rig control bridge for OpenHamClock — connects directly to your radio via USB",
+  "version": "1.1.0",
+  "description": "Universal rig control bridge for OpenHamClock — plugin architecture supporting USB, flrig, rigctld, and more",
   "main": "rig-bridge.js",
   "bin": "rig-bridge.js",
   "scripts": {
@@ -14,13 +14,17 @@
     "build:all": "npm run build:win && npm run build:mac && npm run build:mac-arm && npm run build:linux && npm run build:linux-arm"
   },
   "pkg": {
-    "assets": [],
+    "assets": [
+      "core/**/*",
+      "plugins/**/*"
+    ],
     "outputPath": "dist"
   },
   "dependencies": {
-    "express": "^4.18.2",
     "cors": "^2.8.5",
-    "serialport": "^12.0.0"
+    "express": "^4.18.2",
+    "serialport": "^12.0.0",
+    "xmlrpc": "^1.3.2"
   },
   "devDependencies": {
     "pkg": "^5.8.1"
