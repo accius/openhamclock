@@ -417,7 +417,14 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
     if (!data?.cells?.length) return;
 
     const half = (data.gridSize || 10) / 2;
+    // Tiny overlap prevents sub-pixel rendering gaps between adjacent cells
+    // (anti-aliasing creates visible seams when rectangles share exact edges)
+    const overlap = 0.15;
     const newLayers = [];
+
+    // Use a shared canvas renderer for all cells — avoids SVG anti-aliasing
+    // seams and is significantly faster for hundreds of rectangles
+    const renderer = L.canvas({ padding: 0.5 });
 
     data.cells.forEach((cell) => {
       const color = reliabilityColor(cell.r);
@@ -426,8 +433,8 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
       // Create rectangles in 3 world copies for dateline support
       for (const offset of [-360, 0, 360]) {
         const bounds = [
-          [cell.lat - half, cell.lon - half + offset],
-          [cell.lat + half, cell.lon + half + offset],
+          [cell.lat - half - overlap, cell.lon - half - overlap + offset],
+          [cell.lat + half + overlap, cell.lon + half + overlap + offset],
         ];
 
         const rect = L.rectangle(bounds, {
@@ -437,6 +444,7 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
           weight: 0,
           interactive: false,
           bubblingMouseEvents: true,
+          renderer,
         });
 
         rect.addTo(map);
