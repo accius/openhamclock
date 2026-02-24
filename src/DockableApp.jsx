@@ -47,7 +47,9 @@ const getEffectiveUnits = (fallback = 'imperial') => {
         return parsed.units;
       }
     }
-  } catch {}
+  } catch (err) {
+    /* noop */ void err;
+  }
   return fallback === 'metric' || fallback === 'imperial' ? fallback : 'imperial';
 };
 
@@ -150,8 +152,11 @@ export const DockableApp = ({
   const layoutRef = useRef(null);
   const [model, setModel] = useState(() => Model.fromJson(loadLayout()));
   const [showPanelPicker, setShowPanelPicker] = useState(false);
+  const [panelPickerView, setPanelPickerView] = useState('switch'); // 'switch' | 'add'
+
   const [targetTabSetId, setTargetTabSetId] = useState(null);
   const saveTimeoutRef = useRef(null);
+  const allowMaximizeRef = useRef(false);
 
   // Layout lock — prevents accidental drag/resize/close of panels
   const [layoutLocked, setLayoutLocked] = useState(() => {
@@ -166,7 +171,9 @@ export const DockableApp = ({
       const next = !prev;
       try {
         localStorage.setItem('openhamclock_layoutLocked', String(next));
-      } catch {}
+      } catch (err) {
+        /* noop */ void err;
+      }
       return next;
     });
   }, []);
@@ -213,7 +220,9 @@ export const DockableApp = ({
   useEffect(() => {
     try {
       localStorage.setItem('openhamclock_panelZoom', JSON.stringify(panelZoom));
-    } catch {}
+    } catch (err) {
+      /* noop */ void err;
+    }
   }, [panelZoom]);
 
   useEffect(() => {
@@ -292,12 +301,22 @@ export const DockableApp = ({
   // Block layout-altering actions when locked
   const handleAction = useCallback(
     (action) => {
+      // Prevent FlexLayout's default dblclick-to-maximize behavior.
+      // We only allow maximize when our own drawer button requests it.
+      if (action?.type === 'FlexLayout_MaximizeToggle') {
+        if (allowMaximizeRef.current) {
+          allowMaximizeRef.current = false;
+          return action;
+        }
+        return undefined;
+      }
+
+      // Block layout-altering actions when locked
       if (layoutLocked) {
         const blockedTypes = [
           'FlexLayout_MoveNode',
           'FlexLayout_AdjustSplit',
           'FlexLayout_DeleteTab',
-          'FlexLayout_MaximizeToggle',
           'FlexLayout_AdjustBorderSplit',
         ];
         if (blockedTypes.includes(action.type)) return undefined;
@@ -365,22 +384,61 @@ export const DockableApp = ({
     };
   }, [isLocalInstall]);
 
-  // Add panel
+  // Add panel (force-select new tab so it becomes visible immediately)
   const handleAddPanel = useCallback(
     (panelId) => {
       if (!targetTabSetId || !panelDefs[panelId]) return;
+
+      const newTabId = `${panelId}-${Date.now()}`;
+
       model.doAction(
         Actions.addNode(
-          { type: 'tab', name: panelDefs[panelId].name, component: panelId, id: `${panelId}-${Date.now()}` },
+          { type: 'tab', name: panelDefs[panelId].name, component: panelId, id: newTabId },
           targetTabSetId,
           DockLocation.CENTER,
           -1,
           true,
         ),
       );
+
+      // Ensure the target tabset is the active one, then force-select the new tab.
+      const activateNewTab = () => {
+        try {
+          if (typeof Actions.setActiveTabset === 'function') {
+            model.doAction(Actions.setActiveTabset(targetTabSetId));
+          }
+        } catch (err) {
+          /* noop */ void err;
+        }
+        try {
+          model.doAction(Actions.selectTab(newTabId));
+        } catch (err) {
+          /* noop */ void err;
+        }
+      };
+
+      if (typeof requestAnimationFrame === 'function') {
+        requestAnimationFrame(activateNewTab);
+      } else {
+        setTimeout(activateNewTab, 0);
+      }
+
       setShowPanelPicker(false);
     },
     [model, targetTabSetId, panelDefs],
+  );
+
+  const handleSelectTab = useCallback(
+    (tabId) => {
+      if (!tabId) return;
+      try {
+        model.doAction(Actions.selectTab(tabId));
+      } catch (err) {
+        /* noop */ void err;
+      }
+      setShowPanelPicker(false);
+    },
+    [model],
   );
 
   // Render DE Location panel content
@@ -402,11 +460,7 @@ export const DockableApp = ({
         </div>
       </div>
 
-      <WeatherPanel
-        weatherData={localWeather}
-        units={config.units}
-        nodeId={nodeId}
-      />
+      <WeatherPanel weatherData={localWeather} units={config.units} nodeId={nodeId} />
     </div>
   );
 
@@ -506,13 +560,7 @@ export const DockableApp = ({
           </div>
         </div>
 
-        {showDxWeather && (
-          <WeatherPanel
-            weatherData={dxWeather}
-            units={config.units}
-            nodeId={nodeId}
-          />
-        )}
+        {showDxWeather && <WeatherPanel weatherData={dxWeather} units={config.units} nodeId={nodeId} />}
       </div>
     );
   };
@@ -846,11 +894,7 @@ export const DockableApp = ({
           );
 
         case 'ambient':
-          content = (
-            <AmbientPanel
-              units={config.units}
-            />
-          );
+          content = <AmbientPanel units={config.units} />;
           break;
 
         case 'rig-control':
@@ -932,23 +976,91 @@ export const DockableApp = ({
   );
 
   // Add + and font size buttons to tabsets
+
+  // Minimal Tabset toolbar:
+  // - No custom tabs UI in the header (tabs hidden in CSS)
+  // - Drawer is CSS-hover only (no JS pin/toggle)
+  // - Tools live in renderValues.buttons (drawer row)
   const onRenderTabSet = useCallback(
     (node, renderValues) => {
-      // Get the active tab's component name for zoom controls
       const selectedNode = node.getSelectedNode?.();
       const selectedComponent = selectedNode?.getComponent?.();
 
-      // Skip zoom controls for world-map
+      // Kill any default header-row icons (close, maximize, overflow, etc.)
+      // Everything lives in the hover-drawer row.
+      renderValues.stickyButtons = [];
+      renderValues.buttons = [];
+
+      const addDrawerBtn = (btn) => renderValues.buttons.push(btn);
+
+      const cycleTab = (delta) => {
+        try {
+          const tabs = node.getChildren?.() || [];
+          if (tabs.length < 2) return;
+
+          const selectedId = selectedNode?.getId?.();
+          let idx = tabs.findIndex((t) => t.getId?.() === selectedId);
+          if (idx < 0) idx = 0;
+
+          const nextIdx = (idx + delta + tabs.length) % tabs.length;
+          const nextId = tabs[nextIdx]?.getId?.();
+          if (nextId) model.doAction(Actions.selectTab(nextId));
+        } catch (err) {
+          /* noop */ void err;
+        }
+      };
+
+      // Header-as-button: when drawer is open (hover), let users click anywhere on the header to cycle tabs.
+      // Click = next tab, Shift+Click = previous tab.
+      // Z-index in CSS keeps drawer buttons clickable above this hit-area.
+      renderValues.stickyButtons.push(
+        <button
+          key="ohc-header-cycle"
+          type="button"
+          className="ohc-header-cycle-hitarea"
+          title="Click to cycle panels (Shift = previous)"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            cycleTab(e.shiftKey ? -1 : 1);
+          }}
+          onDoubleClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+        />,
+      );
+
+      // Panels (drawer) — opens the React panel picker for this tabset
+      addDrawerBtn(
+        <button
+          key="ohc-panels"
+          title="Panels"
+          className="flexlayout__tab_toolbar_button ohc-drawer-tool"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setTargetTabSetId(node.getId());
+            setPanelPickerView('switch');
+            setShowPanelPicker(true);
+          }}
+        >
+          ▦
+        </button>,
+      );
+
+      // Zoom controls (skip world-map)
       if (selectedComponent && selectedComponent !== 'world-map') {
         const currentZoom = panelZoom[selectedComponent] || 1.0;
         const zoomPct = Math.round(currentZoom * 100);
 
-        renderValues.stickyButtons.push(
+        addDrawerBtn(
           <button
             key="zoom-out"
             title="Decrease font size"
-            className="flexlayout__tab_toolbar_button"
-            onClick={(e) => {
+            className="flexlayout__tab_toolbar_button ohc-drawer-tool"
+            onMouseDown={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               adjustZoom(selectedComponent, -1);
             }}
@@ -963,20 +1075,22 @@ export const DockableApp = ({
             A−
           </button>,
         );
+
         if (currentZoom !== 1.0) {
-          renderValues.stickyButtons.push(
+          addDrawerBtn(
             <button
               key="zoom-reset"
               title="Reset font size"
-              className="flexlayout__tab_toolbar_button"
-              onClick={(e) => {
+              className="flexlayout__tab_toolbar_button ohc-drawer-tool"
+              onMouseDown={(e) => {
+                e.preventDefault();
                 e.stopPropagation();
                 resetZoom(selectedComponent);
               }}
               style={{
                 fontSize: '9px',
                 fontFamily: 'JetBrains Mono, monospace',
-                padding: '0 2px',
+                padding: '0 6px',
                 color: 'var(--accent-amber)',
               }}
             >
@@ -984,12 +1098,14 @@ export const DockableApp = ({
             </button>,
           );
         }
-        renderValues.stickyButtons.push(
+
+        addDrawerBtn(
           <button
             key="zoom-in"
             title="Increase font size"
-            className="flexlayout__tab_toolbar_button"
-            onClick={(e) => {
+            className="flexlayout__tab_toolbar_button ohc-drawer-tool"
+            onMouseDown={(e) => {
+              e.preventDefault();
               e.stopPropagation();
               adjustZoom(selectedComponent, 1);
             }}
@@ -1006,28 +1122,52 @@ export const DockableApp = ({
         );
       }
 
-      renderValues.stickyButtons.push(
+      // Maximize (drawer) — explicitly allowed (blocks dblclick maximize)
+      addDrawerBtn(
         <button
-          key="add"
-          title={layoutLocked ? 'Unlock layout to add panels' : 'Add panel'}
-          className="flexlayout__tab_toolbar_button"
-          disabled={layoutLocked}
-          onClick={(e) => {
+          key="maximize"
+          title="Maximize panel"
+          className="flexlayout__tab_toolbar_button ohc-drawer-tool"
+          onMouseDown={(e) => {
+            e.preventDefault();
             e.stopPropagation();
-            if (layoutLocked) return;
-            setTargetTabSetId(node.getId());
-            setShowPanelPicker(true);
+            try {
+              allowMaximizeRef.current = true;
+              model.doAction(Actions.maximizeToggle(node.getId()));
+            } catch (err) {
+              /* noop */ void err;
+            }
           }}
-          style={layoutLocked ? { opacity: 0.3, cursor: 'not-allowed' } : undefined}
         >
-          <PlusIcon />
+          ⛶
+        </button>,
+      );
+
+      // Close (drawer) — closes the currently selected tab in this tabset
+      addDrawerBtn(
+        <button
+          key="close"
+          title="Close panel"
+          className="flexlayout__tab_toolbar_button ohc-drawer-tool"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            try {
+              const tabId = selectedNode?.getId?.();
+              if (!tabId) return;
+              model.doAction(Actions.deleteTab(tabId));
+            } catch (err) {
+              /* noop */ void err;
+            }
+          }}
+        >
+          ✕
         </button>,
       );
     },
-    [panelZoom, adjustZoom, resetZoom, layoutLocked],
+    [model, panelZoom, adjustZoom, resetZoom],
   );
 
-  // Get unused panels
   const getAvailablePanels = useCallback(() => {
     const used = new Set();
     const walk = (n) => {
@@ -1136,78 +1276,218 @@ export const DockableApp = ({
           <div
             style={{
               background: 'rgba(26,32,44,0.98)',
-              border: '1px solid #2d3748',
-              borderRadius: '12px',
-              padding: '20px',
-              minWidth: '350px',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 16,
+              padding: 18,
+              width: 380,
+              maxWidth: '88vw',
+              boxShadow: '0 18px 60px rgba(0,0,0,0.55)',
+              backdropFilter: 'blur(10px)',
             }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 style={{ margin: '0 0 16px', color: '#00ffcc', fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
-              Add Panel
-            </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              {(() => {
-                const panels = getAvailablePanels();
-                const ungrouped = panels.filter((p) => !p.group);
-                const groups = {};
-                panels
-                  .filter((p) => p.group)
-                  .forEach((p) => {
-                    if (!groups[p.group]) groups[p.group] = [];
-                    groups[p.group].push(p);
-                  });
-                return (
-                  <>
-                    {ungrouped.map((p) => (
-                      <button
-                        key={p.id}
-                        onClick={() => handleAddPanel(p.id)}
-                        style={{
-                          background: 'rgba(0,0,0,0.3)',
-                          border: '1px solid #2d3748',
-                          borderRadius: '6px',
-                          padding: '10px',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.borderColor = '#00ffcc';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.borderColor = '#2d3748';
-                        }}
-                      >
-                        <span style={{ fontSize: '16px', marginRight: '8px' }}>{p.icon}</span>
-                        <span style={{ color: '#e2e8f0', fontFamily: 'JetBrains Mono', fontSize: '12px' }}>
-                          {p.name}
-                        </span>
-                      </button>
-                    ))}
-                    {Object.entries(groups).map(([group, items]) => (
-                      <React.Fragment key={group}>
-                        <div
-                          style={{
-                            gridColumn: '1 / -1',
-                            fontSize: '10px',
-                            color: '#718096',
-                            fontFamily: 'JetBrains Mono',
-                            marginTop: '6px',
-                            borderTop: '1px solid #2d3748',
-                            paddingTop: '8px',
-                          }}
-                        >
-                          {group} Sub-panels
-                        </div>
-                        {items.map((p) => (
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+              <button
+                onClick={() => setPanelPickerView('switch')}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  border: '1px solid #2d3748',
+                  background: panelPickerView === 'switch' ? 'rgba(0,255,204,0.12)' : 'rgba(0,0,0,0.25)',
+                  color: panelPickerView === 'switch' ? '#00ffcc' : '#cbd5e0',
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                Panels
+              </button>
+              <button
+                onClick={() => setPanelPickerView('add')}
+                style={{
+                  padding: '6px 10px',
+                  borderRadius: 8,
+                  border: '1px solid #2d3748',
+                  background: panelPickerView === 'add' ? 'rgba(0,255,204,0.12)' : 'rgba(0,0,0,0.25)',
+                  color: panelPickerView === 'add' ? '#00ffcc' : '#cbd5e0',
+                  fontFamily: 'JetBrains Mono',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                Add
+              </button>
+            </div>
+
+            {panelPickerView === 'switch' ? (
+              <>
+                <h3
+                  style={{
+                    margin: '0 0 14px',
+                    color: '#00ffcc',
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: '14px',
+                  }}
+                >
+                  Switch Panels
+                </h3>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 8 }}>
+                  {(() => {
+                    try {
+                      const tabset = targetTabSetId ? model.getNodeById(targetTabSetId) : null;
+                      const tabs = tabset?.getChildren?.() || [];
+                      if (!tabs.length) {
+                        return (
+                          <div
+                            style={{
+                              color: '#a0aec0',
+                              fontFamily: 'JetBrains Mono',
+                              fontSize: 12,
+                              padding: '8px 2px',
+                            }}
+                          >
+                            No panels in this stack.
+                          </div>
+                        );
+                      }
+                      return tabs.map((tab) => {
+                        const tabId = tab.getId?.();
+                        const name = tab.getName?.() || tab.getComponent?.() || 'Panel';
+                        const sub = tab.getComponent?.() || '';
+                        return (
+                          <div
+                            key={tabId}
+                            style={{
+                              position: 'relative',
+                              background: 'rgba(0,0,0,0.25)',
+                              border: '1px solid #2d3748',
+                              borderRadius: 10,
+                              padding: '12px 40px 12px 40px', // symmetric padding
+                            }}
+                            onMouseEnter={(e) => {
+                              e.currentTarget.style.borderColor = '#00ffcc';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = '#2d3748';
+                            }}
+                          >
+                            {/* Centered content */}
+                            <button
+                              onClick={() => handleSelectTab(tabId)}
+                              style={{
+                                width: '100%',
+                                background: 'transparent',
+                                border: 0,
+                                padding: 0,
+                                cursor: 'pointer',
+                                textAlign: 'center',
+                              }}
+                            >
+                              <div
+                                style={{
+                                  color: '#e2e8f0',
+                                  fontFamily: 'JetBrains Mono',
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                {name}
+                              </div>
+                              <div
+                                style={{
+                                  color: '#718096',
+                                  fontFamily: 'JetBrains Mono',
+                                  fontSize: 10,
+                                  marginTop: 3,
+                                }}
+                              >
+                                {sub}
+                              </div>
+                            </button>
+
+                            {/* Floating close button */}
+                            <button
+                              title="Close panel"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                try {
+                                  model.doAction(Actions.deleteTab(tabId));
+                                } catch (err) {
+                                  /* noop */ void err;
+                                }
+                              }}
+                              style={{
+                                position: 'absolute',
+                                right: 12,
+                                top: '50%',
+                                transform: 'translateY(-50%)',
+                                width: 26,
+                                height: 26,
+                                display: 'grid',
+                                placeItems: 'center',
+                                borderRadius: 8,
+                                border: '1px solid #2d3748',
+                                background: 'rgba(0,0,0,0.25)',
+                                color: '#cbd5e0',
+                                cursor: 'pointer',
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = '#ff6b6b';
+                                e.currentTarget.style.color = '#ff6b6b';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = '#2d3748';
+                                e.currentTarget.style.color = '#cbd5e0';
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      });
+                    } catch {
+                      return null;
+                    }
+                  })()}
+                </div>
+              </>
+            ) : (
+              <>
+                <h3
+                  style={{
+                    margin: '0 0 16px',
+                    color: '#00ffcc',
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: '14px',
+                  }}
+                >
+                  Add Panel
+                </h3>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {(() => {
+                    const panels = getAvailablePanels();
+                    const ungrouped = panels.filter((p) => !p.group);
+                    const groups = {};
+                    panels
+                      .filter((p) => p.group)
+                      .forEach((p) => {
+                        if (!groups[p.group]) groups[p.group] = [];
+                        groups[p.group].push(p);
+                      });
+                    return (
+                      <>
+                        {ungrouped.map((p) => (
                           <button
                             key={p.id}
                             onClick={() => handleAddPanel(p.id)}
                             style={{
-                              background: 'rgba(0,0,0,0.2)',
+                              background: 'rgba(0,0,0,0.3)',
                               border: '1px solid #2d3748',
                               borderRadius: '6px',
-                              padding: '8px 10px',
+                              padding: '10px',
                               cursor: 'pointer',
                               textAlign: 'left',
                             }}
@@ -1218,18 +1498,61 @@ export const DockableApp = ({
                               e.currentTarget.style.borderColor = '#2d3748';
                             }}
                           >
-                            <span style={{ fontSize: '14px', marginRight: '6px' }}>{p.icon}</span>
-                            <span style={{ color: '#cbd5e0', fontFamily: 'JetBrains Mono', fontSize: '11px' }}>
+                            <span style={{ fontSize: '16px', marginRight: '8px' }}>{p.icon}</span>
+                            <span style={{ color: '#e2e8f0', fontFamily: 'JetBrains Mono', fontSize: '12px' }}>
                               {p.name}
                             </span>
                           </button>
                         ))}
-                      </React.Fragment>
-                    ))}
-                  </>
-                );
-              })()}
-            </div>
+                        {Object.entries(groups).map(([group, items]) => (
+                          <React.Fragment key={group}>
+                            <div
+                              style={{
+                                gridColumn: '1 / -1',
+                                fontSize: '10px',
+                                color: '#718096',
+                                fontFamily: 'JetBrains Mono',
+                                marginTop: '6px',
+                                borderTop: '1px solid #2d3748',
+                                paddingTop: '8px',
+                              }}
+                            >
+                              {group} Sub-panels
+                            </div>
+                            {items.map((p) => (
+                              <button
+                                key={p.id}
+                                onClick={() => handleAddPanel(p.id)}
+                                style={{
+                                  background: 'rgba(0,0,0,0.2)',
+                                  border: '1px solid #2d3748',
+                                  borderRadius: '6px',
+                                  padding: '8px 10px',
+                                  cursor: 'pointer',
+                                  textAlign: 'left',
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.borderColor = '#00ffcc';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.borderColor = '#2d3748';
+                                }}
+                              >
+                                <span style={{ fontSize: '14px', marginRight: '8px' }}>{p.icon}</span>
+                                <span style={{ color: '#e2e8f0', fontFamily: 'JetBrains Mono', fontSize: '12px' }}>
+                                  {p.name}
+                                </span>
+                              </button>
+                            ))}
+                          </React.Fragment>
+                        ))}
+                      </>
+                    );
+                  })()}
+                </div>
+              </>
+            )}
+
             {getAvailablePanels().length === 0 && (
               <div style={{ color: '#718096', textAlign: 'center', padding: '20px' }}>All panels visible</div>
             )}
