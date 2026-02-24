@@ -22,6 +22,7 @@ import {
   PSKReporterPanel,
   WeatherPanel,
   AnalogClockPanel,
+  DXLocalTime,
 } from '../components';
 import { useRig } from '../contexts/RigContext.jsx';
 import { calculateDistance, formatDistance } from '../utils/geo.js';
@@ -200,7 +201,7 @@ export default function ModernLayout(props) {
         <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>
           {deGrid}
         </div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '8px' }}>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
           {config.location.lat.toFixed(4)}°, {config.location.lon.toFixed(4)}°
         </div>
         <div style={{ marginTop: '8px', fontSize: '13px' }}>
@@ -241,28 +242,13 @@ export default function ModernLayout(props) {
         <div style={{ color: 'var(--accent-green)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>
           {dxGrid}
         </div>
-        {(() => {
-          const utcOffsetH = Math.round(dxLocation.lon / 15);
-          const localDxDate = new Date(currentTime.getTime() + utcOffsetH * 3600000);
-          const utcHh = String(currentTime.getUTCHours()).padStart(2, '0');
-          const utcMm = String(currentTime.getUTCMinutes()).padStart(2, '0');
-          const localHh = String(localDxDate.getUTCHours()).padStart(2, '0');
-          const localMm = String(localDxDate.getUTCMinutes()).padStart(2, '0');
-          const sign = utcOffsetH >= 0 ? '+' : '';
-          const isLocal = showDXLocalTime;
-          return (
-            <div style={{ color: 'var(--accent-cyan)', fontSize: '13px', marginTop: '8px' }}>
-              {isLocal ? `${localHh}:${localMm}` : `${utcHh}:${utcMm}`}{' '}
-              <span
-                onClick={() => setShowDXLocalTime((prev) => !prev)}
-                title={isLocal ? 'Show UTC time' : `Show local time at DX destination (UTC${sign}${utcOffsetH})`}
-                style={{ color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', userSelect: 'none' }}
-              >
-                ({isLocal ? `Local UTC${sign}${utcOffsetH}` : 'UTC'}) ⇄
-              </span>
-            </div>
-          );
-        })()}
+        <DXLocalTime
+          currentTime={currentTime}
+          dxLocation={dxLocation}
+          isLocal={showDXLocalTime}
+          onToggle={() => setShowDXLocalTime((prev) => !prev)}
+          marginTop="8px"
+        />
         <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '8px' }}>
           {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
         </div>

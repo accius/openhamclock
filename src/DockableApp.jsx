@@ -28,6 +28,7 @@ import {
   RigControlPanel,
   OnAirPanel,
   IDTimerPanel,
+  DXLocalTime,
 } from './components';
 
 import { loadLayout, saveLayout } from './store/layoutStore.js';
@@ -416,11 +417,7 @@ export const DockableApp = ({
         </div>
       </div>
 
-      <WeatherPanel
-        weatherData={localWeather}
-        units={config.units}
-        nodeId={nodeId}
-      />
+      <WeatherPanel weatherData={localWeather} units={config.units} nodeId={nodeId} />
     </div>
   );
 
@@ -461,28 +458,13 @@ export const DockableApp = ({
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px', flex: '1 1 auto', minWidth: 0 }}>
             <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}>{dxGrid}</div>
-            {(() => {
-              const utcOffsetH = Math.round(dxLocation.lon / 15);
-              const localDxDate = new Date(currentTime.getTime() + utcOffsetH * 3600000);
-              const utcHh = String(currentTime.getUTCHours()).padStart(2, '0');
-              const utcMm = String(currentTime.getUTCMinutes()).padStart(2, '0');
-              const localHh = String(localDxDate.getUTCHours()).padStart(2, '0');
-              const localMm = String(localDxDate.getUTCMinutes()).padStart(2, '0');
-              const sign = utcOffsetH >= 0 ? '+' : '';
-              const isLocal = showDXLocalTime;
-              return (
-                <div style={{ color: 'var(--accent-cyan)', fontSize: '13px', marginTop: '2px' }}>
-                  {isLocal ? `${localHh}:${localMm}` : `${utcHh}:${utcMm}`}{' '}
-                  <span
-                    onClick={() => setShowDXLocalTime((prev) => !prev)}
-                    title={isLocal ? 'Show UTC time' : `Show local time at DX destination (UTC${sign}${utcOffsetH})`}
-                    style={{ color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', userSelect: 'none' }}
-                  >
-                    ({isLocal ? `Local UTC${sign}${utcOffsetH}` : 'UTC'}) ⇄
-                  </span>
-                </div>
-              );
-            })()}
+            <DXLocalTime
+              currentTime={currentTime}
+              dxLocation={dxLocation}
+              isLocal={showDXLocalTime}
+              onToggle={() => setShowDXLocalTime((prev) => !prev)}
+              marginTop="2px"
+            />
             <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
               {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
             </div>
@@ -520,13 +502,7 @@ export const DockableApp = ({
           </div>
         </div>
 
-        {showDxWeather && (
-          <WeatherPanel
-            weatherData={dxWeather}
-            units={config.units}
-            nodeId={nodeId}
-          />
-        )}
+        {showDxWeather && <WeatherPanel weatherData={dxWeather} units={config.units} nodeId={nodeId} />}
       </div>
     );
   };
@@ -875,11 +851,7 @@ export const DockableApp = ({
           );
 
         case 'ambient':
-          content = (
-            <AmbientPanel
-              units={config.units}
-            />
-          );
+          content = <AmbientPanel units={config.units} />;
           break;
 
         case 'rig-control':
