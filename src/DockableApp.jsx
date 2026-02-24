@@ -28,6 +28,7 @@ import {
   RigControlPanel,
   OnAirPanel,
   IDTimerPanel,
+  ImagePanel,
 } from './components';
 
 import { loadLayout, saveLayout } from './store/layoutStore.js';
@@ -125,7 +126,6 @@ export const DockableApp = ({
   toggleWWBOTALabels,
   toggleSatellites,
   togglePSKReporter,
-  togglePSKPaths,
   toggleWSJTX,
   toggleAPRS,
   toggleRotatorBearing,
@@ -197,7 +197,6 @@ export const DockableApp = ({
   const toggleWWBOTALabelsEff = useInternalMapLayers ? internalMap.toggleWWBOTALabels : toggleWWBOTALabels;
   const toggleSatellitesEff = useInternalMapLayers ? internalMap.toggleSatellites : toggleSatellites;
   const togglePSKReporterEff = useInternalMapLayers ? internalMap.togglePSKReporter : togglePSKReporter;
-  const togglePSKPathsEff = useInternalMapLayers ? internalMap.togglePSKPaths : togglePSKPaths;
   const toggleWSJTXEff = useInternalMapLayers ? internalMap.toggleWSJTX : toggleWSJTX;
   const toggleRotatorBearingEff = useInternalMapLayers ? internalMap.toggleRotatorBearing : toggleRotatorBearing;
   const toggleAPRSEff = useInternalMapLayers ? internalMap.toggleAPRS : toggleAPRS;
@@ -364,6 +363,7 @@ export const DockableApp = ({
       'rig-control': { name: 'Rig Control', icon: '📻' },
       'on-air': { name: 'On Air', icon: '🔴' },
       'id-timer': { name: 'ID Timer', icon: '📢' },
+      'custom-image': { name: 'Custom Image', icon: '🖼️' },
     };
   }, [isLocalInstall]);
 
@@ -582,7 +582,6 @@ export const DockableApp = ({
         showSatellites={mapLayersEff.showSatellites}
         onToggleSatellites={toggleSatellitesEff}
         showPSKReporter={mapLayersEff.showPSKReporter}
-        showPSKPaths={mapLayersEff.showPSKPaths}
         showWSJTX={mapLayersEff.showWSJTX}
         showDXNews={mapLayersEff.showDXNews}
         showAPRS={mapLayersEff.showAPRS}
@@ -729,8 +728,6 @@ export const DockableApp = ({
               pskReporter={pskReporter}
               showOnMap={mapLayersEff.showPSKReporter}
               onToggleMap={togglePSKReporterEff}
-              showPaths={mapLayersEff.showPSKPaths}
-              onTogglePaths={togglePSKPathsEff}
               filters={pskFilters}
               onOpenFilters={() => setShowPSKFilters(true)}
               onSpotClick={handleSpotClick}
@@ -870,6 +867,10 @@ export const DockableApp = ({
           content = <IDTimerPanel callsign={config.callsign} />;
           break;
 
+        case 'custom-image':
+          content = <ImagePanel />;
+          break;
+
         default:
           content = (
             <div style={{ padding: '20px', color: '#ff6b6b', textAlign: 'center' }}>
@@ -929,7 +930,6 @@ export const DockableApp = ({
       toggleSOTA,
       toggleSatellites,
       togglePSKReporter,
-      togglePSKPaths,
       toggleWSJTX,
       dxLocked,
       handleToggleDxLock,
