@@ -39,37 +39,52 @@ const BANDS = [
 // Reliability to color: HamClock-style wide spectrum
 // magenta (0%) → red → orange → yellow → green (100%)
 function reliabilityColor(r) {
-  // Poor (< 15%) — no overlay; let the map show through
-  if (r < 15) return null;
-  if (r >= 99) return 'rgba(0,220,0,0.85)';
+  if (r >= 99) return { color: 'rgb(0,220,0)', alpha: 0.85 };
 
-  let red, green, blue;
-  if (r < 30) {
-    // Low: Red-Orange (15–30%)
-    const t = (r - 15) / 15;
-    red = 255;
-    green = Math.round(t * 100);
+  let red, green, blue, alpha;
+  if (r < 10) {
+    // Very poor: subtle dark blue-gray tint so map stays visible
+    red = 40;
+    green = 30;
+    blue = 80;
+    alpha = 0.25;
+  } else if (r < 25) {
+    // Poor: dark red-purple, fading in
+    const t = (r - 10) / 15;
+    red = 40 + Math.round(t * 180);
+    green = 30;
+    blue = 80 - Math.round(t * 80);
+    alpha = 0.25 + t * 0.35;
+  } else if (r < 40) {
+    // Low: Red → Orange
+    const t = (r - 25) / 15;
+    red = 220 + Math.round(t * 35);
+    green = Math.round(t * 120);
     blue = 0;
-  } else if (r < 50) {
-    // Fair-Low: Orange → Yellow (30–50%)
-    const t = (r - 30) / 20;
+    alpha = 0.6 + t * 0.15;
+  } else if (r < 60) {
+    // Fair: Orange → Yellow
+    const t = (r - 40) / 20;
     red = 255;
-    green = 100 + Math.round(t * 155);
+    green = 120 + Math.round(t * 135);
     blue = 0;
-  } else if (r < 70) {
-    // Fair: Yellow → Yellow-Green (50–70%)
-    const t = (r - 50) / 20;
-    red = 255 - Math.round(t * 130);
+    alpha = 0.75 + t * 0.05;
+  } else if (r < 80) {
+    // Good: Yellow → Yellow-Green
+    const t = (r - 60) / 20;
+    red = 255 - Math.round(t * 140);
     green = 255;
     blue = 0;
+    alpha = 0.8;
   } else {
-    // Good: Yellow-Green → Green (70–100%)
-    const t = (r - 70) / 30;
-    red = 125 - Math.round(t * 125);
+    // Excellent: Yellow-Green → Green
+    const t = (r - 80) / 20;
+    red = 115 - Math.round(t * 115);
     green = 220 + Math.round(t * 35);
     blue = 0;
+    alpha = 0.85;
   }
-  return `rgba(${red},${green},${blue},0.85)`;
+  return { color: `rgb(${red},${green},${blue})`, alpha };
 }
 
 
@@ -285,7 +300,7 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
                 display: flex; justify-content: space-between; align-items: center;
                 background: rgba(0,0,0,0.3); border-radius: 4px; padding: 4px 6px;
               ">
-                <span style="display: inline-block; width: 12px; height: 12px; background: repeating-linear-gradient(45deg, transparent, transparent 2px, rgba(255,255,255,0.2) 2px, rgba(255,255,255,0.2) 4px); border: 1px solid rgba(255,255,255,0.3); border-radius: 2px;" title="No overlay"></span>
+                <span style="display: inline-block; width: 12px; height: 12px; background: rgba(40,30,80,0.5); border-radius: 2px;" title="< 10% reliability"></span>
                 <span style="color: #888; font-size: 9px;">Poor</span>
                 <span style="display: inline-block; width: 12px; height: 12px; background: rgba(255,80,0,0.9); border-radius: 2px;"></span>
                 <span style="color: #888; font-size: 9px;">Low</span>
@@ -412,9 +427,6 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
     if (!data?.cells?.length) return;
 
     const half = (data.gridSize || 10) / 2;
-    // Tiny overlap prevents sub-pixel rendering gaps between adjacent cells
-    // (anti-aliasing creates visible seams when rectangles share exact edges)
-    const overlap = 0.15;
     const newLayers = [];
 
     // Use a shared canvas renderer for all cells — avoids SVG anti-aliasing
@@ -422,25 +434,23 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
     const renderer = L.canvas({ padding: 0.5 });
 
     data.cells.forEach((cell) => {
-      const color = reliabilityColor(cell.r);
-      if (!color) return; // Poor — no overlay
+      const { color, alpha } = reliabilityColor(cell.r);
       const band = BANDS[selectedBand];
 
-      // Fade opacity near the poor threshold for smooth visual edges
-      // instead of hard color-to-transparent cutoffs at grid boundaries
-      const cellOpacity = cell.r < 30 ? opacity * ((cell.r - 15) / 15) : opacity;
+      // Scale alpha by the user opacity slider (slider default 0.6 = 60%)
+      const cellAlpha = alpha * (opacity / 0.6);
 
       // Create rectangles in 3 world copies for dateline support
       for (const offset of [-360, 0, 360]) {
         const bounds = [
-          [cell.lat - half - overlap, cell.lon - half - overlap + offset],
-          [cell.lat + half + overlap, cell.lon + half + overlap + offset],
+          [cell.lat - half, cell.lon - half + offset],
+          [cell.lat + half, cell.lon + half + offset],
         ];
 
         const rect = L.rectangle(bounds, {
           stroke: false,
           fillColor: color,
-          fillOpacity: cellOpacity,
+          fillOpacity: Math.min(1, cellAlpha),
           weight: 0,
           interactive: false,
           bubblingMouseEvents: true,
