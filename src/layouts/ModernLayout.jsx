@@ -9,6 +9,7 @@
  * Tablet (768–1024):  Header | Map (full width) | Panels in 2-col grid
  * Mobile (<768):      Compact header | Map | Panels stacked one per row, scroll
  */
+import { useState } from 'react';
 import {
   Header,
   WorldMap,
@@ -21,6 +22,7 @@ import {
   PSKReporterPanel,
   WeatherPanel,
   AnalogClockPanel,
+  DXLocalTime,
 } from '../components';
 import { useRig } from '../contexts/RigContext.jsx';
 import { calculateDistance, formatDistance } from '../utils/geo.js';
@@ -115,6 +117,7 @@ export default function ModernLayout(props) {
 
   const { tuneTo } = useRig();
   const { breakpoint } = useBreakpoint();
+  const [showDXLocalTime, setShowDXLocalTime] = useState(false);
   const isMobile = breakpoint === 'mobile';
   const isTablet = breakpoint === 'tablet';
 
@@ -239,7 +242,14 @@ export default function ModernLayout(props) {
         <div style={{ color: 'var(--accent-green)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>
           {dxGrid}
         </div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
+        <DXLocalTime
+          currentTime={currentTime}
+          dxLocation={dxLocation}
+          isLocal={showDXLocalTime}
+          onToggle={() => setShowDXLocalTime((prev) => !prev)}
+          marginTop="8px"
+        />
+        <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '8px' }}>
           {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
         </div>
         <div style={{ marginTop: '8px', display: 'flex', gap: '16px', fontSize: '13px' }}>

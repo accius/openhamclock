@@ -35,3 +35,4 @@ export { IDTimerPanel } from './IDTimerPanel.jsx';
 export { ImagePanel } from './ImagePanel.jsx';
 export { default as RotatorPanel } from './RotatorPanel.jsx';
 export { default as RotatorMapOverlay } from './RotatorMapOverlay.jsx';
+export { DXLocalTime } from './DXLocalTime.jsx';
