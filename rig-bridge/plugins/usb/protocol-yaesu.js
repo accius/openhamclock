@@ -50,11 +50,11 @@ const MODE_ALIASES = {
 };
 
 function poll(serialWrite) {
-  // FA = read VFO-A freq, MD0 = read main mode
-  // More reliable across models than IF which varies in format
-  serialWrite('FA;');
-  // Stagger mode query slightly to avoid buffer collisions
-  setTimeout(() => serialWrite('MD0;'), 50);
+  // IF; returns frequency + mode + PTT + VFO state in a single response,
+  // universally supported across all FT-series radios (FT-991A, FT-891, FT-710,
+  // FT-DX10, etc.). Using a single command avoids the timing issues of sending
+  // FA; and MD0; separately and gives us PTT state for free too.
+  serialWrite('IF;');
 }
 
 function parse(resp, updateState, getState) {
@@ -99,6 +99,12 @@ function parse(resp, updateState, getState) {
     case 'TX':
     case 'RX': {
       updateState('ptt', cmd === 'TX');
+      break;
+    }
+    default: {
+      // Log unrecognised responses — e.g. '?' means the radio rejected the command
+      // (wrong baud rate, CAT not enabled, or unsupported command for this model)
+      if (resp.trim()) console.log(`[Yaesu] Unrecognised response: "${resp.trim()}"`);
       break;
     }
   }

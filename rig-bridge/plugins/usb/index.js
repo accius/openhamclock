@@ -81,14 +81,16 @@ function createUsbPlugin(radioType) {
 
       function startPolling() {
         stopPolling();
-        pollTimer = setInterval(() => {
+        const doPoll = () => {
           if (!serialPort || !serialPort.isOpen) return;
           if (radioType === 'icom') {
             proto.poll(write, getIcomAddress());
           } else {
             proto.poll(write);
           }
-        }, config.radio.pollInterval || 500);
+        };
+        doPoll(); // fire immediately so first response arrives without waiting a full interval
+        pollTimer = setInterval(doPoll, config.radio.pollInterval || 500);
       }
 
       function processAsciiBuffer() {
@@ -142,7 +144,11 @@ function createUsbPlugin(radioType) {
           if (radioType === 'icom') {
             rxBinaryBuffer = proto.handleData(data, rxBinaryBuffer, loggedUpdateState, (prop) => state[prop]);
           } else {
-            rxBuffer += data.toString('ascii');
+            const raw = data.toString('ascii');
+            // Log raw bytes so Console Log shows exactly what the radio is sending
+            const display = raw.replace(/[\r\n]/g, '').trim();
+            if (display) console.log(`[USB/${radioType}] ← ${display}`);
+            rxBuffer += raw;
             processAsciiBuffer();
           }
         });
