@@ -213,7 +213,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
               <tr><td>Range</td><td align="right">${Math.round(sat.range * conv).toLocaleString()}${distUnit}</td></tr>
               <tr><td>Mode</td><td align="right" style="color:#ffa500;">${sat.mode || 'N/A'}</td></tr>
               <tr><td>Status</td><td align="right" class="${isVisible ? 'sat-visible-blink' : ''}">
-                ${isVisible ? 'Visible' : '<span style="color:#666;">Pass</span>'}
+                ${isVisible ? 'Signal Acquisition' : '<span style="color:#666;">Below Horizon</span>'}
               </td></tr>
             </table>
           </div>
