@@ -10,6 +10,16 @@ import { WGS84ToMaidenhead } from '@hamset/maidenhead-locator';
 import { getBandFromFreq } from '../utils';
 
 export const useWWBOTASpots = () => {
+  // Helper to filter out spots older than 1 hour
+  const filterRecentSpots = (spots) => {
+    const now = Date.now();
+    const oneHourMs = 60 * 60 * 1000;
+    return spots.filter((s) => {
+      if (!s.isoTime) return true;
+      const sDate = new Date(s.isoTime);
+      return now - sDate.getTime() <= oneHourMs;
+    });
+  };
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -43,6 +53,8 @@ export const useWWBOTASpots = () => {
           if (isMounted) {
             setLoading(false);
             setConnected(true);
+            // Filter out any old spots on reconnect
+            setData((prevData) => filterRecentSpots(prevData));
           }
         });
 
@@ -129,24 +141,31 @@ export const useWWBOTASpots = () => {
                 lat,
                 lon,
                 time: time ? time.substring(11, 16) + 'z' : '', // Extract HH:MM from ISO string
+                isoTime: time, // Store the original ISO time
                 type: spot.type || 'Live', // Live, QRT, or Test
                 grid: WGS84ToMaidenhead({ lat: lat, lng: lon }),
               };
 
               // Skip QRT spots
               if (spot.type === 'QRT') {
-                return prevData.filter((s) => s.call !== newSpot.call);
+                // Remove this call and filter out old spots
+                return filterRecentSpots(prevData.filter((s) => s.call !== newSpot.call));
               }
 
               // Add or update spot
+              let updatedData;
               if (existingIndex >= 0) {
-                const updated = [...prevData];
-                updated[existingIndex] = newSpot;
-                return updated;
+                updatedData = [...prevData];
+                updatedData[existingIndex] = newSpot;
               } else {
-                const newData = [newSpot, ...prevData].slice(0, 100);
-                return newData;
+                updatedData = [newSpot, ...prevData];
               }
+
+              // Remove any spots older than 1 hour
+              const filtered = filterRecentSpots(updatedData);
+
+              // Limit to 100 spots
+              return filtered.slice(0, 100);
             });
 
             // Update lastUpdated when new spot arrives
