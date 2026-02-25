@@ -365,7 +365,13 @@ const PSKReporterPanel = ({
               title={showPaths ? 'Hide path lines' : 'Show path lines'}
             >
               <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: 'middle' }}>
-                <path d="M2 14L14 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeDasharray="3 3" />
+                <path
+                  d="M2 14L14 2"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeDasharray="3 3"
+                />
                 <circle cx="2" cy="14" r="2" fill="currentColor" />
                 <circle cx="14" cy="2" r="2" fill="currentColor" />
               </svg>
