@@ -18,5 +18,14 @@
     "rigctldPort": 4532,
     "flrigHost": "127.0.0.1",
     "flrigPort": 12345
+  },
+  "wsjtxRelay": {
+    "enabled": false,
+    "url": "https://openhamclock.com",
+    "key": "",
+    "session": "",
+    "udpPort": 2237,
+    "batchInterval": 2000,
+    "verbose": false
   }
 }

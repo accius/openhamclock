@@ -33,6 +33,15 @@ const DEFAULT_CONFIG = {
     flrigHost: '127.0.0.1',
     flrigPort: 12345,
   },
+  wsjtxRelay: {
+    enabled: false,
+    url: '', // OpenHamClock server URL (e.g. https://openhamclock.com)
+    key: '', // Relay authentication key
+    session: '', // Browser session ID for per-user isolation
+    udpPort: 2237, // UDP port to listen on for WSJT-X packets
+    batchInterval: 2000, // Batch send interval in ms
+    verbose: false, // Log all decoded messages
+  },
 };
 
 let config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
@@ -54,6 +63,7 @@ function loadConfig() {
         ...DEFAULT_CONFIG,
         ...raw,
         radio: { ...DEFAULT_CONFIG.radio, ...(raw.radio || {}) },
+        wsjtxRelay: { ...DEFAULT_CONFIG.wsjtxRelay, ...(raw.wsjtxRelay || {}) },
         // Coerce logging to boolean in case the stored value is a string
         logging: raw.logging !== undefined ? !!raw.logging : DEFAULT_CONFIG.logging,
       });
