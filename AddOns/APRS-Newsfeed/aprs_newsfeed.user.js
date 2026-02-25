@@ -297,7 +297,9 @@
             drawer.appendChild(launcher);
             document.body.appendChild(drawer);
             setTimeout(updateLayout, 100);
-        }        const toggleBtn = document.createElement("div");
+        }
+        
+        const toggleBtn = document.createElement("div");
         toggleBtn.id = "aprs-toggle-btn";
         toggleBtn.className = "ohc-addon-icon ohc-addon-item";
         toggleBtn.innerHTML = `\uD83D\uDCE9<div id="aprs-news-badge" class="aprs-badge"></div>`;
