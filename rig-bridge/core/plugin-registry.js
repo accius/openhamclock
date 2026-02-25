@@ -36,15 +36,23 @@ class PluginRegistry {
    */
   registerBuiltins() {
     // USB plugins export an array (one per radio brand)
-    const usbPlugins = require('../plugins/usb/index');
-    for (const p of usbPlugins) {
-      this._descriptors.set(p.id, p);
+    try {
+      const usbPlugins = require('../plugins/usb/index');
+      for (const p of usbPlugins) {
+        this._descriptors.set(p.id, p);
+      }
+    } catch (e) {
+      console.error(`[Registry] Failed to load USB plugins: ${e.message}`);
     }
 
     // Single-export plugins
     for (const file of ['rigctld', 'flrig', 'mock']) {
-      const p = require(`../plugins/${file}`);
-      this._descriptors.set(p.id, p);
+      try {
+        const p = require(`../plugins/${file}`);
+        this._descriptors.set(p.id, p);
+      } catch (e) {
+        console.error(`[Registry] Failed to load plugin "${file}": ${e.message}`);
+      }
     }
   }
 

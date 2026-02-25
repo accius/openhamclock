@@ -12,6 +12,7 @@ const CONFIG_PATH = path.join(CONFIG_DIR, 'rig-bridge-config.json');
 
 const DEFAULT_CONFIG = {
   port: 5555,
+  debug: false, // Centralized verbose CAT logging flag
   logging: true, // Enable/disable console log capture & broadcast to UI
   radio: {
     type: 'none', // none | yaesu | kenwood | icom | flrig | rigctld
@@ -76,6 +77,7 @@ function applyCliArgs() {
   const args = process.argv.slice(2);
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--port') config.port = parseInt(args[++i]);
+    if (args[i] === '--debug') config.debug = true;
   }
 }
 

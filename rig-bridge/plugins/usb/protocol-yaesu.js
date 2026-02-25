@@ -1,5 +1,4 @@
 'use strict';
-const DEBUG = process.argv.includes('--debug');
 
 /**
  * protocol-yaesu.js — Yaesu CAT ASCII protocol
@@ -59,9 +58,15 @@ function poll(serialWrite) {
   serialWrite('IF;');
 }
 
-function parse(resp, updateState, getState) {
-  if (!resp || resp.length < 2) return;
-  const cmd = resp.substring(0, 2);
+/**
+ * parse()
+ * Incremental parser for Yaesu responses.
+ * Called with semicolon-terminated strings (e.g. "IF...;")
+ */
+function parse(data, updateState, getState, debug) {
+  if (debug) console.log(`[Yaesu/Proto] parse: ${data}`);
+  if (!data || data.length < 2) return;
+  const cmd = data.substring(0, 2);
 
   switch (cmd) {
     case 'IF': {

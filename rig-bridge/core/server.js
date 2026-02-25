@@ -961,7 +961,9 @@ function createServer(registry) {
         }
         // Even for test, set DTR/RTS if not using hardware flow
         if (!testRtscts) {
-          testConn.set({ dtr: true, rts: true }, () => {});
+          testConn.set({ dtr: true, rts: true }, (setErr) => {
+            if (setErr) console.warn(`[Server] Could not set DTR/RTS during test: ${setErr.message}`);
+          });
         }
         testConn.close(() => {
           res.json({ success: true, message: `Successfully opened ${testPort} at ${testBaud} baud` });
