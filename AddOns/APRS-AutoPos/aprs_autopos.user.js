@@ -65,6 +65,7 @@
             flex-direction: column-reverse;
         }
         .ohc-addon-icon {
+            position: relative;
             width: 45px;
             height: 45px;
             background: var(--bg-panel, rgba(17, 24, 32, 0.95));

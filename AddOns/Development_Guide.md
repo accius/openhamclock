@@ -72,6 +72,7 @@ const styles = `
         user-select: none;
     }
     .ohc-addon-icon { 
+        position: relative;
         width: 45px; 
         height: 45px; 
         background: var(--bg-panel, rgba(17, 24, 32, 0.95)); 
@@ -88,7 +89,7 @@ const styles = `
         transition: all 0.3s ease; 
     }
     .ohc-addon-icon:hover { border-color: var(--accent-amber); transform: scale(1.1); }
-    #ohc-addon-launcher { background: var(--bg-tertiary); color: var(--accent-amber); cursor: move; z-index: 10001; }
+    #ohc-addon-launcher { background: var(--bg-tertiary); color: var(--accent-amber); cursor: move; z-index: 10001; transition: transform 0.3s ease; }
     .ohc-addon-item { display: none; }
 `;
 
@@ -141,6 +142,7 @@ if (!drawer) {
         const items = document.querySelectorAll(".ohc-addon-item");
         const isHidden = Array.from(items).some(el => el.style.display !== "flex");
         items.forEach(el => el.style.display = isHidden ? "flex" : "none");
+        launcher.style.transform = isHidden ? "rotate(90deg)" : "rotate(0deg)";
         updateLayout();
     };
     
