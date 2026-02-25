@@ -154,32 +154,30 @@ if (!drawer) {
     };
 
     let isDragging = false;
+    let dragTimer = null;
     let startX, startY, startTop, startLeft;
 
-    launcher.onmousedown = (e) => {
-        if (e.button === 1) {
-            e.preventDefault();
-            isDragging = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            const rect = drawer.getBoundingClientRect();
-            startTop = rect.top;
-            startLeft = rect.left;
-            launcher.style.cursor = 'grabbing';
-        }
+    const startDrag = (x, y) => {
+        isDragging = true;
+        startX = x;
+        startY = y;
+        const rect = drawer.getBoundingClientRect();
+        startTop = rect.top;
+        startLeft = rect.left;
+        launcher.style.cursor = 'grabbing';
     };
 
-    document.addEventListener('mousemove', (e) => {
+    const handleMove = (x, y) => {
         if (!isDragging) return;
-        const dx = e.clientX - startX;
-        const dy = e.clientY - startY;
+        const dx = x - startX;
+        const dy = y - startY;
         drawer.style.top = (startTop + dy) + "px";
         drawer.style.left = (startLeft + dx) + "px";
         drawer.style.right = 'auto';
         drawer.style.bottom = 'auto';
-    });
+    };
 
-    document.addEventListener('mouseup', () => {
+    const stopDrag = () => {
         if (!isDragging) return;
         isDragging = false;
         launcher.style.cursor = 'move';
@@ -213,6 +211,63 @@ if (!drawer) {
         
         localStorage.setItem('ohc_addon_pos', JSON.stringify(pos));
         updateLayout();
+    };
+
+    // Mouse Events
+    launcher.onmousedown = (e) => {
+        if (e.button === 1) { // Middle click
+            e.preventDefault();
+            startDrag(e.clientX, e.clientY);
+        } else if (e.button === 0) { // Left click long press
+            dragTimer = setTimeout(() => startDrag(e.clientX, e.clientY), 500);
+        }
+    };
+
+    document.addEventListener('mousemove', (e) => {
+        if (!isDragging && dragTimer) {
+            if (Math.abs(e.clientX - startX) > 5 || Math.abs(e.clientY - startY) > 5) {
+                clearTimeout(dragTimer);
+                dragTimer = null;
+            }
+        }
+        handleMove(e.clientX, e.clientY);
+    });
+
+    document.addEventListener('mouseup', () => {
+        clearTimeout(dragTimer);
+        dragTimer = null;
+        stopDrag();
+    });
+
+    // Touch Events
+    launcher.ontouchstart = (e) => {
+        const touch = e.touches[0];
+        startX = touch.clientX;
+        startY = touch.clientY;
+        dragTimer = setTimeout(() => {
+            startDrag(touch.clientX, touch.clientY);
+            if (window.navigator.vibrate) window.navigator.vibrate(20);
+        }, 500);
+    };
+
+    document.addEventListener('touchmove', (e) => {
+        const touch = e.touches[0];
+        if (!isDragging && dragTimer) {
+            if (Math.abs(touch.clientX - startX) > 5 || Math.abs(touch.clientY - startY) > 5) {
+                clearTimeout(dragTimer);
+                dragTimer = null;
+            }
+        }
+        if (isDragging) {
+            e.preventDefault();
+            handleMove(touch.clientX, touch.clientY);
+        }
+    }, { passive: false });
+
+    document.addEventListener('touchend', () => {
+        clearTimeout(dragTimer);
+        dragTimer = null;
+        stopDrag();
     });
 
     drawer.appendChild(launcher);
