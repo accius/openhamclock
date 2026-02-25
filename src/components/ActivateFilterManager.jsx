@@ -13,6 +13,7 @@ const MODES = [
   'DFCW-90',
   'DOMINO',
   'ECHO',
+  'FM',
   'FREEDV',
   'FSK441',
   'FSQ',
