@@ -318,10 +318,12 @@
   border-bottom: 1px solid var(--color-border, #2d3748) !important;
   padding: 0 !important;
   min-height: var(--ohc-tabbar-h) !important;
+  position: relative !important;
+  z-index: 4000 !important; /* keep header above tab content (e.g., Leaflet) */
 }
 
-/* Header hover target + drawer container */
-.flexlayout__tabset_tabbar_outer {
+/* Header hover target + drawer container (tabsets + border tabsets) */
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer) {
   position: relative !important;
   height: var(--ohc-tabbar-h) !important;
   min-height: var(--ohc-tabbar-h) !important;
@@ -329,10 +331,13 @@
   overflow: visible !important; /* drawer must be clickable */
   outline: none !important;
   box-shadow: none !important;
+  z-index: 2000 !important; /* ensure drawer stays above panel content (e.g., map) */
 }
 
 /* Hide ALL native tabs/labels in the tab strip area */
-.flexlayout__tabset_tabbar_outer .flexlayout__tabset_tabbar_inner .flexlayout__tab_button {
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer)
+  .flexlayout__tabset_tabbar_inner
+  .flexlayout__tab_button {
   display: none !important;
 }
 
@@ -350,7 +355,7 @@
 }
 
 /* Drawer background row (behind toolbar) */
-.flexlayout__tabset_tabbar_outer::before {
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer)::before {
   content: '' !important;
   position: absolute !important;
   left: 0 !important;
@@ -366,7 +371,7 @@
     opacity 120ms ease,
     background-color 120ms ease !important;
   pointer-events: none !important; /* background shouldn't steal clicks */
-  z-index: 5 !important;
+  z-index: 5000 !important;
 
   /* Blur makes it LOOK more opaque; keep off for real transparency */
   backdrop-filter: none !important;
@@ -374,7 +379,7 @@
 }
 
 /* Toolbar row (drawer tools) */
-.flexlayout__tabset_tabbar_outer .flexlayout__tab_toolbar {
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer) .flexlayout__tab_toolbar {
   position: absolute !important;
   left: 6px !important;
   right: 6px !important;
@@ -393,23 +398,23 @@
   pointer-events: none !important;
   transition: opacity 120ms ease !important;
 
-  z-index: 20 !important; /* above drawer background */
+  z-index: 6000 !important; /* above drawer background and panel content */
 }
 
 /* Open drawer on hover/focus */
-.flexlayout__tabset_tabbar_outer:hover,
-.flexlayout__tabset_tabbar_outer:focus-within {
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer):hover,
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer):focus-within {
   height: calc(var(--ohc-tabbar-h) + var(--ohc-drawer-h)) !important;
 }
 
-.flexlayout__tabset_tabbar_outer:hover::before,
-.flexlayout__tabset_tabbar_outer:focus-within::before {
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer):hover::before,
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer):focus-within::before {
   opacity: 1 !important;
   background: var(--ohc-drawer-bg-hover) !important;
 }
 
-.flexlayout__tabset_tabbar_outer:hover .flexlayout__tab_toolbar,
-.flexlayout__tabset_tabbar_outer:focus-within .flexlayout__tab_toolbar,
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer):hover .flexlayout__tab_toolbar,
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer):focus-within .flexlayout__tab_toolbar,
 .flexlayout__tab_toolbar:hover {
   opacity: 1 !important;
   pointer-events: auto !important;
@@ -426,6 +431,16 @@
   line-height: 1 !important;
   font-size: 12px !important;
   border-radius: 6px !important;
+}
+
+/* Text button in drawer (CYCLE) */
+.flexlayout__tab_toolbar_button.ohc-drawer-tool.ohc-drawer-cycle {
+  width: auto !important;
+  min-width: 52px !important;
+  padding: 0 8px !important;
+  font-size: 10.5px !important;
+  letter-spacing: 0.06em !important;
+  font-weight: 700 !important;
 }
 
 .flexlayout__tab_toolbar_button.ohc-drawer-tool:hover {
@@ -449,52 +464,35 @@
 
   opacity: 0 !important;
   pointer-events: none !important;
-  z-index: 10 !important; /* below toolbar, above drawer bg */
+  z-index: 5500 !important; /* below toolbar, above drawer bg */
 }
 
-.flexlayout__tabset_tabbar_outer:hover .ohc-header-cycle-hitarea,
-.flexlayout__tabset_tabbar_outer:focus-within .ohc-header-cycle-hitarea {
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer):hover .ohc-header-cycle-hitarea,
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer):focus-within .ohc-header-cycle-hitarea {
   pointer-events: auto !important;
   cursor: pointer !important;
 }
 
-/* Keyboard focus hint (desktop) */
-.flexlayout__tabset_tabbar_outer:focus-within {
-  box-shadow: 0 0 0 1px rgba(0, 255, 204, 0.22) !important;
-  border-radius: 6px !important;
-}
-
-/* Touch/tablet: larger hit targets + allow first tap to focus the header (opens drawer via :focus-within). */
-@media (pointer: coarse) {
-  :root {
-    --ohc-tabbar-h: 24px;
-    --ohc-drawer-h: 36px;
-  }
-
-  .flexlayout__tabset_tabbar_outer {
-    padding: 0 10px !important;
-  }
-
-  .flexlayout__tab_toolbar {
-    gap: 10px !important;
-  }
-
-  .flexlayout__tab_toolbar_button.ohc-drawer-tool {
-    width: 32px !important;
-    height: 32px !important;
-    font-size: 14px !important;
-    border-radius: 8px !important;
-  }
-
-  /* Enable tapping the (invisible) header hit-area to receive focus and open the drawer. */
-  .ohc-header-cycle-hitarea {
-    pointer-events: auto !important;
-  }
-}
-
-.flexlayout__tabset_tabbar_outer:hover .ohc-header-cycle-hitarea:hover {
+:is(.flexlayout__tabset_tabbar_outer, .flexlayout__border_tabbar_outer):hover .ohc-header-cycle-hitarea:hover {
   opacity: 1 !important;
   box-shadow:
     0 0 0 1px rgba(0, 255, 204, 0.18),
     0 0 14px rgba(0, 255, 204, 0.12) !important;
+}
+
+/* === OHC Drawer Tools (FIX5) === */
+
+/* CYCLE is text, so let it breathe without breaking icon alignment */
+.ohc-drawer-cycle {
+  width: auto !important;
+  min-width: 46px;
+  padding: 0 8px !important;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+/* Hide any remaining native FlexLayout toolbar buttons (we only want our drawer tools) */
+.flexlayout__tab_toolbar_button:not(.ohc-drawer-tool) {
+  display: none !important;
 }

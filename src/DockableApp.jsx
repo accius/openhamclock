@@ -1026,63 +1026,6 @@ export const DockableApp = ({
         }
       };
 
-      // Header-as-button: when drawer is open (hover), let users click anywhere on the header to cycle tabs.
-      // Click = next tab, Shift+Click = previous tab.
-      // Z-index in CSS keeps drawer buttons clickable above this hit-area.
-      renderValues.stickyButtons.push(
-        <button
-          key="ohc-header-cycle"
-          type="button"
-          className="ohc-header-cycle-hitarea"
-          title="Click to cycle panels (Shift = previous)"
-          aria-label="Cycle panels (Shift = previous)"
-          onPointerDown={(e) => {
-            // Tablet/touch safety:
-            // First tap should OPEN the drawer (via :focus-within), not immediately cycle.
-            // Once the drawer is open (hover or focus-within), tap/click cycles.
-            e.preventDefault();
-            e.stopPropagation();
-
-            const outer = e.currentTarget.closest('.flexlayout__tabset_tabbar_outer');
-            const drawerOpen = !!outer && outer.matches(':hover, :focus-within');
-            if (!drawerOpen) {
-              try {
-                e.currentTarget.focus();
-              } catch {
-                /* noop */
-              }
-              return;
-            }
-
-            cycleTab(e.shiftKey ? -1 : 1);
-          }}
-          onKeyDown={(e) => {
-            const outer = e.currentTarget.closest('.flexlayout__tabset_tabbar_outer');
-            const drawerOpen = !!outer && outer.matches(':hover, :focus-within');
-            if (!drawerOpen) return;
-
-            const key = e.key;
-            if (key === 'Enter' || key === ' ') {
-              e.preventDefault();
-              e.stopPropagation();
-              cycleTab(e.shiftKey ? -1 : 1);
-            } else if (key === 'ArrowLeft') {
-              e.preventDefault();
-              e.stopPropagation();
-              cycleTab(-1);
-            } else if (key === 'ArrowRight') {
-              e.preventDefault();
-              e.stopPropagation();
-              cycleTab(1);
-            }
-          }}
-          onDoubleClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-          }}
-        />,
-      );
-
       // Panels (drawer) — opens the React panel picker for this tabset
       addDrawerBtn(
         <button
@@ -1098,6 +1041,22 @@ export const DockableApp = ({
           }}
         >
           ▦
+        </button>,
+      );
+
+      // Cycle tabs (drawer) — click = next, Shift+Click = previous
+      addDrawerBtn(
+        <button
+          key="ohc-cycle"
+          title="Cycle tab (Shift = previous)"
+          className="flexlayout__tab_toolbar_button ohc-drawer-tool ohc-drawer-cycle"
+          onPointerDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            cycleTab(e.shiftKey ? -1 : 1);
+          }}
+        >
+          CYCLE
         </button>,
       );
 
@@ -1307,6 +1266,7 @@ export const DockableApp = ({
             onAction={handleAction}
             onModelChange={handleModelChange}
             onRenderTabSet={onRenderTabSet}
+            onRenderBorderTabSet={onRenderTabSet}
           />
         </DockableLayoutProvider>
       </div>
