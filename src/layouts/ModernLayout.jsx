@@ -344,6 +344,7 @@ export default function ModernLayout(props) {
       showPOTALabels={mapLayers.showPOTALabels}
       togglePOTALabels={togglePOTALabels}
       onPOTASpotClick={handleParkSpotClick}
+      onPOTAHoverSpot={setHoveredSpot}
       potaFilters={potaFilters}
       setShowPotaFilters={setShowPotaFilters}
       filteredPotaSpots={filteredPotaSpots}
@@ -356,6 +357,7 @@ export default function ModernLayout(props) {
       showSOTALabels={mapLayers.showSOTALabels}
       toggleSOTALabels={toggleSOTALabels}
       onSOTASpotClick={handleParkSpotClick}
+      onSOTAHoverSpot={setHoveredSpot}
       sotaFilters={sotaFilters}
       setShowSotaFilters={setShowSotaFilters}
       filteredSotaSpots={filteredSotaSpots}
@@ -368,6 +370,7 @@ export default function ModernLayout(props) {
       showWWFFLabels={mapLayers.showWWFFLabels}
       toggleWWFFLabels={toggleWWFFLabels}
       onWWFFSpotClick={handleParkSpotClick}
+      onWWFFHoverSpot={setHoveredSpot}
       wwffFilters={wwffFilters}
       setShowWwffFilters={setShowWwffFilters}
       filteredWwffSpots={filteredWwffSpots}
@@ -380,6 +383,7 @@ export default function ModernLayout(props) {
       showWWBOTALabels={mapLayers.showWWBOTALabels}
       toggleWWBOTALabels={toggleWWBOTALabels}
       onWWBOTASpotClick={handleParkSpotClick}
+      onWWBOTAHoverSpot={setHoveredSpot}
       wwbotaFilters={wwbotaFilters}
       setShowWwbotaFilters={setShowWwbotaFilters}
       filteredWwbotaSpots={filteredWwbotaSpots}

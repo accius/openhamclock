@@ -21,6 +21,7 @@ export const PotaSotaPanel = ({
   showPOTALabels,
   togglePOTALabels,
   onPOTASpotClick,
+  onPOTAHoverSpot,
   potaFilters,
   setShowPotaFilters,
   filteredPotaSpots,
@@ -34,6 +35,7 @@ export const PotaSotaPanel = ({
   showWWFFLabels,
   toggleWWFFLabels,
   onWWFFSpotClick,
+  onWWFFHoverSpot,
   wwffFilters,
   setShowWwffFilters,
   filteredWwffSpots,
@@ -47,6 +49,7 @@ export const PotaSotaPanel = ({
   showSOTALabels,
   toggleSOTALabels,
   onSOTASpotClick,
+  onSOTAHoverSpot,
   sotaFilters,
   setShowSotaFilters,
   filteredSotaSpots,
@@ -60,6 +63,7 @@ export const PotaSotaPanel = ({
   showWWBOTALabels,
   toggleWWBOTALabels,
   onWWBOTASpotClick,
+  onWWBOTAHoverSpot,
   wwbotaFilters,
   setShowWwbotaFilters,
   filteredWwbotaSpots,
@@ -150,6 +154,7 @@ export const PotaSotaPanel = ({
             showOnMap={showPOTA}
             onToggleMap={onTogglePOTA}
             onSpotClick={onPOTASpotClick}
+            onHoverSpot={onPOTAHoverSpot}
             showLabelsOnMap={showPOTALabels}
             onToggleLabelsOnMap={togglePOTALabels}
             filters={potaFilters}
@@ -165,6 +170,7 @@ export const PotaSotaPanel = ({
             showOnMap={showSOTA}
             onToggleMap={onToggleSOTA}
             onSpotClick={onSOTASpotClick}
+            onHoverSpot={onSOTAHoverSpot}
             showLabelsOnMap={showSOTALabels}
             onToggleLabelsOnMap={toggleSOTALabels}
             filters={sotaFilters}
@@ -180,6 +186,7 @@ export const PotaSotaPanel = ({
             showOnMap={showWWBOTA}
             onToggleMap={onToggleWWBOTA}
             onSpotClick={onWWBOTASpotClick}
+            onHoverSpot={onWWBOTAHoverSpot}
             showLabelsOnMap={showWWBOTALabels}
             onToggleLabelsOnMap={toggleWWBOTALabels}
             filters={wwbotaFilters}
@@ -195,6 +202,7 @@ export const PotaSotaPanel = ({
             showOnMap={showWWFF}
             onToggleMap={onToggleWWFF}
             onSpotClick={onWWFFSpotClick}
+            onHoverSpot={onWWFFHoverSpot}
             showLabelsOnMap={showWWFFLabels}
             onToggleLabelsOnMap={toggleWWFFLabels}
             filters={wwffFilters}
