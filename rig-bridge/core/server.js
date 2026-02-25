@@ -408,6 +408,7 @@ const SETUP_HTML = `<!DOCTYPE html>
                 <option value="115200">115200</option>
               </select>
             </div>
+          </div>
           <div class="row">
             <div>
               <label>Stop Bits</label>
@@ -551,10 +552,10 @@ const SETUP_HTML = `<!DOCTYPE html>
         r.type === 'rigctld' ? (r.rigctldHost || '127.0.0.1') : (r.flrigHost || '127.0.0.1');
       document.getElementById('legacyPort').value =
         r.type === 'rigctld' ? (r.rigctldPort || 4532) : (r.flrigPort || 12345);
-      onTypeChange();
+      onTypeChange(true); // Don't overwrite loaded values with model defaults
     }
 
-    function onTypeChange() {
+    function onTypeChange(skipDefaults) {
       const type = document.getElementById('radioType').value;
       const isDirect = ['yaesu', 'kenwood', 'icom'].includes(type);
       const isLegacy = ['flrig', 'rigctld'].includes(type);
@@ -563,17 +564,20 @@ const SETUP_HTML = `<!DOCTYPE html>
       document.getElementById('legacyOpts').className = 'legacy-opts' + (isLegacy ? ' show' : '');
       document.getElementById('icomAddr').className = 'icom-addr' + (type === 'icom' ? ' show' : '');
 
-      if (type === 'yaesu') {
-        document.getElementById('stopBits').value = '2';
-        document.getElementById('rtscts').checked = false;
-      } else if (type === 'kenwood' || type === 'icom') {
-        document.getElementById('stopBits').value = '1';
-        document.getElementById('rtscts').checked = false;
-      }
-      if (type === 'rigctld') {
-        document.getElementById('legacyPort').value = '4532';
-      } else if (type === 'flrig') {
-        document.getElementById('legacyPort').value = '12345';
+      if (!skipDefaults) {
+        if (type === 'yaesu') {
+          document.getElementById('baudRate').value = '38400';
+          document.getElementById('stopBits').value = '2';
+          document.getElementById('rtscts').checked = false;
+        } else if (type === 'kenwood' || type === 'icom') {
+          document.getElementById('stopBits').value = '1';
+          document.getElementById('rtscts').checked = false;
+        }
+        if (type === 'rigctld') {
+          document.getElementById('legacyPort').value = '4532';
+        } else if (type === 'flrig') {
+          document.getElementById('legacyPort').value = '12345';
+        }
       }
     }
 
@@ -608,6 +612,8 @@ const SETUP_HTML = `<!DOCTYPE html>
       const type = document.getElementById('radioType').value;
 
       if (['yaesu', 'kenwood', 'icom'].includes(type)) {
+        const serialPort = document.getElementById('serialPort').value;
+        const baudRate = parseInt(document.getElementById('baudRate').value);
         if (!serialPort) return showToast('Select a serial port first', 'error');
         try {
           const res = await fetch('/api/test', {
