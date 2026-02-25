@@ -28,11 +28,31 @@ const { startServer } = require('./core/server');
 loadConfig();
 applyCliArgs();
 
-// 2. Create plugin registry, wire shared services, register all built-in plugins
+// 2. Handle --help / -h
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.log(`
+OpenHamClock Rig Bridge v1.1.0
+
+Usage:
+  node rig-bridge.js [options]
+
+Options:
+  --port <number>    HTTP port for setup UI (default: 5555)
+  --debug            Enable verbose CAT protocol logging
+  --help, -h         Show this help message
+
+Examples:
+  node rig-bridge.js
+  node rig-bridge.js --port 8080 --debug
+  `);
+  process.exit(0);
+}
+
+// 3. Create plugin registry, wire shared services, register all built-in plugins
 const registry = new PluginRegistry(config, { updateState, state });
 registry.registerBuiltins();
 
-// 3. Start HTTP server (passes registry for route dispatch and plugin route registration)
+// 4. Start HTTP server (passes registry for route dispatch and plugin route registration)
 startServer(config.port, registry);
 
 // 4. Auto-connect to configured radio (if any)

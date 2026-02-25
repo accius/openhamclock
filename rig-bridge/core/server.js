@@ -1040,7 +1040,7 @@ function createServer(registry) {
 
 function startServer(port, registry) {
   const app = createServer(registry);
-  app.listen(port, '0.0.0.0', () => {
+  const server = app.listen(port, '0.0.0.0', () => {
     console.log('');
     console.log('  ╔══════════════════════════════════════════════╗');
     console.log('  ║   📻  OpenHamClock Rig Bridge  v1.1.0       ║');
@@ -1049,6 +1049,18 @@ function startServer(port, registry) {
     console.log(`  ║   Radio:     ${(config.radio.type || 'none').padEnd(30)}║`);
     console.log('  ╚══════════════════════════════════════════════╝');
     console.log('');
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n[Server] ERROR: Port ${port} is already in use.`);
+      console.error(`         Another instance of Rig Bridge might be running.`);
+      console.error(`         Please close it or use --port <new_port> to start another one.\n`);
+      process.exit(1);
+    } else {
+      console.error(`\n[Server] Unexpected error: ${err.message}\n`);
+      process.exit(1);
+    }
   });
 }
 

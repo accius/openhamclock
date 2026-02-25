@@ -88,30 +88,28 @@ function parse(data, updateState, getState, debug) {
       // pos 22   (1): TX/RX (0=RX, 1=TX)        → "0"
       // pos 23-25(3): memory channel            → "100"
       // pos 26   (1): VFO (0=A, 1=B)            → "0"
-      if (resp.length >= 23) {
-        const freqStr = resp.substring(5, 14); // 9-digit frequency (confirmed by FA; cross-check)
+      if (data.length >= 23) {
+        const freqStr = data.substring(5, 14); // 9-digit frequency (confirmed by FA; cross-check)
         const freq = parseInt(freqStr, 10);
         if (freq > 0) updateState('freq', freq);
 
-        const modeDigit = resp.charAt(21); // mode confirmed by MD0; cross-check
+        const modeDigit = data.charAt(21); // mode confirmed by MD0; cross-check
         const mode = MODES[modeDigit] || getState('mode');
         updateState('mode', mode);
 
-        const txState = resp.charAt(22); // TX/RX
+        const txState = data.charAt(22); // TX/RX
         updateState('ptt', txState !== '0');
       }
       break;
     }
     case 'FA': {
-      const freq = parseInt(resp.substring(2), 10);
+      const freq = parseInt(data.substring(2), 10);
       if (freq > 0) updateState('freq', freq);
       break;
     }
     case 'MD': {
-      // MD0X; format (FT-991A, FT-710, etc.) or MDX; (older models)
-      const modeStr = resp.substring(2);
-      const modeDigit = modeStr.length >= 2 ? modeStr.charAt(1) : modeStr.charAt(0);
-      const mode = MODES[modeDigit] || getState('mode');
+      const modeStr = data.substring(2);
+      const mode = MODES[modeStr] || getState('mode');
       updateState('mode', mode);
       break;
     }
@@ -122,7 +120,7 @@ function parse(data, updateState, getState, debug) {
       if (cmd === 'RX') {
         updateState('ptt', false);
       } else {
-        const txDigit = resp.length >= 3 ? resp.charAt(2) : '';
+        const txDigit = data.length >= 3 ? data.charAt(2) : '';
         if (txDigit === '0') updateState('ptt', false);
         else updateState('ptt', true);
       }
@@ -131,7 +129,7 @@ function parse(data, updateState, getState, debug) {
     default: {
       // Log unrecognised responses — e.g. '?' means the radio rejected the command
       // (wrong baud rate, CAT not enabled, or unsupported command for this model)
-      if (resp.trim() && DEBUG) console.log(`[Yaesu] Unrecognised response: "${resp.trim()}"`);
+      if (data.trim() && debug) console.log(`[Yaesu] Unrecognised response: "${data.trim()}"`);
       break;
     }
   }
