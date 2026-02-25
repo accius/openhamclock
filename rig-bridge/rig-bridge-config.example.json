@@ -1,0 +1,22 @@
+{
+  "port": 5555,
+  "logging": true,
+  "radio": {
+    "type": "none",
+    "serialPort": "",
+    "baudRate": 38400,
+    "dataBits": 8,
+    "stopBits": 2,
+    "parity": "none",
+    "dtr": true,
+    "rts": true,
+    "rtscts": false,
+    "icomAddress": "0x94",
+    "pollInterval": 500,
+    "pttEnabled": false,
+    "rigctldHost": "127.0.0.1",
+    "rigctldPort": 4532,
+    "flrigHost": "127.0.0.1",
+    "flrigPort": 12345
+  }
+}
