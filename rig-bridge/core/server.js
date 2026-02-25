@@ -408,12 +408,19 @@ const SETUP_HTML = `<!DOCTYPE html>
                 <option value="115200">115200</option>
               </select>
             </div>
+          <div class="row">
             <div>
               <label>Stop Bits</label>
               <select id="stopBits">
                 <option value="1">1</option>
-                <option value="2" selected>2</option>
+                <option value="2">2</option>
               </select>
+            </div>
+            <div style="display: flex; align-items: flex-end; padding-bottom: 14px;">
+              <div class="checkbox-row" style="margin-bottom: 0;">
+                <input type="checkbox" id="rtscts">
+                <span>Hardware Flow (RTS/CTS)</span>
+              </div>
             </div>
           </div>
           <div class="help-text">Yaesu default: 38400 baud, 2 stop bits. Match your radio's CAT Rate setting.</div>
@@ -536,6 +543,7 @@ const SETUP_HTML = `<!DOCTYPE html>
       document.getElementById('radioType').value = r.type || 'none';
       document.getElementById('baudRate').value = r.baudRate || 38400;
       document.getElementById('stopBits').value = r.stopBits || 2;
+      document.getElementById('rtscts').checked = !!r.rtscts;
       document.getElementById('icomAddress').value = r.icomAddress || '0x94';
       document.getElementById('pollInterval').value = r.pollInterval || 500;
       document.getElementById('pttEnabled').checked = !!r.pttEnabled;
@@ -557,8 +565,10 @@ const SETUP_HTML = `<!DOCTYPE html>
 
       if (type === 'yaesu') {
         document.getElementById('stopBits').value = '2';
+        document.getElementById('rtscts').checked = false;
       } else if (type === 'kenwood' || type === 'icom') {
         document.getElementById('stopBits').value = '1';
+        document.getElementById('rtscts').checked = false;
       }
       if (type === 'rigctld') {
         document.getElementById('legacyPort').value = '4532';
@@ -593,8 +603,8 @@ const SETUP_HTML = `<!DOCTYPE html>
     }
 
     async function testConnection() {
-      const serialPort = document.getElementById('serialPort').value;
-      const baudRate = parseInt(document.getElementById('baudRate').value);
+      const stopBits = parseInt(document.getElementById('stopBits').value);
+      const rtscts = document.getElementById('rtscts').checked;
       const type = document.getElementById('radioType').value;
 
       if (['yaesu', 'kenwood', 'icom'].includes(type)) {
@@ -603,7 +613,7 @@ const SETUP_HTML = `<!DOCTYPE html>
           const res = await fetch('/api/test', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ serialPort, baudRate }),
+            body: JSON.stringify({ serialPort, baudRate, stopBits, rtscts }),
           });
           const data = await res.json();
           showToast(
@@ -625,6 +635,7 @@ const SETUP_HTML = `<!DOCTYPE html>
         serialPort: document.getElementById('serialPort').value,
         baudRate: parseInt(document.getElementById('baudRate').value),
         stopBits: parseInt(document.getElementById('stopBits').value),
+        rtscts: document.getElementById('rtscts').checked,
         icomAddress: document.getElementById('icomAddress').value,
         pollInterval: parseInt(document.getElementById('pollInterval').value),
         pttEnabled: document.getElementById('pttEnabled').checked,
@@ -923,6 +934,8 @@ function createServer(registry) {
   app.post('/api/test', async (req, res) => {
     const testPort = req.body.serialPort || config.radio.serialPort;
     const testBaud = req.body.baudRate || config.radio.baudRate;
+    const testStopBits = req.body.stopBits || config.radio.stopBits || 1;
+    const testRtscts = req.body.rtscts !== undefined ? !!req.body.rtscts : !!config.radio.rtscts;
 
     const SP = getSerialPort();
     if (!SP) return res.json({ success: false, error: 'serialport module not available' });
@@ -931,12 +944,18 @@ function createServer(registry) {
       const testConn = new SP({
         path: testPort,
         baudRate: testBaud,
+        stopBits: testStopBits,
+        rtscts: testRtscts,
         autoOpen: false,
       });
 
       testConn.open((err) => {
         if (err) {
           return res.json({ success: false, error: err.message });
+        }
+        // Even for test, set DTR/RTS if not using hardware flow
+        if (!testRtscts) {
+          testConn.set({ dtr: true, rts: true }, () => {});
         }
         testConn.close(() => {
           res.json({ success: true, message: `Successfully opened ${testPort} at ${testBaud} baud` });

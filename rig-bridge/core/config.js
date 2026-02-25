@@ -18,8 +18,11 @@ const DEFAULT_CONFIG = {
     serialPort: '', // COM3, /dev/ttyUSB0, etc.
     baudRate: 38400,
     dataBits: 8,
-    stopBits: 2, // Yaesu default; Icom/Kenwood typically 1
+    stopBits: 2, // FT-991A and many Yaesu rigs require 2; others work fine with it.
     parity: 'none',
+    dtr: true, // Assert DTR for level converter power
+    rts: true, // Assert RTS for level converter power
+    rtscts: false, // Hardware flow control — off by default; use manual DTR/RTS instead
     icomAddress: '0x94', // Default CI-V address for IC-7300
     pollInterval: 500,
     pttEnabled: false,

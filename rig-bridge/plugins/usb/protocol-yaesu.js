@@ -1,4 +1,6 @@
 'use strict';
+const DEBUG = process.argv.includes('--debug');
+
 /**
  * protocol-yaesu.js — Yaesu CAT ASCII protocol
  *
@@ -63,22 +65,34 @@ function parse(resp, updateState, getState) {
 
   switch (cmd) {
     case 'IF': {
-      // IF response format (FT-991A):
-      // IFaaaaaaaaabbbbcccccddeefffggg...
-      // Positions: IF + 9 digit freq (3-11) + ...mode at pos 21
-      if (resp.length >= 27) {
-        const freqStr = resp.substring(2, 11);
+      // IF response format verified against live FT-991A:
+      // Cross-checked: FA; returned 438700000 Hz, found at IF positions 5-13.
+      // Cross-checked: MD0; returned mode 4 (FM), found '4' at IF position 21.
+      //
+      // IF [2-char sub-band] [3-char ??] [9-char freq Hz] [1 RIT sign] [4 RIT val]
+      //    [1 RIT on] [1 XIT on] [1 mode] [1 TX/RX] [rest...]
+      //
+      // pos  2-3 (2): sub-band / display prefix → "00"
+      // pos  4   (1): unknown → "2"
+      // pos  5-13(9): VFO A frequency in Hz     → "438700000" ← FA; confirmed
+      // pos 14   (1): RIT/XIT sign              → "+"
+      // pos 15-18(4): RIT/XIT offset            → "0000"
+      // pos 19   (1): RIT on/off                → "0"
+      // pos 20   (1): XIT on/off                → "0"
+      // pos 21   (1): mode                      → "4" = FM ← MD0; confirmed
+      // pos 22   (1): TX/RX (0=RX, 1=TX)        → "0"
+      // pos 23-25(3): memory channel            → "100"
+      // pos 26   (1): VFO (0=A, 1=B)            → "0"
+      if (resp.length >= 23) {
+        const freqStr = resp.substring(5, 14); // 9-digit frequency (confirmed by FA; cross-check)
         const freq = parseInt(freqStr, 10);
         if (freq > 0) updateState('freq', freq);
 
-        // IF response layout (FT-991A CAT manual):
-        // IF [P1:9 freq] [P2:4 blank] [P3:5 RIT offset] [P4:1 RIT] [P5:1 XIT] [P6:3 mem] [P7:1 TX/RX] [P8:1 mode] ...
-        // pos 2-10: freq, pos 20: RIT, pos 21: XIT, pos 22-24: mem, pos 25: TX/RX, pos 26: mode
-        const modeDigit = resp.charAt(26); // P8 — operating mode
+        const modeDigit = resp.charAt(21); // mode confirmed by MD0; cross-check
         const mode = MODES[modeDigit] || getState('mode');
         updateState('mode', mode);
 
-        const txState = resp.charAt(25); // P7 — 0=RX, 1=TX, 2=Tune
+        const txState = resp.charAt(22); // TX/RX
         updateState('ptt', txState !== '0');
       }
       break;
@@ -98,13 +112,21 @@ function parse(resp, updateState, getState) {
     }
     case 'TX':
     case 'RX': {
-      updateState('ptt', cmd === 'TX');
+      // Handles both TX;/RX; (unsolicited) and TXn; (auto-info)
+      // TX0 = RX, TX1 = PTT TX, TX2 = CAT TX
+      if (cmd === 'RX') {
+        updateState('ptt', false);
+      } else {
+        const txDigit = resp.length >= 3 ? resp.charAt(2) : '';
+        if (txDigit === '0') updateState('ptt', false);
+        else updateState('ptt', true);
+      }
       break;
     }
     default: {
       // Log unrecognised responses — e.g. '?' means the radio rejected the command
       // (wrong baud rate, CAT not enabled, or unsupported command for this model)
-      if (resp.trim()) console.log(`[Yaesu] Unrecognised response: "${resp.trim()}"`);
+      if (resp.trim() && DEBUG) console.log(`[Yaesu] Unrecognised response: "${resp.trim()}"`);
       break;
     }
   }
