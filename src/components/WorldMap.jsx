@@ -239,6 +239,14 @@ export const WorldMap = ({
     [clearDXHighlight],
   );
 
+  // DX Cluster panel/map hover -> highlight matching DX path (unless locked by popup)
+  useEffect(() => {
+    if (dxHighlightLockedRef.current) return;
+    const key = normalizeCallsignKey(hoveredSpot?.dxCall || hoveredSpot?.call || hoveredSpot?.dx || '');
+    if (key) setDXHighlight(key);
+    else clearDXHighlight();
+  }, [hoveredSpot, setDXHighlight, clearDXHighlight]);
+
   // Expose DE location to window for plugins (e.g., RBN)
   useEffect(() => {
     if (deLocation?.lat && deLocation?.lon) {
@@ -373,6 +381,34 @@ export const WorldMap = ({
           <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">🌧</span><span>${precipProb != null ? `${Math.round(precipProb)}%` : '—'}</span></div>
         </div>
       </div>`;
+  };
+
+  const attachHoverHandlers = (layer, hoverObj) => {
+    if (!layer || !hoverObj || typeof onHoverSpot !== 'function') return;
+
+    const isPopupOpen = () => {
+      try {
+        return !!(layer.getPopup && layer.getPopup() && layer.isPopupOpen && layer.isPopupOpen());
+      } catch {
+        return false;
+      }
+    };
+
+    layer.on('mouseover', () => {
+      try {
+        onHoverSpot(hoverObj);
+      } catch {}
+    });
+    layer.on('mouseout', () => {
+      try {
+        if (!isPopupOpen()) onHoverSpot(null);
+      } catch {}
+    });
+    layer.on('popupclose', () => {
+      try {
+        onHoverSpot(null);
+      } catch {}
+    });
   };
 
   const attachPopupWeather = (layer, lat, lon, baseHtml) => {
@@ -1082,6 +1118,9 @@ export const WorldMap = ({
     dxPathsMarkersRef.current.forEach((m) => map.removeLayer(m));
     dxPathsMarkersRef.current = [];
 
+    dxLineIndexRef.current = new Map();
+    dxHighlightKeyRef.current = '';
+
     // Add new DX paths if enabled
     if (showDXPaths && dxPaths && dxPaths.length > 0) {
       const filteredPaths = filterDXPaths(dxPaths, dxFilters);
@@ -1101,48 +1140,67 @@ export const WorldMap = ({
           const freq = parseFloat(path.freq);
           const color = getBandColor(freq);
 
-          const isHovered = hoveredSpot && hoveredSpot.call?.toUpperCase() === path.dxCall?.toUpperCase();
+          const dxCallKey = normalizeCallsignKey(path.dxCall || path.call || path.dx || '');
+          const hoverObj = {
+            ...path,
+            dxCall: dxCallKey,
+            call: dxCallKey,
+            lat: path.dxLat,
+            lon: path.dxLon,
+            source: 'DX',
+          };
+
+          const baseHtml =
+            `<b data-qrz-call="${esc(path.dxCall)}" style="color: ${color}; cursor:pointer">${esc(path.dxCall)}</b><br>` +
+            `${esc(path.freq)} MHz<br>` +
+            `by <span data-qrz-call="${esc(path.spotter)}" style="cursor:pointer">${esc(path.spotter)}</span>`;
 
           // Render polyline on all 3 world copies so it's visible across the dateline
           replicatePath(pathPoints).forEach((copy) => {
-            const line = L.polyline(copy, {
-              color: isHovered ? '#ffffff' : color,
-              weight: isHovered ? 4 : 1.5,
-              opacity: isHovered ? 1 : 0.5,
-            }).addTo(map);
-            if (isHovered) line.bringToFront();
+            const line = L.polyline(copy, { color, weight: 1.5, opacity: 0.5 }).addTo(map);
+            line._ohcBaseStyle = { color, weight: 1.5, opacity: 0.5 };
+
+            const arr = dxLineIndexRef.current.get(dxCallKey) || [];
+            arr.push(line);
+            dxLineIndexRef.current.set(dxCallKey, arr);
+
             dxPathsLinesRef.current.push(line);
           });
 
-          // Render circleMarker on all 3 world copies
+          // DX endpoint dots (replicated across world copies)
           replicatePoint(path.dxLat, path.dxLon).forEach(([lat, lon]) => {
-            const dxCircle = L.circleMarker([lat, lon], {
-              radius: isHovered ? 12 : 6,
-              fillColor: isHovered ? '#ffffff' : color,
-              color: isHovered ? color : '#fff',
-              weight: isHovered ? 3 : 1.5,
+            const dot = L.circleMarker([lat, lon], {
+              radius: 6,
+              fillColor: color,
+              color: '#fff',
+              weight: 1.5,
               opacity: 1,
-              fillOpacity: isHovered ? 1 : 0.9,
-              interactive: !!onSpotClick,
-            })
-              .bindPopup(
-                `<b data-qrz-call="${esc(path.dxCall)}" style="color: ${color}; cursor:pointer">${esc(path.dxCall)}</b><br>${esc(path.freq)} MHz<br>by <span data-qrz-call="${esc(path.spotter)}" style="cursor:pointer">${esc(path.spotter)}</span>`,
-              )
-              .addTo(map);
+              fillOpacity: 0.9,
+              interactive: true,
+            }).addTo(map);
 
-            if (onSpotClick) {
-              dxCircle.on('click', () => onSpotClick(path));
-            }
+            attachHoverHandlers(dot, hoverObj);
+            attachPopupWeather(dot, lat, lon, baseHtml);
 
-            if (isHovered) dxCircle.bringToFront();
-            dxPathsMarkersRef.current.push(dxCircle);
+            // line-only highlight lock while popup is open
+            dot.on('popupopen', () => {
+              dxHighlightLockedRef.current = true;
+              setDXHighlight(dxCallKey);
+            });
+
+            dot.on('popupclose', () => {
+              dxHighlightLockedRef.current = false;
+              clearDXHighlight();
+            });
+
+            dxPathsMarkersRef.current.push(dot);
           });
 
           // Add label if enabled — replicate across world copies
-          if (showDXLabels || isHovered) {
+          if (showDXLabels) {
             const labelIcon = L.divIcon({
               className: '',
-              html: `<span style="display:inline-block;background:${isHovered ? '#fff' : color};color:${isHovered ? color : '#000'};padding:${isHovered ? '3px 6px' : '2px 5px'};border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:${isHovered ? '12px' : '11px'};font-weight:700;white-space:nowrap;border:1px solid ${isHovered ? color : 'rgba(0,0,0,0.5)'};box-shadow:0 1px ${isHovered ? '4px' : '2px'} rgba(0,0,0,${isHovered ? '0.5' : '0.3'});line-height:1.1;">${path.dxCall}</span>`,
+              html: `<span style="display:inline-block;background:${color};color:#000;padding:2px 5px;border-radius:3px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(0,0,0,0.5);box-shadow:0 1px 2px rgba(0,0,0,0.3);line-height:1.1;">${path.dxCall}</span>`,
               iconSize: [0, 0],
               iconAnchor: [0, 0],
             });
@@ -1150,7 +1208,7 @@ export const WorldMap = ({
               const label = L.marker([lat, lon], {
                 icon: labelIcon,
                 interactive: !!onSpotClick,
-                zIndexOffset: isHovered ? 10000 : 0,
+                zIndexOffset: 0,
               }).addTo(map);
 
               if (onSpotClick) {
@@ -1165,7 +1223,7 @@ export const WorldMap = ({
         }
       });
     }
-  }, [dxPaths, dxFilters, showDXPaths, showDXLabels, hoveredSpot, bandColorVersion, bandPassesMapFilter]);
+  }, [dxPaths, dxFilters, showDXPaths, showDXLabels, bandColorVersion, bandPassesMapFilter]);
 
   useEffect(() => {
     const map = mapInstanceRef.current;
@@ -1257,19 +1315,36 @@ export const WorldMap = ({
         if (!bandPassesMapFilter(band)) return;
 
         if (spot.lat && spot.lon) {
+          const sLat = parseFloat(spot.lat);
+          const sLon = parseFloat(spot.lon);
+          const callKey = normalizeCallsignKey(spot.call);
+
+          const hoverObj = {
+            ...spot,
+            call: callKey,
+            dxCall: callKey,
+            lat: sLat,
+            lon: sLon,
+            source: 'POTA',
+          };
+
+          const baseHtml =
+            `<b data-qrz-call="${esc(spot.call)}" style="color:#44cc44; cursor:pointer">${esc(spot.call)}</b><br>` +
+            `<span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>` +
+            `${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}` +
+            `${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`;
           // Green triangle marker for POTA activators — replicate across world copies
-          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+          replicatePoint(sLat, sLon).forEach(([lat, lon]) => {
             const triangleIcon = L.divIcon({
               className: '',
               html: `<span style="display:inline-block;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid #44cc44;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
               iconSize: [14, 14],
               iconAnchor: [7, 14],
             });
-            const marker = L.marker([lat, lon], { icon: triangleIcon })
-              .bindPopup(
-                `<b data-qrz-call="${esc(spot.call)}" style="color:#44cc44; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
-              )
-              .addTo(map);
+            const marker = L.marker([lat, lon], { icon: triangleIcon }).addTo(map);
+
+            attachHoverHandlers(marker, hoverObj);
+            attachPopupWeather(marker, lat, lon, baseHtml);
 
             if (onSpotClick) {
               marker.on('click', () => onSpotClick(spot));
@@ -1286,7 +1361,7 @@ export const WorldMap = ({
               iconSize: [0, 0],
               iconAnchor: [0, -2],
             });
-            replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+            replicatePoint(sLat, sLon).forEach(([lat, lon]) => {
               const label = L.marker([lat, lon], {
                 icon: labelIcon,
                 interactive: false,
@@ -1313,19 +1388,36 @@ export const WorldMap = ({
         if (!bandPassesMapFilter(band)) return;
 
         if (spot.lat && spot.lon) {
+          const sLat = parseFloat(spot.lat);
+          const sLon = parseFloat(spot.lon);
+          const callKey = normalizeCallsignKey(spot.call);
+
+          const hoverObj = {
+            ...spot,
+            call: callKey,
+            dxCall: callKey,
+            lat: sLat,
+            lon: sLon,
+            source: 'WWFF',
+          };
+
+          const baseHtml =
+            `<b data-qrz-call="${esc(spot.call)}" style="color:#a3f3a3; cursor:pointer">${esc(spot.call)}</b><br>` +
+            `<span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>` +
+            `${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}` +
+            `${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`;
           // Light green inverted triangle for WWFF activators — replicate across world copies
-          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+          replicatePoint(sLat, sLon).forEach(([lat, lon]) => {
             const triangleIcon = L.divIcon({
               className: '',
               html: `<span style="display:inline-block;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:14px solid #a3f3a3;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
               iconSize: [14, 14],
               iconAnchor: [7, 0],
             });
-            const marker = L.marker([lat, lon], { icon: triangleIcon })
-              .bindPopup(
-                `<b data-qrz-call="${esc(spot.call)}" style="color:#a3f3a3; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
-              )
-              .addTo(map);
+            const marker = L.marker([lat, lon], { icon: triangleIcon }).addTo(map);
+
+            attachHoverHandlers(marker, hoverObj);
+            attachPopupWeather(marker, lat, lon, baseHtml);
 
             if (onSpotClick) {
               marker.on('click', () => onSpotClick(spot));
@@ -1342,7 +1434,7 @@ export const WorldMap = ({
               iconSize: [0, 0],
               iconAnchor: [0, -2],
             });
-            replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+            replicatePoint(sLat, sLon).forEach(([lat, lon]) => {
               const label = L.marker([lat, lon], {
                 icon: labelIcon,
                 interactive: false,
@@ -1369,19 +1461,36 @@ export const WorldMap = ({
         if (!bandPassesMapFilter(band)) return;
 
         if (spot.lat && spot.lon) {
+          const sLat = parseFloat(spot.lat);
+          const sLon = parseFloat(spot.lon);
+          const callKey = normalizeCallsignKey(spot.call);
+
+          const hoverObj = {
+            ...spot,
+            call: callKey,
+            dxCall: callKey,
+            lat: sLat,
+            lon: sLon,
+            source: 'SOTA',
+          };
+
+          const baseHtml =
+            `<b data-qrz-call="${esc(spot.call)}" style="color:#ff9632; cursor:pointer">${esc(spot.call)}</b><br>` +
+            `<span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>` +
+            `${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}` +
+            `${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`;
           // Orange diamond marker for SOTA activators — replicate across world copies
-          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+          replicatePoint(sLat, sLon).forEach(([lat, lon]) => {
             const diamondIcon = L.divIcon({
               className: '',
               html: `<span style="display:inline-block;width:12px;height:12px;background:#ff9632;transform:rotate(45deg);border:1px solid rgba(0,0,0,0.4);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
               iconSize: [12, 12],
               iconAnchor: [6, 6],
             });
-            const marker = L.marker([lat, lon], { icon: diamondIcon })
-              .bindPopup(
-                `<b data-qrz-call="${esc(spot.call)}" style="color:#ff9632; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span>${spot.summit ? ` — ${esc(spot.summit)}` : ''}${spot.points ? ` <span style="color:#ff9632">(${esc(spot.points)}pt)</span>` : ''}<br>${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
-              )
-              .addTo(map);
+            const marker = L.marker([lat, lon], { icon: diamondIcon }).addTo(map);
+
+            attachHoverHandlers(marker, hoverObj);
+            attachPopupWeather(marker, lat, lon, baseHtml);
 
             if (onSpotClick) {
               marker.on('click', () => onSpotClick(spot));
@@ -1398,7 +1507,7 @@ export const WorldMap = ({
               iconSize: [0, 0],
               iconAnchor: [0, -2],
             });
-            replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+            replicatePoint(sLat, sLon).forEach(([lat, lon]) => {
               const label = L.marker([lat, lon], {
                 icon: labelIcon,
                 interactive: false,
@@ -1425,19 +1534,36 @@ export const WorldMap = ({
         if (!bandPassesMapFilter(band)) return;
 
         if (spot.lat && spot.lon) {
+          const sLat = parseFloat(spot.lat);
+          const sLon = parseFloat(spot.lon);
+          const callKey = normalizeCallsignKey(spot.call);
+
+          const hoverObj = {
+            ...spot,
+            call: callKey,
+            dxCall: callKey,
+            lat: sLat,
+            lon: sLon,
+            source: 'WWBOTA',
+          };
+
+          const baseHtml =
+            `<b data-qrz-call="${esc(spot.call)}" style="color:#8b7fff; cursor:pointer">${esc(spot.call)}</b><br>` +
+            `<span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>` +
+            `${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}` +
+            `${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`;
           // Purple square marker for WWBOTA activators — replicate across world copies
-          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+          replicatePoint(sLat, sLon).forEach(([lat, lon]) => {
             const squareIcon = L.divIcon({
               className: '',
               html: `<span style="display:inline-block;width:12px;height:12px;background:#8b7fff;border:1px solid rgba(0,0,0,0.4);border-radius:2px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
               iconSize: [12, 12],
               iconAnchor: [6, 6],
             });
-            const marker = L.marker([lat, lon], { icon: squareIcon })
-              .bindPopup(
-                `<b data-qrz-call="${esc(spot.call)}" style="color:#8b7fff; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
-              )
-              .addTo(map);
+            const marker = L.marker([lat, lon], { icon: squareIcon }).addTo(map);
+
+            attachHoverHandlers(marker, hoverObj);
+            attachPopupWeather(marker, lat, lon, baseHtml);
 
             if (onSpotClick) {
               marker.on('click', () => onSpotClick(spot));
@@ -1454,7 +1580,7 @@ export const WorldMap = ({
               iconSize: [0, 0],
               iconAnchor: [0, -2],
             });
-            replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+            replicatePoint(sLat, sLon).forEach(([lat, lon]) => {
               const label = L.marker([lat, lon], {
                 icon: labelIcon,
                 interactive: false,
