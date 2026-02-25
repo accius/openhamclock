@@ -101,6 +101,7 @@ export default function AzimuthalMap({
   hoveredSpot,
   callsign,
   hideOverlays,
+  hideUi = false,
 }) {
   const canvasRef = useRef(null);
   const containerRef = useRef(null);
@@ -301,8 +302,6 @@ export default function AzimuthalMap({
           const steps = 30;
           for (let i = 1; i <= steps; i++) {
             const t = i / steps;
-            const lat = path.spotterLat + (path.dxLat - path.spotterLat) * t;
-            const lon = path.spotterLon + (path.dxLon - path.spotterLon) * t;
             // Proper great circle interpolation
             const d = Math.acos(
               Math.max(
@@ -375,7 +374,6 @@ export default function AzimuthalMap({
           ctx.setLineDash([]);
           ctx.globalAlpha = 1;
         }
-
         // Dot
         ctx.beginPath();
         ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
@@ -693,34 +691,36 @@ export default function AzimuthalMap({
       )}
 
       {/* Zoom controls */}
-      <div
-        style={{
-          position: 'absolute',
-          top: '10px',
-          left: '10px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '2px',
-          zIndex: 1000,
-        }}
-      >
-        <button onClick={() => setZoom((z) => Math.min(8, z * 1.4))} style={zoomBtnStyle}>
-          +
-        </button>
-        <button onClick={() => setZoom((z) => Math.max(0.5, z / 1.4))} style={zoomBtnStyle}>
-          −
-        </button>
-        <button
-          onClick={() => {
-            setZoom(1);
-            setPan({ x: 0, y: 0 });
+      {!hideUi && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            zIndex: 1000,
           }}
-          title="Reset view"
-          style={{ ...zoomBtnStyle, fontSize: '10px' }}
         >
-          ⌂
-        </button>
-      </div>
+          <button onClick={() => setZoom((z) => Math.min(8, z * 1.4))} style={zoomBtnStyle}>
+            +
+          </button>
+          <button onClick={() => setZoom((z) => Math.max(0.5, z / 1.4))} style={zoomBtnStyle}>
+            −
+          </button>
+          <button
+            onClick={() => {
+              setZoom(1);
+              setPan({ x: 0, y: 0 });
+            }}
+            title="Reset view"
+            style={{ ...zoomBtnStyle, fontSize: '10px' }}
+          >
+            ⌂
+          </button>
+        </div>
+      )}
     </div>
   );
 }
