@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         APRS Newsfeed (Inbox) for OpenHamClock
 // @namespace    http://tampermonkey.net/
-// @version      1.7
-// @description  Fetches and displays your latest APRS messages from aprs.fi
+// @version      1.8
+// @description  Fetches and displays your latest APRS messages (Inbox & Outbox) from aprs.fi
 // @author       DO3EET
 // @match        https://openhamclock.com/*
 // @grant        GM_xmlhttpRequest

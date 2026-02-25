@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         APRS Auto-Position for OpenHamClock
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Automatically updates your station position in OpenHamClock based on APRS beacons
 // @author       DO3EET
 // @match        https://openhamclock.com/*
@@ -82,7 +82,7 @@
             transition: all 0.3s ease;
         }
         .ohc-addon-icon:hover { border-color: var(--accent-amber, #ffb432); transform: scale(1.1); }
-        #ohc-addon-launcher { background: var(--bg-tertiary, #1a2332); color: var(--accent-amber); cursor: move; }
+        #ohc-addon-launcher { background: var(--bg-tertiary, #1a2332); color: var(--accent-amber); cursor: move; transition: transform 0.3s ease; }
         .ohc-addon-item { display: none; }
 
         #ohc-autopos-container {
