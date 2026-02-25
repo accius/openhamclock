@@ -28,5 +28,4 @@ A real-time message inbox for OpenHamClock that fetches your latest APRS text me
 This tool polls the aprs.fi API every 5 minutes to respect their rate limits. Clicking the toggle button also triggers a manual refresh.
 
 ---
-
-_Developed by DO3EET_
+*Developed by DO3EET*
