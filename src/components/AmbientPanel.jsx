@@ -92,9 +92,9 @@ function fmtBoolOk(v) {
   return v ? 'OK' : 'LOW';
 }
 
-export default function AmbientPanel({ units = 'imperial' }) {
+export default function AmbientPanel({ allUnits = { dist: 'imperial', temp: 'imperial', press: 'imperial' } }) {
   // ✅ Hooks must always run in the same order
-  const ambient = useAmbientWeather(units);
+  const ambient = useAmbientWeather(allUnits);
   const w = ambient.data;
 
   const [prefs, setPrefs] = useState(loadPanelPrefs);
@@ -104,7 +104,7 @@ export default function AmbientPanel({ units = 'imperial' }) {
   }, [prefs]);
 
   // ✅ Derive units safely even when w is null
-  const deg = `°${w?.tempUnit || (units === 'metric' ? 'C' : 'F')}`;
+  const deg = `°${w?.tempUnit || (allUnits.temp === 'metric' ? 'C' : 'F')}`;
   const windUnit = w?.windUnit || 'mph';
   const rainUnit = w?.rainUnit || 'in';
   const pressureUnit = w?.pressureUnit || 'inHg';

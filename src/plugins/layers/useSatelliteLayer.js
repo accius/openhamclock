@@ -18,7 +18,7 @@ export const metadata = {
   },
 };
 
-export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, config, units }) => {
+export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, config, allUnits }) => {
   const layerGroupRef = useRef(null);
 
   // 1. Multi-select state (Wipes on browser close)
@@ -223,9 +223,9 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       activeSats
         .map((sat) => {
           const isVisible = sat.visible === true;
-          const isImp = units === 'imperial';
-          const conv = isImp ? 0.621371 : 1;
-          const distUnit = isImp ? ' mi' : ' km';
+          const isImpDist = allUnits.dist === 'imperial';
+          const conv = isImpDist ? 0.621371 : 1;
+          const distUnit = isImpDist ? ' mi' : ' km';
 
           return `
         <div class="sat-card" style="border-bottom: 1px solid #004444; margin-bottom: 10px; padding-bottom: 8px;">
@@ -370,7 +370,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
   useEffect(() => {
     if (enabled) renderSatellites();
-  }, [satellites, selectedSats, units, opacity, config, winMinimized]);
+  }, [satellites, selectedSats, allUnits, opacity, config, winMinimized]);
 
   return null;
 };

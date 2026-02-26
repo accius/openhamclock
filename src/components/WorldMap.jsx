@@ -113,7 +113,7 @@ export const WorldMap = ({
   showDXNews = true,
   hideOverlays,
   lowMemoryMode = false,
-  units = 'imperial',
+  allUnits = { dist: 'imperial', temp: 'imperial', press: 'imperial' },
   mouseZoom,
   showRotatorBearing = false,
   rotatorAzimuth = null,
@@ -359,16 +359,19 @@ export const WorldMap = ({
     const humidity = c.relative_humidity_2m;
     const pressure = c.pressure_msl;
     const precipProb = wx?.hourly?.precipitation_probability?.[0];
-    if (units === 'imperial') {
+
+    if (allUnits.temp === 'imperial') {
       temp = (temp * 9) / 5 + 32;
+    }
+    if (allUnits.dist === 'imperial') {
       wind = wind * 0.621371;
     }
     return `
       <div style="margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.12)">
         <div style="font-weight:800;margin-bottom:4px">Weather</div>
         <div style="display:flex;flex-direction:column;gap:3px;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;font-size:12px">
-          <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">🌡</span><span>${Math.round(temp)}°${units === 'imperial' ? 'F' : 'C'}</span></div>
-          <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">💨</span><span>${Math.round(wind)} ${units === 'imperial' ? 'mph' : 'km/h'} ${windArrow(windDir)}</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">🌡</span><span>${Math.round(temp)}°${allUnits.temp === 'imperial' ? 'F' : 'C'}</span></div>
+          <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">💨</span><span>${Math.round(wind)} ${allUnits.dist === 'imperial' ? 'mph' : 'km/h'} ${windArrow(windDir)}</span></div>
           <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">💧</span><span>${humidity != null ? `${Math.round(humidity)}%` : '—'}</span><span style="width:18px;text-align:center;margin-left:6px">🧭</span><span>${pressure != null ? `${Math.round(pressure)} hPa` : '—'}</span></div>
           <div style="display:flex;align-items:center;gap:8px"><span style="width:18px;text-align:center">🌧</span><span>${precipProb != null ? `${Math.round(precipProb)}%` : '—'}</span></div>
         </div>
@@ -1017,7 +1020,7 @@ export const WorldMap = ({
       attachPopupWeather(m, lat, lon, baseHtml);
       dxMarkerRef.current.push(m);
     });
-  }, [deLocation, dxLocation, units, dxWeatherAllowed]);
+  }, [deLocation, dxLocation, allUnits, dxWeatherAllowed]);
 
   // Update sun/moon markers every 60 seconds (matches terminator refresh)
   useEffect(() => {
@@ -1922,7 +1925,7 @@ export const WorldMap = ({
             config={pluginLayerStates[layerDef.id]?.config ?? layerDef.config}
             map={mapInstanceRef.current}
             satellites={satellites}
-            units={units}
+            allUnits={allUnits}
             callsign={callsign}
             locator={deLocator}
             lowMemoryMode={lowMemoryMode}
@@ -2098,7 +2101,9 @@ export const WorldMap = ({
       )}
 
       {/* DX weather hover overlay */}
-      {!hideOverlays && <CallsignWeatherOverlay hoveredSpot={hoveredSpot} enabled={dxWeatherAllowed} units={units} />}
+      {!hideOverlays && (
+        <CallsignWeatherOverlay hoveredSpot={hoveredSpot} enabled={dxWeatherAllowed} allUnits={allUnits} />
+      )}
 
       {/* DX News Ticker - left side of bottom bar */}
       {!hideOverlays && showDXNews && <DXNewsTicker />}

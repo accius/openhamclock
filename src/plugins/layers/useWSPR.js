@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { makeDraggable } from "./makeDraggable.js";
+import { makeDraggable } from './makeDraggable.js';
 import { getBandFromFreq } from '../../utils/callsign.js';
 
 /**
@@ -72,7 +72,7 @@ function gridToLatLon(grid) {
 function fmtDist(km) {
   try {
     const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
-    if (cfg.units === 'metric') return `${Math.round(km).toLocaleString()} km`;
+    if (cfg.allUnits.dist === 'metric') return `${Math.round(km).toLocaleString()} km`;
   } catch (e) {}
   return `${Math.round(km * 0.621371).toLocaleString()} mi`;
 }
@@ -200,7 +200,6 @@ function calculatePropagationScore(spots) {
 
   return Math.round(snrScore + countScore + strongScore);
 }
-
 
 // Add minimize/maximize functionality to control panels
 function addMinimizeToggle(element, storageKey) {

@@ -39,19 +39,6 @@ import './styles/flexlayout-openhamclock.css';
 import useMapLayers from './hooks/app/useMapLayers';
 import useRotator from './hooks/useRotator';
 
-const getEffectiveUnits = (fallback = 'imperial') => {
-  try {
-    const raw = localStorage.getItem('openhamclock_config');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (parsed?.units === 'metric' || parsed?.units === 'imperial') {
-        return parsed.units;
-      }
-    }
-  } catch {}
-  return fallback === 'metric' || fallback === 'imperial' ? fallback : 'imperial';
-};
-
 // Icons
 const PlusIcon = () => (
   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -184,7 +171,6 @@ export const DockableApp = ({
       return next;
     });
   }, []);
-  const [effectiveUnits, setEffectiveUnits] = useState(() => getEffectiveUnits(config?.units));
   const [showDXLocalTime, setShowDXLocalTime] = useState(false);
 
   // Fallback: if parent did not provide map-layer toggles (seen with rotator),
@@ -230,17 +216,6 @@ export const DockableApp = ({
       localStorage.setItem('openhamclock_panelZoom', JSON.stringify(panelZoom));
     } catch {}
   }, [panelZoom]);
-
-  useEffect(() => {
-    const syncUnits = () => setEffectiveUnits(getEffectiveUnits(config?.units));
-    syncUnits();
-    window.addEventListener('storage', syncUnits);
-    window.addEventListener('openhamclock-config-change', syncUnits);
-    return () => {
-      window.removeEventListener('storage', syncUnits);
-      window.removeEventListener('openhamclock-config-change', syncUnits);
-    };
-  }, [config?.units]);
 
   const ZOOM_STEPS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.5, 1.75, 2.0];
   const adjustZoom = useCallback((component, delta) => {
@@ -417,7 +392,7 @@ export const DockableApp = ({
         </div>
       </div>
 
-      <WeatherPanel weatherData={localWeather} units={config.units} nodeId={nodeId} />
+      <WeatherPanel weatherData={localWeather} allUnits={config.allUnits} nodeId={nodeId} />
     </div>
   );
 
@@ -496,13 +471,13 @@ export const DockableApp = ({
             </div>
             <div style={{ fontSize: '13px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
               <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
-                📏 {formatDistance(distanceKm, effectiveUnits)}
+                📏 {formatDistance(distanceKm, config.allUnits.dist)}
               </span>
             </div>
           </div>
         </div>
 
-        {showDxWeather && <WeatherPanel weatherData={dxWeather} units={config.units} nodeId={nodeId} />}
+        {showDxWeather && <WeatherPanel weatherData={dxWeather} allUnits={config.allUnits} nodeId={nodeId} />}
       </div>
     );
   };
@@ -588,7 +563,7 @@ export const DockableApp = ({
         rightSidebarVisible={true}
         callsign={config.callsign}
         lowMemoryMode={config.lowMemoryMode}
-        units={config.units}
+        allUnits={config.allUnits}
         onSpotClick={handleSpotClick}
         mouseZoom={config.mouseZoom}
       />
@@ -644,7 +619,7 @@ export const DockableApp = ({
               propagation={propagation.data}
               loading={propagation.loading}
               bandConditions={bandConditions}
-              units={config.units}
+              allUnits={config.allUnits}
               propConfig={config.propagation}
             />
           );
@@ -656,7 +631,7 @@ export const DockableApp = ({
               propagation={propagation.data}
               loading={propagation.loading}
               bandConditions={bandConditions}
-              units={config.units}
+              allUnits={config.allUnits}
               propConfig={config.propagation}
               forcedMode="chart"
             />
@@ -669,7 +644,7 @@ export const DockableApp = ({
               propagation={propagation.data}
               loading={propagation.loading}
               bandConditions={bandConditions}
-              units={config.units}
+              allUnits={config.Units}
               propConfig={config.propagation}
               forcedMode="bars"
             />
@@ -682,7 +657,7 @@ export const DockableApp = ({
               propagation={propagation.data}
               loading={propagation.loading}
               bandConditions={bandConditions}
-              units={config.units}
+              allUnits={config.allUnits}
               propConfig={config.propagation}
               forcedMode="bands"
             />
@@ -851,7 +826,7 @@ export const DockableApp = ({
           );
 
         case 'ambient':
-          content = <AmbientPanel units={config.units} />;
+          content = <AmbientPanel allUnits={config.allUnits} />;
           break;
 
         case 'rig-control':

@@ -447,7 +447,7 @@ export default function ClassicLayout(props) {
             hoveredSpot={hoveredSpot}
             callsign={config.callsign}
             lowMemoryMode={config.lowMemoryMode}
-            units={config.units}
+            allUnits={config.allUnits}
             mouseZoom={config.mouseZoom}
             onSpotClick={tuneTo}
           />
@@ -769,7 +769,7 @@ export default function ClassicLayout(props) {
             hideOverlays={true}
             callsign={config.callsign}
             lowMemoryMode={config.lowMemoryMode}
-            units={config.units}
+            allUnits={config.allUnits}
             mouseZoom={config.mouseZoom}
             onSpotClick={tuneTo}
           />
@@ -1397,7 +1397,7 @@ export default function ClassicLayout(props) {
             hideOverlays={true}
             callsign={config.callsign}
             lowMemoryMode={config.lowMemoryMode}
-            units={config.units}
+            allUnits={config.allUnits}
             mouseZoom={config.mouseZoom}
             onSpotClick={tuneTo}
           />

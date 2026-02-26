@@ -91,7 +91,7 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
     const distStr = (() => {
       try {
         const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
-        if (cfg.units === 'metric') return `${km.toLocaleString()} km`;
+        if (cfg.allUnits.dist === 'metric') return `${km.toLocaleString()} km`;
       } catch (e) {}
       return `${Math.round(km * 0.621371).toLocaleString()} mi`;
     })();
