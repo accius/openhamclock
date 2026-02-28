@@ -356,7 +356,6 @@ const CONFIG = {
   _qrzUsername: process.env.QRZ_USERNAME || '',
   _qrzPassword: process.env.QRZ_PASSWORD || '',
 };
-console.log(CONFIG.allUnits);
 
 // Check if required config is missing
 const configMissing = CONFIG.callsign === 'N0CALL' || !CONFIG.gridSquare;
