@@ -1630,12 +1630,7 @@ if (fs.existsSync(path.join(__dirname, '.git'))) {
     // Mark directory as safe for git — fixes "dubious ownership" errors when
     // the server runs as a different user than the repo owner (e.g. systemd
     // running as root, repo owned by 'pi')
-    execFile(
-      'git',
-      ['config', '--global', '--add', 'safe.directory', __dirname],
-      { cwd: __dirname },
-      () => {},
-    );
+    execFile('git', ['config', '--global', '--add', 'safe.directory', __dirname], { cwd: __dirname }, () => {});
   } catch {}
 }
 
@@ -11139,7 +11134,8 @@ function parseDecodeMessage(text) {
       // Cache grid — in exchange it typically belongs to the calling station (dxCall)
       const coords = gridToLatLon(result.grid);
       if (coords) {
-        wsjtxGridCache.set(result.dxCall.toUpperCase(), {
+        const call = (result.deCall == CONFIG.callsign ? result.dxCall : result.deCall).toUpperCase();
+        wsjtxGridCache.set(call, {
           grid: result.grid,
           lat: coords.latitude,
           lon: coords.longitude,
@@ -11249,7 +11245,11 @@ function handleWSJTXMessage(msg, state) {
 
       // If no grid from message, try callsign → grid cache (from prior CQ/exchange with grid)
       if (!decode.lat) {
-        const targetCall = (parsed.caller || parsed.dxCall || '').toUpperCase();
+        const targetCall = (
+          parsed.caller ||
+          (parsed.deCall == CONFIG.callsign ? parsed.dxCall : parsed.deCall) ||
+          ''
+        ).toUpperCase();
         if (targetCall) {
           const cached = wsjtxGridCache.get(targetCall);
           if (cached) {
@@ -11263,7 +11263,11 @@ function handleWSJTXMessage(msg, state) {
 
       // Try HamQTH callsign cache (DXCC-level, more accurate than prefix centroid)
       if (!decode.lat) {
-        const rawCall = (parsed.caller || parsed.dxCall || '').toUpperCase();
+        const rawCall = (
+          parsed.caller ||
+          (parsed.deCall == CONFIG.callsign ? parsed.dxCall : parsed.deCall) ||
+          ''
+        ).toUpperCase();
         const targetCall = extractBaseCallsign(rawCall);
         if (targetCall) {
           const cached = callsignLookupCache.get(targetCall);
@@ -11306,7 +11310,7 @@ function handleWSJTXMessage(msg, state) {
 
       // Last resort: estimate from callsign prefix
       if (!decode.lat) {
-        const rawCall = parsed.caller || parsed.dxCall || '';
+        const rawCall = parsed.caller || (parsed.deCall == CONFIG.callsign ? parsed.dxCall : parsed.deCall) || '';
         const targetCall = extractBaseCallsign(rawCall);
         if (targetCall) {
           const prefixLoc = estimateLocationFromPrefix(targetCall);
