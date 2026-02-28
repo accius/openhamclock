@@ -14,7 +14,7 @@ export const PluginLayer = ({
   locator,
   lowMemoryMode,
   satellites,
-  units,
+  allUnits,
   config,
 }) => {
   const layerFunc = plugin.useLayer || plugin.hook;
@@ -29,11 +29,10 @@ export const PluginLayer = ({
       mapBandFilter,
       lowMemoryMode,
       satellites,
-      units,
+      allUnits,
       config,
     });
   }
-
   return null;
 };
 

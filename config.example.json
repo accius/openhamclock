@@ -16,6 +16,13 @@
   },
 
   "units": "imperial",
+
+  "allUnits": {
+    "dist": "imperial",
+    "temp": "imperial",
+    "press": "imperial"
+  },
+
   "timeFormat": "12",
   "theme": "dark",
   "layout": "modern",

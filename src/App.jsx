@@ -193,8 +193,8 @@ const App = () => {
   const propagation = usePropagation(config.location, dxLocation, config.propagation);
   const mySpots = useMySpots(config.callsign);
   const satellites = useSatellites(config.location);
-  const localWeather = useWeather(config.location, config.units);
-  const dxWeather = useWeather(dxLocation, config.units);
+  const localWeather = useWeather(config.location, config.allUnits);
+  const dxWeather = useWeather(dxLocation, config.allUnits);
   const pskReporter = usePSKReporter(config.callsign, {
     minutes: config.lowMemoryMode ? 5 : 30,
     enabled: config.callsign !== 'N0CALL',
