@@ -17,7 +17,7 @@ import { usePanelResize } from '../contexts';
 
 export const WeatherPanel = ({
   location,
-  units = 'imperial',
+  allUnits = { dist: 'imperial', temp: 'imperial', press: 'imperial' },
   nodeId,
   weatherData, // Optional: pre-fetched { data, loading, error } from useWeather
 }) => {
@@ -62,7 +62,7 @@ export const WeatherPanel = ({
   }, [weatherExpanded, nodeId, requestResize, resetSize]);
 
   // Use pre-fetched data if provided, otherwise fetch our own
-  const ownWeather = useWeather(weatherData ? null : location, units);
+  const ownWeather = useWeather(weatherData ? null : location, allUnits);
   const weather = weatherData || ownWeather;
 
   const { data: w, loading, error } = weather;
@@ -127,7 +127,7 @@ export const WeatherPanel = ({
   // No data, no error, no loading — location probably not set
   if (!w) return null;
 
-  const deg = `°${w.tempUnit || (units === 'metric' ? 'C' : 'F')}`;
+  const deg = `°${w.tempUnit || (allUnits.temp === 'metric' ? 'C' : 'F')}`;
   const wind = t(`weather.unit.${w.windUnit === 'km/h' ? 'kmh' : 'mph'}`);
   const vis = t(`weather.unit.${w.visUnit === 'km' ? 'km' : 'mi'}`);
 

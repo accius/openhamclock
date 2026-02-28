@@ -169,7 +169,7 @@ export default function ModernLayout(props) {
         hoveredSpot={hoveredSpot}
         callsign={config.callsign}
         lowMemoryMode={config.lowMemoryMode}
-        units={config.units}
+        allUnits={config.allUnits}
         mouseZoom={config.mouseZoom}
         onSpotClick={tuneTo}
       />
@@ -211,7 +211,7 @@ export default function ModernLayout(props) {
           <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{deSunTimes.sunset}</span>
         </div>
       </div>
-      <WeatherPanel weatherData={localWeather} units={config.units} />
+      <WeatherPanel weatherData={localWeather} allUnits={config.allUnits} />
     </div>
   );
 
@@ -272,7 +272,7 @@ export default function ModernLayout(props) {
             <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
               {(() => {
                 const km = calculateDistance(config.location.lat, config.location.lon, dxLocation.lat, dxLocation.lon);
-                return `📏 ${formatDistance(km, config.units)}`;
+                return `📏 ${formatDistance(km, config.allUnits.dist)}`;
               })()}
             </span>
           </span>
@@ -284,7 +284,7 @@ export default function ModernLayout(props) {
           <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
         </div>
       </div>
-      {showDxWeather && <WeatherPanel weatherData={dxWeather} units={config.units} />}
+      {showDxWeather && <WeatherPanel weatherData={dxWeather} allUnits={config.allUnits} />}
     </div>
   );
 
@@ -468,7 +468,7 @@ export default function ModernLayout(props) {
                 propagation={propagation.data}
                 loading={propagation.loading}
                 bandConditions={bandConditions}
-                units={config.units}
+                allUnits={config.allUnits}
                 propConfig={config.propagation}
               />,
               'prop',
@@ -525,7 +525,7 @@ export default function ModernLayout(props) {
                   propagation={propagation.data}
                   loading={propagation.loading}
                   bandConditions={bandConditions}
-                  units={config.units}
+                  allUnits={config.allUnits}
                   propConfig={config.propagation}
                 />
               )}
@@ -598,7 +598,7 @@ export default function ModernLayout(props) {
               propagation={propagation.data}
               loading={propagation.loading}
               bandConditions={bandConditions}
-              units={config.units}
+              allUnits={config.allUnits}
               propConfig={config.propagation}
             />
           )}

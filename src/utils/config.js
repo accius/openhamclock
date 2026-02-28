@@ -23,6 +23,7 @@ export const DEFAULT_CONFIG = {
   location: { lat: 40.015, lon: -105.2705 }, // Boulder, CO (default)
   defaultDX: { lat: 35.6762, lon: 139.6503 }, // Tokyo
   units: 'imperial', // 'imperial' or 'metric'
+  allUnits: { dist: 'imperial', temp: 'imperial', press: 'imperial' },
   propagation: {
     mode: 'SSB', // SSB, CW, FT8, FT4, WSPR, JS8, RTTY, PSK31
     power: 100, // TX power in watts
@@ -106,6 +107,7 @@ export const loadConfig = () => {
         lon: serverConfig.dxLongitude || config.defaultDX.lon,
       },
       units: serverConfig.units || config.units,
+      allUnits: serverConfig.allUnits || config.allUnits,
       theme: serverConfig.theme || config.theme,
       layout: serverConfig.layout || config.layout,
       mouseZoom: serverConfig.mouseZoom || config.mouseZoom,

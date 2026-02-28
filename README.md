@@ -744,7 +744,10 @@ All configuration is done through the `.env` file. On first run, this file is au
 
 | Variable      | Default     | Description                                                                                                                                                          |
 | ------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `UNITS`       | `imperial`  | `imperial` (°F, miles) or `metric` (°C, km). Affects weather display and distance calculations.                                                                      |
+| `UNITS`       | `imperial`  | `imperial` This setting is deprecated and no longer used.                                                                                                            |
+| `DISTUNITS`   | `imperial`. | `imperial` (miles, inches, ...) or `metric (km, m, ...) For displaying anything involving a distance or speed.                                                       |
+| `TEMPUNITS`   | `imperial`. | `imperial` (°F) or `metric` (°C). For displaying Temperatures.                                                                                                       |
+| `PRESSUNITS`. | `imperial`  | `imperial` (inHg) or `metric` (hPa)                                                                                                                                  |
 | `TIME_FORMAT` | `12`        | `12` or `24` hour clock format. Can also be toggled by clicking the local clock in the header.                                                                       |
 | `THEME`       | `dark`      | `dark`, `light`, `legacy`, or `retro`. See [Themes and Layouts](#themes-and-layouts).                                                                                |
 | `LAYOUT`      | `modern`    | `modern` or `classic`. See [Themes and Layouts](#themes-and-layouts).                                                                                                |

@@ -320,6 +320,11 @@ const CONFIG = {
 
   // Display preferences
   units: process.env.UNITS || jsonConfig.units || 'imperial',
+  allUnits: {
+    dist: process.env.DISTUNITS || jsonConfig.allUnits?.dist || 'imperial',
+    temp: process.env.TEMPUNITS || jsonConfig.allUnits?.temp || 'imperial',
+    press: process.env.PRESSUNITS || jsonConfig.allUnits?.press || 'imperial',
+  },
   timeFormat: process.env.TIME_FORMAT || jsonConfig.timeFormat || '12',
   theme: process.env.THEME || jsonConfig.theme || 'dark',
   layout: process.env.LAYOUT || jsonConfig.layout || 'modern',
@@ -1630,12 +1635,7 @@ if (fs.existsSync(path.join(__dirname, '.git'))) {
     // Mark directory as safe for git — fixes "dubious ownership" errors when
     // the server runs as a different user than the repo owner (e.g. systemd
     // running as root, repo owned by 'pi')
-    execFile(
-      'git',
-      ['config', '--global', '--add', 'safe.directory', __dirname],
-      { cwd: __dirname },
-      () => {},
-    );
+    execFile('git', ['config', '--global', '--add', 'safe.directory', __dirname], { cwd: __dirname }, () => {});
   } catch {}
 }
 
@@ -10407,6 +10407,7 @@ app.get('/api/config', (req, res) => {
 
     // Display preferences
     units: CONFIG.units,
+    allUnits: CONFIG.allUnits,
     timeFormat: CONFIG.timeFormat,
     theme: CONFIG.theme,
     layout: CONFIG.layout,

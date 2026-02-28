@@ -21,7 +21,11 @@ function weatherCodeLabel(code) {
   return 'Weather';
 }
 
-export function CallsignWeatherOverlay({ hoveredSpot, enabled, units = 'imperial' }) {
+export function CallsignWeatherOverlay({
+  hoveredSpot,
+  enabled,
+  allUnits = { dist: 'imperial', temp: 'imperial', press: 'imperial' },
+}) {
   const [data, setData] = useState(null);
   const [err, setErr] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -102,8 +106,10 @@ export function CallsignWeatherOverlay({ hoveredSpot, enabled, units = 'imperial
     let wind = c.wind_speed_10m;
     const windDir = c.wind_direction_10m;
 
-    if (units === 'imperial') {
+    if (allUnits.temp === 'imperial') {
       temp = (temp * 9) / 5 + 32;
+    }
+    if (allUnits.dist == 'imperial') {
       wind = wind * 0.621371; // km/h -> mph
     }
 
@@ -120,7 +126,7 @@ export function CallsignWeatherOverlay({ hoveredSpot, enabled, units = 'imperial
       label: weatherCodeLabel(c.weather_code),
       precipProb,
     };
-  }, [data, units]);
+  }, [data, allUnits]);
 
   if (!enabled) return null;
   if (!hoveredSpot) return null;
@@ -179,7 +185,7 @@ export function CallsignWeatherOverlay({ hoveredSpot, enabled, units = 'imperial
               TEMP
             </div>
             <div style={{ fontSize: 18, fontWeight: 900 }}>
-              {Math.round(view.temp)}°{units === 'imperial' ? 'F' : 'C'}
+              {Math.round(view.temp)}°{allUnits.temp === 'imperial' ? 'F' : 'C'}
             </div>
           </div>
 
@@ -188,7 +194,7 @@ export function CallsignWeatherOverlay({ hoveredSpot, enabled, units = 'imperial
               WIND
             </div>
             <div style={{ fontSize: 18, fontWeight: 900 }}>
-              {Math.round(view.wind)} {units === 'imperial' ? 'mph' : 'km/h'} {view.windCompass}
+              {Math.round(view.wind)} {allUnits.dist === 'imperial' ? 'mph' : 'km/h'} {view.windCompass}
             </div>
           </div>
 

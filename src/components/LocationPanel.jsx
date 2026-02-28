@@ -193,7 +193,7 @@ export const LocationPanel = ({
                 fontFamily: 'Orbitron, monospace',
               }}
             >
-              {formatDistance(distance, config.units)}
+              {formatDistance(distance, config.allUnits.dist)}
             </div>
           </div>
         </div>

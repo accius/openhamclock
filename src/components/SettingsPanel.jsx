@@ -52,7 +52,9 @@ export const SettingsPanel = ({
   );
   const [lowMemoryMode, setLowMemoryMode] = useState(config?.lowMemoryMode || false);
   const [preventSleep, setPreventSleep] = useState(config?.preventSleep || false);
-  const [units, setUnits] = useState(config?.units || 'imperial');
+  const [distUnits, setDistUnits] = useState(config?.allUnits?.dist || config?.units || 'imperial');
+  const [tempUnits, setTempUnits] = useState(config?.allUnits?.temp || config?.units || 'imperial');
+  const [pressUnits, setPressUnits] = useState(config?.allUnits?.press || config?.units || 'imperial');
   const [propMode, setPropMode] = useState(config?.propagation?.mode || 'SSB');
   const [propPower, setPropPower] = useState(config?.propagation?.power || 100);
   const [rigEnabled, setRigEnabled] = useState(config?.rigControl?.enabled || false);
@@ -132,6 +134,19 @@ export const SettingsPanel = ({
     setActiveProfileName(getActiveProfile());
   };
 
+  const toggleUnitType = (t) => {
+    return t == 'imperial' ? 'metric' : 'imperial';
+  };
+  const toggleDistUnits = () => {
+    setDistUnits(toggleUnitType(distUnits));
+  };
+  const toggleTempUnits = () => {
+    setTempUnits(toggleUnitType(tempUnits));
+  };
+  const togglePressUnits = () => {
+    setPressUnits(toggleUnitType(pressUnits));
+  };
+
   useEffect(() => {
     if (config) {
       setCallsign(config.callsign || '');
@@ -145,8 +160,9 @@ export const SettingsPanel = ({
       setCustomDxCluster(config.customDxCluster || { enabled: false, host: '', port: 7300 });
       setLowMemoryMode(config.lowMemoryMode || false);
       setPreventSleep(config.preventSleep || false);
-      setUnits(config.units || 'imperial');
-      setPropMode(config.propagation?.mode || 'SSB');
+      setDistUnits(config.allUnits?.dist || config.units || 'imperial');
+      setTempUnits(config.allUnits?.temp || config.units || 'imperial');
+      setPressUnits(config.allUnits?.press || config.units || 'imperial');
       setPropMode(config.propagation?.mode || 'SSB');
       setPropPower(config.propagation?.power || 100);
       setRigEnabled(config.rigControl?.enabled || false);
@@ -377,7 +393,8 @@ export const SettingsPanel = ({
       customDxCluster,
       lowMemoryMode,
       preventSleep,
-      units,
+      // units,
+      allUnits: { dist: distUnits, temp: tempUnits, press: pressUnits },
       propagation: { mode: propMode, power: parseFloat(propPower) || 100 },
 
       rigControl: {
@@ -404,7 +421,9 @@ export const SettingsPanel = ({
     compact: t('station.settings.layout.compact.describe'),
     dockable: t('station.settings.layout.dockable.describe'),
   };
-
+  const unitString = (t) => {
+    return t == 'imperial' ? '🇺🇸 Imperial' : '🌍 Metric';
+  };
   return (
     <div
       style={{
@@ -957,7 +976,7 @@ export const SettingsPanel = ({
               </div>
             </div>
 
-            {/* Distance Units */}
+            {/* Units (Distance, Temperature and Pressure ) */}
             <div style={{ marginBottom: '20px' }}>
               <label
                 style={{
@@ -969,46 +988,57 @@ export const SettingsPanel = ({
                   letterSpacing: '1px',
                 }}
               >
-                📏 Distance Units
+                📏 Units
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
-                  onClick={() => setUnits('imperial')}
+                  onClick={() => toggleDistUnits()}
                   style={{
                     flex: 1,
                     padding: '10px',
-                    background: units === 'imperial' ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
-                    border: `1px solid ${units === 'imperial' ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: units === 'imperial' ? '#000' : 'var(--text-secondary)',
+                    color: 'var(--accent-green)',
                     fontSize: '13px',
                     cursor: 'pointer',
-                    fontWeight: units === 'imperial' ? '600' : '400',
+                    fontWeight: '600',
                   }}
                 >
-                  🇺🇸 Imperial (mi)
+                  {`distance: ${unitString(distUnits)}`}
                 </button>
                 <button
-                  onClick={() => setUnits('metric')}
+                  onClick={() => toggleTempUnits()}
                   style={{
                     flex: 1,
                     padding: '10px',
-                    background: units === 'metric' ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
-                    border: `1px solid ${units === 'metric' ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
                     borderRadius: '6px',
-                    color: units === 'metric' ? '#000' : 'var(--text-secondary)',
+                    color: 'var(--accent-green)',
                     fontSize: '13px',
                     cursor: 'pointer',
-                    fontWeight: units === 'metric' ? '600' : '400',
+                    fontWeight: '600',
                   }}
                 >
-                  🌍 Metric (km)
+                  {`Temperature: ${unitString(tempUnits)}`}
                 </button>
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                {units === 'imperial'
-                  ? 'Distances shown in miles throughout the application.'
-                  : 'Distances shown in kilometers throughout the application.'}
+                <button
+                  onClick={() => togglePressUnits()}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: 'var(--bg-tertiary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    color: 'var(--accent-green)',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                  }}
+                >
+                  {`Pressure: ${unitString(pressUnits)}`}
+                </button>
               </div>
             </div>
 

@@ -93,7 +93,8 @@ function poll(serialWrite, rigAddress) {
  * Parse incoming CI-V binary data into complete frames and update state.
  * rxBuffer is mutated in place; caller passes it by reference via { buf }.
  */
-function handleData(data, rxBuf, updateState, getState) {
+function handleData(data, rxBuf, updateState, getState, debug) {
+  if (debug) console.log(`[Icom/Proto] handleData: ${data.toString('hex').match(/../g).join(' ')}`);
   let buf = Buffer.concat([rxBuf, data]);
 
   while (true) {

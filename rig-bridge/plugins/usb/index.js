@@ -16,8 +16,6 @@
 const { getSerialPort } = require('../../core/serial-utils');
 const { execFileSync } = require('child_process');
 
-const DEBUG = process.argv.includes('--debug');
-
 const PROTOCOLS = {
   yaesu: require('./protocol-yaesu'),
   kenwood: require('./protocol-kenwood'),
@@ -47,6 +45,8 @@ function createUsbPlugin(radioType) {
       let rxBuffer = '';
       let rxBinaryBuffer = Buffer.alloc(0);
       let reconnectTimer = null;
+      let stabilizerTimer = null;
+      let initialPollTimer = null;
       let wasExplicitlyDisconnected = false;
 
       function getIcomAddress() {
@@ -56,7 +56,7 @@ function createUsbPlugin(radioType) {
 
       function write(data) {
         if (!serialPort || !serialPort.isOpen) return false;
-        if (DEBUG) {
+        if (config.debug) {
           if (Buffer.isBuffer(data)) {
             console.log(`[USB/${radioType}] → ${data.toString('hex').match(/../g).join(' ')}`);
           } else {
@@ -130,7 +130,7 @@ function createUsbPlugin(radioType) {
                 serialPort.drain(() => {
                   console.log(`[USB/${radioType}] Auto-info enabled (AI1). Listening for radio updates...`);
                   // Also send one immediate IF; poll to get current state right away
-                  setTimeout(() => {
+                  initialPollTimer = setTimeout(() => {
                     if (serialPort && serialPort.isOpen) {
                       console.log(`[USB/${radioType}] Initial state poll → IF;`);
                       serialPort.write('IF;', () => serialPort.drain(() => {}));
@@ -169,7 +169,7 @@ function createUsbPlugin(radioType) {
           }
           const response = rxBuffer.substring(start, idx);
           rxBuffer = rxBuffer.substring(idx + 1);
-          proto.parse(response, loggedUpdateState, (prop) => state[prop]);
+          proto.parse(response, loggedUpdateState, (prop) => state[prop], config.debug);
         }
         if (rxBuffer.length > 1000) rxBuffer = rxBuffer.slice(-200);
       }
@@ -196,20 +196,30 @@ function createUsbPlugin(radioType) {
           dataBits: config.radio.dataBits || 8,
           stopBits: config.radio.stopBits || 2,
           parity: config.radio.parity || 'none',
-          // Yaesu FT-991A: rtscts MUST be true for auto-info to work on macOS.
-          // Diagnostic confirmed: with rtscts=false the radio sends nothing.
-          rtscts: radioType === 'yaesu' ? true : !!config.radio.rtscts,
+          rtscts: !!config.radio.rtscts,
           autoOpen: false,
         });
 
         serialPort.open((err) => {
           if (err) {
-            console.error(`[USB/${radioType}] Failed to open: ${err.message}`);
-            updateState('connected', false);
-            console.log(`[USB/${radioType}] Retrying in 5 s…`);
-            reconnectTimer = setTimeout(connect, 5000);
+            if (!wasExplicitlyDisconnected) {
+              console.error(`[USB/${radioType}] Failed to open: ${err.message}`);
+              updateState('connected', false);
+              console.log(`[USB/${radioType}] Retrying in 5 s…`);
+              reconnectTimer = setTimeout(connect, 5000);
+            }
             return;
           }
+
+          // Safety: if we were disconnected while the port was opening, close it immediately
+          if (wasExplicitlyDisconnected) {
+            console.log(`[USB/${radioType}] Port opened but plugin already stopped. Closing...`);
+            try {
+              serialPort.close();
+            } catch (e) {}
+            return;
+          }
+
           console.log(`[USB/${radioType}] Port opened successfully (Hardware Flow: ${!!config.radio.rtscts})`);
 
           // Set DTR explicitly for CAT interface power (needed even with rtscts=true)
@@ -236,17 +246,23 @@ function createUsbPlugin(radioType) {
           }
 
           const stabilizerDelay = 500; // short settle after stty fix
-          setTimeout(startWithPreamble, stabilizerDelay);
+          stabilizerTimer = setTimeout(startWithPreamble, stabilizerDelay);
         });
 
         serialPort.on('data', (data) => {
-          if (DEBUG) console.log(`[USB/${radioType}] ← HEX: ${data.toString('hex').match(/../g).join(' ')}`);
+          if (config.debug) console.log(`[USB/${radioType}] ← HEX: ${data.toString('hex').match(/../g).join(' ')}`);
 
           if (radioType === 'icom') {
-            rxBinaryBuffer = proto.handleData(data, rxBinaryBuffer, loggedUpdateState, (prop) => state[prop]);
+            rxBinaryBuffer = proto.handleData(
+              data,
+              rxBinaryBuffer,
+              loggedUpdateState,
+              (prop) => state[prop],
+              config.debug,
+            );
           } else {
             const raw = data.toString('ascii');
-            if (DEBUG) {
+            if (config.debug) {
               const display = raw.replace(/[\r\n]/g, '').trim();
               if (display) console.log(`[USB/${radioType}] ← ASCII: ${display}`);
             }
@@ -279,13 +295,28 @@ function createUsbPlugin(radioType) {
           clearTimeout(reconnectTimer);
           reconnectTimer = null;
         }
-        stopPolling();
-        if (serialPort && serialPort.isOpen) {
-          try {
-            serialPort.close();
-          } catch (e) {}
+        if (stabilizerTimer) {
+          clearTimeout(stabilizerTimer);
+          stabilizerTimer = null;
         }
-        serialPort = null;
+        if (initialPollTimer) {
+          clearTimeout(initialPollTimer);
+          initialPollTimer = null;
+        }
+        stopPolling();
+
+        if (serialPort) {
+          try {
+            serialPort.removeAllListeners();
+            if (serialPort.isOpen) {
+              serialPort.close();
+            }
+          } catch (e) {
+            console.error(`[USB/${radioType}] Error during close: ${e.message}`);
+          }
+          serialPort = null;
+        }
+
         updateState('connected', false);
         console.log(`[USB/${radioType}] Disconnected`);
       }

@@ -51,7 +51,7 @@ function getEnv(name) {
   return undefined;
 }
 
-export const useAmbientWeather = (units = 'imperial') => {
+export const useAmbientWeather = (allUnits = { dist: 'imperial', temp: 'imperial', press: 'imperial' }) => {
   const [rawDevice, setRawDevice] = useState(null); // { macAddress, info, lastData }
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -113,7 +113,9 @@ export const useAmbientWeather = (units = 'imperial') => {
   const data = useMemo(() => {
     if (!rawDevice?.lastData) return null;
 
-    const isMetric = units === 'metric';
+    const isMetricDist = allUnits.dist === 'metric';
+    const isMetricTemp = allUnits.temp === 'metric';
+    const isMetricPress = allUnits.press === 'metric';
     const ld = rawDevice.lastData;
 
     const updatedAtMs = safeNum(ld.dateutc) ?? (ld.date ? Date.parse(ld.date) : null);
@@ -122,25 +124,25 @@ export const useAmbientWeather = (units = 'imperial') => {
     const convTemp = (f) => {
       const n = safeNum(f);
       if (n == null) return null;
-      return Math.round(isMetric ? fToC(n) : n);
+      return Math.round(isMetricTemp ? fToC(n) : n);
     };
 
     const convWind = (mph) => {
       const n = safeNum(mph);
       if (n == null) return null;
-      return Math.round(isMetric ? mphToKmh(n) : n);
+      return Math.round(isMetricDist ? mphToKmh(n) : n);
     };
 
     const convRain = (inch) => {
       const n = safeNum(inch);
       if (n == null) return null;
-      return isMetric ? Math.round(inToMm(n) * 10) / 10 : Math.round(n * 1000) / 1000; // mm to 0.1, in to 0.001
+      return isMetricDist ? Math.round(inToMm(n) * 10) / 10 : Math.round(n * 1000) / 1000; // mm to 0.1, in to 0.001
     };
 
     const convPressure = (inHg) => {
       const n = safeNum(inHg);
       if (n == null) return null;
-      return isMetric ? inHgToHpa(n).toFixed(1) : n.toFixed(3);
+      return isMeticPress ? inHgToHpa(n).toFixed(1) : n.toFixed(3);
     };
 
     return {
@@ -196,12 +198,12 @@ export const useAmbientWeather = (units = 'imperial') => {
       battRainOk: toBool(ld.battrain),
 
       // units
-      tempUnit: isMetric ? 'C' : 'F',
-      windUnit: isMetric ? 'km/h' : 'mph',
-      rainUnit: isMetric ? 'mm' : 'in',
-      pressureUnit: isMetric ? 'hPa' : 'inHg',
+      tempUnit: isMetricTemp ? 'C' : 'F',
+      windUnit: isMetricDist ? 'km/h' : 'mph',
+      rainUnit: isMetricDist ? 'mm' : 'in',
+      pressureUnit: isMetricPress ? 'hPa' : 'inHg',
     };
-  }, [rawDevice, units]);
+  }, [rawDevice, allUnits]);
 
   return { data, loading, error };
 };

@@ -12,6 +12,7 @@ const CONFIG_PATH = path.join(CONFIG_DIR, 'rig-bridge-config.json');
 
 const DEFAULT_CONFIG = {
   port: 5555,
+  debug: false, // Centralized verbose CAT logging flag
   logging: true, // Enable/disable console log capture & broadcast to UI
   radio: {
     type: 'none', // none | yaesu | kenwood | icom | flrig | rigctld
@@ -31,6 +32,15 @@ const DEFAULT_CONFIG = {
     rigctldPort: 4532,
     flrigHost: '127.0.0.1',
     flrigPort: 12345,
+  },
+  wsjtxRelay: {
+    enabled: false,
+    url: '', // OpenHamClock server URL (e.g. https://openhamclock.com)
+    key: '', // Relay authentication key
+    session: '', // Browser session ID for per-user isolation
+    udpPort: 2237, // UDP port to listen on for WSJT-X packets
+    batchInterval: 2000, // Batch send interval in ms
+    verbose: false, // Log all decoded messages
   },
 };
 
@@ -53,6 +63,7 @@ function loadConfig() {
         ...DEFAULT_CONFIG,
         ...raw,
         radio: { ...DEFAULT_CONFIG.radio, ...(raw.radio || {}) },
+        wsjtxRelay: { ...DEFAULT_CONFIG.wsjtxRelay, ...(raw.wsjtxRelay || {}) },
         // Coerce logging to boolean in case the stored value is a string
         logging: raw.logging !== undefined ? !!raw.logging : DEFAULT_CONFIG.logging,
       });
@@ -76,6 +87,7 @@ function applyCliArgs() {
   const args = process.argv.slice(2);
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--port') config.port = parseInt(args[++i]);
+    if (args[i] === '--debug') config.debug = true;
   }
 }
 

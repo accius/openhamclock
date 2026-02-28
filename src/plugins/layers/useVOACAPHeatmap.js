@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { makeDraggable } from "./makeDraggable.js";
+import { makeDraggable } from './makeDraggable.js';
 
 /**
  * VOACAP-Style Propagation Heatmap Plugin v1.0.0
@@ -86,7 +86,6 @@ function reliabilityColor(r) {
   }
   return { color: `rgb(${red},${green},${blue})`, alpha };
 }
-
 
 // Minimize/maximize toggle
 function addMinimizeToggle(container, storageKey) {
@@ -509,7 +508,7 @@ function haversineApprox(lat1, lon1, lat2, lon2) {
 function formatDistanceApprox(km) {
   try {
     const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
-    if (cfg.units === 'metric') return `${km.toLocaleString()} km`;
+    if (cfg.allUnits.dist === 'metric') return `${km.toLocaleString()} km`;
   } catch (e) {}
   return `${Math.round(km * 0.621371).toLocaleString()} mi`;
 }

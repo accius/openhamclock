@@ -6,7 +6,7 @@
  *   — optional API key support via localStorage ('ohc_openmeteo_apikey')
  *
  * Always fetches in metric (Celsius, km/h, mm) and converts client-side
- * based on the global `units` setting ('imperial' or 'metric').
+ * based on the global `allUnits` setting ({dist, temp, press} being 'imperial' or 'metric' for each).
  */
 import { useState, useEffect, useRef } from 'react';
 
@@ -74,18 +74,20 @@ const hPaToInHg = (hPa) => hPa * 0.02953;
  * Convert raw Open-Meteo API response to display-ready weather data.
  * Exported so WeatherPanel can use pre-fetched data without its own hook.
  */
-export function convertWeatherData(rawData, units = 'imperial') {
+export function convertWeatherData(rawData, allUnits) {
   if (!rawData) return null;
 
-  const isMetric = units === 'metric';
+  const isMetricDist = allUnits.dist === 'metric';
+  const isMetricTemp = allUnits.temp === 'metric';
+  const isMetricPress = allUnits.press === 'metric';
   const current = rawData.current || {};
   const daily = rawData.daily || {};
   const hourly = rawData.hourly || {};
   const code = current.weather_code;
   const weather = WEATHER_CODES[code] || { desc: 'Unknown', icon: '🌡️' };
 
-  const convTemp = (c) => (c == null ? null : Math.round(isMetric ? c : cToF(c)));
-  const convWind = (k) => (k == null ? null : Math.round(isMetric ? k : kmhToMph(k)));
+  const convTemp = (c) => (c == null ? null : Math.round(isMetricTemp ? c : cToF(c)));
+  const convWind = (k) => (k == null ? null : Math.round(isMetricDist ? k : kmhToMph(k)));
 
   // Build hourly forecast (next 24h in 3h intervals)
   const hourlyForecast = [];
@@ -113,7 +115,7 @@ export function convertWeatherData(rawData, units = 'imperial') {
         high: convTemp(daily.temperature_2m_max?.[i]),
         low: convTemp(daily.temperature_2m_min?.[i]),
         precipProb: daily.precipitation_probability_max?.[i] || 0,
-        precipSum: isMetric
+        precipSum: isMetricDist
           ? daily.precipitation_sum?.[i] || 0
           : parseFloat(mmToInch(daily.precipitation_sum?.[i] || 0).toFixed(2)),
         icon: dWeather.icon,
@@ -134,20 +136,22 @@ export function convertWeatherData(rawData, units = 'imperial') {
     humidity: Math.round(current.relative_humidity_2m || 0),
     dewPoint: convTemp(current.dew_point_2m),
     pressure: current.pressure_msl
-      ? isMetric
+      ? isMetricPress
         ? current.pressure_msl.toFixed(1)
         : hPaToInHg(current.pressure_msl).toFixed(2)
       : null,
-    pressureUnit: isMetric ? 'hPa' : 'inHg',
+    pressureUnit: isMetricPress ? 'hPa' : 'inHg',
     cloudCover: current.cloud_cover || 0,
     windSpeed: convWind(current.wind_speed_10m),
     windDir: windDirection(current.wind_direction_10m),
     windDirDeg: current.wind_direction_10m || 0,
     windGusts: convWind(current.wind_gusts_10m),
-    precipitation: isMetric ? current.precipitation || 0 : parseFloat(mmToInch(current.precipitation || 0).toFixed(2)),
+    precipitation: isMetricDist
+      ? current.precipitation || 0
+      : parseFloat(mmToInch(current.precipitation || 0).toFixed(2)),
     uvIndex: current.uv_index || 0,
     visibility: current.visibility
-      ? isMetric
+      ? isMetricDist
         ? (current.visibility / 1000).toFixed(1)
         : kmToMi(current.visibility / 1000).toFixed(1)
       : null,
@@ -158,9 +162,9 @@ export function convertWeatherData(rawData, units = 'imperial') {
     hourly: hourlyForecast,
     daily: dailyForecast,
     timezone: rawData.timezone || '',
-    tempUnit: isMetric ? 'C' : 'F',
-    windUnit: isMetric ? 'km/h' : 'mph',
-    visUnit: isMetric ? 'km' : 'mi',
+    tempUnit: isMetricTemp ? 'C' : 'F',
+    windUnit: isMetricDist ? 'km/h' : 'mph',
+    visUnit: isMetricDist ? 'km' : 'mi',
     rawTempC,
     rawFeelsLikeC: current.apparent_temperature || 0,
   };
@@ -204,7 +208,7 @@ async function fetchOpenMeteoDirect(lat, lon) {
   return data;
 }
 
-export const useWeather = (location, units = 'imperial') => {
+export const useWeather = (location, allUnits = { dist: 'imperial', temp: 'imperial', press: 'imperial' }) => {
   const [rawData, setRawData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null); // { message, retryIn }
@@ -263,7 +267,7 @@ export const useWeather = (location, units = 'imperial') => {
   }, [location?.lat, location?.lon]);
 
   // Convert raw API data to display data based on current units
-  const data = convertWeatherData(rawData, units);
+  const data = convertWeatherData(rawData, allUnits);
 
   return { data, loading, error };
 };

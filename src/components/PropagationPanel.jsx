@@ -11,7 +11,7 @@ export const PropagationPanel = ({
   loading,
   bandConditions,
   forcedMode,
-  units = 'imperial',
+  allUnits = { dist: 'imperial', temp: 'imperial', press: 'imperial' },
   propConfig = {},
 }) => {
   const { t } = useTranslation();
@@ -376,7 +376,7 @@ export const PropagationPanel = ({
             </div>
             <span style={{ color: hasRealData ? '#00ff88' : 'var(--text-muted)', fontSize: '10px' }}>
               {hasRealData
-                ? `⌇ Iono: ${ionospheric?.source || 'ionosonde'}${ionospheric?.distance ? ` (${formatDistance(ionospheric.distance, units)} from path)` : ''}`
+                ? `⌇ Iono: ${ionospheric?.source || 'ionosonde'}${ionospheric?.distance ? ` (${formatDistance(ionospheric.distance, allUnits.dist)} from path)` : ''}`
                 : `⚡ ${t('propagation.estimated')}`}
             </span>
             {dataSource && dataSource.includes('ITU') && (
@@ -508,7 +508,7 @@ export const PropagationPanel = ({
                   </span>
                 </div>
                 <div style={{ color: 'var(--text-muted)' }}>
-                  {formatDistance(distance || 0, units)} •{' '}
+                  {formatDistance(distance || 0, allUnits.dist)} •{' '}
                   {ionospheric?.foF2 ? `foF2=${ionospheric.foF2}` : `SSN=${solarData?.ssn}`}
                 </div>
               </div>
