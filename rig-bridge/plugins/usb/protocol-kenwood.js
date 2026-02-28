@@ -45,38 +45,39 @@ function poll(serialWrite) {
   serialWrite('IF;');
 }
 
-function parse(resp, updateState, getState) {
-  if (!resp || resp.length < 2) return;
-  const cmd = resp.substring(0, 2);
+function parse(data, updateState, getState, debug) {
+  if (debug) console.log(`[Kenwood/Proto] parse: ${data}`);
+  if (!data || data.length < 2) return;
+  const cmd = data.substring(0, 2);
 
   switch (cmd) {
     case 'IF': {
       // Kenwood IF format:
       // IF00014074000     +000000000040000000;
       // Freq is 11 digits starting at position 2
-      if (resp.length >= 37) {
-        const freqStr = resp.substring(2, 13);
+      if (data.length >= 37) {
+        const freqStr = data.substring(2, 13);
         const freq = parseInt(freqStr, 10);
         if (freq > 0) updateState('freq', freq);
 
         // Mode at position 29
-        const modeDigit = resp.charAt(29);
+        const modeDigit = data.charAt(29);
         const mode = MODES[modeDigit] || getState('mode');
         updateState('mode', mode);
 
         // TX state at position 28
-        const txState = resp.charAt(28);
+        const txState = data.charAt(28);
         updateState('ptt', txState !== '0');
       }
       break;
     }
     case 'FA': {
-      const freq = parseInt(resp.substring(2), 10);
+      const freq = parseInt(data.substring(2), 10);
       if (freq > 0) updateState('freq', freq);
       break;
     }
     case 'MD': {
-      const modeDigit = resp.charAt(2);
+      const modeDigit = data.charAt(2);
       const mode = MODES[modeDigit] || getState('mode');
       updateState('mode', mode);
       break;
