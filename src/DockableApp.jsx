@@ -644,7 +644,7 @@ export const DockableApp = ({
               propagation={propagation.data}
               loading={propagation.loading}
               bandConditions={bandConditions}
-              allUnits={config.Units}
+              allUnits={config.allUnits}
               propConfig={config.propagation}
               forcedMode="bars"
             />
