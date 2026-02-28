@@ -86,40 +86,14 @@ export const fetchServerConfig = async () => {
 
 /**
  * Load config - localStorage is the primary source of truth
- * Server config only provides defaults for first-time users
+ * Server config provides baseline values from .env, then localStorage overrides
  */
 export const loadConfig = () => {
   // Start with defaults
   let config = { ...DEFAULT_CONFIG };
 
-  // Try to load from localStorage FIRST (user's saved settings)
-  let localConfig = null;
-  try {
-    const saved = localStorage.getItem('openhamclock_config');
-    if (saved) {
-      localConfig = JSON.parse(saved);
-      console.log('[Config] Loaded from localStorage:', localConfig.callsign);
-    }
-  } catch (e) {
-    console.error('Error loading config from localStorage:', e);
-  }
-
-  // If user has localStorage config, use it (this is the priority)
-  if (localConfig) {
-    config = {
-      ...config,
-      ...localConfig,
-      // Ensure nested objects are properly merged
-      location: localConfig.location || config.location,
-      defaultDX: localConfig.defaultDX || config.defaultDX,
-      panels: { ...config.panels, ...localConfig.panels },
-      refreshIntervals: { ...config.refreshIntervals, ...localConfig.refreshIntervals },
-    };
-  }
-  // Only use server config if NO localStorage exists (first-time user)
-  else if (serverConfig) {
-    // Server config provides initial defaults for new users
-    // But only if they have real values (not N0CALL)
+  // Apply server config baseline (.env/config.json) when available
+  if (serverConfig) {
     config = {
       ...config,
       callsign: serverConfig.callsign && serverConfig.callsign !== 'N0CALL' ? serverConfig.callsign : config.callsign,
@@ -143,6 +117,31 @@ export const loadConfig = () => {
       showPota: serverConfig.showPota ?? config.showPota,
       showDxPaths: serverConfig.showDxPaths ?? config.showDxPaths,
       panels: { ...config.panels, ...serverConfig.panels },
+    };
+  }
+
+  // Try to load from localStorage FIRST (user's saved settings)
+  let localConfig = null;
+  try {
+    const saved = localStorage.getItem('openhamclock_config');
+    if (saved) {
+      localConfig = JSON.parse(saved);
+      console.log('[Config] Loaded from localStorage:', localConfig.callsign);
+    }
+  } catch (e) {
+    console.error('Error loading config from localStorage:', e);
+  }
+
+  // Local browser settings override server/default values
+  if (localConfig) {
+    config = {
+      ...config,
+      ...localConfig,
+      // Ensure nested objects are properly merged
+      location: localConfig.location || config.location,
+      defaultDX: localConfig.defaultDX || config.defaultDX,
+      panels: { ...config.panels, ...localConfig.panels },
+      refreshIntervals: { ...config.refreshIntervals, ...localConfig.refreshIntervals },
     };
   }
 
