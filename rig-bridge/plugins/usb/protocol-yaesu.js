@@ -109,7 +109,8 @@ function parse(data, updateState, getState, debug) {
     }
     case 'MD': {
       const modeStr = data.substring(2);
-      const mode = MODES[modeStr] || getState('mode');
+      const modeDigit = modeStr.length >= 2 ? modeStr.charAt(1) : modeStr.charAt(0);
+      const mode = MODES[modeDigit] || getState('mode');
       updateState('mode', mode);
       break;
     }
