@@ -264,19 +264,19 @@ const App = () => {
 
   const filteredPotaSpots = useMemo(() => {
     return ActivateFilter(potaSpots, potaFilters);
-  }, [potaSpots, potaFilters]);
+  }, [potaSpots.data, potaFilters]);
 
   const filteredWwffSpots = useMemo(() => {
     return ActivateFilter(wwffSpots, wwffFilters);
-  }, [wwffSpots, wwffFilters]);
+  }, [wwffSpots.data, wwffFilters]);
 
   const filteredSotaSpots = useMemo(() => {
     return ActivateFilter(sotaSpots, sotaFilters);
-  }, [sotaSpots, sotaFilters]);
+  }, [sotaSpots.data, sotaFilters]);
 
   const filteredWwbotaSpots = useMemo(() => {
     return ActivateFilter(wwbotaSpots, wwbotaFilters);
-  }, [wwbotaSpots, wwbotaFilters]);
+  }, [wwbotaSpots.data, wwbotaFilters]);
 
   const wsjtxMapSpots = useMemo(() => {
     // Apply same age filter as panel (stored in localStorage)
