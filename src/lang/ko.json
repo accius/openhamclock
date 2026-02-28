@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "방향:",
   "app.dxLocation.deTitle": "📍 DE – 내 위치",
   "app.dxLocation.dxTitle": "📍 DX – 대상",
+  "app.dxLocation.gridInputTitle": "메이든헤드 로케이터 입력 (예: JN58sm), Enter 누르기",
+  "app.dxLocation.gridInputTitleLocked": "로케이터를 수동으로 입력하려면 DX 위치 잠금 해제",
   "app.dxLocation.lp": "LP:",
   "app.dxLocation.sp": "SP:",
   "app.dxLock.clickToSet": "지도를 클릭하여 DX 설정",

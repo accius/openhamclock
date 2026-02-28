@@ -35,6 +35,7 @@ import { loadLayout, saveLayout } from './store/layoutStore.js';
 import { DockableLayoutProvider } from './contexts';
 import { useRig } from './contexts/RigContext.jsx';
 import { calculateBearing, calculateDistance, formatDistance } from './utils/geo.js';
+import { DXGridInput } from './components/DXGridInput.jsx';
 import './styles/flexlayout-openhamclock.css';
 import useMapLayers from './hooks/app/useMapLayers';
 import useRotator from './hooks/useRotator';
@@ -432,7 +433,14 @@ export const DockableApp = ({
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px', flex: '1 1 auto', minWidth: 0 }}>
-            <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}>{dxGrid}</div>
+            <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}>
+              <DXGridInput
+                dxGrid={dxGrid}
+                onDXChange={handleDXChange}
+                dxLocked={dxLocked}
+                style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}
+              />
+            </div>
             <DXLocalTime
               currentTime={currentTime}
               dxLocation={dxLocation}

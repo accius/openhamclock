@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "Straalrichting:",
   "app.dxLocation.deTitle": "📍 DE - JOUW LOCATIE",
   "app.dxLocation.dxTitle": "📍 DX - DOEL",
+  "app.dxLocation.gridInputTitle": "Voer een Maidenhead-locator in (bijv. JN58sm), druk op Enter",
+  "app.dxLocation.gridInputTitleLocked": "Ontgrendel DX-positie om een locator handmatig in te voeren",
   "app.dxLocation.lp": "LP:",
   "app.dxLocation.sp": "SP:",
   "app.dxLock.clickToSet": "Klik op de kaart om DX in te stellen",

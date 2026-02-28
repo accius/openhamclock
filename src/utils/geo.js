@@ -4,6 +4,30 @@
  */
 
 /**
+ * Parse a Maidenhead grid square string into lat/lon coordinates.
+ * Supports 4-character (e.g. "JN58") and 6-character (e.g. "JN58sm") locators.
+ * Returns { lat, lon } of the grid square center, or null if input is invalid.
+ */
+export const parseGridSquare = (grid) => {
+  const g = grid.toUpperCase();
+  if (g.length < 4) return null;
+  const lon1 = (g.charCodeAt(0) - 65) * 20 - 180;
+  const lat1 = (g.charCodeAt(1) - 65) * 10 - 90;
+  const lon2 = parseInt(g[2]) * 2;
+  const lat2 = parseInt(g[3]) * 1;
+  if (isNaN(lon2) || isNaN(lat2)) return null;
+  let lon = lon1 + lon2 + 1;
+  let lat = lat1 + lat2 + 0.5;
+  if (g.length >= 6) {
+    const lon3 = (g.charCodeAt(4) - 65) * (2 / 24);
+    const lat3 = (g.charCodeAt(5) - 65) * (1 / 24);
+    lon = lon1 + lon2 + lon3 + 1 / 24;
+    lat = lat1 + lat2 + lat3 + 1 / 48;
+  }
+  return { lat, lon };
+};
+
+/**
  * Calculate Maidenhead grid square from coordinates
  */
 export const calculateGridSquare = (lat, lon) => {
@@ -414,6 +438,7 @@ export const classifyTwilight = (solarElevationDeg) => {
 };
 
 export default {
+  parseGridSquare,
   calculateGridSquare,
   calculateBearing,
   calculateDistance,

@@ -3,7 +3,7 @@
  * Full settings modal with map layer controls
  */
 import { useState, useEffect, useRef } from 'react';
-import { calculateGridSquare } from '../utils/geo.js';
+import { calculateGridSquare, parseGridSquare } from '../utils/geo.js';
 import { useTranslation, Trans } from 'react-i18next';
 import { LANGUAGES } from '../lang/i18n.js';
 import {
@@ -284,28 +284,6 @@ export const SettingsPanel = ({
         setLon(parsed.lon);
       }
     }
-  };
-
-  const parseGridSquare = (grid) => {
-    grid = grid.toUpperCase();
-    if (grid.length < 4) return null;
-
-    const lon1 = (grid.charCodeAt(0) - 65) * 20 - 180;
-    const lat1 = (grid.charCodeAt(1) - 65) * 10 - 90;
-    const lon2 = parseInt(grid[2]) * 2;
-    const lat2 = parseInt(grid[3]) * 1;
-
-    let lon = lon1 + lon2 + 1;
-    let lat = lat1 + lat2 + 0.5;
-
-    if (grid.length >= 6) {
-      const lon3 = (grid.charCodeAt(4) - 65) * (2 / 24);
-      const lat3 = (grid.charCodeAt(5) - 65) * (1 / 24);
-      lon = lon1 + lon2 + lon3 + 1 / 24;
-      lat = lat1 + lat2 + lat3 + 1 / 48;
-    }
-
-    return { lat, lon };
   };
 
   useEffect(() => {

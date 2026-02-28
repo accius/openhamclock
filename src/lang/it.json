@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "Direzione fascio:",
   "app.dxLocation.deTitle": "📍 DE - LA TUA POSIZIONE",
   "app.dxLocation.dxTitle": "📍 DX - OBIETTIVO",
+  "app.dxLocation.gridInputTitle": "Inserire un locatore Maidenhead (es. JN58sm), premere Invio",
+  "app.dxLocation.gridInputTitleLocked": "Sbloccare la posizione DX per inserire un locatore manualmente",
   "app.dxLocation.lp": "LP:",
   "app.dxLocation.sp": "SP:",
   "app.dxLock.clickToSet": "Clicca sulla mappa per impostare DX",

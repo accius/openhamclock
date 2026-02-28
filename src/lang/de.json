@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "Strahlrichtung:",
   "app.dxLocation.deTitle": "📍 DE - IHR STANDORT",
   "app.dxLocation.dxTitle": "📍 DX - ZIEL",
+  "app.dxLocation.gridInputTitle": "Maidenhead-Locator eingeben (z.B. JN58sm), Enter drücken",
+  "app.dxLocation.gridInputTitleLocked": "DX-Position entsperren, um einen Locator einzugeben",
   "app.dxLocation.lp": "LP:",
   "app.dxLocation.sp": "SP:",
   "app.dxLock.clickToSet": "Karte klicken, um DX zu setzen",

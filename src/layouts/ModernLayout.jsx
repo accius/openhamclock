@@ -26,6 +26,7 @@ import {
 } from '../components';
 import { useRig } from '../contexts/RigContext.jsx';
 import { calculateDistance, formatDistance } from '../utils/geo.js';
+import { DXGridInput } from '../components/DXGridInput.jsx';
 import useBreakpoint from '../hooks/app/useBreakpoint';
 
 export default function ModernLayout(props) {
@@ -240,7 +241,12 @@ export default function ModernLayout(props) {
       </div>
       <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
         <div style={{ color: 'var(--accent-green)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>
-          {dxGrid}
+          <DXGridInput
+            dxGrid={dxGrid}
+            onDXChange={handleDXChange}
+            dxLocked={dxLocked}
+            style={{ color: 'var(--accent-green)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}
+          />
         </div>
         <DXLocalTime
           currentTime={currentTime}

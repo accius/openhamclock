@@ -2,6 +2,7 @@
  * Classic HamClock-style layout
  */
 import { DXNewsTicker, WorldMap } from '../components';
+import { DXGridInput } from '../components/DXGridInput.jsx';
 import { getBandColor, getBandColorForBand } from '../utils';
 import CallsignLink from '../components/CallsignLink.jsx';
 import DonateButton from '../components/DonateButton.jsx';
@@ -1418,7 +1419,14 @@ export default function ClassicLayout(props) {
             }}
           >
             <span>
-              {deGrid} → {dxGrid} • {dxLocked ? t('app.dxLock.lockedShort') : t('app.dxLock.clickToSet')}
+              {deGrid} →{' '}
+              <DXGridInput
+                dxGrid={dxGrid}
+                onDXChange={handleDXChange}
+                dxLocked={dxLocked}
+                style={{ color: 'var(--text-muted)', fontSize: '14px' }}
+              />{' '}
+              • {dxLocked ? t('app.dxLock.lockedShort') : t('app.dxLock.clickToSet')}
             </span>
             <button
               onClick={handleToggleDxLock}

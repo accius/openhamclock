@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "Smer žarka:",
   "app.dxLocation.deTitle": "📍 DE - VAŠA LOKACIJA",
   "app.dxLocation.dxTitle": "📍 DX - CILJ",
+  "app.dxLocation.gridInputTitle": "Vnesite Maidenhead lokator (npr. JN58sm), pritisnite Enter",
+  "app.dxLocation.gridInputTitleLocked": "Odklenite položaj DX za ročni vnos lokatorja",
   "app.dxLocation.lp": "LP:",
   "app.dxLocation.sp": "SP:",
   "app.dxLock.clickToSet": "Kliknite na zemljevid za nastavitev DX",

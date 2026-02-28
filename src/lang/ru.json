@@ -207,6 +207,8 @@
   "app.donate.paypal": "Поддержать через PayPal",
   "app.dxLocation.deTitle": "📍 DE - ВАШЕ РАСПОЛОЖЕНИЕ",
   "app.dxLocation.dxTitle": "📍 DX - ЦЕЛЬ",
+  "app.dxLocation.gridInputTitle": "Введите локатор Maidenhead (напр. JN58sm), нажмите Enter",
+  "app.dxLocation.gridInputTitleLocked": "Разблокируйте позицию DX для ввода локатора вручную",
   "app.dxLocation.beamDir": "Направление:",
   "app.dxLocation.sp": "КП:",
   "app.dxLocation.lp": "ДП:",

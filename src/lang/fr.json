@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "Direction du faisceau :",
   "app.dxLocation.deTitle": "📍 DE - VOTRE POSITION",
   "app.dxLocation.dxTitle": "📍 DX - CIBLE",
+  "app.dxLocation.gridInputTitle": "Saisissez un locator Maidenhead (ex. JN58sm), appuyez sur Entrée",
+  "app.dxLocation.gridInputTitleLocked": "Déverrouillez la position DX pour saisir un locator manuellement",
   "app.dxLocation.lp": "LP :",
   "app.dxLocation.sp": "SP :",
   "app.dxLock.clickToSet": "Cliquez sur la carte pour définir le DX",

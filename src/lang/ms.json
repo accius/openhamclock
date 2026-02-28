@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "Arah Pancaran:",
   "app.dxLocation.deTitle": "📍 DE - LOKASI ANDA",
   "app.dxLocation.dxTitle": "📍 DX - SASARAN",
+  "app.dxLocation.gridInputTitle": "Taip penempatan Maidenhead (cth. JN58sm), tekan Enter",
+  "app.dxLocation.gridInputTitleLocked": "Buka kunci kedudukan DX untuk memasukkan penempatan secara manual",
   "app.dxLocation.lp": "LP:",
   "app.dxLocation.sp": "SP:",
   "app.dxLock.clickToSet": "Klik peta untuk tetap DX",

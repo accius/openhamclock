@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "ビーム方向:",
   "app.dxLocation.deTitle": "📍 DE - あなたの位置",
   "app.dxLocation.dxTitle": "📍 DX - ターゲット",
+  "app.dxLocation.gridInputTitle": "メイデンヘッドロケーターを入力（例：JN58sm）、Enterを押す",
+  "app.dxLocation.gridInputTitleLocked": "手動でロケーターを入力するにはDX位置のロックを解除してください",
   "app.dxLocation.lp": "LP:",
   "app.dxLocation.sp": "SP:",
   "app.dxLock.clickToSet": "マップをクリックして DX 設定",

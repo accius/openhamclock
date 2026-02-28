@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "Dirección del haz:",
   "app.dxLocation.deTitle": "📍 DE - TU UBICACIÓN",
   "app.dxLocation.dxTitle": "📍 DX - OBJETIVO",
+  "app.dxLocation.gridInputTitle": "Introduzca un localizador Maidenhead (p. ej. JN58sm), pulse Intro",
+  "app.dxLocation.gridInputTitleLocked": "Desbloquear posición DX para introducir un localizador manualmente",
   "app.dxLocation.lp": "LP:",
   "app.dxLocation.sp": "SP:",
   "app.dxLock.clickToSet": "Haz clic en el mapa para definir DX",

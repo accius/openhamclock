@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "Direção do feixe:",
   "app.dxLocation.deTitle": "📍 DE - SUA LOCALIZAÇÃO",
   "app.dxLocation.dxTitle": "📍 DX - ALVO",
+  "app.dxLocation.gridInputTitle": "Digite um localizador Maidenhead (ex. JN58sm), pressione Enter",
+  "app.dxLocation.gridInputTitleLocked": "Desbloqueie a posição DX para inserir um localizador manualmente",
   "app.dxLocation.lp": "LP:",
   "app.dxLocation.sp": "SP:",
   "app.dxLock.clickToSet": "Clique no mapa para definir DX",

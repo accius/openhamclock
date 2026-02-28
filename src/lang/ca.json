@@ -7,6 +7,8 @@
   "app.dxLocation.beamDir": "Direcció del feix:",
   "app.dxLocation.deTitle": "📍 DE - LA TEVA UBICACIÓ",
   "app.dxLocation.dxTitle": "📍 DX - OBJECTIU",
+  "app.dxLocation.gridInputTitle": "Escriviu un locator Maidenhead (p. ex. JN58sm), premeu Intro",
+  "app.dxLocation.gridInputTitleLocked": "Desbloquegeu la posició DX per introduir un locator manualment",
   "app.dxLocation.lp": "LP:",
   "app.dxLocation.sp": "SP:",
   "app.dxLock.clickToSet": "Clica el mapa per definir DX",

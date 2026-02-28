@@ -207,6 +207,8 @@
   "app.donate.paypal": "შემოწირულობა PayPal-ით",
   "app.dxLocation.deTitle": "📍 DE - თქვენი მდებარეობა",
   "app.dxLocation.dxTitle": "📍 DX - სამიზნე",
+  "app.dxLocation.gridInputTitle": "შეიყვანეთ Maidenhead ლოკატორი (მაგ. JN58sm), დააჭირეთ Enter",
+  "app.dxLocation.gridInputTitleLocked": "განბლოკეთ DX პოზიცია ლოკატორის ხელით შესაყვანად",
   "app.dxLocation.beamDir": "მიმართულება:",
   "app.dxLocation.sp": "მოკლე:",
   "app.dxLocation.lp": "გრძელი:",

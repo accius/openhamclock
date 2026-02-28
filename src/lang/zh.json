@@ -189,6 +189,8 @@
   "app.donate.paypal": "通过 PayPal 捐赠",
   "app.dxLocation.deTitle": "📍 DE - 您的位置",
   "app.dxLocation.dxTitle": "📍 DX - 目标位置",
+  "app.dxLocation.gridInputTitle": "输入梅登黑德网格（如 JN58sm），按回车确认",
+  "app.dxLocation.gridInputTitleLocked": "解锁DX位置以手动输入网格坐标",
   "app.dxLocation.beamDir": "波束方向:",
   "app.dxLocation.sp": "短径:",
   "app.dxLocation.lp": "长径:",

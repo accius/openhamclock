@@ -218,6 +218,8 @@
   "app.donate.paypal": "Donate via PayPal",
   "app.dxLocation.deTitle": "📍 DE - YOUR LOCATION",
   "app.dxLocation.dxTitle": "📍 DX - TARGET",
+  "app.dxLocation.gridInputTitle": "Type a Maidenhead locator (e.g. JN58sm), press Enter",
+  "app.dxLocation.gridInputTitleLocked": "Unlock DX position to enter a locator manually",
   "app.dxLocation.beamDir": "Beam Dir:",
   "app.dxLocation.sp": "SP:",
   "app.dxLocation.lp": "LP:",
