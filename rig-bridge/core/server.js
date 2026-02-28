@@ -67,12 +67,13 @@ console.error = (...args) => {
 
 // ──────────────────────────────────────────────────────────────────────────
 
-const SETUP_HTML = `<!DOCTYPE html>
+function buildSetupHtml(version) {
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenHamClock Rig Bridge</title>
+  <title>OpenHamClock Rig Bridge v${version}</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -343,6 +344,14 @@ const SETUP_HTML = `<!DOCTYPE html>
     @media (max-width: 500px) {
       .row { flex-direction: column; gap: 0; }
     }
+    .page-footer {
+      margin-top: 28px;
+      text-align: center;
+      font-size: 11px;
+      color: #374151;
+    }
+    .page-footer a { color: #374151; text-decoration: none; }
+    .page-footer a:hover { color: #6b7280; }
   </style>
 </head>
 <body>
@@ -362,12 +371,13 @@ const SETUP_HTML = `<!DOCTYPE html>
 
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('config', this)">⚙️ Configuration</button>
+      <button class="tab-btn active" onclick="switchTab('radio', this)">📻 Radio</button>
+      <button class="tab-btn" onclick="switchTab('integrations', this)">🔌 Integrations</button>
       <button class="tab-btn" onclick="switchTab('log', this)">🖥️ Console Log</button>
     </div>
 
-    <!-- ══ Tab: Configuration ══ -->
-    <div class="tab-panel active" id="tab-config">
+    <!-- ══ Tab: Radio ══ -->
+    <div class="tab-panel active" id="tab-radio">
       <div class="card">
         <div class="card-title">⚡ Radio Connection</div>
 
@@ -478,6 +488,53 @@ const SETUP_HTML = `<!DOCTYPE html>
       </div>
     </div>
 
+    <!-- ══ Tab: Integrations ══ -->
+    <div class="tab-panel" id="tab-integrations">
+      <div class="card">
+        <div class="card-title">📡 WSJT-X Relay</div>
+        <p class="help-text" style="margin-bottom:14px; color:#6b7280;">
+          Captures WSJT-X UDP packets on your machine and forwards decoded messages
+          to an OpenHamClock server in real time. In WSJT-X: Settings → Reporting → UDP Server: 127.0.0.1 port 2237.
+        </p>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="wsjtxEnabled" onchange="toggleWsjtxOpts()">
+          <span>Enable WSJT-X Relay</span>
+        </div>
+
+        <div id="wsjtxOpts" style="display:none;">
+          <label>OpenHamClock Server URL</label>
+          <input type="text" id="wsjtxUrl" placeholder="https://openhamclock.com">
+
+          <label>Relay Key</label>
+          <input type="text" id="wsjtxKey" placeholder="Your relay authentication key">
+
+          <label>Session ID</label>
+          <input type="text" id="wsjtxSession" placeholder="Your browser session ID">
+          <div class="help-text">The session ID links your relayed decodes to your OpenHamClock dashboard.</div>
+
+          <div class="row">
+            <div>
+              <label>UDP Port</label>
+              <input type="number" id="wsjtxPort" value="2237" min="1024" max="65535">
+            </div>
+            <div>
+              <label>Batch Interval (ms)</label>
+              <input type="number" id="wsjtxInterval" value="2000" min="500" max="30000">
+            </div>
+          </div>
+
+          <div style="font-size:12px; color:#6b7280; margin-bottom:14px;">
+            Status: <span id="wsjtxStatusText" style="color:#c4c9d4;">—</span>
+          </div>
+        </div>
+
+        <div class="btn-row">
+          <button class="btn btn-primary" onclick="saveIntegrations()">💾 Save Integrations</button>
+        </div>
+      </div>
+    </div>
+
     <!-- ══ Tab: Console Log ══ -->
     <div class="tab-panel" id="tab-log">
       <div class="log-toolbar">
@@ -511,6 +568,11 @@ const SETUP_HTML = `<!DOCTYPE html>
 
   <div class="toast" id="toast"></div>
 
+  <footer class="page-footer">
+    OpenHamClock Rig Bridge v${version} &nbsp;·&nbsp;
+    <a href="https://openhamclock.com" target="_blank" rel="noopener">openhamclock.com</a>
+  </footer>
+
   <script>
     // ── Tab switching ──────────────────────────────────────────────────────
     function switchTab(name, btn) {
@@ -520,7 +582,75 @@ const SETUP_HTML = `<!DOCTYPE html>
       document.getElementById('tab-' + name).classList.add('active');
     }
 
-    // ── Config tab ─────────────────────────────────────────────────────────
+    // ── Integrations tab ───────────────────────────────────────────────────
+
+    function populateIntegrations(cfg) {
+      const w = cfg.wsjtxRelay || {};
+      document.getElementById('wsjtxEnabled').checked = !!w.enabled;
+      document.getElementById('wsjtxUrl').value = w.url || '';
+      document.getElementById('wsjtxKey').value = w.key || '';
+      document.getElementById('wsjtxSession').value = w.session || '';
+      document.getElementById('wsjtxPort').value = w.udpPort || 2237;
+      document.getElementById('wsjtxInterval').value = w.batchInterval || 2000;
+      toggleWsjtxOpts();
+    }
+
+    function toggleWsjtxOpts() {
+      const enabled = document.getElementById('wsjtxEnabled').checked;
+      document.getElementById('wsjtxOpts').style.display = enabled ? 'block' : 'none';
+    }
+
+    async function saveIntegrations() {
+      const wsjtxRelay = {
+        enabled: document.getElementById('wsjtxEnabled').checked,
+        url: document.getElementById('wsjtxUrl').value.trim(),
+        key: document.getElementById('wsjtxKey').value.trim(),
+        session: document.getElementById('wsjtxSession').value.trim(),
+        udpPort: parseInt(document.getElementById('wsjtxPort').value) || 2237,
+        batchInterval: parseInt(document.getElementById('wsjtxInterval').value) || 2000,
+      };
+      try {
+        const res = await fetch('/api/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wsjtxRelay }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          currentConfig = data.config;
+          showToast('✅ Integrations saved!', 'success');
+        }
+      } catch (e) {
+        showToast('Save failed: ' + e.message, 'error');
+      }
+    }
+
+    let wsjtxStatusInterval = null;
+
+    function startWsjtxStatusPoll() {
+      if (wsjtxStatusInterval) clearInterval(wsjtxStatusInterval);
+      wsjtxStatusInterval = setInterval(async () => {
+        try {
+          const res = await fetch('/api/wsjtxrelay/status');
+          if (!res.ok) return;
+          const data = await res.json();
+          const el = document.getElementById('wsjtxStatusText');
+          if (!el) return;
+          if (!data.running) {
+            el.textContent = 'Not running';
+            el.style.color = '#6b7280';
+          } else if (!data.serverReachable) {
+            el.textContent = 'Running — connecting to server...';
+            el.style.color = '#f59e0b';
+          } else {
+            el.textContent = 'Running — ' + data.decodeCount + ' decodes, ' + data.relayCount + ' relayed';
+            el.style.color = '#22c55e';
+          }
+        } catch (e) {}
+      }, 5000);
+    }
+
+    // ── Radio tab ──────────────────────────────────────────────────────────
     let currentConfig = null;
     let statusInterval = null;
 
@@ -530,10 +660,12 @@ const SETUP_HTML = `<!DOCTYPE html>
         currentConfig = await cfgRes.json();
         const logData = await logRes.json();
         populateForm(currentConfig);
+        populateIntegrations(currentConfig);
         setLoggingBtn(logData.logging !== false); // default true
         refreshPorts();
         startStatusPoll();
         startLogStream();
+        startWsjtxStatusPoll();
       } catch (e) {
         showToast('Failed to load config', 'error');
       }
@@ -853,8 +985,9 @@ const SETUP_HTML = `<!DOCTYPE html>
   </script>
 </body>
 </html>`;
+}
 
-function createServer(registry) {
+function createServer(registry, version) {
   const app = express();
   app.use(cors());
   app.use(express.json());
@@ -865,9 +998,9 @@ function createServer(registry) {
   // ─── Setup Web UI ───
   app.get('/', (req, res) => {
     if (!req.headers.accept || !req.headers.accept.includes('text/html')) {
-      return res.json({ status: 'ok', connected: state.connected, version: '1.1.0' });
+      return res.json({ status: 'ok', connected: state.connected, version });
     }
-    res.send(SETUP_HTML);
+    res.send(buildSetupHtml(version));
   });
 
   // ─── API: Live console log stream (SSE) ───
@@ -924,14 +1057,24 @@ function createServer(registry) {
     if (typeof newConfig.logging === 'boolean') {
       config.logging = newConfig.logging;
     }
+    if (newConfig.wsjtxRelay) {
+      config.wsjtxRelay = { ...config.wsjtxRelay, ...newConfig.wsjtxRelay };
+    }
     // macOS: tty.* (dial-in) blocks open() — silently upgrade to cu.* (call-out)
     if (process.platform === 'darwin' && config.radio.serialPort?.startsWith('/dev/tty.')) {
       config.radio.serialPort = config.radio.serialPort.replace('/dev/tty.', '/dev/cu.');
     }
     saveConfig();
 
-    // Restart connection with new config
-    registry.switchPlugin(config.radio.type);
+    // Restart radio connection if radio config changed
+    if (newConfig.radio) {
+      registry.switchPlugin(config.radio.type);
+    }
+
+    // Restart WSJT-X relay if its config changed
+    if (newConfig.wsjtxRelay) {
+      registry.restartIntegration('wsjtx-relay');
+    }
 
     res.json({ success: true, config });
   });
@@ -961,7 +1104,9 @@ function createServer(registry) {
         }
         // Even for test, set DTR/RTS if not using hardware flow
         if (!testRtscts) {
-          testConn.set({ dtr: true, rts: true }, () => {});
+          testConn.set({ dtr: true, rts: true }, (setErr) => {
+            if (setErr) console.warn(`[Server] Could not set DTR/RTS during test: ${setErr.message}`);
+          });
         }
         testConn.close(() => {
           res.json({ success: true, message: `Successfully opened ${testPort} at ${testBaud} baud` });
@@ -1036,17 +1181,30 @@ function createServer(registry) {
   return app;
 }
 
-function startServer(port, registry) {
-  const app = createServer(registry);
-  app.listen(port, '0.0.0.0', () => {
+function startServer(port, registry, version) {
+  const app = createServer(registry, version);
+  const server = app.listen(port, '0.0.0.0', () => {
+    const versionLabel = `v${version}`.padEnd(8);
     console.log('');
     console.log('  ╔══════════════════════════════════════════════╗');
-    console.log('  ║   📻  OpenHamClock Rig Bridge  v1.1.0       ║');
+    console.log(`  ║   📻  OpenHamClock Rig Bridge  ${versionLabel}      ║`);
     console.log('  ╠══════════════════════════════════════════════╣');
     console.log(`  ║   Setup UI:  http://localhost:${port}          ║`);
     console.log(`  ║   Radio:     ${(config.radio.type || 'none').padEnd(30)}║`);
     console.log('  ╚══════════════════════════════════════════════╝');
     console.log('');
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n[Server] ERROR: Port ${port} is already in use.`);
+      console.error(`         Another instance of Rig Bridge might be running.`);
+      console.error(`         Please close it or use --port <new_port> to start another one.\n`);
+      process.exit(1);
+    } else {
+      console.error(`\n[Server] Unexpected error: ${err.message}\n`);
+      process.exit(1);
+    }
   });
 }
 

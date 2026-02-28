@@ -19,6 +19,8 @@
 
 'use strict';
 
+const VERSION = '1.1.0';
+
 const { config, loadConfig, applyCliArgs } = require('./core/config');
 const { updateState, state } = require('./core/state');
 const PluginRegistry = require('./core/plugin-registry');
@@ -28,12 +30,42 @@ const { startServer } = require('./core/server');
 loadConfig();
 applyCliArgs();
 
-// 2. Create plugin registry, wire shared services, register all built-in plugins
+// 2. Handle --version / -v
+if (process.argv.includes('--version') || process.argv.includes('-v')) {
+  console.log(VERSION);
+  process.exit(0);
+}
+
+// 3. Handle --help / -h
+if (process.argv.includes('--help') || process.argv.includes('-h')) {
+  console.log(`
+OpenHamClock Rig Bridge v${VERSION}
+
+Usage:
+  node rig-bridge.js [options]
+
+Options:
+  --port <number>    HTTP port for setup UI (default: 5555)
+  --debug            Enable verbose CAT protocol logging
+  --version, -v      Print version and exit
+  --help, -h         Show this help message
+
+Examples:
+  node rig-bridge.js
+  node rig-bridge.js --port 8080 --debug
+  `);
+  process.exit(0);
+}
+
+// 4. Create plugin registry, wire shared services, register all built-in plugins
 const registry = new PluginRegistry(config, { updateState, state });
 registry.registerBuiltins();
 
-// 3. Start HTTP server (passes registry for route dispatch and plugin route registration)
-startServer(config.port, registry);
+// 5. Start HTTP server (passes registry for route dispatch and plugin route registration)
+startServer(config.port, registry, VERSION);
 
-// 4. Auto-connect to configured radio (if any)
+// 6. Auto-connect to configured radio (if any)
 registry.connectActive();
+
+// 7. Start all enabled integration plugins (e.g. WSJT-X relay)
+registry.connectIntegrations();
