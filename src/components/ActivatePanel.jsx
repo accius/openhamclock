@@ -145,7 +145,7 @@ export const ActivatePanel = ({
                 key={`${spot.call}-${spot.ref}-${i}`}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '62px 62px 58px 1fr',
+                  gridTemplateColumns: '62px 72px 58px 1fr',
                   gap: '4px',
                   padding: '3px 0',
                   borderBottom: i < data.length - 1 ? '1px solid var(--border-color)' : 'none',
