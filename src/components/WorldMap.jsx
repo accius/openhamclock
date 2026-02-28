@@ -317,7 +317,6 @@ export const WorldMap = ({
     const humidity = c.relative_humidity_2m;
     const pressure = c.pressure_msl;
     const precipProb = wx?.hourly?.precipitation_probability?.[0];
-
     if (allUnits.temp === 'imperial') {
       temp = (temp * 9) / 5 + 32;
     }
@@ -2185,11 +2184,9 @@ export const WorldMap = ({
       {/* Satellite toggle */}
 
       {/* DX weather hover overlay */}
-      {!hideOverlays && (
-        <CallsignWeatherOverlay hoveredSpot={hoveredSpot} enabled={dxWeatherAllowed} allUnits={allUnits} />
 
       {!hideOverlays && !mapUiHidden && (
-        <CallsignWeatherOverlay hoveredSpot={hoveredSpot} enabled={dxWeatherAllowed} units={units} />
+        <CallsignWeatherOverlay hoveredSpot={hoveredSpot} enabled={dxWeatherAllowed} allUnits={allUnits} />
       )}
 
       {/* DX News Ticker - left side of bottom bar */}
