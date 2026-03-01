@@ -12,7 +12,8 @@ const CHANGELOG = [
   {
     version: '15.6.3',
     date: '2026-02-24',
-    heading: 'Propagation heatmap overhaul, draggable legend fix, activate filters, custom themes, and a stack of stability fixes.',
+    heading:
+      'Propagation heatmap overhaul, draggable legend fix, activate filters, custom themes, and a stack of stability fixes.',
     features: [
       {
         icon: '🗺️',
@@ -42,7 +43,7 @@ const CHANGELOG = [
       {
         icon: '🕐',
         title: 'DX Local Time Display',
-        desc: 'The DX info card now shows the approximate solar local time at the DX station\'s location. Click to toggle between UTC and local time. Available in Modern and Dockable layouts.',
+        desc: "The DX info card now shows the approximate solar local time at the DX station's location. Click to toggle between UTC and local time. Available in Modern and Dockable layouts.",
       },
       {
         icon: '☀️',

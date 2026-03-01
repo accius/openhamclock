@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { makeDraggable } from "./makeDraggable.js";
+import { makeDraggable } from './makeDraggable.js';
 
 export const metadata = {
   id: 'n3fjp_logged_qsos',

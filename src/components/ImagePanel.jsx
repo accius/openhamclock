@@ -111,13 +111,7 @@ export const ImagePanel = () => {
 
   // Hidden file input
   const fileInput = (
-    <input
-      ref={fileInputRef}
-      type="file"
-      accept="image/*"
-      onChange={handleFileChange}
-      style={{ display: 'none' }}
-    />
+    <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileChange} style={{ display: 'none' }} />
   );
 
   // Empty state — upload prompt
