@@ -415,5 +415,8 @@
   "app.mapControls.calls.hide": "Hide Calls",
   "app.mapControls.calls.show": "Show Calls",
   "app.legend.moon": "Moon",
-  "propagation.heatmap.tooltip.stoplight": "Switch to stoplight colors (green=good)"
+  "keybindings.panel.title": "KEYBOARD SHORTCUTS",
+  "keybindings.panel.description": "Press the following keys to toggle map layers:",
+  "keybindings.panel.toggle": "Toggle this help panel",
+  "keybindings.panel.note": "Press ESC or click outside to close this panel"
 }

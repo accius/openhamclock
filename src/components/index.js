@@ -19,6 +19,7 @@ export { LocationPanel } from './LocationPanel.jsx';
 export { SettingsPanel } from './SettingsPanel.jsx';
 export { DXFilterManager } from './DXFilterManager.jsx';
 export { PSKFilterManager } from './PSKFilterManager.jsx';
+export { KeybindingsPanel } from './KeybindingsPanel.jsx';
 export { ActivateFilterManager } from './ActivateFilterManager.jsx';
 export { SolarPanel } from './SolarPanel.jsx';
 export { PropagationPanel } from './PropagationPanel.jsx';

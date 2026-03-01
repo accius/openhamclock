@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { SettingsPanel, DXFilterManager, PSKFilterManager } from './components';
+import { SettingsPanel, DXFilterManager, PSKFilterManager, KeybindingsPanel } from './components';
 
 import DockableLayout from './layouts/DockableLayout.jsx';
 import ClassicLayout from './layouts/ClassicLayout.jsx';
@@ -47,6 +47,7 @@ import useLocalInstall from './hooks/app/useLocalInstall';
 import useVersionCheck from './hooks/app/useVersionCheck';
 import WhatsNew from './components/WhatsNew.jsx';
 import { initCtyLookup } from './utils/ctyLookup.js';
+import { getAllLayers } from './plugins/layerRegistry.js';
 import ActivateFilterManager from './components/ActivateFilterManager.jsx';
 
 // Load DXCC entity database on app startup (non-blocking)
@@ -61,6 +62,7 @@ const App = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showDXFilters, setShowDXFilters] = useState(false);
   const [showPSKFilters, setShowPSKFilters] = useState(false);
+  const [showKeybindings, setShowKeybindings] = useState(false);
   const [showPotaFilters, setShowPotaFilters] = useState(false);
   const [showSotaFilters, setShowSotaFilters] = useState(false);
   const [showWwffFilters, setShowWwffFilters] = useState(false);
@@ -97,6 +99,68 @@ const App = () => {
       }
     }
   }, [configLoaded, config.callsign]);
+
+
+  const layerShortcuts = useMemo(() => {
+    const layers = getAllLayers();
+    const map = {};
+    const used = new Set();
+
+    for (const layer of layers) {
+      const name = (layer.name || layer.id || '').toLowerCase();
+      for (const char of name) {
+        if (/[a-z]/.test(char) && !used.has(char)) {
+          map[char] = layer.id;
+          used.add(char);
+          break;
+        }
+      }
+    }
+    return map;
+  }, []);
+
+  const keybindingsList = useMemo(() => {
+    return Object.entries(layerShortcuts)
+      .map(([key, id]) => {
+        const layer = getAllLayers().find(l => l.id === id);
+        let name = layer?.name || layer?.id || id;
+        if (name?.startsWith('plugins.layers.')) {
+          name = t(name, name);
+        }
+        return { key: key.toUpperCase(), description: `Toggle ${name}` };
+      })
+      .sort((a, b) => a.key.localeCompare(b.key));
+  }, [layerShortcuts, t]);
+
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (
+        showSettings || showDXFilters || showPSKFilters || showKeybindings ||
+        document.activeElement?.tagName === 'INPUT' ||
+        document.activeElement?.tagName === 'TEXTAREA' ||
+        document.activeElement?.tagName === 'SELECT'
+      ) return;
+
+      if (e.key === '?') {
+        setShowKeybindings(v => !v);
+        e.preventDefault();
+        return;
+      }
+
+      const layerId = layerShortcuts[e.key.toLowerCase()];
+      if (layerId && window.hamclockLayerControls) {
+        const isEnabled = window.hamclockLayerControls.layers?.find(l => l.id === layerId)?.enabled ?? false;
+        window.hamclockLayerControls.toggleLayer(layerId, !isEnabled);
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [
+    showSettings, showDXFilters, showPSKFilters, showKeybindings,
+    layerShortcuts   // only real dependency
+  ]);
 
   const handleResetLayout = useCallback(() => {
     resetLayout();
@@ -411,6 +475,7 @@ const App = () => {
     rightSidebarVisible,
     getGridTemplateColumns,
     scale,
+    keybindingsList,
   };
 
   return (
@@ -461,6 +526,11 @@ const App = () => {
         isOpen={showPSKFilters}
         onClose={() => setShowPSKFilters(false)}
       />
+      <KeybindingsPanel
+        isOpen={showKeybindings}
+        onClose={() => setShowKeybindings(false)}
+        keybindings={keybindingsList}
+	  />
       <ActivateFilterManager
         name="POTA"
         filters={potaFilters}
