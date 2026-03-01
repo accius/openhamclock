@@ -8,7 +8,7 @@
  * (Enter key or blur). Reverts to the current grid on Escape or invalid input.
  * Read-only when dxLocked is true.
  */
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { parseGridSquare } from '../utils/geo.js';
 

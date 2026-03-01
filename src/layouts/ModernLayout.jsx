@@ -240,14 +240,12 @@ export default function ModernLayout(props) {
         </button>
       </div>
       <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
-        <div style={{ color: 'var(--accent-green)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}>
-          <DXGridInput
-            dxGrid={dxGrid}
-            onDXChange={handleDXChange}
-            dxLocked={dxLocked}
-            style={{ color: 'var(--accent-green)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}
-          />
-        </div>
+        <DXGridInput
+          dxGrid={dxGrid}
+          onDXChange={handleDXChange}
+          dxLocked={dxLocked}
+          style={{ color: 'var(--accent-green)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}
+        />
         <DXLocalTime
           currentTime={currentTime}
           dxLocation={dxLocation}

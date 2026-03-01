@@ -458,14 +458,12 @@ export const DockableApp = ({
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px', flex: '1 1 auto', minWidth: 0 }}>
-            <div style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}>
-              <DXGridInput
-                dxGrid={dxGrid}
-                onDXChange={handleDXChange}
-                dxLocked={dxLocked}
-                style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}
-              />
-            </div>
+            <DXGridInput
+              dxGrid={dxGrid}
+              onDXChange={handleDXChange}
+              dxLocked={dxLocked}
+              style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}
+            />
             <DXLocalTime
               currentTime={currentTime}
               dxLocation={dxLocation}
