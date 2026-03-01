@@ -324,7 +324,6 @@ export function useLayer({
   const [stats, setStats] = useState({ total: 0, skimmers: 0, avgSNR: 0 });
 
   // Low memory mode limits
-  const MAX_SPOTS = lowMemoryMode ? 25 : 200;
   const UPDATE_INTERVAL = lowMemoryMode ? 30000 : 10000; // 10s normal, 30s low-memory (panel says "Update: 10sec")
 
   const layersRef = useRef([]);

@@ -305,15 +305,7 @@ function addMinimizeToggle(element, storageKey) {
   });
 }
 
-export function useLayer({
-  enabled = false,
-  opacity = 0.7,
-  map = null,
-  callsign,
-  locator,
-  lowMemoryMode = false,
-  mapBandFilter,
-}) {
+export function useLayer({ enabled = false, map = null, callsign, locator, lowMemoryMode = false, mapBandFilter }) {
   const [pathLayers, setPathLayers] = useState([]);
   const [markerLayers, setMarkerLayers] = useState([]);
   const [heatmapLayer, setHeatmapLayer] = useState(null);
@@ -330,7 +322,6 @@ export function useLayer({
 
   // Low memory mode limits
   const MAX_PATHS = lowMemoryMode ? 100 : 10000;
-  const MAX_HEATMAP_POINTS = lowMemoryMode ? 50 : 500;
 
   // v1.4.3 - Separate opacity controls
   const [pathOpacity, setPathOpacity] = useState(0.7);
@@ -342,12 +333,10 @@ export function useLayer({
   const filterControlRef = useRef(null);
   const chartControlRef = useRef(null);
 
-  const [legendControl, setLegendControl] = useState(null);
-  const [statsControl, setStatsControl] = useState(null);
-  const [filterControl, setFilterControl] = useState(null);
-  const [chartControl, setChartControl] = useState(null);
-
-  const animationFrameRef = useRef(null);
+  const [_legendControl, setLegendControl] = useState(null);
+  const [_statsControl, setStatsControl] = useState(null);
+  const [_filterControl, setFilterControl] = useState(null);
+  const [_chartControl, setChartControl] = useState(null);
 
   // Fetch WSPR data with dynamic time window and band filter
 
@@ -528,7 +517,7 @@ export function useLayer({
 
         container.innerHTML = `
           <div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; margin-bottom: 8px; font-size: 13px; color: #00b4ff;">🎛️ Filters</div>
-          
+
           <div style="margin-bottom: 8px;">
             <label style="display: block; margin-bottom: 3px;">Band:</label>
             <select id="wspr-band-filter" style="width: 100%; padding: 4px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px;">
@@ -548,7 +537,7 @@ export function useLayer({
               <option value="4m">4m</option>
             </select>
           </div>
-          
+
           <div style="margin-bottom: 8px;">
             <label style="display: block; margin-bottom: 3px;">Time Window:</label>
             <select id="wspr-time-filter" style="width: 100%; padding: 4px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px;">
@@ -559,46 +548,46 @@ export function useLayer({
               <option value="360">6 hours</option>
             </select>
           </div>
-          
+
           <div style="margin-bottom: 8px;">
             <label style="display: block; margin-bottom: 3px;">Min SNR: <span id="snr-value">-30</span> dB</label>
-            <input type="range" id="wspr-snr-filter" min="-30" max="10" value="-30" step="5" 
+            <input type="range" id="wspr-snr-filter" min="-30" max="10" value="-30" step="5"
               style="width: 100%;" />
           </div>
-          
+
           <div style="margin-bottom: 8px; padding-top: 8px; border-top: 1px solid #555;">
             <label style="display: block; margin-bottom: 3px;">Path Opacity: <span id="path-opacity-value">70</span>%</label>
-            <input type="range" id="wspr-path-opacity" min="10" max="100" value="70" step="5" 
+            <input type="range" id="wspr-path-opacity" min="10" max="100" value="70" step="5"
               style="width: 100%;" />
           </div>
-          
+
           <div style="margin-bottom: 8px;">
             <label style="display: block; margin-bottom: 3px;">Heatmap Opacity: <span id="heatmap-opacity-value">60</span>%</label>
-            <input type="range" id="wspr-heatmap-opacity" min="10" max="100" value="60" step="5" 
+            <input type="range" id="wspr-heatmap-opacity" min="10" max="100" value="60" step="5"
               style="width: 100%;" />
           </div>
-          
+
           <div style="margin-bottom: 8px; padding-top: 8px; border-top: 1px solid #555;">
             <label style="display: flex; align-items: center; cursor: pointer;">
               <input type="checkbox" id="wspr-animation" checked style="margin-right: 5px;" />
               <span>Animate Paths</span>
             </label>
           </div>
-          
+
           <div style="margin-bottom: 8px;">
             <label style="display: flex; align-items: center; cursor: pointer;">
               <input type="checkbox" id="wspr-heatmap" style="margin-right: 5px;" />
               <span>Show Heatmap</span>
             </label>
           </div>
-          
+
           <div style="margin-bottom: 8px; padding-top: 8px; border-top: 1px solid #555;">
             <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 5px;">
               <input type="checkbox" id="wspr-grid-filter" style="margin-right: 5px;" />
               <span>Filter by Grid Square</span>
             </label>
-            <input type="text" id="wspr-grid-input" 
-              placeholder="${gridFilter || 'e.g. FN03'}" 
+            <input type="text" id="wspr-grid-input"
+              placeholder="${gridFilter || 'e.g. FN03'}"
               value="${gridFilter || ''}"
               maxlength="6"
               style="width: 100%; padding: 4px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px; font-family: 'JetBrains Mono', monospace; text-transform: uppercase;" />

@@ -123,7 +123,7 @@ function addMinimizeToggle(container, storageKey) {
   });
 }
 
-export function useLayer({ map, enabled, opacity, callsign, locator }) {
+export function useLayer({ map, enabled, opacity, locator }) {
   const [selectedBand, setSelectedBand] = useState(() => {
     const saved = localStorage.getItem('voacap-heatmap-band');
     return saved ? parseInt(saved) : 4; // Default: 20m (index 4)
@@ -150,7 +150,6 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
   });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [lastFetch, setLastFetch] = useState(0);
 
   const layersRef = useRef([]);
   const controlRef = useRef(null);
@@ -445,7 +444,6 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
 
     data.cells.forEach((cell) => {
       const { color, alpha } = reliabilityColor(cell.r);
-      const band = BANDS[selectedBand];
 
       // Scale alpha by the user opacity slider (slider default 0.6 = 60%)
       const cellAlpha = alpha * (opacity / 0.6);
@@ -502,24 +500,4 @@ export function useLayer({ map, enabled, opacity, callsign, locator }) {
   }, [enabled, map]);
 
   return { data, loading, selectedBand };
-}
-
-// Quick haversine for popup display (no need for full precision)
-function haversineApprox(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-}
-
-// Format distance using global units preference from config
-function formatDistanceApprox(km) {
-  try {
-    const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
-    if (cfg.allUnits.dist === 'metric') return `${km.toLocaleString()} km`;
-  } catch (e) {}
-  return `${Math.round(km * 0.621371).toLocaleString()} mi`;
 }

@@ -88,21 +88,6 @@ function calculateHourAngle(date, longitude) {
   return hourAngle;
 }
 
-// Calculate solar altitude for a given position and time
-function calculateSolarAltitude(date, latitude, longitude) {
-  const { declination } = calculateSolarPosition(date);
-  const hourAngle = calculateHourAngle(date, longitude);
-
-  const latRad = (latitude * Math.PI) / 180;
-  const decRad = (declination * Math.PI) / 180;
-  const haRad = (hourAngle * Math.PI) / 180;
-
-  const sinAlt = Math.sin(latRad) * Math.sin(decRad) + Math.cos(latRad) * Math.cos(decRad) * Math.cos(haRad);
-  const altitude = (Math.asin(sinAlt) * 180) / Math.PI;
-
-  return altitude;
-}
-
 // Unwrap longitude values to be continuous (no 360° jumps) and create world copies
 // This replaces the old splitAtDateLine approach, which broke when map center was past ±180°
 function unwrapAndCopyLine(points) {
@@ -403,31 +388,31 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
 
         container.innerHTML = `
           <div style="font-family: 'JetBrains Mono', monospace; font-weight: 700; margin-bottom: 8px; font-size: 13px; color: #00b4ff;">🌅 Gray Line</div>
-          
+
           <div style="margin-bottom: 8px; padding: 8px; background: var(--bg-tertiary); border-radius: 3px;">
             <div style="font-size: 9px; opacity: 0.7; margin-bottom: 2px;">UTC TIME</div>
             <div id="grayline-time" style="font-size: 10px; font-weight: bold;">${timeStr}</div>
           </div>
-          
+
           <div style="margin-bottom: 8px;">
             <label style="display: flex; align-items: center; cursor: pointer;">
               <input type="checkbox" id="grayline-twilight" checked style="margin-right: 5px;" />
               <span>Show Twilight Zones</span>
             </label>
           </div>
-          
+
           <div style="margin-bottom: 8px;">
             <label style="display: flex; align-items: center; cursor: pointer;">
               <input type="checkbox" id="grayline-enhanced" checked style="margin-right: 5px;" />
               <span>Enhanced DX Zone</span>
             </label>
           </div>
-          
+
           <div style="margin-bottom: 8px;">
             <label style="display: block; margin-bottom: 3px;">Twilight Opacity: <span id="twilight-opacity-value">50</span>%</label>
             <input type="range" id="grayline-twilight-opacity" min="20" max="100" value="50" step="5" style="width: 100%;" />
           </div>
-          
+
           <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #555; font-size: 9px; opacity: 0.7;">
             <div>🌅 Gray line = enhanced HF propagation</div>
             <div style="margin-top: 4px;">Updates every minute</div>

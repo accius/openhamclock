@@ -9,7 +9,7 @@ export const metadata = {
   id: 'lightning',
   name: 'plugins.layers.lightning.name',
   description: 'plugins.layers.lightning.description',
-  icon: '⚡',
+  icon: '⚡️',
   category: 'weather',
   defaultEnabled: false,
   defaultOpacity: 0.9,
@@ -352,18 +352,13 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
     const currentStrikeIds = new Set();
 
     lightningData.forEach((strike) => {
-      const { id, lat, lon, timestamp, age, intensity, polarity } = strike;
+      const { id, lat, lon, age, intensity, polarity } = strike;
 
       currentStrikeIds.add(id);
       const ageMinutes = age / 60;
 
       // Only animate NEW strikes (not seen before)
       const isNewStrike = !previousStrikeIds.current.has(id);
-
-      // Calculate marker size based on intensity
-      const baseRadius = 4;
-      const intensityFactor = Math.min(intensity / 100, 2);
-      const radius = baseRadius + intensityFactor * 3;
 
       // Strike marker with pulsing animation for new strikes
       // Use divIcon with lightning bolt instead of circleMarker
