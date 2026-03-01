@@ -1,5 +1,18 @@
 import { THEME_VARS } from './themeConfig';
 
+/* Add "active" class to theme button that is selected */
+export function setActiveThemeButton(selectorString) {
+  const allThemeButtons = document.querySelectorAll('.theme-select-button');
+  allThemeButtons.forEach((element) => {
+    element.classList.remove('active');
+  });
+
+  const activeButton = document.querySelector('.' + selectorString + '-theme-select-button');
+  if (activeButton) {
+    activeButton.classList.add('active');
+  }
+}
+
 /* Read CSS variables from the active theme */
 export function readCssVariables() {
   const styles = getComputedStyle(document.documentElement);

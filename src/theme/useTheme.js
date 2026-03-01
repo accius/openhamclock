@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { loadConfig, saveConfig } from './themeStorage';
-import { readCssVariables, applyCustomTheme, applyPrebuiltTheme } from './themeUtils';
+import { setActiveThemeButton, readCssVariables, applyCustomTheme, applyPrebuiltTheme } from './themeUtils';
 
 export function useTheme() {
   const config = loadConfig();
@@ -32,15 +32,7 @@ export function useTheme() {
     }
     saveConfig({ theme });
 
-    const allThemeButtons = document.querySelectorAll('.theme-select-button');
-    allThemeButtons.forEach((element) => {
-      element.classList.remove('active');
-    });
-
-    const activeButton = document.querySelector('.' + theme + '-theme-select-button');
-    if (activeButton) {
-      activeButton.classList.add('active');
-    }
+    setActiveThemeButton(theme);
   }, [theme]);
 
   /* Custom edits */
