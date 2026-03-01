@@ -5,7 +5,7 @@ import { AVAILABLE_THEMES } from '../theme/themeConfig';
 export default function ThemeSelector({ id, theme, setTheme }) {
   useEffect(() => {
     setActiveThemeButton(theme);
-  }, []);
+  }, [theme]);
 
   return (
     <>
