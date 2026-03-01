@@ -10,20 +10,33 @@
  */
 export const parseGridSquare = (grid) => {
   const g = grid.toUpperCase();
-  if (g.length < 4) return null;
-  const lon1 = (g.charCodeAt(0) - 65) * 20 - 180;
-  const lat1 = (g.charCodeAt(1) - 65) * 10 - 90;
+  // Must be exactly 4 (field + square) or 6 (+ subsquare) characters
+  if (g.length !== 4 && g.length !== 6) return null;
+
+  // Field letters: A–R (18 fields, covering 360° lon / 180° lat)
+  const f0 = g.charCodeAt(0) - 65;
+  const f1 = g.charCodeAt(1) - 65;
+  if (f0 < 0 || f0 > 17 || f1 < 0 || f1 > 17) return null;
+
+  const lon1 = f0 * 20 - 180;
+  const lat1 = f1 * 10 - 90;
+
   const lon2 = parseInt(g[2]) * 2;
-  const lat2 = parseInt(g[3]) * 1;
+  const lat2 = parseInt(g[3]);
   if (isNaN(lon2) || isNaN(lat2)) return null;
+
   let lon = lon1 + lon2 + 1;
   let lat = lat1 + lat2 + 0.5;
-  if (g.length >= 6) {
-    const lon3 = (g.charCodeAt(4) - 65) * (2 / 24);
-    const lat3 = (g.charCodeAt(5) - 65) * (1 / 24);
-    lon = lon1 + lon2 + lon3 + 1 / 24;
-    lat = lat1 + lat2 + lat3 + 1 / 48;
+
+  if (g.length === 6) {
+    // Subsquare letters: A–X (24 divisions per axis)
+    const s0 = g.charCodeAt(4) - 65;
+    const s1 = g.charCodeAt(5) - 65;
+    if (s0 < 0 || s0 > 23 || s1 < 0 || s1 > 23) return null;
+    lon = lon1 + lon2 + s0 * (2 / 24) + 1 / 24;
+    lat = lat1 + lat2 + s1 * (1 / 24) + 1 / 48;
   }
+
   return { lat, lon };
 };
 
