@@ -1,6 +1,12 @@
+import { useEffect } from 'react';
+import { setActiveThemeButton } from '../theme/themeUtils';
 import { AVAILABLE_THEMES } from '../theme/themeConfig';
 
 export default function ThemeSelector({ id, theme, setTheme }) {
+  useEffect(() => {
+    setActiveThemeButton(theme);
+  }, []);
+
   return (
     <>
       <div id={id} style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
