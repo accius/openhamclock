@@ -83,10 +83,7 @@ export default function useMapLayers() {
     () => setMapLayers((prev) => ({ ...prev, showPSKReporter: !prev.showPSKReporter })),
     [],
   );
-  const togglePSKPaths = useCallback(
-    () => setMapLayers((prev) => ({ ...prev, showPSKPaths: !prev.showPSKPaths })),
-    [],
-  );
+  const togglePSKPaths = useCallback(() => setMapLayers((prev) => ({ ...prev, showPSKPaths: !prev.showPSKPaths })), []);
   const toggleWSJTX = useCallback(() => setMapLayers((prev) => ({ ...prev, showWSJTX: !prev.showWSJTX })), []);
   const toggleDXNews = useCallback(() => setMapLayers((prev) => ({ ...prev, showDXNews: !prev.showDXNews })), []);
   const toggleRotatorBearing = useCallback(

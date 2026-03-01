@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { makeDraggable } from "./makeDraggable.js";
+import { makeDraggable } from './makeDraggable.js';
 import { getBandFromFreq } from '../../utils/callsign.js';
 
 /**
@@ -200,7 +200,6 @@ function calculatePropagationScore(spots) {
 
   return Math.round(snrScore + countScore + strongScore);
 }
-
 
 // Add minimize/maximize functionality to control panels
 function addMinimizeToggle(element, storageKey) {

@@ -1630,12 +1630,7 @@ if (fs.existsSync(path.join(__dirname, '.git'))) {
     // Mark directory as safe for git — fixes "dubious ownership" errors when
     // the server runs as a different user than the repo owner (e.g. systemd
     // running as root, repo owned by 'pi')
-    execFile(
-      'git',
-      ['config', '--global', '--add', 'safe.directory', __dirname],
-      { cwd: __dirname },
-      () => {},
-    );
+    execFile('git', ['config', '--global', '--add', 'safe.directory', __dirname], { cwd: __dirname }, () => {});
   } catch {}
 }
 
