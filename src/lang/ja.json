@@ -28,6 +28,8 @@
   "app.dxLock.unlocked": "🔓 DX ロック解除",
   "app.dxNews.pauseTooltip": "クリックして一時停止",
   "app.dxNews.resumeTooltip": "クリックして再開",
+  "app.dxNews.increaseTextSize": "Increase text size",
+  "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.legend.moon": "Moon",
   "app.legend.sun": "Sun",
   "app.mapUi.hide": "UIを隠す",

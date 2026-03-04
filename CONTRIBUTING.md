@@ -10,16 +10,14 @@ Thank you for helping build OpenHamClock! Whether you're fixing a bug, adding a 
 # 1. Fork and clone
 git clone https://github.com/YOUR_USERNAME/openhamclock.git
 cd openhamclock
+npm ci
 git checkout Staging
 
-# 2. Install dependencies
-npm install
-
-# 3. Start the backend (Terminal 1)
+# 2. Start the backend (Terminal 1)
 node server.js
 # → Server running on http://localhost:3001
 
-# 4. Start the frontend dev server (Terminal 2)
+# 3. Start the frontend dev server (Terminal 2)
 npm run dev
 # → App running on http://localhost:3000 (proxies API to :3001)
 ```
@@ -113,7 +111,7 @@ docs/update-readme
 
 We use **Prettier** to enforce consistent formatting across the codebase. This eliminates quote style, indentation, and whitespace noise from PRs so code review can focus on logic.
 
-**It happens automatically:** If you run `npm install`, a git pre-commit hook (via Husky + lint-staged) will auto-format any staged files before each commit. You don't need to think about it.
+**It happens automatically:** After you run `npm ci`, a git pre-commit hook (via Husky + lint-staged) will auto-format any staged files before each commit. You don't need to think about it.
 
 **Manual commands:**
 
@@ -227,6 +225,7 @@ This repository uses shared formatting and dependency lock conventions so contri
 
 ```bash
 npm ci
+git checkout Staging
 npm run dev
 ```
 

@@ -18,6 +18,16 @@ Built on a **plugin architecture** — each radio integration is a standalone mo
 
 Also works with **Elecraft** radios (K3, K4, KX3, KX2) using the Kenwood plugin.
 
+### SDR Radios via TCI (WebSocket)
+
+TCI (Transceiver Control Interface) is a WebSocket-based protocol used by modern SDR applications. Unlike serial CAT, TCI **pushes** frequency, mode, and PTT changes in real-time — no polling, no serial port conflicts.
+
+| Application   | Radios                | Default TCI Port |
+| ------------- | --------------------- | ---------------- |
+| **Thetis**    | Hermes Lite 2, ANAN   | 40001            |
+| **ExpertSDR** | SunSDR2               | 40001            |
+| **SmartSDR**  | Flex (via TCI bridge) | varies           |
+
 ### Via Control Software (Legacy)
 
 | Software    | Protocol | Default Port |
@@ -75,6 +85,54 @@ node rig-bridge.js --debug       # Enable raw hex/ASCII CAT traffic logging
 1. Connect USB cable from radio to computer
 2. In Rig Bridge: Select **Kenwood**, pick COM port, baud **9600**, stop bits **1**
 
+### SDR Radios via TCI
+
+#### 1. Enable TCI in your SDR application
+
+**Thetis (HL2 / ANAN):** Setup → CAT Control → check **Enable TCI Server** (default port 40001)
+
+**ExpertSDR:** Settings → TCI → Enable (default port 40001)
+
+#### 2. Configure rig-bridge
+
+Edit `rig-bridge-config.json`:
+
+```json
+{
+  "radio": { "type": "tci" },
+  "tci": {
+    "host": "localhost",
+    "port": 40001,
+    "trx": 0,
+    "vfo": 0
+  }
+}
+```
+
+| Field  | Description                      | Default     |
+| ------ | -------------------------------- | ----------- |
+| `host` | Host running the SDR application | `localhost` |
+| `port` | TCI WebSocket port               | `40001`     |
+| `trx`  | Transceiver index (0 = primary)  | `0`         |
+| `vfo`  | VFO index (0 = VFO-A, 1 = VFO-B) | `0`         |
+
+#### 3. Run rig-bridge
+
+```bash
+node rig-bridge.js
+```
+
+You should see:
+
+```
+[TCI] Connecting to ws://localhost:40001...
+[TCI] ✅ Connected to ws://localhost:40001
+[TCI] Device: Thetis
+[TCI] Server ready
+```
+
+The bridge auto-reconnects every 5 s if the connection drops — just restart your SDR app and it will reconnect automatically.
+
 ---
 
 ## OpenHamClock Setup
@@ -109,15 +167,18 @@ Executables are output to the `dist/` folder.
 
 ## Troubleshooting
 
-| Problem                | Solution                                                                  |
-| ---------------------- | ------------------------------------------------------------------------- |
-| No COM ports found     | Install USB driver (Silicon Labs CP210x for Yaesu, FTDI for some Kenwood) |
-| Port opens but no data | Check baud rate matches radio's CAT Rate setting                          |
-| Icom not responding    | Verify CI-V address matches your radio model                              |
-| CORS errors in browser | The bridge allows all origins by default                                  |
-| Port already in use    | Close flrig/rigctld if running — you don't need them anymore              |
-| PTT not responsive     | Enable **Hardware Flow (RTS/CTS)** (especially for FT-991A/FT-710)        |
-| macOS Comms Failure    | The bridge automatically applies a `stty` fix for CP210x drivers.         |
+| Problem                   | Solution                                                                         |
+| ------------------------- | -------------------------------------------------------------------------------- |
+| No COM ports found        | Install USB driver (Silicon Labs CP210x for Yaesu, FTDI for some Kenwood)        |
+| Port opens but no data    | Check baud rate matches radio's CAT Rate setting                                 |
+| Icom not responding       | Verify CI-V address matches your radio model                                     |
+| CORS errors in browser    | The bridge allows all origins by default                                         |
+| Port already in use       | Close flrig/rigctld if running — you don't need them anymore                     |
+| PTT not responsive        | Enable **Hardware Flow (RTS/CTS)** (especially for FT-991A/FT-710)               |
+| macOS Comms Failure       | The bridge automatically applies a `stty` fix for CP210x drivers.                |
+| TCI: Connection refused   | Enable TCI in your SDR app (Thetis → Setup → CAT Control → Enable TCI Server)    |
+| TCI: No frequency updates | Check `trx` / `vfo` index in config match the active transceiver in your SDR app |
+| TCI: Remote SDR           | Set `tci.host` to the IP of the machine running the SDR application              |
 
 ---
 
@@ -159,7 +220,8 @@ rig-bridge/
     │   ├── protocol-kenwood.js# Kenwood ASCII protocol
     │   └── protocol-icom.js   # Icom CI-V binary protocol
     ├── rigctld.js         # rigctld TCP plugin
-    └── flrig.js           # flrig XML-RPC plugin
+    ├── flrig.js           # flrig XML-RPC plugin
+    └── tci.js             # TCI/SDR WebSocket plugin (Thetis, ExpertSDR, etc.)
 ```
 
 ---

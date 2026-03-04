@@ -28,6 +28,8 @@
   "app.dxLock.unlocked": "🔓 DX sbloccato",
   "app.dxNews.pauseTooltip": "Clicca per mettere in pausa",
   "app.dxNews.resumeTooltip": "Clicca per riprendere",
+  "app.dxNews.increaseTextSize": "Increase text size",
+  "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.legend.moon": "Moon",
   "app.legend.sun": "Sun",
   "app.mapUi.hide": "Nascondi interfaccia",

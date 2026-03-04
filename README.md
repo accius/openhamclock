@@ -21,7 +21,7 @@ OpenHamClock brings DX cluster spots, space weather, propagation predictions, PO
 ```bash
 git clone https://github.com/accius/openhamclock.git
 cd openhamclock
-npm install
+npm ci
 npm start
 ```
 
@@ -1266,10 +1266,14 @@ OpenHamClock is built by the ham radio community. We have 28+ contributors and g
 
 ```bash
 git clone https://github.com/accius/openhamclock.git
-cd openhamclock && npm install
+cd openhamclock
+git checkout Staging
+npm ci
 node server.js   # Terminal 1 — Backend on :3001
 npm run dev      # Terminal 2 — Frontend on :3000
 ```
+
+Open pull requests against `Staging`, not `main`.
 
 **Read first:**
 

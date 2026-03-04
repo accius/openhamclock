@@ -125,6 +125,43 @@ export const KeybindingsPanel = ({ isOpen, onClose, keybindings, nodeId }) => {
               {t('keybindings.panel.toggle', 'Toggle this help panel')}
             </span>
           </div>
+          <div
+            style={{
+              padding: '6px 8px',
+              background: 'var(--bg-panel)',
+              border: '1px solid var(--accent-cyan)',
+              borderRadius: '4px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
+          >
+            <kbd
+              style={{
+                minWidth: '24px',
+                padding: '3px 6px',
+                background: 'var(--bg-secondary)',
+                border: '1px solid var(--accent-cyan)',
+                borderRadius: '3px',
+                fontSize: '0.85em',
+                fontWeight: '700',
+                fontFamily: 'JetBrains Mono, monospace',
+                color: 'var(--accent-cyan)',
+                textAlign: 'center',
+              }}
+            >
+              {'/'}
+            </kbd>
+            <span
+              style={{
+                fontSize: '0.85em',
+                color: 'var(--text-primary)',
+                lineHeight: '1.3',
+              }}
+            >
+              {t('keybindings.panel.toggleDeDx', 'Toggle DE and DX Markers')}
+            </span>
+          </div>
         </div>
       </div>
     );
@@ -282,7 +319,6 @@ export const KeybindingsPanel = ({ isOpen, onClose, keybindings, nodeId }) => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
-                gridColumn: 'span 2',
               }}
             >
               <kbd
@@ -302,6 +338,7 @@ export const KeybindingsPanel = ({ isOpen, onClose, keybindings, nodeId }) => {
               >
                 ?
               </kbd>
+
               <span
                 style={{
                   fontSize: '12px',
@@ -310,6 +347,44 @@ export const KeybindingsPanel = ({ isOpen, onClose, keybindings, nodeId }) => {
                 }}
               >
                 {t('keybindings.panel.toggle', 'Toggle this help panel')}
+              </span>
+            </div>
+            <div
+              style={{
+                padding: '8px 12px',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--accent-cyan)',
+                borderRadius: '6px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+              }}
+            >
+              <kbd
+                style={{
+                  minWidth: '32px',
+                  padding: '4px 8px',
+                  background: 'var(--bg-secondary)',
+                  border: '2px solid var(--accent-cyan)',
+                  borderRadius: '4px',
+                  fontSize: '12px',
+                  fontWeight: '700',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  color: 'var(--accent-cyan)',
+                  textAlign: 'center',
+                  boxShadow: '0 2px 0 var(--accent-cyan)',
+                }}
+              >
+                /
+              </kbd>
+              <span
+                style={{
+                  fontSize: '0.85em',
+                  color: 'var(--text-primary)',
+                  lineHeight: '1.3',
+                }}
+              >
+                {t('keybindings.panel.toggleDeDx', 'Toggle DE and DX Markers')}
               </span>
             </div>
           </div>

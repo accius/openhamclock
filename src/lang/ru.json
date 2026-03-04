@@ -221,6 +221,8 @@
   "app.dxLocation.lp": "ДП:",
   "app.dxNews.pauseTooltip": "Нажмите для паузы прокрутки",
   "app.dxNews.resumeTooltip": "Нажмите для возобновления прокрутки",
+  "app.dxNews.increaseTextSize": "Increase text size",
+  "app.dxNews.decreaseTextSize": "Decrease text size",
   "dxClusterPanel.title": "DX КЛАСТЕР",
   "dxClusterPanel.live": "ЭФИР",
   "dxClusterPanel.filterTooltip": "Фильтр DX-спотов по диапазону, виду излучения или континенту",

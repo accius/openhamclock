@@ -15,7 +15,7 @@ const DEFAULT_CONFIG = {
   debug: false, // Centralized verbose CAT logging flag
   logging: true, // Enable/disable console log capture & broadcast to UI
   radio: {
-    type: 'none', // none | yaesu | kenwood | icom | flrig | rigctld
+    type: 'none', // none | yaesu | kenwood | icom | flrig | rigctld | tci
     serialPort: '', // COM3, /dev/ttyUSB0, etc.
     baudRate: 38400,
     dataBits: 8,
@@ -32,6 +32,12 @@ const DEFAULT_CONFIG = {
     rigctldPort: 4532,
     flrigHost: '127.0.0.1',
     flrigPort: 12345,
+  },
+  tci: {
+    host: 'localhost',
+    port: 40001,
+    trx: 0, // transceiver index (0 = primary)
+    vfo: 0, // VFO index (0 = A, 1 = B)
   },
   wsjtxRelay: {
     enabled: false,
@@ -63,6 +69,7 @@ function loadConfig() {
         ...DEFAULT_CONFIG,
         ...raw,
         radio: { ...DEFAULT_CONFIG.radio, ...(raw.radio || {}) },
+        tci: { ...DEFAULT_CONFIG.tci, ...(raw.tci || {}) },
         wsjtxRelay: { ...DEFAULT_CONFIG.wsjtxRelay, ...(raw.wsjtxRelay || {}) },
         // Coerce logging to boolean in case the stored value is a string
         logging: raw.logging !== undefined ? !!raw.logging : DEFAULT_CONFIG.logging,

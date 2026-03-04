@@ -169,6 +169,12 @@ const App = () => {
         return;
       }
 
+      if (e.key === '/') {
+        toggleDeDxMarkers();
+        e.preventDefault();
+        return;
+      }
+
       const layerId = layerShortcuts[e.key.toLowerCase()];
       if (layerId && window.hamclockLayerControls) {
         const isEnabled = window.hamclockLayerControls.layers?.find((l) => l.id === layerId)?.enabled ?? false;

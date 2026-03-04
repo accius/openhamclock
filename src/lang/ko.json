@@ -28,6 +28,8 @@
   "app.dxLock.unlocked": "🔓 DX 잠금 해제",
   "app.dxNews.pauseTooltip": "클릭하여 일시 중지",
   "app.dxNews.resumeTooltip": "클릭하여 다시 시작",
+  "app.dxNews.increaseTextSize": "Increase text size",
+  "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.legend.moon": "Moon",
   "app.legend.sun": "Sun",
   "app.mapUi.hide": "UI 숨기기",

@@ -203,6 +203,8 @@
   "app.dxLocation.lp": "长径:",
   "app.dxNews.pauseTooltip": "点击暂停滚动",
   "app.dxNews.resumeTooltip": "点击恢复滚动",
+  "app.dxNews.increaseTextSize": "Increase text size",
+  "app.dxNews.decreaseTextSize": "Decrease text size",
   "dxClusterPanel.title": "DX 集群",
   "dxClusterPanel.live": "实时",
   "dxClusterPanel.filterTooltip": "按频段、模式或大洲筛选 DX 监测",

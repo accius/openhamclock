@@ -221,6 +221,8 @@
   "app.dxLocation.lp": "გრძელი:",
   "app.dxNews.pauseTooltip": "დააწკაპუნეთ გადახვევის შესაჩერებლად",
   "app.dxNews.resumeTooltip": "დააწკაპუნეთ გადახვევის გასაგრძელებლად",
+  "app.dxNews.increaseTextSize": "Increase text size",
+  "app.dxNews.decreaseTextSize": "Decrease text size",
   "dxClusterPanel.title": "DX კლასტერი",
   "dxClusterPanel.live": "ეთერი",
   "dxClusterPanel.filterTooltip": "DX სპოტების ფილტრი დიაპაზონით, მოდით ან კონტინენტით",

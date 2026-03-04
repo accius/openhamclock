@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * OpenHamClock Rig Bridge v1.1.0
+ * OpenHamClock Rig Bridge v1.2.0
  *
  * Universal bridge connecting radios and other ham radio services to OpenHamClock.
  * Uses a plugin architecture — each integration is a standalone module.
@@ -19,7 +19,7 @@
 
 'use strict';
 
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 
 const { config, loadConfig, applyCliArgs } = require('./core/config');
 const { updateState, state } = require('./core/state');

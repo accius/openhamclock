@@ -28,6 +28,8 @@
   "app.dxLock.unlocked": "🔓 DX Dibuka",
   "app.dxNews.pauseTooltip": "Klik untuk jeda tatalan",
   "app.dxNews.resumeTooltip": "Klik untuk sambung tatalan",
+  "app.dxNews.increaseTextSize": "Increase text size",
+  "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.legend.moon": "Bulan",
   "app.legend.sun": "Matahari",
   "app.mapUi.hide": "Sembunyi UI",

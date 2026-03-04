@@ -28,6 +28,8 @@
   "app.dxLock.unlocked": "🔓 DX entsperrt",
   "app.dxNews.pauseTooltip": "Klicken zum Anhalten",
   "app.dxNews.resumeTooltip": "Klicken zum Fortsetzen",
+  "app.dxNews.increaseTextSize": "Increase text size",
+  "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.legend.moon": "Mond",
   "app.legend.sun": "Sonne",
   "app.mapUi.hide": "UI ausblenden",

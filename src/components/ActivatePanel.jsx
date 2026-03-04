@@ -175,8 +175,9 @@ export const ActivatePanel = ({
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                   }}
+                  title={`${spot.ref} - ${spot.name}`}
                 >
-                  {`${spot.ref} - ${spot.name}`}
+                  {spot.ref}
                 </span>
                 <span style={{ color: 'var(--accent-cyan)', textAlign: 'right' }}>
                   {(() => {

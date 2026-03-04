@@ -28,6 +28,8 @@
   "app.dxLock.unlocked": "🔓 DX desbloquejat",
   "app.dxNews.pauseTooltip": "Clica per pausar",
   "app.dxNews.resumeTooltip": "Clica per reprendre",
+  "app.dxNews.increaseTextSize": "Increase text size",
+  "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.legend.moon": "Lluna",
   "app.legend.sun": "Sol",
   "app.liveSpots.ofGridLastMinutes": "de {{grid}} - {{minutes}} min",

@@ -6,6 +6,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
+// Base font sizes (px) — all sizes are derived by multiplying with textScale
+const BASE_LABEL_SIZE = 10; // "📰 DX NEWS" label, separator ◆
+const BASE_TEXT_SIZE = 11; // news titles and descriptions
+const BASE_HEIGHT = 28; // container height in map overlay mode (px)
+
 // Check if DX News is enabled (reads directly from localStorage as belt-and-suspenders)
 function isDXNewsEnabled() {
   try {
@@ -27,6 +32,20 @@ export const DXNewsTicker = ({ sidebar = false }) => {
   const [animDuration, setAnimDuration] = useState(120);
   const [paused, setPaused] = useState(false);
   const { t } = useTranslation();
+
+  // Text scale persisted in localStorage (0.7 – 2.0, default 1.0)
+  const [textScale, setTextScale] = useState(() => {
+    try {
+      const stored = localStorage.getItem('openhamclock_dxNewsTextScale');
+      if (stored) return parseFloat(stored);
+    } catch {}
+    return 1.0;
+  });
+
+  // Persist textScale whenever it changes
+  useEffect(() => {
+    localStorage.setItem('openhamclock_dxNewsTextScale', String(textScale));
+  }, [textScale]);
 
   // Listen for mapLayers changes (custom event for same-tab, storage for cross-tab)
   useEffect(() => {
@@ -66,7 +85,9 @@ export const DXNewsTicker = ({ sidebar = false }) => {
     return () => clearInterval(interval);
   }, [visible]);
 
-  // Calculate animation duration based on content width
+  // Calculate animation duration based on content width.
+  // textScale is included so speed recalculates after a font-size change
+  // (useEffect runs after paint, so scrollWidth reflects the new size).
   useEffect(() => {
     if (contentRef.current && tickerRef.current) {
       const contentWidth = contentRef.current.scrollWidth;
@@ -75,7 +96,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
       const duration = Math.max(20, (contentWidth + containerWidth) / 90);
       setAnimDuration(duration);
     }
-  }, [news]);
+  }, [news, textScale]);
 
   // Inject keyframes animation style once
   useEffect(() => {
@@ -93,6 +114,26 @@ export const DXNewsTicker = ({ sidebar = false }) => {
     title: item.title,
     desc: item.description,
   }));
+
+  const atMin = textScale <= 0.7;
+  const atMax = textScale >= 2.0;
+
+  const handleDecrease = () => setTextScale((s) => parseFloat(Math.max(0.7, s - 0.1).toFixed(1)));
+  const handleIncrease = () => setTextScale((s) => parseFloat(Math.min(2.0, s + 0.1).toFixed(1)));
+
+  const sizeButtonStyle = (disabled) => ({
+    background: 'transparent',
+    border: 'none',
+    color: disabled ? '#444' : '#ff8800',
+    fontSize: `${BASE_LABEL_SIZE * textScale}px`,
+    fontWeight: '700',
+    fontFamily: 'JetBrains Mono, monospace',
+    padding: `0 ${6 * textScale}px`,
+    height: '100%',
+    cursor: disabled ? 'default' : 'pointer',
+    lineHeight: 1,
+    flexShrink: 0,
+  });
 
   return (
     <div
@@ -112,7 +153,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
               bottom: '8px',
               left: '8px',
               right: '8px',
-              height: '28px',
+              height: `${BASE_HEIGHT * textScale}px`,
               background: 'rgba(0, 0, 0, 0.85)',
               border: '1px solid #444',
               borderRadius: '6px',
@@ -132,7 +173,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
           background: 'rgba(255, 136, 0, 0.9)',
           color: '#000',
           fontWeight: '700',
-          fontSize: '10px',
+          fontSize: `${BASE_LABEL_SIZE * textScale}px`,
           fontFamily: 'JetBrains Mono, monospace',
           padding: '0 8px',
           height: '100%',
@@ -183,7 +224,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
                 style={{
                   color: '#ff8800',
                   fontWeight: '700',
-                  fontSize: '11px',
+                  fontSize: `${BASE_TEXT_SIZE * textScale}px`,
                   fontFamily: 'JetBrains Mono, monospace',
                   marginRight: '6px',
                 }}
@@ -193,7 +234,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
               <span
                 style={{
                   color: '#aaa',
-                  fontSize: '11px',
+                  fontSize: `${BASE_TEXT_SIZE * textScale}px`,
                   fontFamily: 'JetBrains Mono, monospace',
                   marginRight: '12px',
                 }}
@@ -203,7 +244,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
               <span
                 style={{
                   color: '#555',
-                  fontSize: '10px',
+                  fontSize: `${BASE_LABEL_SIZE * textScale}px`,
                   marginRight: '12px',
                 }}
               >
@@ -218,7 +259,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
                 style={{
                   color: '#ff8800',
                   fontWeight: '700',
-                  fontSize: '11px',
+                  fontSize: `${BASE_TEXT_SIZE * textScale}px`,
                   fontFamily: 'JetBrains Mono, monospace',
                   marginRight: '6px',
                 }}
@@ -228,7 +269,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
               <span
                 style={{
                   color: '#aaa',
-                  fontSize: '11px',
+                  fontSize: `${BASE_TEXT_SIZE * textScale}px`,
                   fontFamily: 'JetBrains Mono, monospace',
                   marginRight: '12px',
                 }}
@@ -238,7 +279,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
               <span
                 style={{
                   color: '#555',
-                  fontSize: '10px',
+                  fontSize: `${BASE_LABEL_SIZE * textScale}px`,
                   marginRight: '12px',
                 }}
               >
@@ -247,6 +288,34 @@ export const DXNewsTicker = ({ sidebar = false }) => {
             </span>
           ))}
         </div>
+      </div>
+
+      {/* Text size controls */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          flexShrink: 0,
+          borderLeft: '1px solid #444',
+          height: '100%',
+        }}
+      >
+        <button
+          onClick={handleDecrease}
+          disabled={atMin}
+          aria-label={t('app.dxNews.decreaseTextSize')}
+          style={sizeButtonStyle(atMin)}
+        >
+          −
+        </button>
+        <button
+          onClick={handleIncrease}
+          disabled={atMax}
+          aria-label={t('app.dxNews.increaseTextSize')}
+          style={sizeButtonStyle(atMax)}
+        >
+          +
+        </button>
       </div>
     </div>
   );

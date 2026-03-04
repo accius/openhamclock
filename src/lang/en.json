@@ -234,6 +234,8 @@
   "app.dxLocation.lp": "LP:",
   "app.dxNews.pauseTooltip": "Click to pause scrolling",
   "app.dxNews.resumeTooltip": "Click to resume scrolling",
+  "app.dxNews.increaseTextSize": "Increase text size",
+  "app.dxNews.decreaseTextSize": "Decrease text size",
   "dxClusterPanel.title": "DX CLUSTER",
   "dxClusterPanel.live": "LIVE",
   "dxClusterPanel.filterTooltip": "Filter DX spots by band, mode, or continent",
@@ -429,5 +431,6 @@
   "keybindings.panel.title": "KEYBOARD SHORTCUTS",
   "keybindings.panel.description": "Press the following keys to toggle map layers:",
   "keybindings.panel.toggle": "Toggle this help panel",
+  "keybindings.panel.toggleDeDx": "Toggle DE and DX Markers",
   "keybindings.panel.note": "Press ESC or click outside to close this panel"
 }
