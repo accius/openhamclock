@@ -27,6 +27,7 @@ import {
 import { useRig } from '../contexts/RigContext.jsx';
 import { calculateDistance, formatDistance } from '../utils/geo.js';
 import { DXGridInput } from '../components/DXGridInput.jsx';
+import DXCCSelect from '../components/DXCCSelect.jsx';
 import useBreakpoint from '../hooks/app/useBreakpoint';
 
 export default function ModernLayout(props) {
@@ -118,6 +119,7 @@ export default function ModernLayout(props) {
 
   const { tuneTo } = useRig();
   const { breakpoint } = useBreakpoint();
+  const [showDxccSelect, setShowDxccSelect] = useState(false);
   const [showDXLocalTime, setShowDXLocalTime] = useState(false);
   const isMobile = breakpoint === 'mobile';
   const isTablet = breakpoint === 'tablet';
@@ -241,12 +243,41 @@ export default function ModernLayout(props) {
         </button>
       </div>
       <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px' }}>
-        <DXGridInput
-          dxGrid={dxGrid}
-          onDXChange={handleDXChange}
-          dxLocked={dxLocked}
-          style={{ color: 'var(--accent-green)', fontSize: '22px', fontWeight: '700', letterSpacing: '1px' }}
-        />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <DXGridInput
+            dxGrid={dxGrid}
+            onDXChange={handleDXChange}
+            dxLocked={dxLocked}
+            style={{
+              color: 'var(--accent-green)',
+              fontSize: '22px',
+              fontWeight: '700',
+              letterSpacing: '1px',
+              flex: '1 1 auto',
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowDxccSelect((prev) => !prev)}
+            title={t('app.dxLocation.dxccToggleTitle')}
+            style={{
+              background: showDxccSelect ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+              color: showDxccSelect ? '#000' : 'var(--text-secondary)',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              padding: '4px 8px',
+              fontSize: '12px',
+              fontFamily: 'JetBrains Mono, monospace',
+              cursor: 'pointer',
+              flex: '0 0 auto',
+            }}
+          >
+            DXCC
+          </button>
+        </div>
+        {showDxccSelect && (
+          <DXCCSelect dxLocked={dxLocked} onDXChange={handleDXChange} style={{ margin: '5px 0 10px 0' }} />
+        )}
         <DXLocalTime
           currentTime={currentTime}
           dxLocation={dxLocation}

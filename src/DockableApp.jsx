@@ -37,6 +37,7 @@ import { DockableLayoutProvider } from './contexts';
 import { useRig } from './contexts/RigContext.jsx';
 import { calculateBearing, calculateDistance, formatDistance } from './utils/geo.js';
 import { DXGridInput } from './components/DXGridInput.jsx';
+import DXCCSelect from './components/DXCCSelect.jsx';
 import './styles/flexlayout-openhamclock.css';
 import useMapLayers from './hooks/app/useMapLayers';
 import useRotator from './hooks/useRotator';
@@ -175,6 +176,7 @@ export const DockableApp = ({
     });
   }, []);
   const [showDXLocalTime, setShowDXLocalTime] = useState(false);
+  const [showDxccSelect, setShowDxccSelect] = useState(false);
 
   // ── Tabset auto-rotation (persistent per tabset) ──
   const [tabsetRotation, setTabsetRotation] = useState(() => {
@@ -495,12 +497,40 @@ export const DockableApp = ({
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px', flex: '1 1 auto', minWidth: 0 }}>
-            <DXGridInput
-              dxGrid={dxGrid}
-              onDXChange={handleDXChange}
-              dxLocked={dxLocked}
-              style={{ color: 'var(--accent-amber)', fontSize: '22px', fontWeight: '700' }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <DXGridInput
+                dxGrid={dxGrid}
+                onDXChange={handleDXChange}
+                dxLocked={dxLocked}
+                style={{
+                  color: 'var(--accent-amber)',
+                  fontSize: '22px',
+                  fontWeight: '700',
+                  flex: '1 1 auto',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowDxccSelect((prev) => !prev)}
+                title={t('app.dxLocation.dxccToggleTitle')}
+                style={{
+                  background: showDxccSelect ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+                  color: showDxccSelect ? '#000' : 'var(--text-secondary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '4px',
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  fontFamily: 'JetBrains Mono, monospace',
+                  cursor: 'pointer',
+                  flex: '0 0 auto',
+                }}
+              >
+                DXCC
+              </button>
+            </div>
+            {showDxccSelect && (
+              <DXCCSelect dxLocked={dxLocked} onDXChange={handleDXChange} style={{ margin: '5px 0 10px 0' }} />
+            )}
             <DXLocalTime
               currentTime={currentTime}
               dxLocation={dxLocation}

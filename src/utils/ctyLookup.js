@@ -18,6 +18,7 @@ import { apiFetch } from './apiFetch';
 
 let prefixes = null; // { PREFIX: { entity, dxcc, cq, itu, cont, lat, lon } }
 let exact = null; // { CALLSIGN: { ... } }
+let entities = []; // [{ entity, dxcc, cq, itu, cont, lat, lon }]
 let loaded = false;
 let loading = false;
 
@@ -37,8 +38,10 @@ export async function initCtyLookup() {
     if (data?.prefixes && data?.exact) {
       prefixes = data.prefixes;
       exact = data.exact;
+      entities = Array.isArray(data.entities) ? data.entities : [];
       loaded = true;
       console.log(`[CTY] Loaded: ${Object.keys(prefixes).length} prefixes, ${Object.keys(exact).length} exact calls`);
+      window.dispatchEvent(new CustomEvent('openhamclock-cty-loaded'));
     }
   } catch (err) {
     console.warn('[CTY] Failed to load cty.dat data:', err.message);
@@ -52,6 +55,10 @@ export async function initCtyLookup() {
  */
 export function isCtyLoaded() {
   return loaded;
+}
+
+export function getCtyEntities() {
+  return entities;
 }
 
 /**

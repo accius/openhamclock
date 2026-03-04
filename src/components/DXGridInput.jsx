@@ -89,7 +89,6 @@ export function DXGridInput({ dxGrid, onDXChange, dxLocked, style }) {
         outline: 'none',
         cursor: dxLocked ? 'not-allowed' : 'text',
         width: '7ch',
-        textAlign: 'right',
         padding: 0,
         margin: 0,
         fontFamily: 'JetBrains Mono, monospace',
