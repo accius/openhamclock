@@ -14,7 +14,7 @@ export const metadata = {
   category: 'weather',
   defaultEnabled: false,
   defaultOpacity: 0.9,
-  version: '2.0.0',
+  version: '2.0.1',
 };
 
 // LZW decompression - Blitzortung uses LZW compression for WebSocket data
@@ -81,7 +81,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
   // Low memory mode limits
   const MAX_STRIKES = lowMemoryMode ? 100 : 500;
-  const STRIKE_RETENTION_MS = lowMemoryMode ? 60000 : 300000; // 1 min vs 5 min
+  const STRIKE_RETENTION_MS = 1800000; // 30 min
 
   // Fetch WebSocket key from Blitzortung (fallback to 111)
   useEffect(() => {
@@ -131,8 +131,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
                 id: `strike_${data.time}_${data.lat}_${data.lon}`,
                 lat: parseFloat(data.lat),
                 lon: parseFloat(data.lon),
-                timestamp: parseInt(data.time),
-                age: (Date.now() - parseInt(data.time)) / 1000,
+                timestamp: parseInt(data.time / 1000000),
                 intensity: Math.abs(data.pol || 0),
                 polarity: (data.pol || 0) >= 0 ? 'positive' : 'negative',
                 altitude: data.alt || 0,
@@ -245,12 +244,14 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
     const newMarkers = [];
     const currentStrikeIds = new Set();
+    const now = Date.now();
 
     lightningData.forEach((strike) => {
-      const { id, lat, lon, age, intensity, polarity } = strike;
+      const { id, lat, lon, timestamp, intensity, polarity } = strike;
 
       currentStrikeIds.add(id);
-      const ageMinutes = age / 60;
+      const ageSeconds = (now - timestamp) / 1000;
+      const ageMinutes = ageSeconds / 60;
 
       // Only animate NEW strikes (not seen before)
       const isNewStrike = !previousStrikeIds.current.has(id);
@@ -303,7 +304,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       });
 
       // Popup with strike details
-      const ageStr = ageMinutes < 1 ? `${Math.round(age)}s ago` : `${Math.round(ageMinutes)}m ago`;
+      const ageStr = ageMinutes < 1 ? `${Math.round(ageSeconds)}s ago` : `${Math.round(ageMinutes)}m ago`;
 
       marker.bindPopup(`
         <div style="font-family: 'JetBrains Mono', monospace; font-size: 12px;">
