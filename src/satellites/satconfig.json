@@ -41,16 +41,6 @@
     "uplink": "145.850 MHz",
     "tone": "67.0 Hz"
   },
-  "62690": {
-    "norad": 62690,
-    "name": "SO-124 (HADES-R)",
-    "color": "#ff44aa",
-    "priority": 1,
-    "mode": "FM",
-    "downlink": "436.888 MHz",
-    "uplink": "145.925 MHz",
-    "tone": "67.0 Hz"
-  },
   "63492": {
     "norad": 63492,
     "name": "SO-125 (HADES-ICM)",
@@ -124,8 +114,8 @@
     "mode": "HRIT/LRIT",
     "frequency": "1691.000 MHz"
   },
-  "43822": {
-    "norad": 43822,
+  "43823": {
+    "norad": 43823,
     "name": "GK-2A",
     "color": "#ff33cc",
     "priority": 1,
@@ -246,15 +236,6 @@
     "downlink": "145.950 - 145.970 MHz",
     "uplink": "435.130 - 435.150 MHz"
   },
-  "42017": {
-    "norad": 42017,
-    "name": "EO-88 (Nayif-1)",
-    "color": "#ffaa66",
-    "priority": 3,
-    "mode": "Linear/Telemetry",
-    "downlink": "145.940 - 145.960 MHz",
-    "uplink": "435.030 - 435.050 MHz"
-  },
   "_SECTION_5": "── CAS & XW Constellations ──",
   "42761": {
     "norad": 42761,
@@ -329,85 +310,5 @@
     "downlink": "435.310 MHz",
     "uplink": "435.310 MHz"
   },
-  "_SECTION_7": "── TEVEL Constellations ──",
-  "51013": {
-    "norad": 51013,
-    "name": "TEVEL-1",
-    "color": "#66ccff",
-    "priority": 3,
-    "mode": "FM",
-    "downlink": "436.400 MHz",
-    "uplink": "145.970 MHz",
-    "tone": "67.0 Hz"
-  },
-  "51069": {
-    "norad": 51069,
-    "name": "TEVEL-2",
-    "color": "#66ddff",
-    "priority": 3,
-    "mode": "FM",
-    "downlink": "436.400 MHz",
-    "uplink": "145.970 MHz",
-    "tone": "67.0 Hz"
-  },
-  "50988": {
-    "norad": 50988,
-    "name": "TEVEL-3",
-    "color": "#66eeff",
-    "priority": 3,
-    "mode": "FM",
-    "downlink": "436.400 MHz",
-    "uplink": "145.970 MHz",
-    "tone": "67.0 Hz"
-  },
-  "51063": {
-    "norad": 51063,
-    "name": "TEVEL-4",
-    "color": "#77ccff",
-    "priority": 3,
-    "mode": "FM",
-    "downlink": "436.400 MHz",
-    "uplink": "145.970 MHz",
-    "tone": "67.0 Hz"
-  },
-  "50998": {
-    "norad": 50998,
-    "name": "TEVEL-5",
-    "color": "#77ddff",
-    "priority": 3,
-    "mode": "FM",
-    "downlink": "436.400 MHz",
-    "uplink": "145.970 MHz",
-    "tone": "67.0 Hz"
-  },
-  "50999": {
-    "norad": 50999,
-    "name": "TEVEL-6",
-    "color": "#77eeff",
-    "priority": 3,
-    "mode": "FM",
-    "downlink": "436.400 MHz",
-    "uplink": "145.970 MHz",
-    "tone": "67.0 Hz"
-  },
-  "51062": {
-    "norad": 51062,
-    "name": "TEVEL-7",
-    "color": "#88ccff",
-    "priority": 3,
-    "mode": "FM",
-    "downlink": "436.400 MHz",
-    "uplink": "145.970 MHz",
-    "tone": "67.0 Hz"
-  },
-  "50989": {
-    "norad": 50989,
-    "name": "TEVEL-8",
-    "color": "#88ddff",
-    "priority": 3,
-    "mode": "FM",
-    "downlink": "436.400 MHz",
-    "uplink": "145.970 MHz",
-    "tone": "67.0 Hz"
-  }
+  "_SECTION_7": "── Reeserved for New Sats ──"
 }

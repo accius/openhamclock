@@ -11,8 +11,8 @@ export const metadata = {
   defaultEnabled: true,
   defaultOpacity: 1.0,
   config: {
-    leadTimeMins: 45,
-    tailTimeMins: 15,
+    leadTimeMins: 20,
+    tailTimeMins: 45,
     showTracks: true,
     showFootprints: true,
   },
@@ -145,8 +145,10 @@ export const useLayer = ({ map, enabled, opacity, config, units }) => {
               range = 0,
               alt = 0,
               lat = 0,
-              lon = 0;
+              lon = 0,
+              speedKmh = 0;
             const leadTrack = [];
+            const track = [];
 
             if (satData.tle1 && satData.tle2) {
               try {
@@ -169,15 +171,35 @@ export const useLayer = ({ map, enabled, opacity, config, units }) => {
                   lat = satellite.radiansToDegrees(posGd.latitude);
                   lon = satellite.radiansToDegrees(posGd.longitude);
                   alt = posGd.height;
+
+                  // Speed from ECI velocity vector (km/s → km/h)
+                  if (pAndV.velocity) {
+                    const v = pAndV.velocity;
+                    const speedKms = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z);
+                    speedKmh = speedKms * 3600;
+                  }
                 }
 
-                const minutes = config?.leadTimeMins || 45;
+                const minutes = config?.leadTimeMins || 20;
                 for (let i = 0; i <= minutes; i += 2) {
                   const futureTime = new Date(now.getTime() + i * 60000);
                   const propagation = satellite.propagate(satrec, futureTime);
                   if (propagation.position) {
                     const geodetic = satellite.eciToGeodetic(propagation.position, satellite.gstime(futureTime));
                     leadTrack.push([
+                      satellite.radiansToDegrees(geodetic.latitude),
+                      satellite.radiansToDegrees(geodetic.longitude),
+                    ]);
+                  }
+                }
+                // Tail track — past positions (glowing trail)
+                const tailMins = config?.tailTimeMins || 45;
+                for (let i = tailMins; i >= 0; i -= 2) {
+                  const pastTime = new Date(now.getTime() - i * 60000);
+                  const propagation = satellite.propagate(satrec, pastTime);
+                  if (propagation.position) {
+                    const geodetic = satellite.eciToGeodetic(propagation.position, satellite.gstime(pastTime));
+                    track.push([
                       satellite.radiansToDegrees(geodetic.latitude),
                       satellite.radiansToDegrees(geodetic.longitude),
                     ]);
@@ -201,7 +223,9 @@ export const useLayer = ({ map, enabled, opacity, config, units }) => {
               azimuth: typeof az === 'number' ? az : 0,
               elevation: typeof el === 'number' ? el : 0,
               range,
+              speedKmh,
               leadTrack,
+              track,
               // Radio fields — always strings, never undefined
               mode: extra.mode || satData.mode || 'N/A',
               frequency: String(extra.frequency || satData.frequency || ''),
@@ -306,7 +330,9 @@ export const useLayer = ({ map, enabled, opacity, config, units }) => {
               <span style="color:#ff4444; cursor:pointer; font-weight:bold; font-size:14px;" onclick="window.toggleSat('${sat.name}')">✕</span>
             </div>
             <table class="sat-mini-table">
-              <tr><td class="sat-label-cell">Pos</td><td class="sat-val">${safeLat.toFixed(2)}, ${safeLon.toFixed(2)}</td></tr>
+              <tr><td class="sat-label-cell">Lat</td><td class="sat-val">${safeLat.toFixed(2)}°</td></tr>
+              <tr><td class="sat-label-cell">Lon</td><td class="sat-val">${safeLon.toFixed(2)}°</td></tr>
+              <tr><td class="sat-label-cell">Speed</td><td class="sat-val">${sat.speedKmh ? Math.round(sat.speedKmh).toLocaleString() + ' km/h / ' + Math.round(sat.speedKmh * 0.621371).toLocaleString() + ' mph' : 'N/A'}</td></tr>
               <tr><td class="sat-label-cell">Alt</td><td class="sat-val">${Math.round(safeAlt * conv)}${distUnit}</td></tr>
               <tr><td class="sat-label-cell">Az/El</td><td class="sat-val">${Math.round(safeAz)}° / ${Math.round(safeEl)}°</td></tr>
               ${row('Mode', sat.mode)}
@@ -389,14 +415,26 @@ export const useLayer = ({ map, enabled, opacity, config, units }) => {
 
         if (isSelected && sat.leadTrack && sat.leadTrack.length > 0) {
           replicatePath(sat.leadTrack.map((p) => [p[0], p[1]])).forEach((lCoords) => {
-            window.L.polyline(lCoords, {
-              color: '#ffff00',
-              weight: 3,
-              opacity: 0.8 * globalOpacity,
-              dashArray: '8, 12',
-              lineCap: 'round',
-              interactive: false,
-            }).addTo(layerGroupRef.current);
+            for (let i = 0; i < lCoords.length - 1; i++) {
+              // Fade out as we go further into the future (1 = near satellite, 0 = far ahead)
+              const fade = 1 - i / lCoords.length;
+              // Wide fuzzy red glow
+              window.L.polyline([lCoords[i], lCoords[i + 1]], {
+                color: '#ff2200',
+                weight: 6,
+                opacity: fade * 0.25 * globalOpacity,
+                lineCap: 'round',
+                interactive: false,
+              }).addTo(layerGroupRef.current);
+              // Thin bright red core
+              window.L.polyline([lCoords[i], lCoords[i + 1]], {
+                color: '#ff6644',
+                weight: 1.5,
+                opacity: fade * 0.6 * globalOpacity,
+                lineCap: 'round',
+                interactive: false,
+              }).addTo(layerGroupRef.current);
+            }
           });
         }
       }

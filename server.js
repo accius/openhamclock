@@ -7492,7 +7492,31 @@ const TLE_CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours — TLEs don't chang
 const TLE_STALE_SERVE_LIMIT = 48 * 60 * 60 * 1000; // Serve stale cache up to 48h while retrying
 let tleNegativeCache = 0; // Timestamp of last total failure
 const TLE_NEGATIVE_TTL = 30 * 60 * 1000; // 30 min backoff after all sources fail
-
+// OFFLINE BLOCK
+// Load local TLE fallback file on startup (used when all upstream sources fail)
+// Set TLE_LOCAL_FALLBACK=src/satellites/weather.tle in .env to enable
+(() => {
+  const fallbackPath = process.env.TLE_LOCAL_FALLBACK;
+  if (!fallbackPath) return;
+  try {
+    const fullPath = path.join(__dirname, fallbackPath);
+    if (!fs.existsSync(fullPath)) {
+      console.warn(`[Satellites] Local fallback file not found: ${fullPath}`);
+      return;
+    }
+    const raw = fs.readFileSync(fullPath, 'utf8');
+    const data = JSON.parse(raw);
+    if (!tleCache.data) {
+      tleCache = { data, timestamp: Date.now() };
+      console.log(
+        `[Satellites] Seeded TLE cache from local fallback: ${fallbackPath} (${Object.keys(data).length} satellites)`,
+      );
+    }
+  } catch (e) {
+    console.warn(`[Satellites] Failed to load local fallback TLE: ${e.message}`);
+  }
+})();
+// OFFLINE BLOCK
 // TLE data sources in priority order — automatic failover
 const TLE_SOURCES = {
   celestrak: {
