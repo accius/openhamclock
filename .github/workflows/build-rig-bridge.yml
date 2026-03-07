@@ -6,7 +6,7 @@ name: Build Rig Bridge
 
 on:
   push:
-    branches: [fork/ci]
+    branches: [feature/tci-rig-bridge-plugin]
     paths: ['rig-bridge/**']
   workflow_dispatch:
 
