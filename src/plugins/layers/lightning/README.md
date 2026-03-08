@@ -32,7 +32,7 @@ The Lightning Detection plugin visualizes real-time lightning strikes on the map
 - **Colored Circle Markers**: Background color shows strike age (size 12-32px)
 - **Lightning Bolt Icon**: White ⚡ symbol centered on circle
 - **Flash Animation**: New strikes appear with bright gold glow (0.8s)
-- **Pulse Ring**: Expanding 30km radius ring for new strikes (2s)
+- **Pulse Ring**: Expanding 30km or 20 mile radius ring for new strikes (2s)
 - **White Border**: 2px white border for contrast on all backgrounds
 - **Box Shadow**: Depth effect for better visibility
 - **🆕 Badge**: New strikes marked in popup
@@ -316,11 +316,11 @@ const fetchLightning = async () => {
 
 ## 🌐 External Links
 
-- **Blitzortung.org**: https://www.blitzortung.org/
-- **LightningMaps.org**: https://www.lightningmaps.org/
-- **NOAA Lightning Data**: https://www.nesdis.noaa.gov/our-satellites/currently-flying/goes-east-west/geostationary-lightning-mapper-glm
-- **Lightning Safety**: https://www.weather.gov/safety/lightning
-- **30/30 Rule**: https://www.weather.gov/safety/lightning-30-30-rule
+- **Blitzortung.org**: <https://www.blitzortung.org/>
+- **LightningMaps.org**: <https://www.lightningmaps.org/>
+- **NOAA Lightning Data**: <https://www.nesdis.noaa.gov/our-satellites/currently-flying/goes-east-west/geostationary-lightning-mapper-glm>
+- **Lightning Safety**: <https://www.weather.gov/safety/lightning>
+- **30/30 Rule**: <https://www.weather.gov/safety/lightning-30-30-rule>
 
 ---
 
@@ -333,7 +333,7 @@ const fetchLightning = async () => {
 - Age-based color coding (gold → brown)
 - Intensity and polarity display
 - Flash animation for new strikes (0.8s)
-- Pulse ring effect (2s, 30km radius)
+- Pulse ring effect (2s, 30km or 20 mile radius)
 - Continuous subtle pulse on all strikes
 - Statistics panel (top-left)
 - 30-second auto-refresh
