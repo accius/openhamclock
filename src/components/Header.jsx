@@ -3,6 +3,7 @@
  * Top bar with callsign, clocks, weather, and controls.
  * Responsive: wraps gracefully on tablet, collapses to essentials on mobile.
  */
+import { useState, useEffect, useCallback } from 'react';
 import { IconGear, IconExpand, IconShrink } from './Icons.jsx';
 import DonateButton from './DonateButton.jsx';
 import { QRZToggle } from './CallsignLink.jsx';
@@ -29,6 +30,20 @@ export const Header = ({
   showUpdateButton,
   breakpoint = 'desktop',
 }) => {
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  // Close Menu on Escape
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') closeMenu();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen, closeMenu]);
+
   const isMobile = breakpoint === 'mobile';
   const isTablet = breakpoint === 'tablet';
 
@@ -47,270 +62,307 @@ export const Header = ({
 
   return (
     <div
+      id="header-container"
+      className="header-container"
       style={{
-        gridColumn: '1 / -1',
         display: 'flex',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        justifyContent: isMobile ? 'center' : 'space-between',
-        gap: isMobile ? '4px 8px' : '6px 12px',
-        background: 'var(--bg-panel)',
-        border: '1px solid var(--border-color)',
-        borderRadius: '6px',
-        padding: isMobile ? '4px 6px' : '6px 12px',
-        minHeight: isMobile ? '38px' : '46px',
-        fontFamily: 'JetBrains Mono, monospace',
-        boxSizing: 'border-box',
+        gridColumn: '1 / -1',
+        gap: '.5em',
       }}
     >
-      {/* Callsign */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '12px', flexShrink: 0 }}>
-        <span
-          style={{
-            fontSize: callsignSize,
-            fontWeight: '900',
-            color: 'var(--accent-amber)',
-            cursor: 'pointer',
-            fontFamily: 'Orbitron, monospace',
-            whiteSpace: 'nowrap',
-            lineHeight: 1,
-          }}
-          onClick={onSettingsClick}
-          title="Click for settings"
-        >
-          {config.callsign}
-        </span>
-        {(() => {
-          const info = isCtyLoaded() ? ctyLookup(config.callsign) : null;
-          const flagUrl = info ? getFlagUrl(info.entity) : null;
-          return flagUrl ? (
-            <img
-              src={flagUrl}
-              alt={info.entity}
-              title={info.entity}
-              style={{
-                height: '1em',
-                verticalAlign: 'middle',
-                borderRadius: '2px',
-                objectFit: 'contain',
-              }}
-              crossOrigin="anonymous"
-              loading="eager"
-            />
-          ) : null;
-        })()}
-        {config.version && !isMobile && (
-          <span
-            onClick={() => window.dispatchEvent(new Event('openhamclock-show-whatsnew'))}
-            style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer' }}
-            title="What's new in this version"
-          >
-            v{config.version}
-          </span>
-        )}
-        {!isMobile && <QRZToggle />}
-      </div>
-
-      {/* UTC Clock */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-        <span style={{ fontSize: isMobile ? '10px' : '13px', color: 'var(--accent-cyan)', fontWeight: '600' }}>
-          UTC
-        </span>
-        <span
-          style={{
-            fontSize: clockSize,
-            fontWeight: '700',
-            color: 'var(--accent-cyan)',
-            fontFamily: 'JetBrains Mono, Consolas, monospace',
-            whiteSpace: 'nowrap',
-            lineHeight: 1,
-          }}
-        >
-          {utcTime}
-        </span>
-        {!isMobile && (
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{utcDate}</span>
-        )}
-      </div>
-
-      {/* Local Clock */}
       <div
-        style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}
-        onClick={onTimeFormatToggle}
-        title={`Click to switch to ${use12Hour ? '24-hour' : '12-hour'} format`}
+        className="header-content-column"
+        style={{
+          backgroundColor: 'lightgray',
+          display: 'flex',
+          flex: '1',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: isMobile ? 'center' : 'space-between',
+          gap: isMobile ? '4px 8px' : '6px 12px',
+          background: 'var(--bg-panel)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '6px',
+          padding: isMobile ? '4px 6px' : '6px 12px',
+          minHeight: isMobile ? '38px' : '46px',
+          fontFamily: 'JetBrains Mono, monospace',
+          boxSizing: 'border-box',
+        }}
       >
-        <span style={{ fontSize: isMobile ? '10px' : '13px', color: 'var(--accent-amber)', fontWeight: '600' }}>
-          LOCAL
-        </span>
-        <span
-          style={{
-            fontSize: clockSize,
-            fontWeight: '700',
-            color: 'var(--accent-amber)',
-            fontFamily: 'JetBrains Mono, Consolas, monospace',
-            whiteSpace: 'nowrap',
-            lineHeight: 1,
-          }}
-        >
-          {localTime}
-        </span>
-        {!isMobile && (
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{localDate}</span>
-        )}
-      </div>
-
-      {/* Weather & Solar Stats — hidden on mobile */}
-      {!isMobile && (
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: isTablet ? '6px' : '12px',
-            fontSize: isTablet ? '11px' : '13px',
-            fontFamily: 'JetBrains Mono, Consolas, monospace',
-            whiteSpace: 'nowrap',
-            flexShrink: 1,
-            minWidth: 0,
-            overflow: 'hidden',
-          }}
-        >
-          {localWeather?.data &&
-            (() => {
-              const rawC = localWeather.data.rawTempC;
-              return (
-                <div
-                  title={`${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${localWeather.data.windUnit || 'mph'}`}
-                >
-                  <span style={{ marginRight: '3px' }}>{localWeather.data.icon}</span>
-                  <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
-                    {Math.round((rawC * 9) / 5 + 32)}°F/{Math.round(rawC)}°C
-                  </span>
-                </div>
-              );
-            })()}
-          <div>
-            <span style={{ color: 'var(--text-muted)' }}>SFI </span>
-            <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
-              {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: 'var(--text-muted)' }}>K </span>
+        {/* Callsign */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '12px', flexShrink: 0 }}>
+          <span
+            style={{
+              fontSize: callsignSize,
+              fontWeight: '900',
+              color: 'var(--accent-amber)',
+              cursor: 'pointer',
+              fontFamily: 'Orbitron, monospace',
+              whiteSpace: 'nowrap',
+              lineHeight: 1,
+            }}
+            onClick={onSettingsClick}
+            title="Click for settings"
+          >
+            {config.callsign}
+          </span>
+          {(() => {
+            const info = isCtyLoaded() ? ctyLookup(config.callsign) : null;
+            const flagUrl = info ? getFlagUrl(info.entity) : null;
+            return flagUrl ? (
+              <img
+                src={flagUrl}
+                alt={info.entity}
+                title={info.entity}
+                style={{
+                  height: '1em',
+                  verticalAlign: 'middle',
+                  borderRadius: '2px',
+                  objectFit: 'contain',
+                }}
+                crossOrigin="anonymous"
+                loading="eager"
+              />
+            ) : null;
+          })()}
+          {config.version && !isMobile && (
             <span
-              style={{
-                color:
-                  parseInt(solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex) >= 4
-                    ? 'var(--accent-red)'
-                    : 'var(--accent-green)',
-                fontWeight: '700',
-              }}
+              onClick={() => window.dispatchEvent(new Event('openhamclock-show-whatsnew'))}
+              style={{ fontSize: '11px', color: 'var(--text-muted)', cursor: 'pointer' }}
+              title="What's new in this version"
             >
-              {solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex ?? '--'}
+              v{config.version}
             </span>
-          </div>
-          <div>
-            <span style={{ color: 'var(--text-muted)' }}>SSN </span>
-            <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
-              {solarIndices?.data?.ssn?.current ?? spaceWeather?.data?.sunspotNumber ?? '--'}
-            </span>
-          </div>
-          {!isTablet && bandConditions?.extras?.aIndex && (
+          )}
+          {!isMobile && <QRZToggle />}
+        </div>
+
+        {/* UTC Clock */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          <span style={{ fontSize: isMobile ? '10px' : '13px', color: 'var(--accent-cyan)', fontWeight: '600' }}>
+            UTC
+          </span>
+          <span
+            style={{
+              fontSize: clockSize,
+              fontWeight: '700',
+              color: 'var(--accent-cyan)',
+              fontFamily: 'JetBrains Mono, Consolas, monospace',
+              whiteSpace: 'nowrap',
+              lineHeight: 1,
+            }}
+          >
+            {utcTime}
+          </span>
+          {!isMobile && (
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{utcDate}</span>
+          )}
+        </div>
+
+        {/* Local Clock */}
+        <div
+          style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer', flexShrink: 0 }}
+          onClick={onTimeFormatToggle}
+          title={`Click to switch to ${use12Hour ? '24-hour' : '12-hour'} format`}
+        >
+          <span style={{ fontSize: isMobile ? '10px' : '13px', color: 'var(--accent-amber)', fontWeight: '600' }}>
+            LOCAL
+          </span>
+          <span
+            style={{
+              fontSize: clockSize,
+              fontWeight: '700',
+              color: 'var(--accent-amber)',
+              fontFamily: 'JetBrains Mono, Consolas, monospace',
+              whiteSpace: 'nowrap',
+              lineHeight: 1,
+            }}
+          >
+            {localTime}
+          </span>
+          {!isMobile && (
+            <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{localDate}</span>
+          )}
+        </div>
+
+        {/* Weather & Solar Stats — hidden on mobile */}
+        {!isMobile && (
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: isTablet ? '6px' : '12px',
+              fontSize: isTablet ? '11px' : '13px',
+              fontFamily: 'JetBrains Mono, Consolas, monospace',
+              whiteSpace: 'nowrap',
+              flexShrink: 1,
+              minWidth: 0,
+              overflow: 'hidden',
+            }}
+          >
+            {localWeather?.data &&
+              (() => {
+                const rawC = localWeather.data.rawTempC;
+                return (
+                  <div
+                    title={`${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${localWeather.data.windUnit || 'mph'}`}
+                  >
+                    <span style={{ marginRight: '3px' }}>{localWeather.data.icon}</span>
+                    <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
+                      {Math.round((rawC * 9) / 5 + 32)}°F/{Math.round(rawC)}°C
+                    </span>
+                  </div>
+                );
+              })()}
             <div>
-              <span style={{ color: 'var(--text-muted)' }}>A </span>
+              <span style={{ color: 'var(--text-muted)' }}>SFI </span>
+              <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
+                {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
+              </span>
+            </div>
+            <div>
+              <span style={{ color: 'var(--text-muted)' }}>K </span>
               <span
                 style={{
                   color:
-                    parseInt(bandConditions.extras.aIndex) >= 20
+                    parseInt(solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex) >= 4
                       ? 'var(--accent-red)'
-                      : parseInt(bandConditions.extras.aIndex) >= 10
-                        ? 'var(--accent-amber)'
-                        : 'var(--accent-green)',
+                      : 'var(--accent-green)',
                   fontWeight: '700',
                 }}
               >
-                {bandConditions.extras.aIndex}
+                {solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex ?? '--'}
               </span>
             </div>
-          )}
-          {!isTablet && bandConditions?.extras?.geomagField && (
             <div>
-              <span
-                style={{
-                  fontSize: '10px',
-                  color:
-                    bandConditions.extras.geomagField === 'QUIET'
-                      ? 'var(--accent-green)'
-                      : bandConditions.extras.geomagField === 'ACTIVE' ||
-                          bandConditions.extras.geomagField.includes('STORM')
-                        ? 'var(--accent-red)'
-                        : 'var(--accent-amber)',
-                  fontWeight: '600',
-                }}
-              >
-                {bandConditions.extras.geomagField}
+              <span style={{ color: 'var(--text-muted)' }}>SSN </span>
+              <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
+                {solarIndices?.data?.ssn?.current ?? spaceWeather?.data?.sunspotNumber ?? '--'}
               </span>
             </div>
-          )}
-        </div>
-      )}
+            {!isTablet && bandConditions?.extras?.aIndex && (
+              <div>
+                <span style={{ color: 'var(--text-muted)' }}>A </span>
+                <span
+                  style={{
+                    color:
+                      parseInt(bandConditions.extras.aIndex) >= 20
+                        ? 'var(--accent-red)'
+                        : parseInt(bandConditions.extras.aIndex) >= 10
+                          ? 'var(--accent-amber)'
+                          : 'var(--accent-green)',
+                    fontWeight: '700',
+                  }}
+                >
+                  {bandConditions.extras.aIndex}
+                </span>
+              </div>
+            )}
+            {!isTablet && bandConditions?.extras?.geomagField && (
+              <div>
+                <span
+                  style={{
+                    fontSize: '10px',
+                    color:
+                      bandConditions.extras.geomagField === 'QUIET'
+                        ? 'var(--accent-green)'
+                        : bandConditions.extras.geomagField === 'ACTIVE' ||
+                            bandConditions.extras.geomagField.includes('STORM')
+                          ? 'var(--accent-red)'
+                          : 'var(--accent-amber)',
+                    fontWeight: '600',
+                  }}
+                >
+                  {bandConditions.extras.geomagField}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <div className="header-menu-column">
+        <button onClick={() => setMenuOpen(true)} title="Menu" className="header-menu-toggle">
+          ☰
+        </button>
 
-      {/* Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '6px', flexShrink: 0 }}>
-        {!isFullscreen && !isMobile && (
-          <DonateButton compact={isTablet} fontSize="12px" padding={isTablet ? '4px 6px' : '6px 10px'} />
-        )}
-        {showUpdateButton && !isMobile && (
-          <button
-            onClick={onUpdateClick}
-            disabled={updateInProgress}
+        {menuOpen && (
+          <div
+            onClick={closeMenu}
             style={{
-              background: updateInProgress ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
-              border: `1px solid ${updateInProgress ? 'var(--accent-green)' : 'var(--border-color)'}`,
-              padding: '6px 10px',
-              borderRadius: '4px',
-              color: updateInProgress ? 'var(--accent-green)' : 'var(--text-secondary)',
-              fontSize: '12px',
-              cursor: updateInProgress ? 'wait' : 'pointer',
-              whiteSpace: 'nowrap',
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(0,0,0,0.6)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 100000,
+              backdropFilter: 'blur(1px)',
             }}
-            title="Run update now (server will restart)"
           >
-            {updateInProgress ? 'UPDATING...' : 'UPDATE'}
-          </button>
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="header-menu"
+              style={{
+                position: 'absolute',
+                right: '0',
+                top: '0',
+                left: 'auto',
+                bottom: 'auto',
+                margin: '3em',
+                padding: '1em',
+              }}
+            >
+              <button onClick={closeMenu} className="close-x" title="Close">
+                ✕
+              </button>
+              <img src="/img/ohc-logo-254x114.png" alt="Open Ham Clock logo" className="header-menu-logo" />
+              <p className="version-information">
+                <span
+                  onClick={() => window.dispatchEvent(new Event('openhamclock-show-whatsnew'))}
+                  title="What's new in this version"
+                >
+                  v{config.version} ℹ️
+                </span>
+              </p>
+              <div className="header-menu-button-container">
+                <DonateButton className="header-menu-button" />
+                {showUpdateButton && (
+                  <button
+                    onClick={onUpdateClick}
+                    disabled={updateInProgress}
+                    className={'header-menu-button'}
+                    style={{
+                      background: updateInProgress ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
+                      border: `1px solid ${updateInProgress ? 'var(--accent-green)' : 'var(--border-color)'}`,
+                      color: updateInProgress ? 'var(--accent-green)' : 'var(--text-secondary)',
+                      cursor: updateInProgress ? 'wait' : 'pointer',
+                    }}
+                    title="Run update now (server will restart)"
+                  >
+                    {updateInProgress ? 'UPDATING...' : 'UPDATE OHC'}
+                  </button>
+                )}
+                <button onClick={onSettingsClick} className={'header-menu-button'} title="Open the Settings Panel">
+                  <IconGear size={12} style={{ verticalAlign: 'middle', marginRight: isMobile ? 0 : '4px' }} />
+                  OHC Settings
+                </button>
+                <button
+                  onClick={onFullscreenToggle}
+                  className={'header-menu-button'}
+                  style={{
+                    background: isFullscreen ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
+                    border: `1px solid ${isFullscreen ? 'var(--accent-green)' : 'var(--border-color)'}`,
+                    color: isFullscreen ? 'var(--accent-green)' : 'var(--text-secondary)',
+                  }}
+                  title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
+                >
+                  {isFullscreen ? <IconShrink size={12} /> : <IconExpand size={12} />}
+                  {isFullscreen ? ' Exit Fullscreen (Esc)' : ' Enter Fullscreen'}
+                </button>
+              </div>
+            </div>
+          </div>
         )}
-        <button
-          onClick={onSettingsClick}
-          style={{
-            background: 'var(--bg-tertiary)',
-            border: '1px solid var(--border-color)',
-            padding: isMobile ? '4px 8px' : '6px 10px',
-            borderRadius: '4px',
-            color: 'var(--text-secondary)',
-            fontSize: '12px',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <IconGear size={12} style={{ verticalAlign: 'middle', marginRight: isMobile ? 0 : '4px' }} />
-          {!isMobile && 'Settings'}
-        </button>
-        <button
-          onClick={onFullscreenToggle}
-          style={{
-            background: isFullscreen ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
-            border: `1px solid ${isFullscreen ? 'var(--accent-green)' : 'var(--border-color)'}`,
-            padding: isMobile ? '4px 8px' : '6px 10px',
-            borderRadius: '4px',
-            color: isFullscreen ? 'var(--accent-green)' : 'var(--text-secondary)',
-            fontSize: '12px',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-          title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
-        >
-          {isFullscreen ? <IconShrink size={12} /> : <IconExpand size={12} />}
-          {!isMobile && (isFullscreen ? ' Exit' : ' Full')}
-        </button>
       </div>
     </div>
   );
