@@ -760,6 +760,7 @@ export default function ClassicLayout(props) {
               gap: '10px',
               fontSize: '15px',
               whiteSpace: 'nowrap',
+              alignItems: 'center',
             }}
           >
             <span>
