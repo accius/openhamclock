@@ -522,6 +522,8 @@ const App = () => {
 
   return (
     <div
+      id="app-container"
+      className={config.layout}
       style={{
         width: '100vw',
         height: '100vh',
