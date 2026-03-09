@@ -32,7 +32,7 @@ import {
   DXLocalTime,
 } from './components';
 
-import { loadLayout, saveLayout } from './store/layoutStore.js';
+import { resetLayout, loadLayout, saveLayout } from './store/layoutStore.js';
 import { DockableLayoutProvider } from './contexts';
 import { useRig } from './contexts/RigContext.jsx';
 import { calculateBearing, calculateDistance, formatDistance } from './utils/geo.js';
@@ -174,6 +174,12 @@ export const DockableApp = ({
       } catch {}
       return next;
     });
+  }, []);
+  const handleResetLayout = useCallback(() => {
+    if (confirm('Reset panel layout to default? This will undo any customizations.')) {
+      const defaultLayout = resetLayout();
+      setModel(Model.fromJson(defaultLayout));
+    }
   }, []);
   const [showDXLocalTime, setShowDXLocalTime] = useState(false);
   const [showDxccSelect, setShowDxccSelect] = useState(false);
@@ -417,7 +423,7 @@ export const DockableApp = ({
       'on-air': { name: 'On Air', icon: '🔴' },
       'id-timer': { name: 'ID Timer', icon: '📢' },
       keybindings: { name: 'Keyboard Shortcuts', icon: '⌨️' },
-      'lock-layout': { name: 'Lock Layout', icon: '🔒' },
+      layout: { name: 'Layout', icon: '📐' },
     };
   }, [isLocalInstall]);
 
@@ -946,19 +952,34 @@ export const DockableApp = ({
           content = <KeybindingsPanel keybindings={keybindingsList} nodeId={nodeId} />;
           break;
 
-        case 'lock-layout':
+        case 'layout':
           content = (
-            <button
-              onClick={toggleLayoutLock}
-              title={
-                layoutLocked
-                  ? 'Unlock layout — allow drag, resize, and close'
-                  : 'Lock layout — prevent accidental changes'
-              }
-              className={`panel-layout-lock-button ${layoutLocked ? 'locked' : 'unlocked'}`}
-            >
-              {layoutLocked ? '🔒' : '🔓'} Layout {layoutLocked ? 'Locked' : 'Unlocked'}
-            </button>
+            <>
+              <button
+                onClick={toggleLayoutLock}
+                title={
+                  layoutLocked
+                    ? 'Unlock layout — allow drag, resize, and close'
+                    : 'Lock layout — prevent accidental changes'
+                }
+                className={`panel-layout-lock-button ${layoutLocked ? 'locked' : 'unlocked'}`}
+              >
+                {layoutLocked ? '🔒' : '🔓'} Layout {layoutLocked ? 'Locked' : 'Unlocked'}
+              </button>
+              <button
+                id="panel-layout-reset-button"
+                onClick={handleResetLayout}
+                className="panel-layout-reset-button"
+                title={layoutLocked ? 'Unlock layout to reset' : 'Reset panel layout'}
+                disabled={layoutLocked}
+              >
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                </svg>
+                {t('station.settings.layout.reset.button')}
+              </button>
+            </>
           );
           break;
 
