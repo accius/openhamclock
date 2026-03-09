@@ -2035,7 +2035,7 @@ app.get('/api/solar-indices', async (req, res) => {
 });
 
 // NASA SDO Solar Image Proxy — caches SDO/AIA images so clients don't hit NASA directly.
-// Multi-source: tries SDO direct first (works for self-hosters), then Helioviewer API (works from cloud).
+// Multi-source failover: SDO direct → LMSAL Sun Today (Lockheed) → Helioviewer API.
 const sdoImageCache = new Map(); // key: imageType → { buffer, contentType, timestamp }
 const SDO_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 const SDO_STALE_SERVE = 6 * 60 * 60 * 1000; // Serve stale up to 6 hours
@@ -2100,6 +2100,31 @@ const fetchFromHelioviewer = async (type, timeoutMs = 20000) => {
   }
 };
 
+// Helper: fetch from LMSAL Sun Today (Lockheed Martin Solar & Astrophysics Lab)
+// Independent of Goddard infrastructure — useful when sdo.gsfc.nasa.gov is down.
+// URL pattern: t{type}.jpg = 256x256 thumbnail (AIA channels only, no HMI)
+const LMSAL_TYPES = new Set(['0193', '0304', '0171', '0094']);
+const fetchFromLMSAL = async (type, timeoutMs = 15000) => {
+  if (!LMSAL_TYPES.has(type)) throw new Error(`LMSAL does not serve ${type}`);
+  const url = `https://sdowww.lmsal.com/sdomedia/SunInTime/mostrecent/t${type}.jpg`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length < 500) throw new Error(`Response too small (${buffer.length} bytes)`);
+    return { buffer, contentType: res.headers.get('content-type') || 'image/jpeg', source: 'LMSAL' };
+  } catch (e) {
+    clearTimeout(timer);
+    throw e;
+  }
+};
+
 app.get('/api/solar/image/:type', async (req, res) => {
   const type = req.params.type;
   if (!SDO_VALID_TYPES.has(type)) {
@@ -2131,9 +2156,10 @@ app.get('/api/solar/image/:type', async (req, res) => {
     return res.status(503).json({ error: 'SDO temporarily unavailable' });
   }
 
-  // Try sources in order: SDO direct → Helioviewer
+  // Try sources in order: SDO direct → LMSAL Sun Today → Helioviewer
   const sources = [
     { name: 'SDO', fn: () => fetchFromSDO(type) },
+    { name: 'LMSAL', fn: () => fetchFromLMSAL(type) },
     { name: 'Helioviewer', fn: () => fetchFromHelioviewer(type) },
   ];
 
