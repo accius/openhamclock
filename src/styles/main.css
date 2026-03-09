@@ -331,6 +331,11 @@ body::before {
   font-size: 20px;
 }
 
+#app-container.compact .header-menu-toggle,
+#app-container.tablet .header-menu-toggle {
+  height: 40px;
+}
+
 .header-menu .close-x {
   font-weight: 400;
   position: absolute;
