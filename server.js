@@ -351,6 +351,12 @@ const CONFIG = {
   dxClusterPort: parseInt(process.env.DX_CLUSTER_PORT) || jsonConfig.dxCluster?.port || 7300,
   // Login callsign for DX cluster telnet. If unset, falls back to CALLSIGN-56.
   dxClusterCallsign: process.env.DX_CLUSTER_CALLSIGN || jsonConfig.dxCluster?.callsign || '',
+  dxClusterSpotterLat: Number.isFinite(parseFloat(process.env.DX_CLUSTER_SPOTTER_LAT))
+    ? parseFloat(process.env.DX_CLUSTER_SPOTTER_LAT)
+    : null,
+  dxClusterSpotterLon: Number.isFinite(parseFloat(process.env.DX_CLUSTER_SPOTTER_LON))
+    ? parseFloat(process.env.DX_CLUSTER_SPOTTER_LON)
+    : null,
 
   // API keys (don't expose to frontend)
   _openWeatherApiKey: process.env.OPENWEATHER_API_KEY || '',
@@ -4087,6 +4093,16 @@ app.get('/api/dxcluster/paths', async (req, res) => {
           if (spotterLoc && spotterLoc.grid) {
             spotterGridSquare = spotterLoc.grid;
           }
+        }
+
+        // Optional fixed spotter location override from environment
+        if (CONFIG.dxClusterSpotterLat !== null && CONFIG.dxClusterSpotterLon !== null) {
+          spotterLoc = {
+            lat: CONFIG.dxClusterSpotterLat,
+            lon: CONFIG.dxClusterSpotterLon,
+            country: spotterLoc?.country || '',
+            source: 'env-fixed',
+          };
         }
 
         // Keep spots even when coordinates are missing so the list view can still show them.
