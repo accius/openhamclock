@@ -337,6 +337,8 @@
   "station.settings.theme.custom.--accent-blue": "Accento blu",
   "station.settings.theme.custom.--accent-cyan": "Accento ciano",
   "station.settings.theme.custom.--accent-purple": "Accento viola",
+  "station.settings.theme.reset": "Ripristina i colori predefiniti del tema personalizzato",
+  "station.settings.theme.reset.confirm": "Ripristinare i colori predefiniti del tema personalizzato? Questa operazione sostituirà i colori personalizzati correnti. Questa operazione non può essere annullata.",
   "station.settings.timezone": "Fuso orario",
   "station.settings.timezone.auto": "Auto (predefinito browser)",
   "station.settings.timezone.currentDefault": " Attualmente uso il predefinito del browser.",

@@ -625,24 +625,31 @@ body::before {
 .text-amber {
   color: var(--accent-amber);
 }
+
 .text-green {
   color: var(--accent-green);
 }
+
 .text-red {
   color: var(--accent-red);
 }
+
 .text-blue {
   color: var(--accent-blue);
 }
+
 .text-cyan {
   color: var(--accent-cyan);
 }
+
 .text-muted {
   color: var(--text-muted);
 }
+
 .text-primary {
   color: var(--text-primary);
 }
+
 .text-secondary {
   color: var(--text-secondary);
 }
@@ -650,6 +657,7 @@ body::before {
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
 }
+
 .font-display {
   font-family: 'Orbitron', monospace;
 }
@@ -657,18 +665,136 @@ body::before {
 .bg-panel {
   background: var(--bg-panel);
 }
+
 .bg-primary {
   background: var(--bg-primary);
 }
+
 .bg-secondary {
   background: var(--bg-secondary);
 }
+
 .bg-tertiary {
   background: var(--bg-tertiary);
 }
 
 /* Theme controls */
-#theme-selector-component .theme-select-button {
+.theme-selector-component {
+  display: flex;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1em;
+}
+
+#custom-theme-editor-component {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.theme-selector-control {
+  flex: 1;
+  flex-basis: 350px;
+  box-sizing: border-box;
+}
+
+.theme-selector-control select {
+  width: 100%;
+  padding: 10px;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  cursor: pointer;
+}
+
+.theme-selector-control .theme-description {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.theme-selector-preview {
+  flex: 1;
+  flex-basis: 350px;
+  box-sizing: border-box;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 1em 2em 2em 2em;
+}
+
+.theme-selector-preview h2 {
+  color: var(--text-primary);
+  text-transform: capitalize;
+  margin-bottom: 0.5em;
+}
+
+.theme-selector-preview .preview-element {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  padding: 1em;
+  border-radius: 6px;
+  margin: 0;
+}
+
+.theme-selector-preview h4 {
+  color: var(--text-secondary);
+}
+
+.theme-selector-preview .preview-panel {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  padding: 1em;
+  margin: 1em 0;
+  border-radius: 6px;
+}
+
+.theme-selector-preview .preview-panel:last-child {
+  margin-bottom: 0;
+}
+
+.theme-selector-preview .preview-panel ul {
+  margin: 0 1em;
+}
+
+.theme-selector-preview .preview-panel ul li {
+  margin: 0 0.25em;
+}
+
+.theme-selector-preview h4 {
+  color: var(--text-primary);
+}
+
+.theme-selector-preview button {
+  display: inline-block;
+  padding: 1em;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.theme-selector-preview button.btn-primary {
+  margin-right: 1em;
+  background: var(--accent-amber);
+  color: var(--text-primary);
+}
+
+.theme-selector-preview button.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+}
+
+.theme-selector-preview p.muted-text {
+  color: var(--text-muted);
+  margin: 1em 0;
+}
+
+.reset-theme-button {
+  min-width: 100%;
+  margin: 2em 0;
   padding: 10px;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-color);
@@ -677,23 +803,6 @@ body::before {
   font-size: 12px;
   cursor: pointer;
   font-weight: 400;
-}
-
-#theme-selector-component .theme-select-button span.icon {
-  text-shadow: 0 0 5px #000;
-}
-
-#theme-selector-component .theme-select-button.active {
-  border-color: var(--accent-amber);
-  background-color: var(--accent-amber);
-  color: #000;
-  font-weight: 600;
-}
-
-#custom-theme-editor-component {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
 }
 
 @media screen and (max-width: 768px) {
@@ -724,11 +833,6 @@ body::before {
   color: var(--text-muted);
   font-size: 11px;
   display: block;
-}
-
-/* Hide the hue slider for variables that have color names */
-#custom-theme-editor-component .hue-locked .react-colorful__hue {
-  display: none;
 }
 
 /* ============================================

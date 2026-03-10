@@ -1,18 +1,4 @@
 import { THEME_VARS } from './themeConfig';
-
-/* Add "active" class to theme button that is selected */
-export function setActiveThemeButton(selectorString) {
-  const allThemeButtons = document.querySelectorAll('.theme-select-button');
-  allThemeButtons.forEach((element) => {
-    element.classList.remove('active');
-  });
-
-  const activeButton = document.querySelector('.' + selectorString + '-theme-select-button');
-  if (activeButton) {
-    activeButton.classList.add('active');
-  }
-}
-
 /* Read CSS variables from the active theme */
 export function readCssVariables() {
   const styles = getComputedStyle(document.documentElement);
@@ -31,4 +17,18 @@ export function applyCustomTheme(themeVars) {
 export function applyPrebuiltTheme(themeName) {
   document.documentElement.removeAttribute('style'); // clears custom overrides
   document.documentElement.setAttribute('data-theme', themeName);
+}
+
+/* get a theme's styles */
+export function getThemeStyles(themeName) {
+  document.documentElement.removeAttribute('style');
+  document.documentElement.setAttribute('data-theme', themeName);
+
+  const styles = getComputedStyle(document.documentElement);
+  return Array.from(styles)
+    .filter((name) => name.startsWith('--'))
+    .reduce((acc, name) => {
+      acc[name] = styles.getPropertyValue(name).trim();
+      return acc;
+    }, {});
 }

@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react';
 import { loadConfig, saveConfig } from './themeStorage';
-import { setActiveThemeButton, readCssVariables, applyCustomTheme, applyPrebuiltTheme } from './themeUtils';
+import { DEFAULT_THEME } from '../theme/themeConfig';
+import { getThemeStyles, readCssVariables, applyCustomTheme, applyPrebuiltTheme } from './themeUtils';
 
 export function useTheme() {
   const config = loadConfig();
 
-  const [theme, setTheme] = useState(config.theme || 'dark');
+  const [theme, setTheme] = useState(config.theme || DEFAULT_THEME);
   const [customTheme, setCustomTheme] = useState(config.customTheme || null);
 
   /* Initial load */
   useEffect(() => {
     if (!config.customTheme) {
-      const defaults = readCssVariables(); // from dark theme
-      saveConfig({ theme: 'dark', customTheme: defaults });
+      const defaults = readCssVariables(); // from default theme
+      saveConfig({ theme: DEFAULT_THEME, customTheme: defaults });
       setCustomTheme(defaults);
     }
 
@@ -23,6 +24,21 @@ export function useTheme() {
     }
   }, []);
 
+  /* Custom Theme reset */
+  function resetCustomToDefault() {
+    const defaultStyles = getThemeStyles(DEFAULT_THEME);
+
+    setCustomTheme(defaultStyles);
+    applyCustomTheme(defaultStyles);
+
+    saveConfig({
+      theme: 'custom',
+      customTheme: defaultStyles,
+    });
+
+    setTheme('custom');
+  }
+
   /* Theme switching */
   useEffect(() => {
     if (theme === 'custom') {
@@ -31,8 +47,6 @@ export function useTheme() {
       applyPrebuiltTheme(theme);
     }
     saveConfig({ theme });
-
-    setActiveThemeButton(theme);
   }, [theme]);
 
   /* Custom edits */
@@ -48,5 +62,6 @@ export function useTheme() {
     setTheme,
     customTheme,
     updateCustomVar,
+    resetCustomToDefault,
   };
 }

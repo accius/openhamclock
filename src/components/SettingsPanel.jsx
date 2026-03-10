@@ -37,7 +37,7 @@ export const SettingsPanel = ({
   onToggleDXNews,
   wakeLockStatus,
 }) => {
-  const { theme, setTheme, customTheme, updateCustomVar } = useTheme();
+  const { theme, setTheme, customTheme, updateCustomVar, resetCustomToDefault } = useTheme();
 
   const [callsign, setCallsign] = useState(config?.callsign || '');
   const [headerSize, setheaderSize] = useState(config?.headerSize || 1.0);
@@ -2291,13 +2291,11 @@ export const SettingsPanel = ({
                 {t('station.settings.theme')}
               </label>
               <ThemeSelector theme={theme} setTheme={setTheme} t={t} />
-              {/* <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                {t('station.settings.theme.' + theme + '.describe')}
-              </div> */}
               {theme === 'custom' && customTheme && (
                 <CustomThemeEditor
                   customTheme={customTheme}
                   updateCustomVar={updateCustomVar}
+                  resetCustomToDefault={resetCustomToDefault}
                   id="custom-theme-editor-component"
                 />
               )}
