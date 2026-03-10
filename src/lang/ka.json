@@ -89,6 +89,7 @@
   "station.settings.theme.custom.--accent-purple": "იისფერი აქცენტი",
   "station.settings.theme.reset": "მორგებული თემის ნაგულისხმევ ფერებზე დაბრუნება",
   "station.settings.theme.reset.confirm": "გსურთ მორგებული თემის ნაგულისხმევ ფერებზე დაბრუნება? ეს ჩაანაცვლებს თქვენს მიმდინარე მორგებულ ფერებს. ამ მოქმედების გაუქმება შეუძლებელია.",
+  "station.settings.theme.sampleButtonText": "ღილაკი",
   "station.settings.timezone": "🕐 დროის სარტყელი",
   "station.settings.timezone.describe": "დააყენეთ, თუ ადგილობრივი დრო არასწორად ჩანს (მაგ. UTC-ს ემთხვევა). კონფიდენციალურობის ბრაუზერები შეიძლება ცვლიდნენ დროის სარტყელს.",
   "station.settings.title": "სადგურის პარამეტრები",

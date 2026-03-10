@@ -339,6 +339,7 @@
   "station.settings.theme.custom.--accent-purple": "보라색 강조 색상",
   "station.settings.theme.reset": "사용자 지정 테마를 기본 색상으로 초기화하시겠습니까?",
   "station.settings.theme.reset.confirm": "사용자 지정 테마를 기본 색상으로 초기화하면 현재 사용자 지정 색상이 변경됩니다. 이 작업은 되돌릴 수 없습니다.",
+  "station.settings.theme.sampleButtonText": "단추",
   "station.settings.timezone": "🕐 시간대",
   "station.settings.timezone.auto": "자동 (브라우저 기본값)",
   "station.settings.timezone.currentDefault": " 현재 브라우저 기본값 사용 중.",

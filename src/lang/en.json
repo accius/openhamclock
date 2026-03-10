@@ -100,6 +100,7 @@
   "station.settings.theme.custom.--accent-purple": "Purple Accent",
   "station.settings.theme.reset": "Reset Custom Theme to Default Colors",
   "station.settings.theme.reset.confirm": "Reset custom theme to defaults? This will replace your current custom colors. This cannot be undone.",
+  "station.settings.theme.sampleButtonText": "Button",
   "station.settings.timezone": "🕐 Timezone",
   "station.settings.timezone.describe": "Set this if your local time shows incorrectly (e.g. same as UTC). Privacy browsers like Librewolf may spoof your timezone.",
   "station.settings.title": "Station Settings",

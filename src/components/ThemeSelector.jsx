@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { AVAILABLE_THEMES } from '../theme/themeConfig';
 
 export default function ThemeSelector({
@@ -22,16 +21,26 @@ export default function ThemeSelector({
         <div className="theme-description">{t('station.settings.theme.' + theme + '.describe')}</div>
       </div>
       <div className="theme-selector-preview" data-theme={theme}>
-        <h2>Theme: {AVAILABLE_THEMES[theme].label}</h2>
+        <h2>
+          {t('station.settings.theme')}: {AVAILABLE_THEMES[theme].label}
+        </h2>
         <div className="preview-element">
-          <h3>Secondary Text Over Secondary Background</h3>
+          <h3>
+            {t('station.settings.theme.custom.--text-secondary')} / {t('station.settings.theme.custom.--bg-secondary')}
+          </h3>
           <div className="preview-panel">
-            <h4>Primary Text Over Panel Background</h4>
-            <p className="muted-text">Muted Text over panel background.</p>
-            <button className="btn-primary">Button</button>
-            <button className="btn-secondary">Button</button>
+            <h4>
+              {t('station.settings.theme.custom.--text-primary')} / {t('station.settings.theme.custom.--bg-panel')}
+            </h4>
+            <p className="muted-text">
+              {t('station.settings.theme.custom.--text-muted')} / {t('station.settings.theme.custom.--bg-panel')}
+            </p>
+            <button className="btn-primary">{t('station.settings.theme.sampleButtonText')}</button>
+            <button className="btn-secondary">{t('station.settings.theme.sampleButtonText')}</button>
           </div>
-          <p className="muted-text">Muted text over secondary background.</p>
+          <p className="muted-text">
+            {t('station.settings.theme.custom.--text-muted')} / {t('station.settings.theme.custom.--bg-secondary')}
+          </p>
           <div className="preview-panel">
             <ul>
               <li
@@ -39,56 +48,56 @@ export default function ThemeSelector({
                   color: 'var(--accent-amber)',
                 }}
               >
-                Amber Accent
+                {t('station.settings.theme.custom.--accent-amber')}
               </li>
               <li
                 style={{
                   color: 'var(--accent-amber-dim)',
                 }}
               >
-                Amber Accent (dim)
+                {t('station.settings.theme.custom.--accent-amber-dim')}
               </li>
               <li
                 style={{
                   color: 'var(--accent-green)',
                 }}
               >
-                Green Accent
+                {t('station.settings.theme.custom.--accent-green')}
               </li>
               <li
                 style={{
                   color: 'var(--accent-green-dim)',
                 }}
               >
-                Green Accent (dim)
+                {t('station.settings.theme.custom.--accent-green-dim')}
               </li>
               <li
                 style={{
                   color: 'var(--accent-red)',
                 }}
               >
-                Red Accent
+                {t('station.settings.theme.custom.--accent-red')}
               </li>
               <li
                 style={{
                   color: 'var(--accent-blue)',
                 }}
               >
-                Blue Accent
+                {t('station.settings.theme.custom.--accent-blue')}
               </li>
               <li
                 style={{
                   color: 'var(--accent-cyan)',
                 }}
               >
-                Cyan Accent
+                {t('station.settings.theme.custom.--accent-cyan')}
               </li>
               <li
                 style={{
                   color: 'var(--accent-purple)',
                 }}
               >
-                Purple Accent
+                {t('station.settings.theme.custom.--accent-purple')}
               </li>
             </ul>
           </div>

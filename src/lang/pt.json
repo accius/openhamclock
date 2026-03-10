@@ -339,6 +339,7 @@
   "station.settings.theme.custom.--accent-purple": "Destaque Roxo",
   "station.settings.theme.reset": "Redefinir tema personalizado para as cores padrão",
   "station.settings.theme.reset.confirm": "Redefinir tema personalizado para as cores padrão? Isso substituirá suas cores personalizadas atuais. Essa ação não pode ser desfeita.",
+  "station.settings.theme.sampleButtonText": "Botão",
   "station.settings.timezone": "Fuso horário",
   "station.settings.timezone.auto": "Auto (padr?o do navegador)",
   "station.settings.timezone.currentDefault": " Usando o padr?o do navegador.",

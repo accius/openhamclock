@@ -89,6 +89,7 @@
   "station.settings.theme.custom.--accent-purple": "Фиолетовый акцент",
   "station.settings.theme.reset": "Сбросить пользовательскую тему до цветов по умолчанию",
   "station.settings.theme.reset.confirm": "Сбросить пользовательскую тему до цветов по умолчанию? Это заменит ваши текущие пользовательские цвета. Это действие необратимо.",
+  "station.settings.theme.sampleButtonText": "Кнопка",
   "station.settings.timezone": "🕐 Часовой пояс",
   "station.settings.timezone.describe": "Установите, если местное время отображается неправильно (например, совпадает с UTC). Браузеры конфиденциальности могут подменять часовой пояс.",
   "station.settings.title": "Настройки станции",

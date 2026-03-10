@@ -2297,6 +2297,7 @@ export const SettingsPanel = ({
                   updateCustomVar={updateCustomVar}
                   resetCustomToDefault={resetCustomToDefault}
                   id="custom-theme-editor-component"
+                  t={t}
                 />
               )}
             </div>

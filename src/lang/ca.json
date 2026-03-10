@@ -323,6 +323,7 @@
   "station.settings.theme.custom.--accent-purple": "Accent morat",
   "station.settings.theme.reset": "Restableix el tema personalitzat als colors predeterminats",
   "station.settings.theme.reset.confirm": "Vols restablir el tema personalitzat als valors predeterminats? Això substituirà els teus colors personalitzats actuals. Aquesta acció no es pot desfer.",
+  "station.settings.theme.sampleButtonText": "Botó",
   "station.settings.timezone": "Zona horària",
   "station.settings.timezone.auto": "Auto (predeterminat del navegador)",
   "station.settings.timezone.currentDefault": " S’està usant el predeterminat del navegador.",

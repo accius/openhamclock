@@ -339,6 +339,7 @@
   "station.settings.theme.custom.--accent-purple": "Violet",
   "station.settings.theme.reset": "Réinitialiser le thème personnalisé aux couleurs par défaut",
   "station.settings.theme.reset.confirm": "Réinitialiser le thème personnalisé aux couleurs par défaut ? Cette action remplacera vos couleurs personnalisées actuelles. Elle est irréversible.",
+  "station.settings.theme.sampleButtonText": "Bouton",
   "station.settings.timezone": "🕐 Fuseau horaire",
   "station.settings.timezone.auto": "Auto (par défaut navigateur)",
   "station.settings.timezone.currentDefault": " Utilisation du réglage navigateur.",

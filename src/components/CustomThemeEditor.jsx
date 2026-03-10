@@ -1,11 +1,14 @@
 import { HexColorPicker, RgbaColorPicker } from 'react-colorful';
 import { THEME_COLOR_CONFIG } from '../theme/themeConfig';
-import { useTranslation } from 'react-i18next';
 import { rgbaStringToObject, rgbaObjectToString } from '../theme/colorUtils';
 
-export default function CustomThemeEditor({ id, customTheme, updateCustomVar, resetCustomToDefault }) {
-  const { t } = useTranslation();
-
+export default function CustomThemeEditor({
+  id = 'custom-theme-editor-component',
+  customTheme,
+  updateCustomVar,
+  resetCustomToDefault,
+  t,
+}) {
   return (
     <>
       <button
