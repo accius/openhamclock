@@ -3,7 +3,7 @@ export const THEME_COLOR_CONFIG = {
   '--bg-secondary': { alpha: false, hueRestrict: null },
   '--bg-tertiary': { alpha: false, hueRestrict: null },
   '--bg-panel': { alpha: false, hueRestrict: null },
-  '--border-color': { alpha: true, hueRestrict: null },
+  '--border-color': { alpha: false, hueRestrict: null },
   '--text-primary': { alpha: false, hueRestrict: null },
   '--text-secondary': { alpha: false, hueRestrict: null },
   '--text-muted': { alpha: false, hueRestrict: null },

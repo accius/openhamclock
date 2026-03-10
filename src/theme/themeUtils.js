@@ -21,6 +21,7 @@ export function readCssVariables() {
 
 /* Apply a theme object to :root */
 export function applyCustomTheme(themeVars) {
+  document.documentElement.removeAttribute('data-theme');
   Object.entries(themeVars).forEach(([key, value]) => {
     document.documentElement.style.setProperty(key, value);
   });

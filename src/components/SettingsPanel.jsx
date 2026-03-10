@@ -2290,10 +2290,10 @@ export const SettingsPanel = ({
               >
                 {t('station.settings.theme')}
               </label>
-              <ThemeSelector theme={theme} setTheme={setTheme} id="theme-selector-component" />
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+              <ThemeSelector theme={theme} setTheme={setTheme} t={t} />
+              {/* <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
                 {t('station.settings.theme.' + theme + '.describe')}
-              </div>
+              </div> */}
               {theme === 'custom' && customTheme && (
                 <CustomThemeEditor
                   customTheme={customTheme}
