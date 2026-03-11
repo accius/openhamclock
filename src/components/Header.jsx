@@ -4,11 +4,11 @@
  * Responsive: wraps gracefully on tablet, collapses to essentials on mobile.
  */
 import { useState, useEffect, useCallback } from 'react';
-import { IconGear, IconExpand, IconShrink } from './Icons.jsx';
-import DonateButton from './DonateButton.jsx';
 import { QRZToggle } from './CallsignLink.jsx';
 import { ctyLookup, isCtyLoaded } from '../utils/ctyLookup';
 import { getFlagUrl } from '../utils/countryFlags';
+import MenuToggleButton from './menus/MenuToggleButton';
+import AppMenuButtons from './menus/AppMenuButtons';
 
 export const Header = ({
   config,
@@ -30,22 +30,9 @@ export const Header = ({
   showUpdateButton,
   breakpoint = 'desktop',
 }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
-
-  // Close Menu on Escape
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e) => {
-      if (e.key === 'Escape') closeMenu();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [menuOpen, closeMenu]);
-
   const isMobile = breakpoint === 'mobile';
   const isTablet = breakpoint === 'tablet';
+  const isDesktop = breakpoint === 'desktop';
 
   const callsignSize =
     config.headerSize > 0.1 && config.headerSize <= 2
@@ -73,7 +60,6 @@ export const Header = ({
       <div
         className="header-content-column"
         style={{
-          backgroundColor: 'lightgray',
           display: 'flex',
           flex: '1',
           flexWrap: 'wrap',
@@ -281,87 +267,19 @@ export const Header = ({
         )}
       </div>
       <div className="header-menu-column">
-        <button onClick={() => setMenuOpen(true)} title="Menu" className="header-menu-toggle">
-          ☰
-        </button>
-
-        {menuOpen && (
-          <div
-            onClick={closeMenu}
-            style={{
-              position: 'fixed',
-              inset: 0,
-              background: 'rgba(0,0,0,0.6)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 100000,
-              backdropFilter: 'blur(1px)',
-            }}
-          >
-            <div
-              onClick={(e) => e.stopPropagation()}
-              className="header-menu"
-              style={{
-                position: 'absolute',
-                right: '0',
-                top: '0',
-                left: 'auto',
-                bottom: 'auto',
-                margin: '3em',
-                padding: '1em',
-              }}
-            >
-              <button onClick={closeMenu} className="close-x" title="Close">
-                ✕
-              </button>
-              <img src="/img/ohc-logo-254x114.png" alt="Open Ham Clock logo" className="header-menu-logo" />
-              <p className="version-information">
-                <span
-                  onClick={() => window.dispatchEvent(new Event('openhamclock-show-whatsnew'))}
-                  title="What's new in this version"
-                >
-                  v{config.version} ℹ️
-                </span>
-              </p>
-              <div className="header-menu-button-container">
-                <DonateButton className="header-menu-button" />
-                {showUpdateButton && (
-                  <button
-                    onClick={onUpdateClick}
-                    disabled={updateInProgress}
-                    className={'header-menu-button'}
-                    style={{
-                      background: updateInProgress ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
-                      border: `1px solid ${updateInProgress ? 'var(--accent-green)' : 'var(--border-color)'}`,
-                      color: updateInProgress ? 'var(--accent-green)' : 'var(--text-secondary)',
-                      cursor: updateInProgress ? 'wait' : 'pointer',
-                    }}
-                    title="Run update now (server will restart)"
-                  >
-                    {updateInProgress ? 'UPDATING...' : 'UPDATE OHC'}
-                  </button>
-                )}
-                <button onClick={onSettingsClick} className={'header-menu-button'} title="Open the Settings Panel">
-                  <IconGear size={12} style={{ verticalAlign: 'middle', marginRight: isMobile ? 0 : '4px' }} />
-                  OHC Settings
-                </button>
-                <button
-                  onClick={onFullscreenToggle}
-                  className={'header-menu-button'}
-                  style={{
-                    background: isFullscreen ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
-                    border: `1px solid ${isFullscreen ? 'var(--accent-green)' : 'var(--border-color)'}`,
-                    color: isFullscreen ? 'var(--accent-green)' : 'var(--text-secondary)',
-                  }}
-                  title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
-                >
-                  {isFullscreen ? <IconShrink size={12} /> : <IconExpand size={12} />}
-                  {isFullscreen ? ' Exit Fullscreen (Esc)' : ' Enter Fullscreen'}
-                </button>
-              </div>
-            </div>
-          </div>
+        {isDesktop ? (
+          <AppMenuButtons
+            className="desktop-header-button-container"
+            config={config}
+            showUpdateButton={showUpdateButton}
+            updateInProgress={updateInProgress}
+            onUpdateClick={onUpdateClick}
+            onSettingsClick={onSettingsClick}
+            onFullscreenToggle={onFullscreenToggle}
+            isFullscreen={isFullscreen}
+          />
+        ) : (
+          <MenuToggleButton />
         )}
       </div>
     </div>

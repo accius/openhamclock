@@ -375,7 +375,7 @@ body::before {
   margin-top: 0.5em;
 }
 
-.header-menu-button {
+.header-menu-button-container .menu-button {
   margin-bottom: 0.5em;
   width: 100%;
   padding: 6px 10px;
@@ -390,6 +390,46 @@ body::before {
   line-height: 1.2;
   text-align: center;
   white-space: nowrap;
+}
+
+.desktop-header-button-container {
+}
+
+.desktop-header-button-container .menu-button {
+  margin-bottom: 0.5em;
+  margin-right: 5px;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 400;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.desktop-header-button-container .menu-button:last-child {
+  margin-right: 0;
+}
+
+.header-menu-button-container .support-us-button,
+.desktop-header-button-container .support-us-button {
+  background: linear-gradient(135deg, #ff813f 0%, #ffdd00 100%);
+  border: none;
+  border-radius: 4px;
+  color: #000;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  width: 100%;
 }
 
 /* ============================================

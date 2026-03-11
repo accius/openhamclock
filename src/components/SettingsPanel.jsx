@@ -427,7 +427,7 @@ export const SettingsPanel = ({
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        zIndex: 10000,
+        zIndex: 10001,
       }}
     >
       <div

@@ -10,6 +10,7 @@ import DonateButton from '../components/DonateButton.jsx';
 import { useRig } from '../contexts/RigContext.jsx';
 import useLocalInstall from '../hooks/app/useLocalInstall.js';
 import { IconGear, IconExpand, IconShrink } from '../components/Icons.jsx';
+import MenuToggleButton from '../components/menus/MenuToggleButton';
 
 export default function ClassicLayout(props) {
   const {
@@ -64,20 +65,6 @@ export default function ClassicLayout(props) {
 
   const showUpdateButton = useLocalInstall();
 
-  const [menuOpen, setMenuOpen] = useState(false);
-
-  const closeMenu = useCallback(() => setMenuOpen(false), []);
-
-  // Close Menu on Escape
-  useEffect(() => {
-    if (!menuOpen) return;
-    const onKey = (e) => {
-      if (e.key === 'Escape') closeMenu();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [menuOpen, closeMenu]);
-
   const liveSpotBands = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '8m', '6m', '4m'];
   const mapLegendBands = ['160', '80', '40', '30', '20', '17', '15', '12', '10', '8', '6', '4'];
 
@@ -88,97 +75,6 @@ export default function ClassicLayout(props) {
     // tuneTo() in RigContext handles spot objects and all frequency conversions
     tuneTo(spot);
   };
-
-  const HeaderMenu = () => (
-    <>
-      <button onClick={() => setMenuOpen(true)} title="Menu" className="header-menu-toggle">
-        ☰
-      </button>
-
-      {menuOpen && (
-        <div
-          onClick={closeMenu}
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.6)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10000,
-            backdropFilter: 'blur(1px)',
-          }}
-        >
-          <div
-            onClick={(e) => e.stopPropagation()}
-            className="header-menu"
-            style={{
-              position: 'absolute',
-              right: '0',
-              top: '0',
-              left: 'auto',
-              bottom: 'auto',
-              margin: '3em',
-              padding: '1em',
-            }}
-          >
-            <button onClick={closeMenu} className="close-x" title="Close">
-              ✕
-            </button>
-            <img src="/img/ohc-logo-254x114.png" alt="Open Ham Clock logo" className="header-menu-logo" />
-            <p className="version-information">
-              <span
-                onClick={() => window.dispatchEvent(new Event('openhamclock-show-whatsnew'))}
-                title="What's new in this version"
-              >
-                v{config.version} ℹ️
-              </span>
-            </p>
-            <div className="header-menu-button-container">
-              <DonateButton className="header-menu-button" />
-              {showUpdateButton && (
-                <button
-                  onClick={handleUpdateClick}
-                  disabled={updateInProgress}
-                  className={'header-menu-button'}
-                  style={{
-                    background: updateInProgress ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
-                    border: `1px solid ${updateInProgress ? 'var(--accent-green)' : 'var(--border-color)'}`,
-                    color: updateInProgress ? 'var(--accent-green)' : 'var(--text-secondary)',
-                    cursor: updateInProgress ? 'wait' : 'pointer',
-                  }}
-                  title="Run update now (server will restart)"
-                >
-                  {updateInProgress ? 'UPDATING...' : 'UPDATE OHC'}
-                </button>
-              )}
-              <button
-                onClick={() => setShowSettings(true)}
-                className={'header-menu-button'}
-                title="Open the Settings Panel"
-              >
-                <IconGear size={12} style={{ verticalAlign: 'middle', marginRight: '4px' }} />
-                OHC Settings
-              </button>
-              <button
-                onClick={handleFullscreenToggle}
-                className={'header-menu-button'}
-                style={{
-                  background: isFullscreen ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
-                  border: `1px solid ${isFullscreen ? 'var(--accent-green)' : 'var(--border-color)'}`,
-                  color: isFullscreen ? 'var(--accent-green)' : 'var(--text-secondary)',
-                }}
-                title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
-              >
-                {isFullscreen ? <IconShrink size={12} /> : <IconExpand size={12} />}
-                {isFullscreen ? ' Exit Fullscreen (Esc)' : ' Enter Fullscreen'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
 
   return config.layout === 'classic' ? (
     <div
@@ -658,6 +554,7 @@ export default function ClassicLayout(props) {
           padding: '6px 12px',
           flexShrink: 0,
           gap: '10px',
+          marginBottom: '6px',
         }}
       >
         <div
@@ -827,7 +724,7 @@ export default function ClassicLayout(props) {
           </div>
         </div>
         <div className="header-menu-column">
-          <HeaderMenu />
+          <MenuToggleButton />
         </div>
       </div>
 
@@ -1372,7 +1269,7 @@ export default function ClassicLayout(props) {
           </div>
         </div>
         <div className="header-menu-column">
-          <HeaderMenu />
+          <MenuToggleButton />
         </div>
       </div>
 

@@ -25,25 +25,7 @@ export default function DonateButton({ compact = false, className = '' }) {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        title="Support OpenHamClock"
-        className={`${className} support-us-button`}
-        style={{
-          background: 'linear-gradient(135deg, #ff813f 0%, #ffdd00 100%)',
-          border: 'none',
-          borderRadius: '4px',
-          color: '#000',
-          cursor: 'pointer',
-          fontWeight: '600',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          gap: '4px',
-          whiteSpace: 'nowrap',
-          width: '100%',
-        }}
-      >
+      <button onClick={() => setOpen(true)} title="Support OpenHamClock" className={`${className} support-us-button`}>
         ❤️{compact ? '' : ' Support Us'}
       </button>
 
@@ -57,7 +39,7 @@ export default function DonateButton({ compact = false, className = '' }) {
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: 100001,
+            zIndex: 10001,
             backdropFilter: 'blur(3px)',
           }}
         >
