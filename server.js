@@ -11158,6 +11158,7 @@ app.get('/api/aprs/stations', (req, res) => {
 
 const WSJTX_UDP_PORT = parseInt(process.env.WSJTX_UDP_PORT || '2237');
 const WSJTX_ENABLED = process.env.WSJTX_ENABLED !== 'false'; // enabled by default
+const WSJTX_MULTICAST_ADDRESS = process.env.WSJTX_MULTICAST_ADDRESS;
 const WSJTX_RELAY_KEY = process.env.WSJTX_RELAY_KEY || ''; // auth key for remote relay agent
 const WSJTX_MAX_DECODES = 500; // max decodes to keep in memory
 const WSJTX_MAX_AGE = 60 * 60 * 1000; // 60 minutes (configurable via client)
@@ -12015,7 +12016,7 @@ app.get('/api/n3fjp/qsos', (req, res) => {
 let wsjtxSocket = null;
 if (WSJTX_ENABLED) {
   try {
-    wsjtxSocket = dgram.createSocket('udp4');
+    wsjtxSocket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
     wsjtxSocket.on('message', (buf, rinfo) => {
       const msg = parseWSJTXMessage(buf);
@@ -12029,9 +12030,33 @@ if (WSJTX_ENABLED) {
     wsjtxSocket.on('listening', () => {
       const addr = wsjtxSocket.address();
       console.log(`[WSJT-X] UDP listener on ${addr.address}:${addr.port}`);
+
+      if (WSJTX_MULTICAST_ADDRESS) {
+        try {
+          wsjtxSocket.addMembership(WSJTX_MULTICAST_ADDRESS);
+          console.log(`[WSJT-X] Joined multicast group ${WSJTX_MULTICAST_ADDRESS}`);
+        } catch (e) {
+          console.error(`[WSJT-X] Failed to join multicast group ${WSJTX_MULTICAST_ADDRESS}: ${e.message}`);
+        }
+      }
     });
 
-    wsjtxSocket.bind(WSJTX_UDP_PORT, '0.0.0.0');
+    if (WSJTX_MULTICAST_ADDRESS) {
+      wsjtxSocket.bind(
+        {
+          port: WSJTX_UDP_PORT,
+          exclusive: false,
+        },
+        () => {
+          wsjtxSocket.setMulticastLoopback(true);
+        },
+      );
+    } else {
+      wsjtxSocket.bind({
+        port: WSJTX_UDP_PORT,
+        address: '0.0.0.0',
+      });
+    }
   } catch (e) {
     console.error(`[WSJT-X] Failed to start UDP listener: ${e.message}`);
   }
