@@ -307,6 +307,132 @@ body::before {
 }
 
 /* ============================================
+   HEADER
+   ============================================ */
+.header-menu {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 10px;
+}
+
+.header-menu-toggle {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  padding: 0;
+  border-radius: 4px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  height: 100%;
+  text-align: center;
+  line-height: 40px;
+  width: 40px;
+  font-size: 20px;
+}
+
+#app-container.compact .header-menu-toggle,
+#app-container.tablet .header-menu-toggle {
+  height: 40px;
+}
+
+.header-menu .close-x {
+  font-weight: 400;
+  position: absolute;
+  right: 0.5em;
+  top: 0.5em;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 20px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+}
+
+.header-menu .close-x:hover,
+.header-menu .close-x:active {
+  font-weight: 700;
+}
+
+.header-menu .header-menu-logo {
+  margin: 1em auto 0 auto;
+  display: block;
+}
+
+.header-menu .version-information {
+  text-align: center;
+  margin-top: 0;
+  padding: 0;
+  color: var(--text-muted);
+}
+
+.header-menu .version-information span {
+  cursor: pointer;
+}
+
+.header-menu-button-container {
+  margin-top: 0.5em;
+}
+
+.header-menu-button-container .menu-button {
+  margin-bottom: 0.5em;
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 400;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.desktop-header-button-container {
+}
+
+.desktop-header-button-container .menu-button {
+  margin-bottom: 0.5em;
+  margin-right: 5px;
+  padding: 6px 10px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 400;
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.desktop-header-button-container .menu-button:last-child {
+  margin-right: 0;
+}
+
+.header-menu-button-container .support-us-button,
+.desktop-header-button-container .support-us-button {
+  background: linear-gradient(135deg, #ff813f 0%, #ffdd00 100%);
+  border: none;
+  border-radius: 4px;
+  color: #000;
+  cursor: pointer;
+  font-weight: 600;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  width: 100%;
+}
+
+/* ============================================
    LEAFLET MAP CUSTOMIZATIONS
    ============================================ */
 .leaflet-container {

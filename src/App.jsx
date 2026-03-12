@@ -13,6 +13,7 @@ import ModernLayout from './layouts/ModernLayout.jsx';
 
 import { resetLayout } from './store/layoutStore.js';
 import { RigProvider } from './contexts/RigContext.jsx';
+import { AppMenuProvider } from './contexts/AppMenuContext';
 
 import {
   useSpaceWeather,
@@ -49,6 +50,7 @@ import WhatsNew from './components/WhatsNew.jsx';
 import { initCtyLookup } from './utils/ctyLookup.js';
 import { getAllLayers } from './plugins/layerRegistry.js';
 import ActivateFilterManager from './components/ActivateFilterManager.jsx';
+import AppMenu from './components/menus/AppMenu';
 
 // Load DXCC entity database on app startup (non-blocking)
 initCtyLookup();
@@ -521,91 +523,104 @@ const App = () => {
   };
 
   return (
-    <div
-      style={{
-        width: '100vw',
-        height: '100vh',
-        background: 'var(--bg-primary)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        overflow: 'hidden',
-      }}
-    >
-      <RigProvider rigConfig={config.rigControl || { enabled: false, host: 'http://localhost', port: 5555 }}>
-        {config.layout === 'dockable' ? (
-          <DockableLayout key={layoutResetKey} {...layoutProps} />
-        ) : config.layout === 'classic' || config.layout === 'tablet' || config.layout === 'compact' ? (
-          <ClassicLayout {...layoutProps} />
-        ) : (
-          <ModernLayout {...layoutProps} />
-        )}
-      </RigProvider>
+    <AppMenuProvider>
+      <div
+        id="app-container"
+        className={config.layout}
+        style={{
+          width: '100vw',
+          height: '100vh',
+          background: 'var(--bg-primary)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          overflow: 'hidden',
+        }}
+      >
+        <RigProvider rigConfig={config.rigControl || { enabled: false, host: 'http://localhost', port: 5555 }}>
+          {config.layout === 'dockable' ? (
+            <DockableLayout key={layoutResetKey} {...layoutProps} />
+          ) : config.layout === 'classic' || config.layout === 'tablet' || config.layout === 'compact' ? (
+            <ClassicLayout {...layoutProps} />
+          ) : (
+            <ModernLayout {...layoutProps} />
+          )}
+        </RigProvider>
 
-      {/* Modals */}
-      <SettingsPanel
-        isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
-        config={config}
-        onSave={handleSaveConfig}
-        onResetLayout={handleResetLayout}
-        satellites={satellites.data}
-        satelliteFilters={satelliteFilters}
-        onSatelliteFiltersChange={setSatelliteFilters}
-        mapLayers={mapLayers}
-        onToggleDeDxMarkers={toggleDeDxMarkers}
-        onToggleDXNews={toggleDXNews}
-        wakeLockStatus={wakeLockStatus}
-      />
-      <DXFilterManager
-        filters={dxFilters}
-        onFilterChange={setDxFilters}
-        isOpen={showDXFilters}
-        onClose={() => setShowDXFilters(false)}
-      />
-      <PSKFilterManager
-        filters={pskFilters}
-        onFilterChange={setPskFilters}
-        isOpen={showPSKFilters}
-        onClose={() => setShowPSKFilters(false)}
-        callsign={config.callsign}
-        locator={config.locator}
-      />
-      <KeybindingsPanel
-        isOpen={showKeybindings}
-        onClose={() => setShowKeybindings(false)}
-        keybindings={keybindingsList}
-      />
-      <ActivateFilterManager
-        name="POTA"
-        filters={potaFilters}
-        onFilterChange={setPotaFilters}
-        isOpen={showPotaFilters}
-        onClose={() => setShowPotaFilters(false)}
-      />
-      <ActivateFilterManager
-        name="SOTA"
-        filters={sotaFilters}
-        onFilterChange={setSotaFilters}
-        isOpen={showSotaFilters}
-        onClose={() => setShowSotaFilters(false)}
-      />
-      <ActivateFilterManager
-        name="WWFF"
-        filters={wwffFilters}
-        onFilterChange={setWwffFilters}
-        isOpen={showWwffFilters}
-        onClose={() => setShowWwffFilters(false)}
-      />
-      <ActivateFilterManager
-        name="WWBOTA"
-        filters={wwbotaFilters}
-        onFilterChange={setWwbotaFilters}
-        isOpen={showWwbotaFilters}
-        onClose={() => setShowWwbotaFilters(false)}
-      />
-      <WhatsNew />
-    </div>
+        {/* Modals */}
+        <SettingsPanel
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          config={config}
+          onSave={handleSaveConfig}
+          onResetLayout={handleResetLayout}
+          satellites={satellites.data}
+          satelliteFilters={satelliteFilters}
+          onSatelliteFiltersChange={setSatelliteFilters}
+          mapLayers={mapLayers}
+          onToggleDeDxMarkers={toggleDeDxMarkers}
+          onToggleDXNews={toggleDXNews}
+          wakeLockStatus={wakeLockStatus}
+        />
+        <DXFilterManager
+          filters={dxFilters}
+          onFilterChange={setDxFilters}
+          isOpen={showDXFilters}
+          onClose={() => setShowDXFilters(false)}
+        />
+        <PSKFilterManager
+          filters={pskFilters}
+          onFilterChange={setPskFilters}
+          isOpen={showPSKFilters}
+          onClose={() => setShowPSKFilters(false)}
+          callsign={config.callsign}
+          locator={config.locator}
+        />
+        <KeybindingsPanel
+          isOpen={showKeybindings}
+          onClose={() => setShowKeybindings(false)}
+          keybindings={keybindingsList}
+        />
+        <ActivateFilterManager
+          name="POTA"
+          filters={potaFilters}
+          onFilterChange={setPotaFilters}
+          isOpen={showPotaFilters}
+          onClose={() => setShowPotaFilters(false)}
+        />
+        <ActivateFilterManager
+          name="SOTA"
+          filters={sotaFilters}
+          onFilterChange={setSotaFilters}
+          isOpen={showSotaFilters}
+          onClose={() => setShowSotaFilters(false)}
+        />
+        <ActivateFilterManager
+          name="WWFF"
+          filters={wwffFilters}
+          onFilterChange={setWwffFilters}
+          isOpen={showWwffFilters}
+          onClose={() => setShowWwffFilters(false)}
+        />
+        <ActivateFilterManager
+          name="WWBOTA"
+          filters={wwbotaFilters}
+          onFilterChange={setWwbotaFilters}
+          isOpen={showWwbotaFilters}
+          onClose={() => setShowWwbotaFilters(false)}
+        />
+        <WhatsNew />
+        <AppMenu
+          config={config}
+          showUpdateButton={isLocalInstall}
+          updateInProgress={updateInProgress}
+          onUpdateClick={handleUpdateClick}
+          onSettingsClick={() => setShowSettings(true)}
+          onFullscreenToggle={handleFullscreenToggle}
+          isFullscreen={isFullscreen}
+        />
+      </div>
+    </AppMenuProvider>
   );
 };
 

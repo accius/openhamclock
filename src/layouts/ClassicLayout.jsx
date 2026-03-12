@@ -1,12 +1,16 @@
 /**
  * Classic HamClock-style layout
  */
+import { useState, useEffect, useCallback } from 'react';
 import { DXNewsTicker, WorldMap } from '../components';
 import { DXGridInput } from '../components/DXGridInput.jsx';
 import { getBandColor, getBandColorForBand } from '../utils';
 import CallsignLink from '../components/CallsignLink.jsx';
 import DonateButton from '../components/DonateButton.jsx';
 import { useRig } from '../contexts/RigContext.jsx';
+import useLocalInstall from '../hooks/app/useLocalInstall.js';
+import { IconGear, IconExpand, IconShrink } from '../components/Icons.jsx';
+import MenuToggleButton from '../components/menus/MenuToggleButton';
 
 export default function ClassicLayout(props) {
   const {
@@ -22,6 +26,8 @@ export default function ClassicLayout(props) {
     handleFullscreenToggle,
     isFullscreen,
     setShowSettings,
+    handleUpdateClick,
+    updateInProgress,
     dxClusterData,
     hoveredSpot,
     setHoveredSpot,
@@ -57,6 +63,8 @@ export default function ClassicLayout(props) {
     toggleSatellites,
   } = props;
 
+  const showUpdateButton = useLocalInstall();
+
   const liveSpotBands = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '8m', '6m', '4m'];
   const mapLegendBands = ['160', '80', '40', '30', '20', '17', '15', '12', '10', '8', '6', '4'];
 
@@ -85,7 +93,6 @@ export default function ClassicLayout(props) {
         style={{
           display: 'grid',
           gridTemplateColumns: '280px 1fr 300px',
-          height: '130px',
           borderBottom: '2px solid #333',
           background: '#000',
         }}
@@ -545,193 +552,179 @@ export default function ClassicLayout(props) {
           background: 'var(--bg-panel)',
           borderBottom: '1px solid var(--border-color)',
           padding: '6px 12px',
-          height: '52px',
           flexShrink: 0,
           gap: '10px',
+          marginBottom: '6px',
         }}
       >
-        {/* Callsign */}
-        <span
-          style={{
-            fontSize: '28px',
-            fontWeight: '900',
-            color: 'var(--accent-amber)',
-            fontFamily: 'Orbitron, monospace',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-          onClick={() => setShowSettings(true)}
-          title={t('app.settings.title')}
-        >
-          {config.callsign}
-        </span>
-
-        {/* UTC */}
         <div
+          className="header-content-column"
           style={{
             display: 'flex',
+            flex: '1',
+            flexWrap: 'wrap',
             alignItems: 'center',
-            gap: '4px',
-            whiteSpace: 'nowrap',
+            justifyContent: 'space-evenly',
+            gap: '6px 12px',
+            minHeight: '46px',
+            fontFamily: 'JetBrains Mono, monospace',
+            boxSizing: 'border-box',
           }}
         >
+          {/* Callsign */}
           <span
             style={{
-              fontSize: '14px',
-              color: 'var(--text-muted)',
-              fontWeight: '600',
-            }}
-          >
-            {t('app.time.utc')}
-          </span>
-          <span
-            style={{
-              fontSize: '24px',
-              fontWeight: '700',
-              color: 'var(--accent-cyan)',
-            }}
-          >
-            {utcTime}
-          </span>
-        </div>
-
-        {/* Local */}
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '4px',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-          onClick={handleTimeFormatToggle}
-          title={t('app.time.toggleFormat', {
-            format: use12Hour ? '24h' : '12h',
-          })}
-        >
-          <span
-            style={{
-              fontSize: '14px',
-              color: 'var(--text-muted)',
-              fontWeight: '600',
-            }}
-          >
-            {t('app.time.locShort')}
-          </span>
-          <span
-            style={{
-              fontSize: '24px',
-              fontWeight: '700',
+              fontSize: '28px',
+              fontWeight: '900',
               color: 'var(--accent-amber)',
+              fontFamily: 'Orbitron, monospace',
+              cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+            onClick={() => setShowSettings(true)}
+            title={t('app.settings.title')}
+          >
+            {config.callsign}
+          </span>
+
+          {/* UTC */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              whiteSpace: 'nowrap',
             }}
           >
-            {localTime}
-          </span>
-        </div>
-
-        {/* Solar Quick Stats */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '10px',
-            fontSize: '15px',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <span>
-            <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.sfiShort')} </span>
-            <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
-              {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
-            </span>
-          </span>
-          <span>
-            <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.kpShort')} </span>
             <span
               style={{
-                color:
-                  parseInt(solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex) >= 4
-                    ? 'var(--accent-red)'
-                    : 'var(--accent-green)',
-                fontWeight: '700',
-              }}
-            >
-              {solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex ?? '--'}
-            </span>
-          </span>
-          <span>
-            <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.ssnShort')} </span>
-            <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
-              {solarIndices?.data?.ssn?.current ?? '--'}
-            </span>
-          </span>
-          {bandConditions?.extras?.aIndex && (
-            <span>
-              <span style={{ color: 'var(--text-muted)' }}>A </span>
-              <span
-                style={{
-                  color:
-                    parseInt(bandConditions.extras.aIndex) >= 20
-                      ? 'var(--accent-red)'
-                      : parseInt(bandConditions.extras.aIndex) >= 10
-                        ? 'var(--accent-amber)'
-                        : 'var(--accent-green)',
-                  fontWeight: '700',
-                }}
-              >
-                {bandConditions.extras.aIndex}
-              </span>
-            </span>
-          )}
-          {bandConditions?.extras?.geomagField && (
-            <span
-              style={{
-                fontSize: '12px',
-                color:
-                  bandConditions.extras.geomagField === 'QUIET'
-                    ? 'var(--accent-green)'
-                    : bandConditions.extras.geomagField === 'ACTIVE' ||
-                        bandConditions.extras.geomagField.includes('STORM')
-                      ? 'var(--accent-red)'
-                      : 'var(--accent-amber)',
+                fontSize: '14px',
+                color: 'var(--text-muted)',
                 fontWeight: '600',
               }}
             >
-              {bandConditions.extras.geomagField}
+              {t('app.time.utc')}
             </span>
-          )}
-        </div>
+            <span
+              style={{
+                fontSize: '24px',
+                fontWeight: '700',
+                color: 'var(--accent-cyan)',
+              }}
+            >
+              {utcTime}
+            </span>
+          </div>
 
-        {/* Controls */}
-        <div style={{ display: 'flex', gap: '4px' }}>
-          {!isFullscreen && <DonateButton compact fontSize="11px" padding="4px 8px" />}
-          <button
-            onClick={() => setShowSettings(true)}
+          {/* Local */}
+          <div
             style={{
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              color: 'var(--text-secondary)',
-              fontSize: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
               cursor: 'pointer',
+              whiteSpace: 'nowrap',
+            }}
+            onClick={handleTimeFormatToggle}
+            title={t('app.time.toggleFormat', {
+              format: use12Hour ? '24h' : '12h',
+            })}
+          >
+            <span
+              style={{
+                fontSize: '14px',
+                color: 'var(--text-muted)',
+                fontWeight: '600',
+              }}
+            >
+              {t('app.time.locShort')}
+            </span>
+            <span
+              style={{
+                fontSize: '24px',
+                fontWeight: '700',
+                color: 'var(--accent-amber)',
+              }}
+            >
+              {localTime}
+            </span>
+          </div>
+
+          {/* Solar Quick Stats */}
+          <div
+            style={{
+              display: 'flex',
+              gap: '10px',
+              fontSize: '15px',
+              whiteSpace: 'nowrap',
+              alignItems: 'center',
             }}
           >
-            ⚙
-          </button>
-          <button
-            onClick={handleFullscreenToggle}
-            style={{
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              color: 'var(--text-secondary)',
-              fontSize: '12px',
-              cursor: 'pointer',
-            }}
-          >
-            {isFullscreen ? '⛶' : '⛶'}
-          </button>
+            <span>
+              <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.sfiShort')} </span>
+              <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
+                {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
+              </span>
+            </span>
+            <span>
+              <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.kpShort')} </span>
+              <span
+                style={{
+                  color:
+                    parseInt(solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex) >= 4
+                      ? 'var(--accent-red)'
+                      : 'var(--accent-green)',
+                  fontWeight: '700',
+                }}
+              >
+                {solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex ?? '--'}
+              </span>
+            </span>
+            <span>
+              <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.ssnShort')} </span>
+              <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
+                {solarIndices?.data?.ssn?.current ?? '--'}
+              </span>
+            </span>
+            {bandConditions?.extras?.aIndex && (
+              <span>
+                <span style={{ color: 'var(--text-muted)' }}>A </span>
+                <span
+                  style={{
+                    color:
+                      parseInt(bandConditions.extras.aIndex) >= 20
+                        ? 'var(--accent-red)'
+                        : parseInt(bandConditions.extras.aIndex) >= 10
+                          ? 'var(--accent-amber)'
+                          : 'var(--accent-green)',
+                    fontWeight: '700',
+                  }}
+                >
+                  {bandConditions.extras.aIndex}
+                </span>
+              </span>
+            )}
+            {bandConditions?.extras?.geomagField && (
+              <span
+                style={{
+                  fontSize: '12px',
+                  color:
+                    bandConditions.extras.geomagField === 'QUIET'
+                      ? 'var(--accent-green)'
+                      : bandConditions.extras.geomagField === 'ACTIVE' ||
+                          bandConditions.extras.geomagField.includes('STORM')
+                        ? 'var(--accent-red)'
+                        : 'var(--accent-amber)',
+                  fontWeight: '600',
+                }}
+              >
+                {bandConditions.extras.geomagField}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="header-menu-column">
+          <MenuToggleButton />
         </div>
       </div>
 
@@ -1077,216 +1070,206 @@ export default function ClassicLayout(props) {
     >
       {/* TOP: Callsign + Times + Solar */}
       <div
+        id="header-container"
+        className="header-container"
         style={{
           background: 'var(--bg-panel)',
           borderBottom: '1px solid var(--border-color)',
           padding: '8px 12px',
           flexShrink: 0,
+          display: 'flex',
+          gridColumn: '1 / -1',
+          gap: '.5em',
         }}
       >
-        {/* Row 1: Callsign + Times */}
         <div
+          className="header-content-column"
           style={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: '6px',
-          }}
-        >
-          <span
-            style={{
-              fontSize: '32px',
-              fontWeight: '900',
-              color: 'var(--accent-amber)',
-              fontFamily: 'Orbitron, monospace',
-              cursor: 'pointer',
-            }}
-            onClick={() => setShowSettings(true)}
-            title={t('app.settings.title')}
-          >
-            {config.callsign}
-          </span>
-          <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div
-                style={{
-                  fontSize: '11px',
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  fontWeight: '600',
-                }}
-              >
-                {t('app.time.utc')}
-              </div>
-              <div
-                style={{
-                  fontSize: '28px',
-                  fontWeight: '700',
-                  color: 'var(--accent-cyan)',
-                  lineHeight: 1,
-                }}
-              >
-                {utcTime}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{utcDate}</div>
-            </div>
-            <div
-              style={{ textAlign: 'center', cursor: 'pointer' }}
-              onClick={handleTimeFormatToggle}
-              title={t('app.time.toggleFormat', {
-                format: use12Hour ? '24h' : '12h',
-              })}
-            >
-              <div
-                style={{
-                  fontSize: '11px',
-                  color: 'var(--text-muted)',
-                  textTransform: 'uppercase',
-                  fontWeight: '600',
-                }}
-              >
-                {t('app.time.local')}
-              </div>
-              <div
-                style={{
-                  fontSize: '28px',
-                  fontWeight: '700',
-                  color: 'var(--accent-amber)',
-                  lineHeight: 1,
-                }}
-              >
-                {localTime}
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{localDate}</div>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: '4px' }}>
-            {!isFullscreen && <DonateButton compact fontSize="13px" padding="6px 10px" />}
-            <button
-              onClick={() => setShowSettings(true)}
-              style={{
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                padding: '6px 10px',
-                borderRadius: '4px',
-                color: 'var(--text-secondary)',
-                fontSize: '14px',
-                cursor: 'pointer',
-              }}
-            >
-              ⚙
-            </button>
-            <button
-              onClick={handleFullscreenToggle}
-              style={{
-                background: 'var(--bg-tertiary)',
-                border: '1px solid var(--border-color)',
-                padding: '6px 10px',
-                borderRadius: '4px',
-                color: 'var(--text-secondary)',
-                fontSize: '14px',
-                cursor: 'pointer',
-              }}
-            >
-              ⛶
-            </button>
-          </div>
-        </div>
-        {/* Row 2: Solar indices inline */}
-        <div
-          style={{
-            display: 'flex',
-            gap: '16px',
-            fontSize: '15px',
-            justifyContent: 'center',
+            flex: '1',
+            flexDirection: 'column',
             flexWrap: 'wrap',
           }}
         >
-          <span>
-            <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.sfiShort')} </span>
-            <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
-              {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
-            </span>
-          </span>
-          <span>
-            <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.kpShort')} </span>
+          {/* Row 1: Callsign + Times */}
+          <div
+            style={{
+              flex: '1',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-evenly',
+              flexWrap: 'wrap',
+              marginBottom: '6px',
+            }}
+          >
             <span
               style={{
-                color:
-                  parseInt(solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex) >= 4
-                    ? 'var(--accent-red)'
-                    : 'var(--accent-green)',
-                fontWeight: '700',
+                fontSize: '32px',
+                fontWeight: '900',
+                color: 'var(--accent-amber)',
+                fontFamily: 'Orbitron, monospace',
+                cursor: 'pointer',
               }}
+              onClick={() => setShowSettings(true)}
+              title={t('app.settings.title')}
             >
-              {solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex ?? '--'}
+              {config.callsign}
             </span>
-          </span>
-          <span>
-            <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.ssnShort')} </span>
-            <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
-              {solarIndices?.data?.ssn?.current ?? '--'}
-            </span>
-          </span>
-          {bandConditions?.extras?.aIndex && (
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    fontWeight: '600',
+                  }}
+                >
+                  {t('app.time.utc')}
+                </div>
+                <div
+                  style={{
+                    fontSize: '28px',
+                    fontWeight: '700',
+                    color: 'var(--accent-cyan)',
+                    lineHeight: 1,
+                  }}
+                >
+                  {utcTime}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{utcDate}</div>
+              </div>
+              <div
+                style={{ textAlign: 'center', cursor: 'pointer' }}
+                onClick={handleTimeFormatToggle}
+                title={t('app.time.toggleFormat', {
+                  format: use12Hour ? '24h' : '12h',
+                })}
+              >
+                <div
+                  style={{
+                    fontSize: '11px',
+                    color: 'var(--text-muted)',
+                    textTransform: 'uppercase',
+                    fontWeight: '600',
+                  }}
+                >
+                  {t('app.time.local')}
+                </div>
+                <div
+                  style={{
+                    fontSize: '28px',
+                    fontWeight: '700',
+                    color: 'var(--accent-amber)',
+                    lineHeight: 1,
+                  }}
+                >
+                  {localTime}
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{localDate}</div>
+              </div>
+            </div>
+          </div>
+          {/* Row 2: Solar indices inline */}
+          <div
+            style={{
+              flex: '1',
+              display: 'flex',
+              gap: '16px',
+              fontSize: '15px',
+              justifyContent: 'center',
+              flexWrap: 'wrap',
+            }}
+          >
             <span>
-              <span style={{ color: 'var(--text-muted)' }}>A </span>
+              <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.sfiShort')} </span>
+              <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
+                {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
+              </span>
+            </span>
+            <span>
+              <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.kpShort')} </span>
               <span
                 style={{
                   color:
-                    parseInt(bandConditions.extras.aIndex) >= 20
+                    parseInt(solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex) >= 4
                       ? 'var(--accent-red)'
-                      : parseInt(bandConditions.extras.aIndex) >= 10
-                        ? 'var(--accent-amber)'
-                        : 'var(--accent-green)',
+                      : 'var(--accent-green)',
                   fontWeight: '700',
                 }}
               >
-                {bandConditions.extras.aIndex}
+                {solarIndices?.data?.kp?.current ?? spaceWeather?.data?.kIndex ?? '--'}
               </span>
             </span>
-          )}
-          {bandConditions?.extras?.geomagField && (
-            <span
-              style={{
-                fontSize: '12px',
-                color:
-                  bandConditions.extras.geomagField === 'QUIET'
-                    ? 'var(--accent-green)'
-                    : bandConditions.extras.geomagField === 'ACTIVE' ||
-                        bandConditions.extras.geomagField.includes('STORM')
-                      ? 'var(--accent-red)'
-                      : 'var(--accent-amber)',
-                fontWeight: '600',
-              }}
-            >
-              {bandConditions.extras.geomagField}
-            </span>
-          )}
-          {propagation.data && (
-            <>
-              <span>
-                <span style={{ color: 'var(--text-muted)' }}>{t('app.propagation.muf')} </span>
-                <span style={{ color: '#ff8800', fontWeight: '600' }}>
-                  {propagation.data.muf || '?'} {t('app.units.mhz')}
-                </span>
-              </span>
-              <span>
-                <span style={{ color: 'var(--text-muted)' }}>{t('app.propagation.luf')} </span>
-                <span style={{ color: '#00aaff', fontWeight: '600' }}>
-                  {propagation.data.luf || '?'} {t('app.units.mhz')}
-                </span>
-              </span>
-            </>
-          )}
-          {localWeather?.data && (
             <span>
-              <span style={{ marginRight: '2px' }}>{localWeather.data.icon}</span>
-              <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
-                {localWeather.data.temp}°{localWeather.data.tempUnit || tempUnit}
+              <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.ssnShort')} </span>
+              <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
+                {solarIndices?.data?.ssn?.current ?? '--'}
               </span>
             </span>
-          )}
+            {bandConditions?.extras?.aIndex && (
+              <span>
+                <span style={{ color: 'var(--text-muted)' }}>A </span>
+                <span
+                  style={{
+                    color:
+                      parseInt(bandConditions.extras.aIndex) >= 20
+                        ? 'var(--accent-red)'
+                        : parseInt(bandConditions.extras.aIndex) >= 10
+                          ? 'var(--accent-amber)'
+                          : 'var(--accent-green)',
+                    fontWeight: '700',
+                  }}
+                >
+                  {bandConditions.extras.aIndex}
+                </span>
+              </span>
+            )}
+            {bandConditions?.extras?.geomagField && (
+              <span
+                style={{
+                  fontSize: '12px',
+                  color:
+                    bandConditions.extras.geomagField === 'QUIET'
+                      ? 'var(--accent-green)'
+                      : bandConditions.extras.geomagField === 'ACTIVE' ||
+                          bandConditions.extras.geomagField.includes('STORM')
+                        ? 'var(--accent-red)'
+                        : 'var(--accent-amber)',
+                  fontWeight: '600',
+                }}
+              >
+                {bandConditions.extras.geomagField}
+              </span>
+            )}
+            {propagation.data && (
+              <>
+                <span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('app.propagation.muf')} </span>
+                  <span style={{ color: '#ff8800', fontWeight: '600' }}>
+                    {propagation.data.muf || '?'} {t('app.units.mhz')}
+                  </span>
+                </span>
+                <span>
+                  <span style={{ color: 'var(--text-muted)' }}>{t('app.propagation.luf')} </span>
+                  <span style={{ color: '#00aaff', fontWeight: '600' }}>
+                    {propagation.data.luf || '?'} {t('app.units.mhz')}
+                  </span>
+                </span>
+              </>
+            )}
+            {localWeather?.data && (
+              <span>
+                <span style={{ marginRight: '2px' }}>{localWeather.data.icon}</span>
+                <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
+                  {localWeather.data.temp}°{localWeather.data.tempUnit || tempUnit}
+                </span>
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="header-menu-column">
+          <MenuToggleButton />
         </div>
       </div>
 

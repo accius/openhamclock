@@ -53,12 +53,12 @@ If you're running directly with Node, restart the server after changing your `.e
 
 All settings go in your `.env` or `.env.local` file:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `N1MM_UDP_ENABLED` | `false` | Set to `true` to enable the UDP listener |
-| `N1MM_UDP_PORT` | `12060` | UDP port to listen on (must match N1MM+ config) |
-| `N1MM_MAX_QSOS` | `200` | Maximum QSOs to keep in memory |
-| `N1MM_QSO_MAX_AGE_MINUTES` | `360` | QSOs older than this (6 hours) are pruned automatically |
+| Variable                   | Default | Description                                             |
+| -------------------------- | ------- | ------------------------------------------------------- |
+| `N1MM_UDP_ENABLED`         | `false` | Set to `true` to enable the UDP listener                |
+| `N1MM_UDP_PORT`            | `12060` | UDP port to listen on (must match N1MM+ config)         |
+| `N1MM_MAX_QSOS`            | `200`   | Maximum QSOs to keep in memory                          |
+| `N1MM_QSO_MAX_AGE_MINUTES` | `360`   | QSOs older than this (6 hours) are pruned automatically |
 
 ## Docker Users
 
