@@ -2917,13 +2917,8 @@ const DXSPIDER_NODES = [
 const DXSPIDER_SSID = '-56'; // OpenHamClock SSID
 
 function getDxClusterLoginCallsign(preferredCallsign = null) {
-  // Strip control characters to prevent telnet command injection via query params
-  const candidate = (preferredCallsign || CONFIG.dxClusterCallsign || '').replace(/[\x00-\x1F\x7F]/g, '').trim();
+  const candidate = (preferredCallsign || CONFIG.dxClusterCallsign || '').trim();
   if (candidate && candidate.toUpperCase() !== 'N0CALL') {
-    // Append default SSID if caller didn't include one
-    if (!candidate.includes('-')) {
-      return `${candidate.toUpperCase()}${DXSPIDER_SSID}`;
-    }
     return candidate.toUpperCase();
   }
 
