@@ -1,0 +1,314 @@
+{
+  "_SECTION_1": "── High Priority — Popular FM Satellites ──",
+  "25544": {
+    "norad": 25544,
+    "name": "ISS (ZARYA)",
+    "color": "#00ffff",
+    "priority": 1,
+    "mode": "FM/APRS/SSTV",
+    "downlink": "145.800 MHz",
+    "uplink": "145.990 MHz",
+    "tone": "67.0 Hz"
+  },
+  "27607": {
+    "norad": 27607,
+    "name": "SO-50",
+    "color": "#00ff00",
+    "priority": 1,
+    "mode": "FM",
+    "downlink": "436.795 MHz",
+    "uplink": "145.850 MHz",
+    "tone": "67.0 Hz",
+    "armTone": "74.4 Hz"
+  },
+  "43017": {
+    "norad": 43017,
+    "name": "AO-91 (Fox-1B)",
+    "color": "#ff6600",
+    "priority": 2,
+    "mode": "FM (sunlight only)",
+    "downlink": "145.960 MHz",
+    "uplink": "435.250 MHz",
+    "tone": "67.0 Hz"
+  },
+  "61781": {
+    "norad": 61781,
+    "name": "AO-123 (ASRTU-1)",
+    "color": "#ff3399",
+    "priority": 1,
+    "mode": "FM",
+    "downlink": "435.400 MHz",
+    "uplink": "145.850 MHz",
+    "tone": "67.0 Hz"
+  },
+  "63492": {
+    "norad": 63492,
+    "name": "SO-125 (HADES-ICM)",
+    "color": "#ff55bb",
+    "priority": 1,
+    "mode": "FM",
+    "downlink": "436.666 MHz",
+    "uplink": "145.875 MHz",
+    "tone": "67.0 Hz"
+  },
+  "67291": {
+    "norad": 67291,
+    "name": "QMR-KWT-2",
+    "color": "#ff88dd",
+    "priority": 1,
+    "mode": "FM/SSTV",
+    "downlink": "436.950 MHz",
+    "uplink": "145.920 MHz",
+    "tone": "67.0 Hz"
+  },
+  "_SECTION_2": "── Weather Satellites — Geostationary ──",
+  "51850": {
+    "norad": 51850,
+    "name": "GOES-18 (West)",
+    "color": "#66ff66",
+    "priority": 1,
+    "mode": "GRB/HRIT/LRIT",
+    "frequency": "1694.100 MHz",
+    "grbFrequency": "1686.600 MHz"
+  },
+  "60133": {
+    "norad": 60133,
+    "name": "GOES-19 (East)",
+    "color": "#33cc33",
+    "priority": 1,
+    "mode": "GRB/HRIT/LRIT",
+    "frequency": "1694.100 MHz",
+    "grbFrequency": "1686.600 MHz"
+  },
+  "29155": {
+    "norad": 29155,
+    "name": "EWS-G1 (GOES-13)",
+    "color": "#0066ff",
+    "priority": 2,
+    "mode": "GVAR/SD",
+    "frequency": "1685.700 MHz",
+    "sdFrequency": "1676.000 MHz"
+  },
+  "36411": {
+    "norad": 36411,
+    "name": "EWS-G2 (GOES-15)",
+    "color": "#0044cc",
+    "priority": 2,
+    "mode": "GVAR/SD",
+    "frequency": "1685.700 MHz",
+    "sdFrequency": "1676.000 MHz"
+  },
+  "41105": {
+    "norad": 41105,
+    "name": "ELEKTRO-L2",
+    "color": "#ffcc00",
+    "priority": 2,
+    "mode": "HRIT/LRIT",
+    "frequency": "1691.000 MHz"
+  },
+  "44903": {
+    "norad": 44903,
+    "name": "ELEKTRO-L3",
+    "color": "#ff9900",
+    "priority": 2,
+    "mode": "HRIT/LRIT",
+    "frequency": "1691.000 MHz"
+  },
+  "43823": {
+    "norad": 43823,
+    "name": "GK-2A",
+    "color": "#ff33cc",
+    "priority": 1,
+    "mode": "HRIT/LRIT",
+    "frequency": "1692.140 MHz"
+  },
+  "41836": {
+    "norad": 41836,
+    "name": "HIMAWARI-9",
+    "color": "#9900cc",
+    "priority": 1,
+    "mode": "HimawariCast",
+    "frequency": "4148.000 MHz"
+  },
+  "_SECTION_3": "── Weather Satellites — Polar ──",
+  "57166": {
+    "norad": 57166,
+    "name": "METEOR M2-3",
+    "color": "#FF0000",
+    "priority": 1,
+    "mode": "HRPT/LRPT",
+    "frequency": "137.900 MHz",
+    "hrptFrequency": "1700.000 MHz"
+  },
+  "59051": {
+    "norad": 59051,
+    "name": "METEOR M2-4",
+    "color": "#FF0000",
+    "priority": 1,
+    "mode": "HRPT/LRPT",
+    "frequency": "137.100 MHz",
+    "hrptFrequency": "1700.000 MHz"
+  },
+  "43013": {
+    "norad": 43013,
+    "name": "NOAA-20",
+    "color": "#00ccff",
+    "priority": 2,
+    "mode": "HRD (X-Band)",
+    "frequency": "7812.000 MHz"
+  },
+  "54234": {
+    "norad": 54234,
+    "name": "NOAA-21",
+    "color": "#0099ff",
+    "priority": 2,
+    "mode": "HRD (X-Band)",
+    "frequency": "7812.000 MHz"
+  },
+  "38771": {
+    "norad": 38771,
+    "name": "METOP-B",
+    "color": "#ffff00",
+    "priority": 3,
+    "mode": "AHRPT",
+    "hrptFrequency": "1701.300 MHz"
+  },
+  "43689": {
+    "norad": 43689,
+    "name": "METOP-C",
+    "color": "#ffff33",
+    "priority": 3,
+    "mode": "AHRPT",
+    "hrptFrequency": "1701.300 MHz"
+  },
+  "_SECTION_4": "── Linear Transponder Satellites ──",
+  "44909": {
+    "norad": 44909,
+    "name": "RS-44 (DOSAAF)",
+    "color": "#ff0066",
+    "priority": 1,
+    "mode": "Linear",
+    "downlink": "435.610 - 435.670 MHz",
+    "uplink": "145.935 - 145.995 MHz"
+  },
+  "43700": {
+    "norad": 43700,
+    "name": "QO-100 (Es'hail-2)",
+    "color": "#ffff00",
+    "priority": 1,
+    "mode": "Linear (GEO)",
+    "downlink": "10489.550 - 10489.800 MHz",
+    "uplink": "2400.050 - 2400.300 MHz"
+  },
+  "7530": {
+    "norad": 7530,
+    "name": "AO-7",
+    "color": "#ffcc00",
+    "priority": 2,
+    "mode": "Linear (daylight)",
+    "downlink": "145.925 - 145.975 MHz",
+    "uplink": "432.125 - 432.175 MHz"
+  },
+  "24278": {
+    "norad": 24278,
+    "name": "FO-29 (JAS-2)",
+    "color": "#ff6699",
+    "priority": 2,
+    "mode": "Linear (scheduled)",
+    "downlink": "435.800 - 435.900 MHz",
+    "uplink": "145.900 - 146.000 MHz"
+  },
+  "43803": {
+    "norad": 43803,
+    "name": "JO-97 (JY1Sat)",
+    "color": "#cc99ff",
+    "priority": 2,
+    "mode": "Linear/FM",
+    "downlink": "145.855 - 145.875 MHz",
+    "uplink": "435.100 - 435.120 MHz"
+  },
+  "39444": {
+    "norad": 39444,
+    "name": "AO-73 (FUNcube-1)",
+    "color": "#ffcc66",
+    "priority": 2,
+    "mode": "Linear/Telemetry",
+    "downlink": "145.950 - 145.970 MHz",
+    "uplink": "435.130 - 435.150 MHz"
+  },
+  "_SECTION_5": "── CAS & XW Constellations ──",
+  "42761": {
+    "norad": 42761,
+    "name": "CAS-4A",
+    "color": "#9966ff",
+    "priority": 2,
+    "mode": "Linear",
+    "downlink": "145.910 - 145.930 MHz",
+    "uplink": "435.210 - 435.230 MHz"
+  },
+  "42759": {
+    "norad": 42759,
+    "name": "CAS-4B",
+    "color": "#9933ff",
+    "priority": 2,
+    "mode": "Linear",
+    "downlink": "145.915 - 145.935 MHz",
+    "uplink": "435.270 - 435.290 MHz"
+  },
+  "44881": {
+    "norad": 44881,
+    "name": "CAS-6 (TO-108)",
+    "color": "#cc66ff",
+    "priority": 2,
+    "mode": "Linear",
+    "downlink": "145.915 - 145.935 MHz",
+    "uplink": "435.270 - 435.290 MHz"
+  },
+  "40903": {
+    "norad": 40903,
+    "name": "XW-2A (CAS-3A)",
+    "color": "#66ff99",
+    "priority": 3,
+    "mode": "Linear",
+    "downlink": "145.660 - 145.680 MHz",
+    "uplink": "435.030 - 435.050 MHz"
+  },
+  "40911": {
+    "norad": 40911,
+    "name": "XW-2B (CAS-3B)",
+    "color": "#66ffcc",
+    "priority": 3,
+    "mode": "Linear",
+    "downlink": "145.730 - 145.750 MHz",
+    "uplink": "435.090 - 435.110 MHz"
+  },
+  "40906": {
+    "norad": 40906,
+    "name": "XW-2C (CAS-3C)",
+    "color": "#99ffcc",
+    "priority": 3,
+    "mode": "Linear",
+    "downlink": "145.795 - 145.815 MHz",
+    "uplink": "435.150 - 435.170 MHz"
+  },
+  "40910": {
+    "norad": 40910,
+    "name": "XW-2F (CAS-3F)",
+    "color": "#ccffcc",
+    "priority": 3,
+    "mode": "Linear",
+    "downlink": "145.975 - 145.995 MHz",
+    "uplink": "435.330 - 435.350 MHz"
+  },
+  "_SECTION_6": "── Specialized Digipeaters ──",
+  "53106": {
+    "norad": 53106,
+    "name": "IO-117 (GreenCube)",
+    "color": "#00ff99",
+    "priority": 2,
+    "mode": "Digipeater",
+    "downlink": "435.310 MHz",
+    "uplink": "435.310 MHz"
+  },
+  "_SECTION_7": "── Reserved for New Sats ──"
+}

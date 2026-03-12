@@ -7619,6 +7619,7 @@ app.get('/api/wspr/heatmap', async (req, res) => {
 // Curated list of active ham radio and amateur-accessible satellites
 // Last audited: March 2026
 //
+//
 // REMOVED (dead/decayed/not ham):
 //   AO-92 (43137) — re-entered Feb 2024
 //   PO-101 (43678) — decommissioned, EOL Dec 2025
@@ -7638,260 +7639,21 @@ app.get('/api/wspr/heatmap', async (req, res) => {
 //
 // FIXED: TEVEL NORAD IDs corrected per AMSAT TLE bulletin
 //
-const HAM_SATELLITES = {
-  // ── High Priority — Popular FM Satellites ──────────────────────
-  ISS: {
-    norad: 25544,
-    name: 'ISS (ZARYA)',
-    color: '#00ffff',
-    priority: 1,
-    mode: 'FM/APRS/SSTV',
-  },
-  'SO-50': {
-    norad: 27607,
-    name: 'SO-50',
-    color: '#00ff00',
-    priority: 1,
-    mode: 'FM',
-  },
-  'AO-91': {
-    norad: 43017,
-    name: 'AO-91 (Fox-1B)',
-    color: '#ff6600',
-    priority: 2,
-    mode: 'FM (sunlight only)',
-  },
-  'AO-123': {
-    norad: 61781,
-    name: 'AO-123 (ASRTU-1)',
-    color: '#ff3399',
-    priority: 1,
-    mode: 'FM',
-  },
-  'SO-124': {
-    norad: 62690,
-    name: 'SO-124 (HADES-R)',
-    color: '#ff44aa',
-    priority: 1,
-    mode: 'FM',
-  },
-  'SO-125': {
-    norad: 63492,
-    name: 'SO-125 (HADES-ICM)',
-    color: '#ff55bb',
-    priority: 1,
-    mode: 'FM',
-  },
-  'QMR-KWT-2': {
-    norad: 67291,
-    name: 'QMR-KWT-2',
-    color: '#ff88dd',
-    priority: 1,
-    mode: 'FM/SSTV',
-  },
-
-  // ── Weather Satellites — GOES & METEOR ─────────────────────────
-  'GOES-18': {
-    norad: 51850,
-    name: 'GOES-18',
-    color: '#66ff66',
-    priority: 1,
-    mode: 'GRB/HRIT/LRIT',
-  },
-  'GOES-19': {
-    norad: 60133,
-    name: 'GOES-19',
-    color: '#33cc33',
-    priority: 1,
-    mode: 'GRB/HRIT/LRIT',
-  },
-  'METEOR-M2-3': {
-    norad: 57166,
-    name: 'METEOR M2-3',
-    color: '#FF0000',
-    priority: 1,
-    mode: 'HRPT/LRPT',
-  },
-  'METEOR-M2-4': {
-    norad: 59051,
-    name: 'METEOR M2-4',
-    color: '#FF0000',
-    priority: 1,
-    mode: 'HRPT/LRPT',
-  },
-
-  // ── Linear Transponder Satellites ──────────────────────────────
-  'RS-44': {
-    norad: 44909,
-    name: 'RS-44 (DOSAAF)',
-    color: '#ff0066',
-    priority: 1,
-    mode: 'Linear',
-  },
-  'QO-100': {
-    norad: 43700,
-    name: "QO-100 (Es'hail-2)",
-    color: '#ffff00',
-    priority: 1,
-    mode: 'Linear (GEO)',
-  },
-  'AO-7': {
-    norad: 7530,
-    name: 'AO-7',
-    color: '#ffcc00',
-    priority: 2,
-    mode: 'Linear (daylight)',
-  },
-  'FO-29': {
-    norad: 24278,
-    name: 'FO-29 (JAS-2)',
-    color: '#ff6699',
-    priority: 2,
-    mode: 'Linear (scheduled)',
-  },
-  'JO-97': {
-    norad: 43803,
-    name: 'JO-97 (JY1Sat)',
-    color: '#cc99ff',
-    priority: 2,
-    mode: 'Linear/FM',
-  },
-  'AO-73': {
-    norad: 39444,
-    name: 'AO-73 (FUNcube-1)',
-    color: '#ffcc66',
-    priority: 2,
-    mode: 'Linear/Telemetry',
-  },
-  'EO-88': {
-    norad: 42017,
-    name: 'EO-88 (Nayif-1)',
-    color: '#ffaa66',
-    priority: 3,
-    mode: 'Linear/Telemetry',
-  },
-
-  // ── CAS (Chinese Amateur Satellites) ───────────────────────────
-  'CAS-4A': {
-    norad: 42761,
-    name: 'CAS-4A',
-    color: '#9966ff',
-    priority: 2,
-    mode: 'Linear',
-  },
-  'CAS-4B': {
-    norad: 42759,
-    name: 'CAS-4B',
-    color: '#9933ff',
-    priority: 2,
-    mode: 'Linear',
-  },
-  'CAS-6': {
-    norad: 44881,
-    name: 'CAS-6 (TO-108)',
-    color: '#cc66ff',
-    priority: 2,
-    mode: 'Linear',
-  },
-
-  // ── XW-2 Constellation (CAS-3) — intermittent ─────────────────
-  'XW-2A': {
-    norad: 40903,
-    name: 'XW-2A (CAS-3A)',
-    color: '#66ff99',
-    priority: 3,
-    mode: 'Linear',
-  },
-  'XW-2B': {
-    norad: 40911,
-    name: 'XW-2B (CAS-3B)',
-    color: '#66ffcc',
-    priority: 3,
-    mode: 'Linear',
-  },
-  'XW-2C': {
-    norad: 40906,
-    name: 'XW-2C (CAS-3C)',
-    color: '#99ffcc',
-    priority: 3,
-    mode: 'Linear',
-  },
-  'XW-2F': {
-    norad: 40910,
-    name: 'XW-2F (CAS-3F)',
-    color: '#ccffcc',
-    priority: 3,
-    mode: 'Linear',
-  },
-
-  // ── Digipeaters ────────────────────────────────────────────────
-  'IO-117': {
-    norad: 53106,
-    name: 'IO-117 (GreenCube)',
-    color: '#00ff99',
-    priority: 2,
-    mode: 'Digipeater',
-  },
-
-  // ── TEVEL Constellation — activated periodically ───────────────
-  // NORAD IDs corrected per AMSAT TLE bulletin Dec 2022
-  'TEVEL-1': {
-    norad: 51013,
-    name: 'TEVEL-1',
-    color: '#66ccff',
-    priority: 3,
-    mode: 'FM',
-  },
-  'TEVEL-2': {
-    norad: 51069,
-    name: 'TEVEL-2',
-    color: '#66ddff',
-    priority: 3,
-    mode: 'FM',
-  },
-  'TEVEL-3': {
-    norad: 50988,
-    name: 'TEVEL-3',
-    color: '#66eeff',
-    priority: 3,
-    mode: 'FM',
-  },
-  'TEVEL-4': {
-    norad: 51063,
-    name: 'TEVEL-4',
-    color: '#77ccff',
-    priority: 3,
-    mode: 'FM',
-  },
-  'TEVEL-5': {
-    norad: 50998,
-    name: 'TEVEL-5',
-    color: '#77ddff',
-    priority: 3,
-    mode: 'FM',
-  },
-  'TEVEL-6': {
-    norad: 50999,
-    name: 'TEVEL-6',
-    color: '#77eeff',
-    priority: 3,
-    mode: 'FM',
-  },
-  'TEVEL-7': {
-    norad: 51062,
-    name: 'TEVEL-7',
-    color: '#88ccff',
-    priority: 3,
-    mode: 'FM',
-  },
-  'TEVEL-8': {
-    norad: 50989,
-    name: 'TEVEL-8',
-    color: '#88ddff',
-    priority: 3,
-    mode: 'FM',
-  },
-};
+// UPDATED: Pull curated list of active satellites from external under /src/satellites/satconfig.json"
+const HAM_SATELLITES = (() => {
+  try {
+    // Path relative to server.js location
+    const configPath = path.join(__dirname, 'src', 'satellites', 'satconfig.json');
+    if (fs.existsSync(configPath)) {
+      return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    }
+    console.warn('[Satellites] satconfig.json not found, using empty registry');
+    return {};
+  } catch (e) {
+    console.error('[Satellites] Error loading satconfig.json:', e.message);
+    return {};
+  }
+})();
 
 let tleCache = { data: null, timestamp: 0 };
 const TLE_CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours — TLEs don't change that fast
@@ -7900,6 +7662,7 @@ let tleNegativeCache = 0; // Timestamp of last total failure
 const TLE_NEGATIVE_TTL = 30 * 60 * 1000; // 30 min backoff after all sources fail
 
 // TLE data sources in priority order — automatic failover
+
 const TLE_SOURCES = {
   celestrak: {
     name: 'CelesTrak',
@@ -7969,7 +7732,11 @@ const TLE_SOURCE_ORDER = (process.env.TLE_SOURCES || 'celestrak,celestrak_legacy
 
 function parseTleText(text, tleData, group) {
   // Build NORAD lookup set for fast matching
-  const knownNorads = new Set(Object.values(HAM_SATELLITES).map((s) => s.norad));
+  const knownNorads = new Set(
+    Object.values(HAM_SATELLITES)
+      .filter((s) => s && typeof s === 'object' && s.norad)
+      .map((s) => s.norad),
+  );
 
   const lines = text.trim().split('\n');
   for (let i = 0; i < lines.length - 2; i += 3) {
@@ -7985,7 +7752,9 @@ function parseTleText(text, tleData, group) {
       const alreadyExists = Object.values(tleData).some((sat) => sat.norad === noradId);
       if (alreadyExists) continue;
 
-      const hamSat = Object.values(HAM_SATELLITES).find((s) => s.norad === noradId);
+      const hamSat = Object.values(HAM_SATELLITES)
+        .filter((s) => s && typeof s === 'object' && s.norad)
+        .find((s) => s.norad === noradId);
       if (hamSat) {
         const key = name.replace(/[^A-Z0-9\-]/g, '_').toUpperCase();
         tleData[key] = { ...hamSat, tle1: line1, tle2: line2 };
