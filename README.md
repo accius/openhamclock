@@ -391,13 +391,13 @@ Additional information in the panel:
 
 HF propagation reliability predictions between your station (DE) and whatever DX target you've selected on the map.
 
-**What it shows:**
+#### What it shows
 
 - Per-band signal reliability as a percentage for each HF band
 - Color-coded bars: green (>60% reliable), amber (30–60%), red (<30%)
 - Predictions update automatically when you change your DX target on the map
 
-**How to use it:**
+#### How to use it
 
 1. Click anywhere on the map to set a DX target location (or use the DX panel to enter coordinates).
 2. The propagation panel recalculates predictions for the path between your station and that target.
@@ -411,6 +411,10 @@ HF propagation reliability predictions between your station (DE) and whatever DX
 **Hybrid correction:** When ionosonde data is available from `prop.kc2g.com`, the system applies real-time corrections based on actual measured ionospheric conditions rather than just modeled values. This can catch unusual propagation events that models miss.
 
 **Data refresh:** Predictions update every 10 minutes.
+
+#### Acknowledgement
+
+Data gathered from `prop.kc2g.com` originates from the [Global Ionospheric Radio Observatory](https://giro.uml.edu) who have graciously offered free access for that purpose. Thanks are given to all of the [ionosonde stations participating in that network](https://giro.uml.edu/didbase/acknowledgements.html).
 
 ---
 
