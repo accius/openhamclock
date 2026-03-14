@@ -23,7 +23,7 @@ All notable changes to OpenHamClock will be documented in this file.
 - **Startup warning**: Server prints visible warning when `API_WRITE_KEY` is not set.
 - **Rig-bridge CORS**: Restricted to explicit origin allowlist (was wildcard `*`).
 - **Rig-bridge localhost binding**: HTTP server binds to `127.0.0.1` by default (was `0.0.0.0`).
-- **Rig-bridge serial port validation**: Paths validated against OS-specific patterns (COM*, /dev/tty*, /dev/cu.*).
+- **Rig-bridge serial port validation**: Paths validated against OS-specific patterns (COM*, /dev/tty*, /dev/cu.\*).
 - **Rig-bridge relay SSRF**: Relay URL validated to reject private/reserved addresses.
 
 ### Added

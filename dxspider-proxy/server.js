@@ -447,7 +447,10 @@ const handleDisconnect = () => {
   // Detect rapid disconnect (kicked within seconds of connecting)
   const connectionDuration = connectionStartTime ? Date.now() - connectionStartTime.getTime() : 0;
   if (connectionDuration > 0 && connectionDuration < 15000) {
-    log('RECONNECT', `Rapid disconnect from ${currentNode?.name} after ${Math.round(connectionDuration / 1000)}s (likely auth rejection or SSID conflict)`);
+    log(
+      'RECONNECT',
+      `Rapid disconnect from ${currentNode?.name} after ${Math.round(connectionDuration / 1000)}s (likely auth rejection or SSID conflict)`,
+    );
   }
 
   reconnectAttempts++;
@@ -456,7 +459,10 @@ const handleDisconnect = () => {
     // Try next node
     currentNodeIndex = (currentNodeIndex + 1) % CONFIG.nodes.length;
     reconnectAttempts = 0;
-    log('FAILOVER', `${CONFIG.maxReconnectAttempts} consecutive failures — switching to node: ${CONFIG.nodes[currentNodeIndex].name}`);
+    log(
+      'FAILOVER',
+      `${CONFIG.maxReconnectAttempts} consecutive failures — switching to node: ${CONFIG.nodes[currentNodeIndex].name}`,
+    );
   }
 
   log('RECONNECT', `Attempting reconnect in ${CONFIG.reconnectDelayMs}ms (attempt ${reconnectAttempts})`);

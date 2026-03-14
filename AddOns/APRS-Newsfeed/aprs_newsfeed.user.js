@@ -160,7 +160,13 @@
   let lastUpdateTs = parseInt(localStorage.getItem('ohc_aprs_last_update')) || 0;
 
   // Escape HTML to prevent XSS when interpolating into innerHTML
-  const esc = (s) => String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const esc = (s) =>
+    String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
 
   function getCallsign() {
     try {

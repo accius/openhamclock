@@ -99,9 +99,14 @@ const HOST = process.env.HOST || '0.0.0.0';
 // Pi/local installs should NOT trust proxy headers since clients can forge them,
 // bypassing rate limiting by sending a different X-Forwarded-For with each request.
 // Default: trust proxy if running on Railway (PORT env is always set), otherwise don't.
-const TRUST_PROXY = process.env.TRUST_PROXY !== undefined
-  ? (process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1' ? 1 : false)
-  : (process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID) ? 1 : false;
+const TRUST_PROXY =
+  process.env.TRUST_PROXY !== undefined
+    ? process.env.TRUST_PROXY === 'true' || process.env.TRUST_PROXY === '1'
+      ? 1
+      : false
+    : process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID
+      ? 1
+      : false;
 app.set('trust proxy', TRUST_PROXY);
 
 // Security: API key for write operations (set in .env to protect POST endpoints)
@@ -417,16 +422,14 @@ app.use((req, res, next) => {
 // origin: true (the old default) reflects any requesting origin, which allows any website
 // the user visits to silently read their callsign, coordinates, QSO data, and (without
 // API_WRITE_KEY) write settings, move their rotator, or restart the server.
-const CORS_ORIGINS = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim())
-  : null; // null = no extra origins, only defaults below
+const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim()) : null; // null = no extra origins, only defaults below
 
 const defaultOrigins = [
   `http://localhost:${PORT}`,
   `http://127.0.0.1:${PORT}`,
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-  'http://localhost:5173',  // Vite dev server
+  'http://localhost:5173', // Vite dev server
   'http://127.0.0.1:5173',
   'https://openhamclock.com',
   'https://www.openhamclock.com',
@@ -3687,20 +3690,25 @@ function isPrivateIP(ip) {
   // IPv4 private/reserved ranges
   const parts = normalized.split('.').map(Number);
   if (parts.length === 4 && parts.every((n) => n >= 0 && n <= 255)) {
-    if (parts[0] === 127) return true;                                          // loopback
-    if (parts[0] === 10) return true;                                           // 10.0.0.0/8
-    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true;     // 172.16.0.0/12
-    if (parts[0] === 192 && parts[1] === 168) return true;                     // 192.168.0.0/16
-    if (parts[0] === 169 && parts[1] === 254) return true;                     // link-local
-    if (parts[0] === 0) return true;                                            // 0.0.0.0/8
-    if (parts[0] >= 224) return true;                                           // multicast + reserved
+    if (parts[0] === 127) return true; // loopback
+    if (parts[0] === 10) return true; // 10.0.0.0/8
+    if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true; // 172.16.0.0/12
+    if (parts[0] === 192 && parts[1] === 168) return true; // 192.168.0.0/16
+    if (parts[0] === 169 && parts[1] === 254) return true; // link-local
+    if (parts[0] === 0) return true; // 0.0.0.0/8
+    if (parts[0] >= 224) return true; // multicast + reserved
   }
   // IPv6 private/reserved
   const lower = normalized.toLowerCase();
-  if (lower === '::1' || lower === '::' ||
-      lower.startsWith('fe80:') || lower.startsWith('fc00:') ||
-      lower.startsWith('fd00:') || lower.startsWith('ff00:') ||
-      lower.startsWith('::ffff:')) {
+  if (
+    lower === '::1' ||
+    lower === '::' ||
+    lower.startsWith('fe80:') ||
+    lower.startsWith('fc00:') ||
+    lower.startsWith('fd00:') ||
+    lower.startsWith('ff00:') ||
+    lower.startsWith('::ffff:')
+  ) {
     // Catch any remaining IPv4-mapped forms that weren't normalized above
     return true;
   }
