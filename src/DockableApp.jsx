@@ -323,7 +323,7 @@ export const DockableApp = ({
       // 2. Set DX Location if location data is available
       // For DX Cluster spots, we need to find the path data which contains coordinates
       // For POTA/SOTA, the spot object itself has lat/lon
-      if (spot.lat && spot.lon) {
+      if (spot.lat != null && spot.lon != null) {
         handleDXChange({ lat: spot.lat, lon: spot.lon });
       } else if (spot.call) {
         // Try to find in DX Cluster paths

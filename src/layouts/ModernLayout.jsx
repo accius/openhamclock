@@ -352,7 +352,7 @@ export default function ModernLayout(props) {
       filters={pskFilters}
       onOpenFilters={() => setShowPSKFilters(true)}
       onShowOnMap={(r) => {
-        if (r.lat && r.lon) handleDXChange({ lat: r.lat, lon: r.lon });
+        if (r.lat != null && r.lon != null) handleDXChange({ lat: r.lat, lon: r.lon });
       }}
       wsjtxDecodes={wsjtx.decodes}
       wsjtxClients={wsjtx.clients}

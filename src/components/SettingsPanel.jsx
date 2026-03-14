@@ -171,7 +171,7 @@ export const SettingsPanel = ({
       setRigPort(normalizeRigPort(config.rigControl?.port));
       setTuneEnabled(config.rigControl?.tuneEnabled || false);
       setAutoMode(config.rigControl?.autoMode !== false);
-      if (config.location?.lat && config.location?.lon) {
+      if (config.location?.lat != null && config.location?.lon != null) {
         const grid = calculateGridSquare(config.location.lat, config.location.lon);
         setGridSquare(grid);
         setConfigLocator(grid);
@@ -298,7 +298,7 @@ export const SettingsPanel = ({
   };
 
   useEffect(() => {
-    if (lat && lon) {
+    if (lat != null && lon != null) {
       const grid = calculateGridSquare(lat, lon);
       setGridSquare(grid);
       setConfigLocator(grid);

@@ -217,7 +217,7 @@ export const useWeather = (location, allUnits = { dist: 'imperial', temp: 'imper
   const retryCountRef = useRef(0);
 
   useEffect(() => {
-    if (!location?.lat || !location?.lon) return;
+    if (location?.lat == null || location?.lon == null) return;
 
     const fetchWeather = async () => {
       try {
