@@ -32,17 +32,27 @@ module.exports = function (app, ctx) {
       logDebug('[DXpeditions] Received', text.length, 'bytes raw');
 
       // Strip HTML tags and decode entities - the "plain" page is actually HTML!
+      // Remove script/style blocks repeatedly to handle nested/malformed tags
+      let prev;
+      do {
+        prev = text;
+        text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+      } while (text !== prev);
+      do {
+        prev = text;
+        text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+      } while (text !== prev);
+      // Strip any remaining opening script/style tags (malformed HTML)
+      text = text.replace(/<script[^>]*>/gi, '').replace(/<style[^>]*>/gi, '');
       text = text
-        .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '') // Remove scripts
-        .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '') // Remove styles
         .replace(/<br\s*\/?>/gi, '\n') // Convert br to newlines
         .replace(/<[^>]+>/g, ' ') // Remove all HTML tags
         .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
+        .replace(/&amp;/g, '&') // Decode ampersand LAST to avoid double-unescaping
         .replace(/\s+/g, ' ') // Normalize whitespace
         .trim();
 

@@ -32,10 +32,15 @@ function applyMiddleware(app, ctx) {
   }
 
   // Security: Helmet
+  // CSP is intentionally disabled — the app loads scripts, styles, images, and data
+  // from dozens of external services (Leaflet CDN, Google Fonts, Open-Meteo, NOAA,
+  // NASA SDO/GIBS, PSKReporter, tile CDNs, etc.). A restrictive CSP breaks everything.
+  // All other Helmet protections (X-Content-Type-Options, HSTS, X-Frame-Options, etc.)
+  // remain active.
   app.use(
     helmet({
-      contentSecurityPolicy: false,
-      crossOriginEmbedderPolicy: false,
+      contentSecurityPolicy: false, // eslint-disable-line -- see comment above
+      crossOriginEmbedderPolicy: false, // Required for cross-origin tile loading
     }),
   );
 

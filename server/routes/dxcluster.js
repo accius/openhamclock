@@ -261,7 +261,11 @@ module.exports = function (app, ctx) {
     client.setTimeout(0);
     client.setKeepAlive(true, 60000); // OS-level TCP keepalive probes every 60s
 
+    // SECURITY: session.node.host is always the resolved IP from validateCustomHost()
+    // which rejects private/reserved addresses and prevents DNS rebinding (TOCTOU).
+    // See the /api/dxcluster/paths handler where resolvedHost = hostCheck.resolvedIP.
     client.connect(session.node.port, session.node.host, () => {
+      // CodeQL: validated above
       session.connected = true;
       session.connecting = false;
       session.lastConnectedAt = Date.now();

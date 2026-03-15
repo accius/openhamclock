@@ -78,8 +78,15 @@ module.exports = function (app, ctx) {
   const WSJTX_SESSION_MAX_AGE = 60 * 60 * 1000; // 1 hour inactive expiry
   const WSJTX_MAX_SESSIONS = 50; // prevent memory abuse
 
+  // Validate session IDs to prevent prototype pollution via __proto__/constructor/prototype
+  function isValidSessionId(id) {
+    if (!id || typeof id !== 'string') return false;
+    if (id === '__proto__' || id === 'constructor' || id === 'prototype') return false;
+    return /^[A-Za-z0-9_\-:.]{1,128}$/.test(id);
+  }
+
   function getRelaySession(sessionId) {
-    if (!sessionId) return null;
+    if (!isValidSessionId(sessionId)) return null;
     if (!wsjtxRelaySessions[sessionId]) {
       // Check session limit
       if (Object.keys(wsjtxRelaySessions).length >= WSJTX_MAX_SESSIONS) {
@@ -471,6 +478,8 @@ module.exports = function (app, ctx) {
   function handleWSJTXMessage(msg, state) {
     if (!msg) return;
     if (!state) state = wsjtxState;
+    // Reject dangerous msg.id values to prevent prototype pollution on state.clients
+    if (msg.id && !isValidSessionId(msg.id)) return;
 
     switch (msg.type) {
       case WSJTX_MSG.HEARTBEAT: {
@@ -1015,6 +1024,9 @@ module.exports = function (app, ctx) {
     const sessionId = req.body.session || req.headers['x-relay-session'] || '';
     if (!sessionId) {
       return res.status(400).json({ error: 'Session ID required' });
+    }
+    if (!isValidSessionId(sessionId)) {
+      return res.status(400).json({ error: 'Invalid session ID' });
     }
 
     const session = getRelaySession(sessionId);
