@@ -1,0 +1,44 @@
+name: Cleanup Failed Workflow Runs
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Run at 0900 every Monday
+    
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh
+
+      - name: Set token for GitHub CLI
+        run: echo "GH_TOKEN=${{ secrets.WORKFLOW_CLEANUP }}" >> $GITHUB_ENV
+
+      - name: Delete FAILED workflow runs (excluding running + current run)
+        run: |
+          gh api repos/${{ github.repository }}/actions/runs \
+            --paginate \
+            --jq "
+              .workflow_runs[]
+              | select(.conclusion == \"failure\")        # only failed runs
+              | select(.status != \"in_progress\")         # skip running workflows
+              | select(.id != $GITHUB_RUN_ID)              # skip this cleanup run
+              | .id
+            " \
+            | xargs -I{} gh api repos/${{ github.repository }}/actions/runs/{} -X DELETE
+
+      - name: Delete workflow runs older than 30 days
+        run: |
+          CUTOFF_DATE=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)
+          gh api repos/${{ github.repository }}/actions/runs \
+            --paginate \
+            --jq "
+              .workflow_runs[]
+              | select(.created_at < \"${CUTOFF_DATE}\")  # only runs older than 30 days
+              | select(.id != $GITHUB_RUN_ID)              # skip this cleanup run
+              | .id
+            " \
+            | xargs -I{} gh api repos/${{ github.repository }}/actions/runs/{} -X DELETE
