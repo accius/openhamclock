@@ -185,7 +185,7 @@ jobs:
     
     - name: Extract metadata
       id: meta
-      uses: docker/metadata-action@v
+      uses: docker/metadata-action@v5
       with:
         images: ${{ secrets.DOCKERHUB_USERNAME }}/openhamclock
         tags: |
