@@ -83,7 +83,7 @@ npm run dev
 - [Deployment](#deployment)
   - [Local / Desktop](#local--desktop)
   - [Raspberry Pi](#raspberry-pi)
-  - [Docker](#docker)
+  - [Docker](#using-docker)
   - [Railway (Cloud)](#railway-cloud)
 - [DX Spider Proxy](#dx-spider-proxy)
 - [WSJT-X Relay Agent](#wsjt-x-relay-agent)
@@ -391,13 +391,13 @@ Additional information in the panel:
 
 HF propagation reliability predictions between your station (DE) and whatever DX target you've selected on the map.
 
-**What it shows:**
+#### What it shows
 
 - Per-band signal reliability as a percentage for each HF band
 - Color-coded bars: green (>60% reliable), amber (30–60%), red (<30%)
 - Predictions update automatically when you change your DX target on the map
 
-**How to use it:**
+#### How to use it
 
 1. Click anywhere on the map to set a DX target location (or use the DX panel to enter coordinates).
 2. The propagation panel recalculates predictions for the path between your station and that target.
@@ -411,6 +411,10 @@ HF propagation reliability predictions between your station (DE) and whatever DX
 **Hybrid correction:** When ionosonde data is available from `prop.kc2g.com`, the system applies real-time corrections based on actual measured ionospheric conditions rather than just modeled values. This can catch unusual propagation events that models miss.
 
 **Data refresh:** Predictions update every 10 minutes.
+
+#### Acknowledgement
+
+Data gathered from `prop.kc2g.com` originates from the [Global Ionospheric Radio Observatory](https://giro.uml.edu) who have graciously offered free access for that purpose. Thanks are given to all of the [ionosonde stations participating in that network](https://giro.uml.edu/didbase/acknowledgements.html).
 
 ---
 
@@ -731,7 +735,7 @@ All configuration is done through the `.env` file. On first run, this file is au
 >
 > The `.env` file is located in the root of your OpenHamClock directory (same folder as `server.js` and `package.json`).
 
-### Station Settings
+### Station Setting Variables
 
 | Variable    | Default          | Description                                                                                                                               |
 | ----------- | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
@@ -740,7 +744,7 @@ All configuration is done through the `.env` file. On first run, this file is au
 | `LATITUDE`  | _(from locator)_ | Station latitude in decimal degrees. Overrides the latitude calculated from LOCATOR.                                                      |
 | `LONGITUDE` | _(from locator)_ | Station longitude in decimal degrees. Overrides the longitude calculated from LOCATOR.                                                    |
 
-### Server Settings
+### Server Setting Variables
 
 | Variable    | Default     | Description                                                                                                                              |
 | ----------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
@@ -748,7 +752,7 @@ All configuration is done through the `.env` file. On first run, this file is au
 | `HOST`      | `localhost` | Bind address. Set to `0.0.0.0` to make OpenHamClock accessible from other devices on your LAN (tablets, phones, other PCs).              |
 | `LOG_LEVEL` | `warn`      | Server log verbosity: `debug` (everything), `info` (operational), `warn` (problems), `error` (failures only). Use `warn` for production. |
 
-### Display Preferences
+### Display Preference Variables
 
 | Variable      | Default     | Description                                                                                                                                                          |
 | ------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -761,7 +765,7 @@ All configuration is done through the `.env` file. On first run, this file is au
 | `LAYOUT`      | `modern`    | `modern` or `classic`. See [Themes and Layouts](#themes-and-layouts).                                                                                                |
 | `TZ`          | _(browser)_ | IANA timezone identifier (e.g., `America/New_York`, `Europe/London`). Only needed if your browser spoofs the timezone (common with privacy browsers like Librewolf). |
 
-### Feature Toggles
+### Feature Toggle Variables
 
 | Variable               | Default | Description                                                                         |
 | ---------------------- | ------- | ----------------------------------------------------------------------------------- |
@@ -771,7 +775,7 @@ All configuration is done through the `.env` file. On first run, this file is au
 | `SHOW_DX_WEATHER`      | `true`  | Show weather for the selected DX location.                                          |
 | `CLASSIC_ANALOG_CLOCK` | `false` | Show analog clock panel in the classic layout. Always available in dockable layout. |
 
-### External Services
+### External Services Variables
 
 | Variable              | Default        | Description                                                                                                                                                                                                                                                                              |
 | --------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -779,7 +783,7 @@ All configuration is done through the `.env` file. On first run, this file is au
 | `ITURHFPROP_URL`      | Public service | URL for ITU-R P.533 propagation predictions. Defaults to the public OpenHamClock service. Override only if self-hosting the `iturhfprop-service/`.                                                                                                                                       |
 | `DXSPIDER_PROXY_URL`  | _(none)_       | URL of your DX Spider proxy. A default proxy is provided, so you only need this if you're running your own.                                                                                                                                                                              |
 
-### WSJT-X Integration
+### WSJT-X Integration Variables
 
 | Variable                  | Default  | Description                                                                                                                                                             |
 | ------------------------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -788,7 +792,7 @@ All configuration is done through the `.env` file. On first run, this file is au
 | `WSJTX_UDP_PORT`          | `2237`   | UDP port for receiving WSJT-X decoded messages. Must match the port configured in WSJT-X Settings → Reporting → UDP Server.                                             |
 | `WSJTX_RELAY_KEY`         | _(none)_ | Shared secret key for the WSJT-X relay agent. Required only for cloud deployments where WSJT-X can't reach the server directly over UDP. Pick any strong random string. |
 
-### DX Cluster
+### DX Cluster Variables
 
 | Variable                 | Default         | Description                                                                                                                                 |
 | ------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -901,7 +905,7 @@ The setup script creates `.env` automatically from the built-in template and ena
 
 The Pi setup script installs Node.js 22 LTS, clones the repository, builds the frontend, creates a systemd service (`openhamclock.service`) for automatic startup, and optionally configures Chromium in kiosk mode. It also installs `fonts-noto-color-emoji` so that all emoji icons display correctly in Chromium.
 
-### Docker
+### Using Docker
 
 **Docker Compose (recommended):**
 
@@ -997,7 +1001,7 @@ The relay agent (`wsjtx-relay/relay.js`) bridges WSJT-X on your local machine to
 
 1. On your server (or Railway dashboard), set `WSJTX_RELAY_KEY` to any strong random string:
 
-   ```
+   ```bash
    WSJTX_RELAY_KEY=my-super-secret-relay-key-2024
    ```
 
@@ -1022,7 +1026,7 @@ The relay agent has zero npm dependencies (uses only Node.js built-ins), batches
 
 ## Updating
 
-### Git installations (local/Pi):
+### Git installations (local/Pi)
 
 ```bash
 cd ~/openhamclock
@@ -1037,11 +1041,11 @@ sudo systemctl restart openhamclock
 ./restart.sh
 ```
 
-### Auto-update (Git installations):
+### Auto-update (Git installations)
 
 Enable automatic updates by setting the following in `.env`:
 
-```
+```text
 AUTO_UPDATE_ENABLED=true
 AUTO_UPDATE_INTERVAL_MINUTES=60
 AUTO_UPDATE_ON_START=false
@@ -1052,7 +1056,7 @@ When enabled, OpenHamClock periodically checks GitHub for updates and runs `./sc
 
 On local installs, you can also click the **UPDATE** button in the header to start the update process on demand.
 
-### Zip file installations:
+### Zip file installations
 
 1. Back up your `.env` file
 2. Download the new zip from GitHub
@@ -1061,14 +1065,14 @@ On local installs, you can also click the **UPDATE** button in the header to sta
 5. Run `npm install && npm run build`
 6. Restart
 
-### Docker:
+### Docker
 
 ```bash
 docker-compose pull
 docker-compose up -d
 ```
 
-### Railway:
+### Railway
 
 Push to your connected GitHub repo, or run `railway up`. Railway redeploys automatically.
 
@@ -1078,7 +1082,7 @@ Push to your connected GitHub repo, or run `railway up`. Railway redeploys autom
 
 OpenHamClock is a React + Node.js application. The Node.js backend acts as an API proxy and data aggregator — all external API calls go through it, cached to reduce load on upstream services. The React frontend handles all rendering and user interaction.
 
-```
+```text
 openhamclock/
 ├── server.js                 # Node.js backend — API proxy, data aggregation, WSJT-X listener
 ├── config.js                 # Server configuration loader (.env → runtime config)
@@ -1153,7 +1157,7 @@ openhamclock/
 
 All external API calls go through the Node.js backend, which caches responses to reduce load on upstream services. The frontend never contacts external APIs directly (except PSKReporter MQTT and WWBOTA, which use WebSocket and Server-Sent Events connection from the browser respectivley).
 
-```
+```text
 NOAA SWPC ──┐
 POTA API ───┤
 WWFF API ───┤
