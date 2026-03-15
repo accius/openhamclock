@@ -104,6 +104,7 @@ export const PANEL_DEFINITIONS = {
   'world-map': { name: 'World Map', icon: '🗺️', description: 'Interactive world map' },
   'rig-control': { name: 'Rig Control', icon: '📻', description: 'Transceiver control and feedback' },
   'on-air': { name: 'On Air', icon: '🔴', description: 'Large TX status indicator' },
+  meshtastic: { name: 'Meshtastic', icon: '📡', description: 'Mesh network nodes and messages' },
 };
 
 // Load layout from localStorage

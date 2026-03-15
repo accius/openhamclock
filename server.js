@@ -251,6 +251,7 @@ require('./server/routes/contests')(app, ctx);
 require('./server/routes/aprs')(app, ctx);
 require('./server/routes/wsjtx')(app, ctx);
 require('./server/routes/n1mm')(app, ctx);
+require('./server/routes/meshtastic')(app, ctx);
 require('./server/routes/config-routes')(app, ctx);
 require('./server/routes/admin')(app, ctx);
 

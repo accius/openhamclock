@@ -31,6 +31,7 @@ import {
   KeybindingsPanel,
   DXLocalTime,
 } from './components';
+import MeshtasticPanel from './components/MeshtasticPanel.jsx';
 
 import { resetLayout, loadLayout, saveLayout } from './store/layoutStore.js';
 import { DockableLayoutProvider } from './contexts';
@@ -430,6 +431,7 @@ export const DockableApp = ({
       'on-air': { name: 'On Air', icon: '🔴' },
       'id-timer': { name: 'ID Timer', icon: '📢' },
       keybindings: { name: 'Keyboard Shortcuts', icon: '⌨️' },
+      meshtastic: { name: 'Meshtastic', icon: '📡' },
     };
   }, [isLocalInstall]);
 
@@ -956,6 +958,10 @@ export const DockableApp = ({
 
         case 'keybindings':
           content = <KeybindingsPanel keybindings={keybindingsList} nodeId={nodeId} />;
+          break;
+
+        case 'meshtastic':
+          content = <MeshtasticPanel />;
           break;
 
         default:
