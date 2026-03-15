@@ -2,7 +2,8 @@ name: Cleanup Failed Workflow Runs
 
 on:
   schedule:
-    - cron: "0 * * * *"   # Runs every hour
+    - cron: "0 9 * * 1" # Run at 0900 every Monday
+    
   workflow_dispatch:
 
 jobs:
