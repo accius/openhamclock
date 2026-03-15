@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { makeDraggable } from './makeDraggable.js';
+import { getGreatCirclePoints, replicatePath } from '../../utils/geo.js';
 
 export const metadata = {
   id: 'n3fjp_logged_qsos',
@@ -21,7 +22,7 @@ const STORAGE_MINUTES_KEY = 'n3fjp_display_minutes';
 const STORAGE_COLOR_KEY = 'n3fjp_line_color';
 
 // Sanitize CSS color values from localStorage to prevent innerHTML injection
-const sanitizeColor = (c) => /^(#[0-9a-f]{3,8}|[a-z]{3,20})$/i.test(c) ? c : '#3388ff';
+const sanitizeColor = (c) => (/^(#[0-9a-f]{3,8}|[a-z]{3,20})$/i.test(c) ? c : '#3388ff');
 
 export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
   const [layersRef, setLayersRef] = useState([]);
@@ -309,16 +310,15 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
         }, 0);
       }
 
-      // Draw line from station -> DX if we have station coords
+      // Draw great circle arc from station -> DX if we have station coords
       if (station) {
-        const line = L.polyline(
-          [
-            [station.lat, station.lon],
-            [lat, lon],
-          ],
-          { opacity, color: lineColor },
-        ).addTo(map);
-        newLayers.push(line);
+        const arcPoints = getGreatCirclePoints(station.lat, station.lon, lat, lon, 64);
+        const segments = replicatePath(arcPoints);
+        segments.forEach((seg) => {
+          if (seg.length < 2) return;
+          const line = L.polyline(seg, { opacity, color: lineColor, weight: 2 }).addTo(map);
+          newLayers.push(line);
+        });
       }
     });
 
