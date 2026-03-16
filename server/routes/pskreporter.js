@@ -492,7 +492,7 @@ module.exports = function (app, ctx) {
         // "Connection closed" errors are expected during reconnects —
         // the on('connect') handler will re-subscribe all active callsigns
         if (err.message && err.message.includes('onnection closed')) return;
-        console.error(`[PSK-MQTT] Subscribe error for ${call}:`, err.message);
+        console.error('[PSK-MQTT] Subscribe error for %s:', call, err.message);
       }
     });
   }
@@ -504,7 +504,7 @@ module.exports = function (app, ctx) {
     pskMqtt.client.unsubscribe([txTopic, rxTopic], (err) => {
       if (err) {
         if (err.message && err.message.includes('onnection closed')) return;
-        console.error(`[PSK-MQTT] Unsubscribe error for ${call}:`, err.message);
+        console.error('[PSK-MQTT] Unsubscribe error for %s:', call, err.message);
       }
     });
   }
@@ -525,9 +525,9 @@ module.exports = function (app, ctx) {
     pskMqtt.client.subscribe([txTopic, rxTopic], { qos: 0 }, (err) => {
       if (err) {
         if (err.message && err.message.includes('onnection closed')) return;
-        console.error(`[PSK-MQTT] Grid subscribe error for ${grid}:`, err.message);
+        console.error('[PSK-MQTT] Grid subscribe error for %s:', grid, err.message);
       } else {
-        console.log(`[PSK-MQTT] Subscribed grid ${grid}`);
+        console.log('[PSK-MQTT] Subscribed grid %s', grid);
       }
     });
   }
@@ -539,7 +539,7 @@ module.exports = function (app, ctx) {
     pskMqtt.client.unsubscribe([txTopic, rxTopic], (err) => {
       if (err) {
         if (err.message && err.message.includes('onnection closed')) return;
-        console.error(`[PSK-MQTT] Grid unsubscribe error for ${grid}:`, err.message);
+        console.error('[PSK-MQTT] Grid unsubscribe error for %s:', grid, err.message);
       }
     });
   }

@@ -36,14 +36,17 @@ module.exports = function (app, ctx) {
       let prev;
       do {
         prev = text;
-        text = text.replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '');
+        text = text.replace(/<script[^>]*>[\s\S]*?<\/script(?:\s[^>]*)?>/gi, '');
       } while (text !== prev);
       do {
         prev = text;
-        text = text.replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '');
+        text = text.replace(/<style[^>]*>[\s\S]*?<\/style(?:\s[^>]*)?>/gi, '');
       } while (text !== prev);
       // Strip any remaining opening script/style tags (malformed HTML)
-      text = text.replace(/<script[^>]*>/gi, '').replace(/<style[^>]*>/gi, '');
+      do {
+        prev = text;
+        text = text.replace(/<script[^>]*>/gi, '').replace(/<style[^>]*>/gi, '');
+      } while (text !== prev);
       text = text
         .replace(/<br\s*\/?>/gi, '\n') // Convert br to newlines
         .replace(/<[^>]+>/g, ' ') // Remove all HTML tags
