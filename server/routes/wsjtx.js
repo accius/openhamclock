@@ -481,11 +481,6 @@ module.exports = function (app, ctx) {
     // Reject dangerous msg.id values to prevent prototype pollution on state.clients
     if (msg.id && !isValidSessionId(msg.id)) return;
 
-    // Ensure clients is a prototype-less object to prevent prototype pollution
-    if (!state.clients || Object.getPrototypeOf(state.clients) !== null) {
-      state.clients = Object.assign(Object.create(null), state.clients || {});
-    }
-
     switch (msg.type) {
       case WSJTX_MSG.HEARTBEAT: {
         state.clients[msg.id] = {

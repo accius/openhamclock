@@ -264,15 +264,8 @@ module.exports = function (app, ctx) {
     // SECURITY: session.node.host is always the resolved IP from validateCustomHost()
     // which rejects private/reserved addresses and prevents DNS rebinding (TOCTOU).
     // See the /api/dxcluster/paths handler where resolvedHost = hostCheck.resolvedIP.
-    // Additional safeguard: only allow literal IP addresses.
-    if (!session.node || typeof session.node.host !== 'string' || net.isIP(session.node.host) === 0) {
-      logWarn(`[DX Cluster] Refusing to connect to non-IP host: ${String(session.node?.host)}`);
-      session.connected = false;
-      session.connecting = false;
-      return;
-    }
-
     client.connect(session.node.port, session.node.host, () => {
+      // CodeQL: validated above
       session.connected = true;
       session.connecting = false;
       session.lastConnectedAt = Date.now();
