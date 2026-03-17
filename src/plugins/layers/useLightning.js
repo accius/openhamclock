@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { makeDraggable } from './makeDraggable.js';
 
@@ -86,6 +87,8 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
   const STRIKE_RETENTION_MS = 1800000; // 30 min
 
   const unitsStr = allUnits.dist === 'metric' ? 'km' : 'miles';
+
+  const { t } = useTranslation();
 
   // Fetch WebSocket key from Blitzortung (fallback to 111)
   useEffect(() => {
@@ -453,7 +456,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
         const div = L.DomUtil.create('div', 'lightning-stats', panelWrapper);
 
         div.innerHTML = `
-          <div class="floating-panel-header">⚡️ Lightning Activity</div>
+          <div class="floating-panel-header">⚡️ {t('plugins.layers.lightning.name')}</div>
           <div style="opacity: 0.7; font-size: 10px;">Connecting...</div>
         `;
 
