@@ -456,7 +456,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
         const div = L.DomUtil.create('div', 'lightning-stats', panelWrapper);
 
         div.innerHTML = `
-          <div class="floating-panel-header">⚡️ {t('plugins.layers.lightning.name')}</div>
+          <div class="floating-panel-header">⚡️ { t('plugins.layers.lightning.name')}</div>
           <div style="opacity: 0.7; font-size: 10px;">Connecting...</div>
         `;
 
