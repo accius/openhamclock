@@ -18,7 +18,10 @@ function getMeshSessionId() {
     id = localStorage.getItem(key);
   } catch {}
   if (id && /^[a-zA-Z0-9_-]{8,64}$/.test(id)) return id;
-  id = crypto.randomUUID().replace(/-/g, '').slice(0, 32);
+  id =
+    typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().replace(/-/g, '').slice(0, 32)
+      : Array.from({ length: 32 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
   try {
     localStorage.setItem(key, id);
   } catch {}
