@@ -130,7 +130,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
             // Parse lightning strike data
             // Format: { time: timestamp, lat: latitude, lon: longitude, alt: altitude, pol: polarity, mds: signal }
-            if (data.time && data.lat && data.lon) {
+            if (data.time && data.lat != null && data.lon != null) {
               const strike = {
                 id: `strike_${data.time}_${data.lat}_${data.lon}`,
                 lat: parseFloat(data.lat),

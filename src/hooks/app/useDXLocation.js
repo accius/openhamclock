@@ -9,7 +9,7 @@ export default function useDXLocation(defaultDX) {
       const stored = localStorage.getItem('openhamclock_dxLocation');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.lat && parsed.lon) return parsed;
+        if (parsed.lat != null && parsed.lon != null) return parsed;
       }
     } catch (e) {}
     return defaultDX;

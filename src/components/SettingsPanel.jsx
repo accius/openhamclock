@@ -36,6 +36,7 @@ export const SettingsPanel = ({
   onToggleDeDxMarkers,
   onToggleDXNews,
   wakeLockStatus,
+  defaultTab,
 }) => {
   const { theme, setTheme, customTheme, updateCustomVar } = useTheme();
 
@@ -111,8 +112,15 @@ export const SettingsPanel = ({
 
   // Layer controls
   const [layers, setLayers] = useState([]);
-  const [activeTab, setActiveTab] = useState('station');
+  const [activeTab, setActiveTab] = useState(defaultTab || 'station');
   const [ctrlPressed, setCtrlPressed] = useState(false);
+
+  // Switch to requested tab when opened from sidebar
+  useEffect(() => {
+    if (isOpen && defaultTab) {
+      setActiveTab(defaultTab);
+    }
+  }, [isOpen, defaultTab]);
 
   // Profile management state
   const [profiles, setProfilesList] = useState({});
@@ -171,7 +179,7 @@ export const SettingsPanel = ({
       setRigPort(normalizeRigPort(config.rigControl?.port));
       setTuneEnabled(config.rigControl?.tuneEnabled || false);
       setAutoMode(config.rigControl?.autoMode !== false);
-      if (config.location?.lat && config.location?.lon) {
+      if (config.location?.lat != null && config.location?.lon != null) {
         const grid = calculateGridSquare(config.location.lat, config.location.lon);
         setGridSquare(grid);
         setConfigLocator(grid);
@@ -298,7 +306,7 @@ export const SettingsPanel = ({
   };
 
   useEffect(() => {
-    if (lat && lon) {
+    if (lat != null && lon != null) {
       const grid = calculateGridSquare(lat, lon);
       setGridSquare(grid);
       setConfigLocator(grid);
@@ -399,6 +407,16 @@ export const SettingsPanel = ({
     onClose();
   };
 
+  // Close on Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const Code = ({ children }) => (
@@ -417,6 +435,7 @@ export const SettingsPanel = ({
   };
   return (
     <div
+      onClick={onClose}
       style={{
         position: 'fixed',
         top: 0,
@@ -431,6 +450,7 @@ export const SettingsPanel = ({
       }}
     >
       <div
+        onClick={(e) => e.stopPropagation()}
         style={{
           background: 'var(--bg-secondary)',
           border: '2px solid var(--accent-amber)',
@@ -663,44 +683,6 @@ export const SettingsPanel = ({
                   boxSizing: 'border-box',
                 }}
               />
-            </div>
-
-            {/* Callsign Size*/}
-            <div style={{ marginBottom: '20px' }}>
-              <div>
-                <label
-                  style={{
-                    display: 'block',
-                    marginBottom: '6px',
-                    color: 'var(--text-muted)',
-                    fontSize: '11px',
-                    textTransform: 'uppercase',
-                  }}
-                >
-                  {t('station.settings.headerSize')}
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  value={isNaN(lat) ? '' : headerSize}
-                  onChange={(e) => {
-                    if (e.target.value >= 0.1 && e.target.value <= 2.0) {
-                      setheaderSize(e.target.value);
-                    }
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    background: 'var(--bg-tertiary)',
-                    border: '1px solid var(--border-color)',
-                    borderRadius: '6px',
-                    color: 'var(--text-primary)',
-                    fontSize: '14px',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              </div>
             </div>
 
             {/* Grid Square */}
@@ -2200,6 +2182,99 @@ export const SettingsPanel = ({
         {/* Display Tab */}
         {activeTab === 'display' && (
           <div>
+            {/* Header Sizing */}
+            <div style={{ marginBottom: '24px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
+                Header Size
+              </label>
+
+              {/* Live preview of header text at current scale */}
+              <div
+                style={{
+                  background: 'var(--bg-panel)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  marginBottom: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  overflow: 'hidden',
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: 'Orbitron, monospace',
+                    fontWeight: 900,
+                    color: 'var(--accent-amber)',
+                    fontSize: `${22 * headerSize}px`,
+                    lineHeight: 1.2,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {callsign || 'K0CJH'}
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontWeight: 700,
+                    color: 'var(--accent-cyan)',
+                    fontSize: `${24 * headerSize}px`,
+                    lineHeight: 1.2,
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  14:32
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'JetBrains Mono, monospace',
+                    fontSize: `${13 * headerSize}px`,
+                    color: 'var(--text-muted)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  SFI 158
+                </span>
+              </div>
+
+              {/* Slider */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Small</span>
+                <input
+                  type="range"
+                  min="0.5"
+                  max="4"
+                  step="0.1"
+                  value={headerSize}
+                  onChange={(e) => setheaderSize(parseFloat(e.target.value))}
+                  style={{ flex: 1, accentColor: 'var(--accent-amber)' }}
+                />
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>Large</span>
+              </div>
+              <div
+                style={{
+                  textAlign: 'center',
+                  fontSize: '12px',
+                  color: 'var(--accent-amber)',
+                  fontWeight: 600,
+                  fontFamily: 'JetBrains Mono, monospace',
+                  marginTop: '4px',
+                }}
+              >
+                {Number(headerSize).toFixed(1)}x
+              </div>
+            </div>
+
             {/* Layout */}
             <div style={{ marginBottom: '24px' }}>
               <label

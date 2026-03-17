@@ -151,7 +151,7 @@ export const WorldMap = ({
 
   // Calculate grid locator from DE location for plugins
   const deLocator = useMemo(() => {
-    if (!deLocation?.lat || !deLocation?.lon) return '';
+    if (deLocation?.lat == null || deLocation?.lon == null) return '';
     return calculateGridSquare(deLocation.lat, deLocation.lon);
   }, [deLocation?.lat, deLocation?.lon]);
 
@@ -200,7 +200,7 @@ export const WorldMap = ({
 
   // Expose DE location to window for plugins (e.g., RBN)
   useEffect(() => {
-    if (deLocation?.lat && deLocation?.lon) {
+    if (deLocation?.lat != null && deLocation?.lon != null) {
       window.deLocation = {
         lat: deLocation.lat,
         lon: deLocation.lon,
@@ -1266,7 +1266,7 @@ export const WorldMap = ({
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 
-        if (spot.lat && spot.lon) {
+        if (spot.lat != null && spot.lon != null) {
           // Green triangle marker for POTA activators — replicate across world copies
           replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
             const triangleIcon = L.divIcon({
@@ -1322,7 +1322,7 @@ export const WorldMap = ({
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 
-        if (spot.lat && spot.lon) {
+        if (spot.lat != null && spot.lon != null) {
           // Light green inverted triangle for WWFF activators — replicate across world copies
           replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
             const triangleIcon = L.divIcon({
@@ -1378,7 +1378,7 @@ export const WorldMap = ({
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 
-        if (spot.lat && spot.lon) {
+        if (spot.lat != null && spot.lon != null) {
           // Orange diamond marker for SOTA activators — replicate across world copies
           replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
             const diamondIcon = L.divIcon({
@@ -1434,7 +1434,7 @@ export const WorldMap = ({
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 
-        if (spot.lat && spot.lon) {
+        if (spot.lat != null && spot.lon != null) {
           // Purple square marker for WWBOTA activators — replicate across world copies
           replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
             const squareIcon = L.divIcon({

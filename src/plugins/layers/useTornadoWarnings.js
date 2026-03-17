@@ -1,5 +1,5 @@
 import i18n from '../../lang/i18n';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 // 🌪️ Tornado Warnings layer — NWS Weather Alerts API
 // Displays active tornado watches, warnings, and emergencies from the
@@ -17,7 +17,7 @@ export const metadata = {
   category: 'hazards',
   defaultEnabled: false,
   defaultOpacity: 0.7,
-  version: '1.0.0',
+  version: '1.1.0',
 };
 
 // NWS alert event types we care about, in priority order
@@ -29,12 +29,13 @@ const TORNADO_EVENTS = [
 ];
 
 // Color and style config per alert type
+// Warnings = red outlined polygons, Watches = amber outlined polygons
 const ALERT_STYLES = {
   'Tornado Emergency': {
     color: '#8B0000',
     fill: '#8B0000',
     weight: 3,
-    fillOpacity: 0.35,
+    fillOpacity: 0.5,
     icon: '‼️',
     size: 28,
     zOffset: 10200,
@@ -43,7 +44,7 @@ const ALERT_STYLES = {
     color: '#FF0000',
     fill: '#FF0000',
     weight: 3,
-    fillOpacity: 0.25,
+    fillOpacity: 0.5,
     icon: '🌪️',
     size: 24,
     zOffset: 10100,
@@ -52,7 +53,8 @@ const ALERT_STYLES = {
     color: '#FFAA00',
     fill: '#FFAA00',
     weight: 2,
-    fillOpacity: 0.15,
+    fillOpacity: 0.08,
+    fillOpacity: 0.5,
     icon: '👁️',
     size: 20,
     zOffset: 10000,
@@ -61,7 +63,7 @@ const ALERT_STYLES = {
     color: '#FF8C00',
     fill: '#FF8C00',
     weight: 2,
-    fillOpacity: 0.2,
+    fillOpacity: 0.5,
     icon: '⛈️',
     size: 20,
     zOffset: 9900,
@@ -72,7 +74,7 @@ const DEFAULT_STYLE = {
   color: '#FF6600',
   fill: '#FF6600',
   weight: 2,
-  fillOpacity: 0.15,
+  fillOpacity: 0.5,
   icon: '⚠️',
   size: 18,
   zOffset: 9800,
@@ -95,26 +97,36 @@ function polygonCentroid(ring) {
 }
 
 export function useLayer({ enabled = false, opacity = 0.7, map = null, lowMemoryMode = false }) {
-  const [layerItems, setLayerItems] = useState([]);
   const [alertData, setAlertData] = useState([]);
+  const layerItemsRef = useRef([]);
   const previousAlertIds = useRef(new Set());
   const isFirstLoad = useRef(true);
 
   const MAX_ALERTS = lowMemoryMode ? 30 : 150;
-  const REFRESH_INTERVAL = lowMemoryMode ? 180000 : 120000; // 3 min vs 2 min (alerts are time-critical)
+  const REFRESH_INTERVAL = lowMemoryMode ? 180000 : 120000;
+
+  // Remove all layers from map
+  const clearLayers = useCallback(() => {
+    layerItemsRef.current.forEach((item) => {
+      try {
+        map?.removeLayer(item);
+      } catch (e) {}
+    });
+    layerItemsRef.current = [];
+  }, [map]);
 
   // Fetch tornado alerts from NWS
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) {
+      setAlertData([]);
+      return;
+    }
 
     const fetchAlerts = async () => {
       try {
-        // Fetch active tornado-related alerts
-        // NWS API returns GeoJSON FeatureCollection
-        // NWS expects separate event= params for each event type
         const params = new URLSearchParams();
         TORNADO_EVENTS.forEach((e) => params.append('event', e));
-        params.append('limit', MAX_ALERTS);
+        params.append('status', 'actual');
         const response = await fetch(`https://api.weather.gov/alerts/active?${params.toString()}`, {
           headers: {
             'User-Agent': 'OpenHamClock (https://github.com/accius/openhamclock)',
@@ -139,13 +151,8 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, lowMemory
   useEffect(() => {
     if (!map || typeof L === 'undefined') return;
 
-    // Clear previous layers
-    layerItems.forEach((item) => {
-      try {
-        map.removeLayer(item);
-      } catch (e) {}
-    });
-    setLayerItems([]);
+    // Always clear previous layers first
+    clearLayers();
 
     if (!enabled || alertData.length === 0) return;
 
@@ -161,10 +168,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, lowMemory
       const style = getAlertStyle(event);
       const isNew = !isFirstLoad.current && !previousAlertIds.current.has(alertId);
 
-      // NWS alerts have geometry as Polygon or null
-      // If geometry is null, the alert uses UGC zone codes only (no polygon available)
       const geometry = feature.geometry;
-
       let centroid = null;
 
       // Draw polygon if geometry exists
@@ -203,7 +207,7 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, lowMemory
         });
       }
 
-      // If no geometry, try to skip (or we could geocode UGC zones, but that's complex)
+      // Skip alerts without renderable geometry
       if (!centroid) return;
 
       // Create centroid marker
@@ -235,7 +239,6 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, lowMemory
       }).addTo(map);
 
       // Format timing info
-      const effective = props.effective ? new Date(props.effective) : null;
       const expires = props.expires ? new Date(props.expires) : null;
       const now = Date.now();
       const expiresIn = expires ? Math.max(0, Math.floor((expires.getTime() - now) / 60000)) : null;
@@ -248,15 +251,12 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, lowMemory
               : `${Math.floor(expiresIn / 60)}h ${expiresIn % 60}m`
           : 'Unknown';
 
-      // Areas affected
       const areas = props.areaDesc || 'Unknown area';
       const sender = props.senderName || '';
       const headline = props.headline || '';
       const description = props.description || '';
-      // Truncate description for popup
       const shortDesc = description.length > 300 ? description.substring(0, 300) + '...' : description;
 
-      // Severity badge
       const severity = props.severity || '';
       const urgency = props.urgency || '';
       const certainty = props.certainty || '';
@@ -286,19 +286,13 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, lowMemory
     previousAlertIds.current = currentAlertIds;
     if (isFirstLoad.current) isFirstLoad.current = false;
 
-    setLayerItems(newItems);
+    layerItemsRef.current = newItems;
 
-    return () => {
-      newItems.forEach((item) => {
-        try {
-          map.removeLayer(item);
-        } catch (e) {}
-      });
-    };
-  }, [enabled, alertData, map, opacity]);
+    return () => clearLayers();
+  }, [enabled, alertData, map, opacity, clearLayers]);
 
   return {
-    markers: layerItems,
+    markers: layerItemsRef.current,
     alertCount: alertData.length,
   };
 }

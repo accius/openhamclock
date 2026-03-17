@@ -682,6 +682,24 @@ export default function ClassicLayout(props) {
               </span>
             </span>
           )}
+          {bandConditions?.extras?.solarWind && (
+            <span title="Solar Wind Speed">
+              <span style={{ color: 'var(--text-muted)' }}>SW </span>
+              <span
+                style={{
+                  color:
+                    parseFloat(bandConditions.extras.solarWind) >= 700
+                      ? 'var(--accent-red)'
+                      : parseFloat(bandConditions.extras.solarWind) >= 500
+                        ? 'var(--accent-amber)'
+                        : 'var(--accent-green)',
+                  fontWeight: '700',
+                }}
+              >
+                {bandConditions.extras.solarWind}
+              </span>
+            </span>
+          )}
           {bandConditions?.extras?.geomagField && (
             <span
               style={{
@@ -1243,6 +1261,24 @@ export default function ClassicLayout(props) {
                 }}
               >
                 {bandConditions.extras.aIndex}
+              </span>
+            </span>
+          )}
+          {bandConditions?.extras?.solarWind && (
+            <span title="Solar Wind Speed">
+              <span style={{ color: 'var(--text-muted)' }}>SW </span>
+              <span
+                style={{
+                  color:
+                    parseFloat(bandConditions.extras.solarWind) >= 700
+                      ? 'var(--accent-red)'
+                      : parseFloat(bandConditions.extras.solarWind) >= 500
+                        ? 'var(--accent-amber)'
+                        : 'var(--accent-green)',
+                  fontWeight: '700',
+                }}
+              >
+                {bandConditions.extras.solarWind}
               </span>
             </span>
           )}

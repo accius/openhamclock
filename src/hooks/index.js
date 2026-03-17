@@ -14,6 +14,7 @@ export { useSOTASpots } from './useSOTASpots.js';
 export { useWWBOTASpots } from './useWWBOTASpots.js';
 export { useContests } from './useContests.js';
 export { useWeather, convertWeatherData } from './useWeather.js';
+export { useWeatherAlerts } from './useWeatherAlerts.js';
 export { usePropagation } from './usePropagation.js';
 export { useMySpots } from './useMySpots.js';
 export { useDXpeditions } from './useDXpeditions.js';

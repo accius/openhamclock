@@ -78,7 +78,13 @@ export const useSatellites = (observerLocation) => {
           const elevation = satellite.radiansToDegrees(lookAngles.elevation);
           const rangeSat = lookAngles.rangeSat;
 
-          // Include all satellites we get TLE for (curated list only)
+          // Calculate speed from ECI velocity vector (km/s)
+          let speedKmH = 0;
+          if (positionAndVelocity.velocity) {
+            const v = positionAndVelocity.velocity;
+            speedKmH = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) * 3600; // km/s → km/h
+          }
+
           // Calculate orbit track (past 45 min and future 45 min = 90 min total)
           const track = [];
           const trackMinutes = 90;
@@ -107,6 +113,7 @@ export const useSatellites = (observerLocation) => {
             lat,
             lon,
             alt: Math.round(alt),
+            speedKmH: Math.round(speedKmH),
             azimuth: Math.round(azimuth),
             elevation: Math.round(elevation),
             range: Math.round(rangeSat),
@@ -116,6 +123,12 @@ export const useSatellites = (observerLocation) => {
             footprintRadius: Math.round(footprintRadius),
             mode: tle.mode || 'Unknown',
             color: tle.color || '#00ffff',
+            // Radio metadata from satellites.json
+            downlink: tle.downlink || '',
+            uplink: tle.uplink || '',
+            tone: tle.tone || '',
+            beacon: tle.beacon || '',
+            notes: tle.notes || '',
           });
         } catch (e) {
           // Skip satellites with invalid TLE

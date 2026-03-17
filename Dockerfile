@@ -36,10 +36,6 @@ ENV NODE_ENV=production
 ENV PORT=3000
 ENV NODE_OPTIONS="--max-old-space-size=2048 --expose-gc"
 
-# Create non-root user for running the application
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nodejs -u 1001 -G nodejs
-
 WORKDIR /app
 
 # Create /data directory for persistent stats (Railway volume mount point)
@@ -51,6 +47,7 @@ RUN npm install --omit=dev
 
 # Copy server files
 COPY server.js ./
+COPY server/ ./server/
 COPY config.js ./
 COPY src/server ./src/server
 
@@ -69,12 +66,6 @@ COPY --from=builder /app/public ./public
 
 # Create local data directory as fallback
 RUN mkdir -p /app/data
-
-# Set ownership so non-root user can write to data directories and .git (auto-update)
-RUN chown -R nodejs:nodejs /app /data
-
-# Run as non-root user
-USER nodejs
 
 # Expose ports (3000 = web, 2237 = WSJT-X UDP, 12060 = N1MM/DXLog)
 EXPOSE 3000

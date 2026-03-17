@@ -251,15 +251,22 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                     style="background:none; border:none; color:#ff4444; cursor:pointer; font-weight:bold; font-size:20px; padding: 0 5px;">✕</button>
           </div>
           <table style="width:100%; font-size:11px; border-collapse: collapse;">
-            <tr><td style="color:#888;">Az/El:</td><td align="right">${Math.round(sat.azimuth)}° / ${Math.round(sat.elevation)}°</td></tr>
-            <tr><td style="color:#888;">Range:</td><td align="right">${Math.round(sat.range * conv).toLocaleString()}${distUnit}</td></tr>
-            <tr><td style="color:#888;">Mode:</td><td align="right" style="color:#ffa500;">${sat.mode || 'N/A'}</td></tr>
-            <tr><td style="color:#888;">Status:</td>
-                <td align="right" class="${isVisible ? 'sat-visible-blink' : ''}">
-                  ${isVisible ? 'Visible' : '<span style="color:#666;">Below Horiz</span>'}
+            <tr><td style="color:#888; padding:2px 0;">Lat:</td><td align="right" style="padding:2px 0;">${sat.lat.toFixed(2)}°</td></tr>
+            <tr><td style="color:#888; padding:2px 0;">Lon:</td><td align="right" style="padding:2px 0;">${sat.lon.toFixed(2)}°</td></tr>
+            <tr><td style="color:#888; padding:2px 0;">Speed:</td><td align="right" style="padding:2px 0;">${sat.speedKmH ? `${Math.round(sat.speedKmH * 0.539957).toLocaleString()} kn/h / ${Math.round(sat.speedKmH * 0.621371).toLocaleString()} mph` : 'N/A'}</td></tr>
+            <tr><td style="color:#888; padding:2px 0;">Alt:</td><td align="right" style="padding:2px 0;">${Math.round(sat.alt).toLocaleString()} km</td></tr>
+            <tr><td style="color:#888; padding:2px 0;">Az/El:</td><td align="right" style="padding:2px 0;">${Math.round(sat.azimuth)}° / ${Math.round(sat.elevation)}°</td></tr>
+            <tr><td style="color:#888; padding:2px 0;">Mode:</td><td align="right" style="color:#ffa500; padding:2px 0;">${sat.mode || 'N/A'}</td></tr>
+            ${sat.downlink ? `<tr><td style="color:#888; padding:2px 0;">DownLink:</td><td align="right" style="color:#00ffcc; padding:2px 0;">${sat.downlink} MHz</td></tr>` : ''}
+            ${sat.uplink ? `<tr><td style="color:#888; padding:2px 0;">UpLink:</td><td align="right" style="color:#ffcc00; padding:2px 0;">${sat.uplink} MHz</td></tr>` : ''}
+            ${sat.tone ? `<tr><td style="color:#888; padding:2px 0;">Tone:</td><td align="right" style="padding:2px 0;">${sat.tone} Hz</td></tr>` : ''}
+            <tr><td style="color:#888; padding:2px 0;">Status:</td>
+                <td align="right" class="${isVisible ? 'sat-visible-blink' : ''}" style="padding:2px 0;">
+                  ${isVisible ? '<span style="color:#00ff88;">VISIBLE</span>' : '<span style="color:#666;">Below Horizon</span>'}
                 </td>
             </tr>
           </table>
+          ${sat.notes ? `<div style="font-size:9px; color:#666; margin-top:4px; font-style:italic;">${sat.notes}</div>` : ''}
         </div>
       `;
         })

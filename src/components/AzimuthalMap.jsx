@@ -425,7 +425,7 @@ export default function AzimuthalMap({
     // ── POTA spots ───────────────────────────────────────
     if (showPOTA && potaSpots?.length > 0) {
       potaSpots.forEach((spot) => {
-        if (!spot.lat || !spot.lon) return;
+        if (spot.lat == null || spot.lon == null) return;
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 
@@ -447,7 +447,7 @@ export default function AzimuthalMap({
     // ── WWFF spots ───────────────────────────────────────
     if (showWWFF && wwffSpots?.length > 0) {
       wwffSpots.forEach((spot) => {
-        if (!spot.lat || !spot.lon) return;
+        if (spot.lat == null || spot.lon == null) return;
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 
@@ -469,7 +469,7 @@ export default function AzimuthalMap({
     // ── SOTA spots ───────────────────────────────────────
     if (showSOTA && sotaSpots?.length > 0) {
       sotaSpots.forEach((spot) => {
-        if (!spot.lat || !spot.lon) return;
+        if (spot.lat == null || spot.lon == null) return;
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 

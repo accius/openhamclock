@@ -40,6 +40,8 @@ export default function ModernLayout(props) {
     localDate,
     localWeather,
     dxWeather,
+    localAlerts,
+    dxAlerts,
     spaceWeather,
     solarIndices,
     use12Hour,
@@ -215,7 +217,7 @@ export default function ModernLayout(props) {
           <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{deSunTimes.sunset}</span>
         </div>
       </div>
-      <WeatherPanel weatherData={localWeather} allUnits={config.allUnits} />
+      <WeatherPanel weatherData={localWeather} allUnits={config.allUnits} alerts={localAlerts} />
     </div>
   );
 
@@ -320,7 +322,7 @@ export default function ModernLayout(props) {
           <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
         </div>
       </div>
-      {showDxWeather && <WeatherPanel weatherData={dxWeather} allUnits={config.allUnits} />}
+      {showDxWeather && <WeatherPanel weatherData={dxWeather} allUnits={config.allUnits} alerts={dxAlerts} />}
     </div>
   );
 
@@ -352,7 +354,7 @@ export default function ModernLayout(props) {
       filters={pskFilters}
       onOpenFilters={() => setShowPSKFilters(true)}
       onShowOnMap={(r) => {
-        if (r.lat && r.lon) handleDXChange({ lat: r.lat, lon: r.lon });
+        if (r.lat != null && r.lon != null) handleDXChange({ lat: r.lat, lon: r.lon });
       }}
       wsjtxDecodes={wsjtx.decodes}
       wsjtxClients={wsjtx.clients}
@@ -495,7 +497,8 @@ export default function ModernLayout(props) {
           {pskPanel && mobileCard(pskPanel, 'psk', { minH: '250px' })}
 
           {/* Solar */}
-          {config.panels?.solar?.visible !== false && mobileCard(<SolarPanel solarIndices={solarIndices} />, 'solar')}
+          {config.panels?.solar?.visible !== false &&
+            mobileCard(<SolarPanel solarIndices={solarIndices} bandConditions={bandConditions} />, 'solar')}
 
           {/* Propagation */}
           {config.panels?.propagation?.visible !== false &&
@@ -557,7 +560,9 @@ export default function ModernLayout(props) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               {deLocationPanel}
               {dxLocationPanel}
-              {config.panels?.solar?.visible !== false && <SolarPanel solarIndices={solarIndices} />}
+              {config.panels?.solar?.visible !== false && (
+                <SolarPanel solarIndices={solarIndices} bandConditions={bandConditions} />
+              )}
               {config.panels?.propagation?.visible !== false && (
                 <PropagationPanel
                   propagation={propagation.data}
@@ -632,7 +637,9 @@ export default function ModernLayout(props) {
               <AnalogClockPanel currentTime={currentTime} sunTimes={deSunTimes} />
             </div>
           )}
-          {config.panels?.solar?.visible !== false && <SolarPanel solarIndices={solarIndices} />}
+          {config.panels?.solar?.visible !== false && (
+            <SolarPanel solarIndices={solarIndices} bandConditions={bandConditions} />
+          )}
           {config.panels?.propagation?.visible !== false && (
             <PropagationPanel
               propagation={propagation.data}

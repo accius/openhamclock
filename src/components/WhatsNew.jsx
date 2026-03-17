@@ -20,6 +20,77 @@ const ANNOUNCEMENT = {
 // Each entry: { version, date, heading, features: [...] }
 const CHANGELOG = [
   {
+    version: '15.7.2',
+    date: '2026-03-16',
+    heading:
+      'Bug fix release — resolves a crash when using WSJT-X and broken DX Cluster path lookups introduced in v15.7.1. Also makes Meshtastic MQTT connections per-user instead of shared globally.',
+    features: [
+      {
+        icon: '🐛',
+        title: 'Bug Fix — WSJT-X Crash & DX Cluster Paths',
+        desc: 'Fixed a missing variable (CALLSIGN_CACHE_TTL) that caused a fatal server crash when WSJT-X sent decoded spots, and broke DX Cluster great circle path lookups. Both are now resolved.',
+      },
+      {
+        icon: '📡',
+        title: 'Meshtastic MQTT — Per-User Sessions',
+        desc: 'MQTT broker connections are now per-user instead of shared globally. Each browser gets its own independent MQTT session with separate broker settings, topic filters, and credentials. Proxy and direct modes remain shared.',
+      },
+    ],
+  },
+  {
+    version: '15.7.1',
+    date: '2026-03-15',
+    heading:
+      'Major UI/UX overhaul with collapsible sidebar navigation, Meshtastic integration (beta), solar wind monitoring, NWS weather alerts, enhanced satellite tracking, custom fonts, and a full codebase refactor for contributor-friendly development.',
+    features: [
+      {
+        icon: '🎨',
+        title: 'UI/UX Overhaul — Sidebar Navigation',
+        desc: 'The settings and controls have moved from the top bar to a new side menu on the left. The sidebar can be pinned open, collapsed to a slim icon bar with verbose hover tooltips, or hidden entirely as a hamburger menu. All buttons, toggles, and panel visibility controls are now organized in the sidebar, keeping the header clean and focused on data.',
+      },
+      {
+        icon: '🔤',
+        title: 'Custom Fonts & Header Sizing',
+        desc: 'You can now change the font used throughout the interface and adjust the size of header bar information (callsign, clocks, solar indices) independently. Scale the header up for big-screen shack displays or down for compact tablet setups.',
+      },
+      {
+        icon: '🎨',
+        title: 'Enhanced Custom Theme',
+        desc: 'The custom theme editor now provides more granular control over accent colors, backgrounds, borders, and text colors. Better descriptions and a more intuitive color picker layout make it easier to build your own look.',
+      },
+      {
+        icon: '📡',
+        title: 'Meshtastic Integration (Beta)',
+        desc: 'New beta module for Meshtastic mesh networking. Connect to your Meshtastic node to see mesh network nodes on the map, exchange messages, and monitor network health. This is an early preview — feedback welcome.',
+      },
+      {
+        icon: '🛰️',
+        title: 'Enhanced Satellite Tracking',
+        desc: 'Satellite panel now shows more detailed orbital information including visibility windows, pass predictions, and improved tracking accuracy. Better filtering and selection controls for managing your satellite watchlist.',
+      },
+      {
+        icon: '🌬️',
+        title: 'Solar Wind Speed',
+        desc: 'Solar wind speed (from N0NBH/HamQSL) is now displayed in the header bar, Classic layout, and the Solar Indices panel. Color-coded: green (<400 km/s quiet), yellow (400-500 moderate), amber (500-700 elevated), red (>700 storm). High solar wind speed can disturb HF propagation even when other indices look favorable.',
+      },
+      {
+        icon: '⛈️',
+        title: 'NWS Weather Alerts',
+        desc: 'Active weather watches, warnings, and advisories from the National Weather Service now appear in the DE and DX weather panels for US locations. Covers tornado, hurricane, severe thunderstorm, flood, winter storm, heat, wind, freeze, and fog alerts. Sorted by severity, color-coded, with countdown to expiry. Alerts update every 5 minutes.',
+      },
+      {
+        icon: '🌍',
+        title: 'Translated Weather Forecast Days',
+        desc: 'Weather forecast day names (Monday, Tuesday, etc.) are now translated in all supported languages instead of showing the browser locale abbreviation. Includes full translations for German, Spanish, French, Italian, Japanese, and Korean, with English fallback for other languages.',
+      },
+      {
+        icon: '🏗️',
+        title: 'Codebase Refactor for Contributors',
+        desc: 'The monolithic codebase has been broken into manageable, well-organized modules — routes, hooks, components, layouts, and utilities are now in their own files with clear boundaries. This makes it much easier for contributors to find, understand, and modify specific features without navigating a single massive file.',
+      },
+    ],
+  },
+  {
     version: '15.6.5',
     date: '2026-03-09',
     heading:

@@ -21,6 +21,15 @@ export function useTheme() {
     } else {
       applyPrebuiltTheme(theme);
     }
+
+    // Restore saved font family (applies regardless of theme)
+    try {
+      const savedFont = localStorage.getItem('openhamclock_fontFamily');
+      if (savedFont) {
+        document.documentElement.style.setProperty('--font-body', savedFont);
+        document.body.style.fontFamily = savedFont;
+      }
+    } catch {}
   }, []);
 
   /* Theme switching */

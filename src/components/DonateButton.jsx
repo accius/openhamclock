@@ -8,7 +8,7 @@ const PAYPAL_URL = 'https://www.paypal.com/donate/?hosted_button_id=MMYPQBLA6SW6
 const COFFEE_URL = 'https://buymeacoffee.com/k0cjh';
 const MERCH_URL = 'https://openhamclock.printify.me';
 
-export default function DonateButton({ compact = false, fontSize = '12px', padding = '6px 10px' }) {
+export default function DonateButton({ compact = false, fontSize = '12px', padding = '6px 10px', tabIndex }) {
   const [open, setOpen] = useState(false);
 
   const close = useCallback(() => setOpen(false), []);
@@ -28,6 +28,7 @@ export default function DonateButton({ compact = false, fontSize = '12px', paddi
       <button
         onClick={() => setOpen(true)}
         title="Support OpenHamClock"
+        tabIndex={tabIndex}
         style={{
           background: 'linear-gradient(135deg, #ff813f 0%, #ffdd00 100%)',
           border: 'none',
@@ -39,11 +40,14 @@ export default function DonateButton({ compact = false, fontSize = '12px', paddi
           fontWeight: '600',
           display: 'flex',
           alignItems: 'center',
-          gap: '4px',
+          justifyContent: compact ? 'center' : 'flex-start',
+          gap: '6px',
           whiteSpace: 'nowrap',
+          width: '100%',
         }}
       >
-        ❤️{compact ? '' : ' Support Us'}
+        <span style={{ fontSize: '14px' }}>❤️</span>
+        {compact ? '' : ' Support Us'}
       </button>
 
       {open && (

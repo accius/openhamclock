@@ -363,9 +363,12 @@ body::before {
 /* ============================================
    LOCK LAYOUT PANEL
    ============================================ */
+.panel-layout-reset-button,
 .panel-layout-lock-button {
+  width: 90%;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
   color: var(--text-muted);
   background: var(--bg-tertiary);
@@ -376,6 +379,11 @@ body::before {
   font-family: 'JetBrains Mono', monospace;
   cursor: pointer;
   margin: 1em auto;
+}
+
+.panel-layout-reset-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .panel-layout-lock-button.locked {

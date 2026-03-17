@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { SettingsPanel, DXFilterManager, PSKFilterManager, KeybindingsPanel } from './components';
+import SidebarMenu from './components/SidebarMenu.jsx';
 
 import DockableLayout from './layouts/DockableLayout.jsx';
 import ClassicLayout from './layouts/ClassicLayout.jsx';
@@ -24,6 +25,7 @@ import {
   useWWBOTASpots,
   useContests,
   useWeather,
+  useWeatherAlerts,
   usePropagation,
   useMySpots,
   useDXpeditions,
@@ -60,6 +62,7 @@ const App = () => {
   const { config, configLoaded, showDxWeather, classicAnalogClock, handleSaveConfig } = useAppConfig();
 
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsDefaultTab, setSettingsDefaultTab] = useState(null);
   const [showDXFilters, setShowDXFilters] = useState(false);
   const [showPSKFilters, setShowPSKFilters] = useState(false);
   const [showKeybindings, setShowKeybindings] = useState(false);
@@ -268,6 +271,20 @@ const App = () => {
   const { wakeLockStatus } = useScreenWakeLock(config);
   const scale = useResponsiveScale();
   const isLocalInstall = useLocalInstall();
+
+  // Responsive breakpoint for sidebar/header behavior
+  const [breakpoint, setBreakpoint] = useState(() => {
+    const w = window.innerWidth;
+    return w <= 768 ? 'mobile' : w <= 1024 ? 'tablet' : 'desktop';
+  });
+  useEffect(() => {
+    const onResize = () => {
+      const w = window.innerWidth;
+      setBreakpoint(w <= 768 ? 'mobile' : w <= 1024 ? 'tablet' : 'desktop');
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
   useVersionCheck();
 
   // Data hooks
@@ -286,6 +303,8 @@ const App = () => {
   const satellites = useSatellites(config.location);
   const localWeather = useWeather(config.location, config.allUnits);
   const dxWeather = useWeather(dxLocation, config.allUnits);
+  const localAlerts = useWeatherAlerts(config.location);
+  const dxAlerts = useWeatherAlerts(dxLocation);
   const pskReporter = usePSKReporter(config.callsign, {
     minutes: config.lowMemoryMode ? 5 : 30,
     enabled: pskFilters?.filterMode === 'grid' ? !!config.locator : config.callsign !== 'N0CALL',
@@ -392,7 +411,7 @@ const App = () => {
 
     // Map all decodes with resolved coordinates (CQ, QSO exchanges, prefix estimates)
     // WorldMap deduplicates by callsign, keeping most recent
-    return wsjtx.decodes.filter((d) => d.lat && d.lon && d.timestamp >= ageCutoff);
+    return wsjtx.decodes.filter((d) => d.lat != null && d.lon != null && d.timestamp >= ageCutoff);
   }, [wsjtx.decodes]);
 
   // Map hover
@@ -455,6 +474,8 @@ const App = () => {
     dxSunTimes,
     localWeather,
     dxWeather,
+    localAlerts,
+    dxAlerts,
     spaceWeather,
     solarIndices,
     bandConditions,
@@ -520,6 +541,51 @@ const App = () => {
     keybindingsList,
   };
 
+  // Sidebar width reacts to mode changes (hidden=0, icons=40, pinned=180)
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    if (breakpoint === 'mobile') return 0;
+    const savedMode = localStorage.getItem('openhamclock_sidebarMode') || 'icons';
+    return savedMode === 'hidden'
+      ? 0
+      : savedMode === 'pinned'
+        ? SidebarMenu.EXPANDED_WIDTH
+        : SidebarMenu.COLLAPSED_WIDTH;
+  });
+
+  useEffect(() => {
+    const onModeChange = (e) => {
+      const m = e.detail?.mode;
+      if (m === 'hidden') setSidebarWidth(0);
+      else if (m === 'pinned') setSidebarWidth(SidebarMenu.EXPANDED_WIDTH);
+      else setSidebarWidth(SidebarMenu.COLLAPSED_WIDTH);
+    };
+    window.addEventListener('sidebar-mode-change', onModeChange);
+    return () => window.removeEventListener('sidebar-mode-change', onModeChange);
+  }, []);
+
+  useEffect(() => {
+    if (breakpoint === 'mobile') setSidebarWidth(0);
+  }, [breakpoint]);
+
+  // Dockable layout lock state (lifted here so sidebar can control it)
+  const [layoutLocked, setLayoutLocked] = useState(() => {
+    try {
+      return localStorage.getItem('openhamclock_layoutLocked') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleLayoutLock = useCallback(() => {
+    setLayoutLocked((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('openhamclock_layoutLocked', String(next));
+      } catch {}
+      return next;
+    });
+  }, []);
+
   return (
     <div
       style={{
@@ -530,11 +596,38 @@ const App = () => {
         justifyContent: 'center',
         alignItems: 'center',
         overflow: 'hidden',
+        paddingLeft: sidebarWidth,
+        boxSizing: 'border-box',
+        transition: 'padding-left 0.2s ease',
       }}
     >
+      {/* Sidebar Menu */}
+      <SidebarMenu
+        onSettingsClick={(tabId) => {
+          setSettingsDefaultTab(tabId || null);
+          setShowSettings(true);
+        }}
+        onFullscreenToggle={handleFullscreenToggle}
+        isFullscreen={isFullscreen}
+        onUpdateClick={handleUpdateClick}
+        showUpdateButton={isLocalInstall}
+        updateInProgress={updateInProgress}
+        breakpoint={breakpoint}
+        isDockable={config.layout === 'dockable'}
+        layoutLocked={layoutLocked}
+        onToggleLayoutLock={toggleLayoutLock}
+        onResetLayout={handleResetLayout}
+        version={config.version}
+      />
+
       <RigProvider rigConfig={config.rigControl || { enabled: false, host: 'http://localhost', port: 5555 }}>
         {config.layout === 'dockable' ? (
-          <DockableLayout key={layoutResetKey} {...layoutProps} />
+          <DockableLayout
+            key={layoutResetKey}
+            {...layoutProps}
+            layoutLocked={layoutLocked}
+            onToggleLayoutLock={toggleLayoutLock}
+          />
         ) : config.layout === 'classic' || config.layout === 'tablet' || config.layout === 'compact' ? (
           <ClassicLayout {...layoutProps} />
         ) : (
@@ -545,7 +638,11 @@ const App = () => {
       {/* Modals */}
       <SettingsPanel
         isOpen={showSettings}
-        onClose={() => setShowSettings(false)}
+        onClose={() => {
+          setShowSettings(false);
+          setSettingsDefaultTab(null);
+        }}
+        defaultTab={settingsDefaultTab}
         config={config}
         onSave={handleSaveConfig}
         onResetLayout={handleResetLayout}

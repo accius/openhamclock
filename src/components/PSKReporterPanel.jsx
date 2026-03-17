@@ -518,7 +518,7 @@ const PSKReporterPanel = ({
                       padding: '3px 4px',
                       borderRadius: '2px',
                       background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                      cursor: report.lat && report.lon ? 'pointer' : 'default',
+                      cursor: report.lat != null && report.lon != null ? 'pointer' : 'default',
                     }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(68,136,255,0.12)')}
                     onMouseLeave={(e) =>
@@ -770,7 +770,7 @@ const PSKReporterPanel = ({
                         padding: '2px 2px',
                         borderBottom: '1px solid var(--border-color)',
                         alignItems: 'baseline',
-                        cursor: d.lat ? 'pointer' : 'default',
+                        cursor: d.lat != null ? 'pointer' : 'default',
                       }}
                     >
                       <span style={{ color: 'var(--text-muted)', minWidth: '42px', fontSize: '10px' }}>{d.time}</span>

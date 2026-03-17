@@ -19,35 +19,40 @@ app.use(express.json());
 const CONFIG = {
   // DX Spider nodes to try (in order)
   nodes: [
-    { host: 'dxspider.co.uk', port: 7300, name: 'DX Spider UK (G6NHU)' },
     { host: 'dxc.nc7j.com', port: 7373, name: 'NC7J' },
     { host: 'dxc.ai9t.com', port: 7373, name: 'AI9T' },
     { host: 'dxc.w6cua.org', port: 7300, name: 'W6CUA' },
+    { host: 'dxspider.co.uk', port: 7300, name: 'DX Spider UK (G6NHU)' },
   ],
   // Callsign with SSID - use env var as-is, or default to OPENHAMCLOCK-56
   // Set CALLSIGN=YOURCALL-56 for production, CALLSIGN=YOURCALL-57 for staging
-  callsign: process.env.CALLSIGN || 'OPENHAMCLOCK-56',
+  callsign: process.env.CALLSIGN?.trim() || 'OPENHAMCLOCK-56',
   spotRetentionMs: 30 * 60 * 1000, // 30 minutes
   reconnectDelayMs: 10000, // 10 seconds between reconnect attempts
   maxReconnectAttempts: 3,
   cleanupIntervalMs: 60000, // 1 minute
   keepAliveIntervalMs: 120000, // 2 minutes - send keepalive
+  activityTimeoutMs: 180000, // 3 minutes - if no spots, assume dead and failover
+  authTimeoutMs: 30000, // 30 seconds - if no prompt after login, try next node
 };
 
 // State
 let spots = [];
 let client = null;
 let connected = false;
-let connecting = false; // NEW: Prevent concurrent connection attempts
+let connecting = false; // Prevent concurrent connection attempts
+let authenticated = false; // Track whether login completed
 let currentNode = null;
 let currentNodeIndex = 0;
 let reconnectAttempts = 0;
 let lastSpotTime = null;
+let lastDataTime = null; // Track ANY data received from node
 let totalSpotsReceived = 0;
 let connectionStartTime = null;
 let buffer = '';
 let reconnectTimer = null;
 let keepAliveTimer = null;
+let activityWatchdog = null; // Fires if no spots arrive within threshold
 
 // Logging helper with log levels
 // LOG_LEVEL: 'debug' = verbose, 'info' = normal, 'warn' = warnings+errors only
@@ -60,12 +65,14 @@ const CATEGORY_LEVELS = {
   SPOT: 'debug', // Per-spot logging is debug-only
   CLEANUP: 'debug', // Periodic cleanup is debug-only
   KEEPALIVE: 'debug', // Keepalive pings are debug-only
+  DATA: 'debug', // Non-spot telnet data is debug-only
   CMD: 'debug', // Command logging is debug-only
   AUTH: 'info', // Auth events are informational
   CONNECT: 'info', // Connection events are informational
   CLOSE: 'info',
   RECONNECT: 'info',
   FAILOVER: 'info',
+  ACTIVITY: 'info',
   API: 'info',
   START: 'info',
   CONFIG: 'info',
@@ -224,6 +231,12 @@ const connect = () => {
     client = null;
   }
 
+  // Clear any stale watchdog from previous connection
+  if (activityWatchdog) {
+    clearTimeout(activityWatchdog);
+    activityWatchdog = null;
+  }
+
   const node = CONFIG.nodes[currentNodeIndex];
   currentNode = node;
 
@@ -235,9 +248,12 @@ const connect = () => {
   client.connect(node.port, node.host, () => {
     connected = true;
     connecting = false;
-    reconnectAttempts = 0;
+    authenticated = false;
     connectionStartTime = new Date();
+    lastDataTime = Date.now();
     buffer = '';
+    // NOTE: reconnectAttempts is NOT reset here — only when spots actually arrive.
+    // This prevents infinite loops on nodes that accept TCP but kick after auth.
     log('CONNECT', `Connected to ${node.name}`);
 
     // Send login after short delay
@@ -258,10 +274,21 @@ const connect = () => {
               if (client && connected) {
                 client.write('set/dx\r\n');
                 log('CMD', 'Sent: set/dx (enable spot stream)');
+
+                // Start the activity watchdog now that commands are sent
+                // If no spots arrive within activityTimeoutMs, we'll failover
+                resetActivityWatchdog();
               }
             }, 2000);
           }
         }, 2000);
+
+        // Auth timeout: if node doesn't respond with a prompt, log a warning
+        setTimeout(() => {
+          if (connected && !authenticated) {
+            log('AUTH', `No auth confirmation within ${CONFIG.authTimeoutMs / 1000}s — node may be unresponsive`);
+          }
+        }, CONFIG.authTimeoutMs);
       }
     }, 1000);
 
@@ -271,6 +298,7 @@ const connect = () => {
 
   client.on('data', (data) => {
     buffer += data.toString();
+    lastDataTime = Date.now();
 
     // Process complete lines
     const lines = buffer.split('\n');
@@ -285,8 +313,26 @@ const connect = () => {
         const spot = parseSpotLine(trimmed);
         if (spot) {
           addSpot(spot);
+          resetActivityWatchdog(); // Got a spot, connection is healthy
+          // Connection proved healthy — reset the failover counter
+          if (reconnectAttempts > 0) {
+            log('CONNECT', `Connection healthy (spots flowing), resetting failover counter`);
+            reconnectAttempts = 0;
+          }
         }
+        continue;
       }
+
+      // Detect auth completion - DX Spider sends "callsign de NODE >" prompt
+      if (!authenticated && /\sde\s+\S+\s*>/.test(trimmed)) {
+        authenticated = true;
+        log('AUTH', `Login confirmed: ${trimmed.substring(0, 80)}`);
+        resetActivityWatchdog(); // Auth done, start watching for spots
+        continue;
+      }
+
+      // Log non-spot data so we can diagnose issues (debug level)
+      log('DATA', trimmed.substring(0, 120));
     }
   });
 
@@ -309,6 +355,48 @@ const connect = () => {
     connecting = false;
     handleDisconnect();
   });
+};
+
+// Reset the activity watchdog - called when spots arrive
+const resetActivityWatchdog = () => {
+  if (activityWatchdog) {
+    clearTimeout(activityWatchdog);
+  }
+
+  activityWatchdog = setTimeout(() => {
+    if (connected) {
+      log('ACTIVITY', `No spots received in ${CONFIG.activityTimeoutMs / 1000}s — forcing failover`);
+      // Skip straight to next node instead of retrying the same one
+      currentNodeIndex = (currentNodeIndex + 1) % CONFIG.nodes.length;
+      reconnectAttempts = 0;
+      log('FAILOVER', `Switching to node: ${CONFIG.nodes[currentNodeIndex].name}`);
+
+      // Force disconnect and reconnect
+      if (client) {
+        try {
+          client.removeAllListeners();
+          client.destroy();
+        } catch (e) {}
+        client = null;
+      }
+      connected = false;
+      connecting = false;
+      authenticated = false;
+
+      if (keepAliveTimer) {
+        clearInterval(keepAliveTimer);
+        keepAliveTimer = null;
+      }
+
+      // Clear any pending reconnect and connect immediately
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+
+      connect();
+    }
+  }, CONFIG.activityTimeoutMs);
 };
 
 // Start keepalive timer
@@ -339,15 +427,27 @@ const handleDisconnect = () => {
 
   connected = false;
   connecting = false;
+  authenticated = false;
 
   if (keepAliveTimer) {
     clearInterval(keepAliveTimer);
     keepAliveTimer = null;
   }
 
+  if (activityWatchdog) {
+    clearTimeout(activityWatchdog);
+    activityWatchdog = null;
+  }
+
   // Don't schedule another reconnect if one is already pending
   if (reconnectTimer) {
     return;
+  }
+
+  // Detect rapid disconnect (kicked within seconds of connecting)
+  const connectionDuration = connectionStartTime ? Date.now() - connectionStartTime.getTime() : 0;
+  if (connectionDuration > 0 && connectionDuration < 15000) {
+    log('RECONNECT', `Rapid disconnect from ${currentNode?.name} after ${Math.round(connectionDuration / 1000)}s (likely auth rejection or SSID conflict)`);
   }
 
   reconnectAttempts++;
@@ -356,7 +456,7 @@ const handleDisconnect = () => {
     // Try next node
     currentNodeIndex = (currentNodeIndex + 1) % CONFIG.nodes.length;
     reconnectAttempts = 0;
-    log('FAILOVER', `Switching to node: ${CONFIG.nodes[currentNodeIndex].name}`);
+    log('FAILOVER', `${CONFIG.maxReconnectAttempts} consecutive failures — switching to node: ${CONFIG.nodes[currentNodeIndex].name}`);
   }
 
   log('RECONNECT', `Attempting reconnect in ${CONFIG.reconnectDelayMs}ms (attempt ${reconnectAttempts})`);
@@ -376,10 +476,12 @@ app.get('/health', (req, res) => {
   res.json({
     status: 'ok',
     connected,
+    authenticated,
     currentNode: currentNode?.name || 'none',
     spotsInMemory: spots.length,
     totalSpotsReceived,
     lastSpotTime: lastSpotTime?.toISOString() || null,
+    lastDataTime: lastDataTime ? new Date(lastDataTime).toISOString() : null,
     connectionUptime: connectionStartTime
       ? Math.floor((Date.now() - connectionStartTime.getTime()) / 1000) + 's'
       : null,
@@ -544,6 +646,7 @@ setInterval(cleanupSpots, CONFIG.cleanupIntervalMs);
 app.listen(PORT, () => {
   log('START', `DX Spider Proxy listening on port ${PORT}`);
   log('CONFIG', `Callsign: ${CONFIG.callsign}`);
+  log('CONFIG', `CALLSIGN env var: ${process.env.CALLSIGN === undefined ? '(not set)' : `"${process.env.CALLSIGN}"`}`);
   log('CONFIG', `Spot retention: ${CONFIG.spotRetentionMs / 60000} minutes`);
   log('CONFIG', `Available nodes: ${CONFIG.nodes.map((n) => n.name).join(', ')}`);
 

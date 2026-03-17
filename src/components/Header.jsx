@@ -32,18 +32,11 @@ export const Header = ({
   const isMobile = breakpoint === 'mobile';
   const isTablet = breakpoint === 'tablet';
 
-  const callsignSize =
-    config.headerSize > 0.1 && config.headerSize <= 2
-      ? `${(isMobile ? 16 : 22) * config.headerSize}px`
-      : isMobile
-        ? '16px'
-        : '22px';
-  const clockSize =
-    config.headerSize > 0.1 && config.headerSize <= 2
-      ? `${(isMobile ? 16 : 24) * config.headerSize}px`
-      : isMobile
-        ? '16px'
-        : '24px';
+  const scale = config.headerSize > 0 && config.headerSize <= 10 ? config.headerSize : 1;
+  const callsignSize = `${(isMobile ? 16 : 22) * scale}px`;
+  const clockSize = `${(isMobile ? 16 : 24) * scale}px`;
+  const statsSize = `${(isMobile ? 10 : 13) * scale}px`;
+  const labelSize = `${(isMobile ? 10 : 13) * scale}px`;
 
   return (
     <div
@@ -113,9 +106,7 @@ export const Header = ({
 
       {/* UTC Clock */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
-        <span style={{ fontSize: isMobile ? '10px' : '13px', color: 'var(--accent-cyan)', fontWeight: '600' }}>
-          UTC
-        </span>
+        <span style={{ fontSize: labelSize, color: 'var(--accent-cyan)', fontWeight: '600' }}>UTC</span>
         <span
           style={{
             fontSize: clockSize,
@@ -129,7 +120,9 @@ export const Header = ({
           {utcTime}
         </span>
         {!isMobile && (
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{utcDate}</span>
+          <span style={{ fontSize: `${12 * scale}px`, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            {utcDate}
+          </span>
         )}
       </div>
 
@@ -139,9 +132,7 @@ export const Header = ({
         onClick={onTimeFormatToggle}
         title={`Click to switch to ${use12Hour ? '24-hour' : '12-hour'} format`}
       >
-        <span style={{ fontSize: isMobile ? '10px' : '13px', color: 'var(--accent-amber)', fontWeight: '600' }}>
-          LOCAL
-        </span>
+        <span style={{ fontSize: labelSize, color: 'var(--accent-amber)', fontWeight: '600' }}>LOCAL</span>
         <span
           style={{
             fontSize: clockSize,
@@ -155,7 +146,9 @@ export const Header = ({
           {localTime}
         </span>
         {!isMobile && (
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>{localDate}</span>
+          <span style={{ fontSize: `${12 * scale}px`, color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+            {localDate}
+          </span>
         )}
       </div>
 
@@ -166,7 +159,7 @@ export const Header = ({
             display: 'flex',
             alignItems: 'center',
             gap: isTablet ? '6px' : '12px',
-            fontSize: isTablet ? '11px' : '13px',
+            fontSize: statsSize,
             fontFamily: 'JetBrains Mono, Consolas, monospace',
             whiteSpace: 'nowrap',
             flexShrink: 1,
@@ -232,6 +225,24 @@ export const Header = ({
               </span>
             </div>
           )}
+          {!isTablet && bandConditions?.extras?.solarWind && (
+            <div title="Solar Wind Speed">
+              <span style={{ color: 'var(--text-muted)' }}>SW </span>
+              <span
+                style={{
+                  color:
+                    parseFloat(bandConditions.extras.solarWind) >= 700
+                      ? 'var(--accent-red)'
+                      : parseFloat(bandConditions.extras.solarWind) >= 500
+                        ? 'var(--accent-amber)'
+                        : 'var(--accent-green)',
+                  fontWeight: '700',
+                }}
+              >
+                {bandConditions.extras.solarWind}
+              </span>
+            </div>
+          )}
           {!isTablet && bandConditions?.extras?.geomagField && (
             <div>
               <span
@@ -254,64 +265,41 @@ export const Header = ({
         </div>
       )}
 
-      {/* Buttons */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '6px', flexShrink: 0 }}>
-        {!isFullscreen && !isMobile && (
-          <DonateButton compact={isTablet} fontSize="12px" padding={isTablet ? '4px 6px' : '6px 10px'} />
-        )}
-        {showUpdateButton && !isMobile && (
+      {/* Buttons — only on mobile (desktop/tablet uses sidebar) */}
+      {isMobile && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           <button
-            onClick={onUpdateClick}
-            disabled={updateInProgress}
+            onClick={onSettingsClick}
             style={{
-              background: updateInProgress ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
-              border: `1px solid ${updateInProgress ? 'var(--accent-green)' : 'var(--border-color)'}`,
-              padding: '6px 10px',
+              background: 'var(--bg-tertiary)',
+              border: '1px solid var(--border-color)',
+              padding: '4px 8px',
               borderRadius: '4px',
-              color: updateInProgress ? 'var(--accent-green)' : 'var(--text-secondary)',
+              color: 'var(--text-secondary)',
               fontSize: '12px',
-              cursor: updateInProgress ? 'wait' : 'pointer',
+              cursor: 'pointer',
               whiteSpace: 'nowrap',
             }}
-            title="Run update now (server will restart)"
           >
-            {updateInProgress ? 'UPDATING...' : 'UPDATE'}
+            <IconGear size={12} />
           </button>
-        )}
-        <button
-          onClick={onSettingsClick}
-          style={{
-            background: 'var(--bg-tertiary)',
-            border: '1px solid var(--border-color)',
-            padding: isMobile ? '4px 8px' : '6px 10px',
-            borderRadius: '4px',
-            color: 'var(--text-secondary)',
-            fontSize: '12px',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          <IconGear size={12} style={{ verticalAlign: 'middle', marginRight: isMobile ? 0 : '4px' }} />
-          {!isMobile && 'Settings'}
-        </button>
-        <button
-          onClick={onFullscreenToggle}
-          style={{
-            background: isFullscreen ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
-            border: `1px solid ${isFullscreen ? 'var(--accent-green)' : 'var(--border-color)'}`,
-            padding: isMobile ? '4px 8px' : '6px 10px',
-            borderRadius: '4px',
-            color: isFullscreen ? 'var(--accent-green)' : 'var(--text-secondary)',
-            fontSize: '12px',
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-          title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
-        >
-          {isFullscreen ? <IconShrink size={12} /> : <IconExpand size={12} />}
-          {!isMobile && (isFullscreen ? ' Exit' : ' Full')}
-        </button>
-      </div>
+          <button
+            onClick={onFullscreenToggle}
+            style={{
+              background: isFullscreen ? 'rgba(0, 255, 136, 0.15)' : 'var(--bg-tertiary)',
+              border: `1px solid ${isFullscreen ? 'var(--accent-green)' : 'var(--border-color)'}`,
+              padding: '4px 8px',
+              borderRadius: '4px',
+              color: isFullscreen ? 'var(--accent-green)' : 'var(--text-secondary)',
+              fontSize: '12px',
+              cursor: 'pointer',
+            }}
+            title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
+          >
+            {isFullscreen ? <IconShrink size={12} /> : <IconExpand size={12} />}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

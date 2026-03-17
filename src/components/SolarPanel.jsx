@@ -43,7 +43,7 @@ const formatFlux = (flux) => {
   return `${cls.letter}${base.toFixed(1)}`;
 };
 
-export const SolarPanel = ({ solarIndices, forcedMode }) => {
+export const SolarPanel = ({ solarIndices, bandConditions, forcedMode }) => {
   const [internalMode, setMode] = useState(() => {
     try {
       const saved = localStorage.getItem('openhamclock_solarPanelMode');
@@ -989,6 +989,51 @@ export const SolarPanel = ({ solarIndices, forcedMode }) => {
                   )}
                 </div>
               </div>
+
+              {/* Solar Wind Row */}
+              {bandConditions?.extras?.solarWind && (
+                <div
+                  style={{
+                    background: 'var(--bg-tertiary)',
+                    borderRadius: '6px',
+                    padding: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                  }}
+                >
+                  <div style={{ minWidth: '60px' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--text-muted)' }}>Solar Wind</div>
+                    <div
+                      style={{
+                        fontSize: '22px',
+                        fontWeight: '700',
+                        color:
+                          parseFloat(bandConditions.extras.solarWind) >= 700
+                            ? '#ff0000'
+                            : parseFloat(bandConditions.extras.solarWind) >= 500
+                              ? '#ff6600'
+                              : parseFloat(bandConditions.extras.solarWind) >= 400
+                                ? '#ffcc00'
+                                : '#00ff88',
+                        fontFamily: 'Orbitron, monospace',
+                      }}
+                    >
+                      {parseFloat(bandConditions.extras.solarWind) || '--'}
+                    </div>
+                    <div style={{ fontSize: '8px', color: 'var(--text-muted)', lineHeight: 1.2 }}>km/s</div>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: '9px', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                      Speed of charged particles from the sun.
+                      <br />
+                      {'<'}400 quiet · 400–500 moderate · {'>'} 500 elevated
+                      <br />
+                      High speed can disturb HF propagation.
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px' }}>
