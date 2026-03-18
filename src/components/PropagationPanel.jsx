@@ -188,19 +188,28 @@ export const PropagationPanel = ({
   };
 
   return (
-    <div
-      className="panel"
-      style={{ cursor: forcedMode ? 'default' : 'pointer' }}
-      onClick={forcedMode ? undefined : cycleViewMode}
-    >
+    <div className="panel">
       <div className="panel-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>
           {viewMode === 'bands' ? t('band.conditions') : viewMode === 'health' ? '📶 Band Health' : '⌇ VOACAP'}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {!forcedMode && (
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-              {viewModeLabels[viewMode]} • {t('propagation.view.toggle')}
+            <span
+              onClick={cycleViewMode}
+              style={{
+                fontSize: '10px',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '1px 6px',
+                borderRadius: '3px',
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                userSelect: 'none',
+              }}
+              title={t('propagation.view.toggle')}
+            >
+              {viewModeLabels[viewMode]} ▸
             </span>
           )}
           {/* Auto-rotate controls */}
