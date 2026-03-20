@@ -1990,7 +1990,7 @@ export const WorldMap = ({
           Pass map={null} when no active map — hooks inside guard against it. */}
       {getAllLayers().map((layerDef) => (
         <PluginLayer
-          key={`${layerDef.id}-${isAzimuthal ? 'az' : 'merc'}`}
+          key={layerDef.id}
           plugin={layerDef}
           enabled={pluginLayerStates[layerDef.id]?.enabled ?? layerDef.defaultEnabled}
           opacity={pluginLayerStates[layerDef.id]?.opacity ?? layerDef.defaultOpacity}
