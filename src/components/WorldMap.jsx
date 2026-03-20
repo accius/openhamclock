@@ -2395,66 +2395,6 @@ export const WorldMap = ({
               })}
             </div>
           )}
-          {showPOTA && (
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <span
-                style={{
-                  background: '#44cc44',
-                  color: '#000',
-                  padding: '2px 5px',
-                  borderRadius: '3px',
-                  fontWeight: '600',
-                }}
-              >
-                ▲&nbsp;POTA
-              </span>
-            </div>
-          )}
-          {showWWFF && (
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <span
-                style={{
-                  background: '#a3f3a3',
-                  color: '#000',
-                  padding: '2px 5px',
-                  borderRadius: '3px',
-                  fontWeight: '600',
-                }}
-              >
-                ▼&nbsp;WWFF
-              </span>
-            </div>
-          )}
-          {showSOTA && (
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <span
-                style={{
-                  background: '#ff9632',
-                  color: '#000',
-                  padding: '2px 5px',
-                  borderRadius: '3px',
-                  fontWeight: '600',
-                }}
-              >
-                ◆&nbsp;SOTA
-              </span>
-            </div>
-          )}
-          {showWWBOTA && (
-            <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-              <span
-                style={{
-                  background: '#8b7fff',
-                  color: '#000',
-                  padding: '2px 5px',
-                  borderRadius: '3px',
-                  fontWeight: '600',
-                }}
-              >
-                ■&nbsp;WWBOTA
-              </span>
-            </div>
-          )}
         </div>
       )}
       {!hideOverlays && !mapUiHidden && showLegend && editingBand && (

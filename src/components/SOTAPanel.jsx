@@ -23,6 +23,7 @@ export const SOTAPanel = ({
     <ActivatePanel
       name={'SOTA'}
       shade={'#ff9632'}
+      shape="◆"
       data={data}
       loading={loading}
       lastUpdated={lastUpdated}

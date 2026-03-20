@@ -23,6 +23,7 @@ export const POTAPanel = ({
     <ActivatePanel
       name={'POTA'}
       shade={'#44cc44'}
+      shape="▲"
       data={data}
       loading={loading}
       lastUpdated={lastUpdated}

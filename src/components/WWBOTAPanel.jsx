@@ -23,6 +23,7 @@ export const WWBOTAPanel = ({
     <ActivatePanel
       name={'WWBOTA'}
       shade={'#8b7fff'}
+      shape="■"
       data={data}
       loading={loading}
       lastUpdated={lastUpdated}

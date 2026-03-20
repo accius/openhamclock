@@ -9,6 +9,7 @@ import { IconSearch, IconRefresh, IconMap, IconTag } from './Icons.jsx';
 export const ActivatePanel = ({
   name,
   shade,
+  shape,
   data,
   loading,
   lastUpdated,
@@ -48,7 +49,28 @@ export const ActivatePanel = ({
         }}
       >
         <span>
-          ▲ {name} ACTIVATORS {data?.length > 0 ? `(${data.length})` : ''}
+          {shape && shade ? (
+            <span
+              style={{
+                display: 'inline-block',
+                background: shade,
+                color: '#000',
+                padding: '1px 4px',
+                borderRadius: '3px',
+                fontWeight: '700',
+                fontSize: '10px',
+                marginRight: '4px',
+                lineHeight: 1.2,
+                verticalAlign: 'middle',
+              }}
+              title={`Map marker: ${shade}`}
+            >
+              {shape}
+            </span>
+          ) : (
+            '▲ '
+          )}
+          {name} ACTIVATORS {data?.length > 0 ? `(${data.length})` : ''}
           {checkedTime && (
             <span
               style={{
