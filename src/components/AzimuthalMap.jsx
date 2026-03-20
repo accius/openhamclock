@@ -270,9 +270,9 @@ export default function AzimuthalMap({
 
     // ── Globe background: tile imagery or GeoJSON polygons ──
     let tileImageDrawn = false;
-    if (useTiles && reprojRef.current && tilesReady) {
+    if (useTiles && reprojRef.current && tilesReady && reprojRef.current.isReady()) {
       try {
-        const imageData = reprojRef.current.render({
+        const imageData = reprojRef.current.reprojectSync({
           canvasWidth: size.w,
           canvasHeight: size.h,
           centerLat: lat0,
@@ -283,9 +283,7 @@ export default function AzimuthalMap({
           halfRes: interactingRef.current,
           lowMemory: lowMemoryMode,
         });
-        if (imageData && imageData.then) {
-          // async — tiles not ready yet, fall through to GeoJSON
-        } else if (imageData) {
+        if (imageData) {
           ctx.putImageData(imageData, 0, 0);
           tileImageDrawn = true;
         }

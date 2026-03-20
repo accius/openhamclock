@@ -278,6 +278,17 @@ export function createTileReprojector({ tileUrlTemplate, onProgress }) {
       return reproject({ canvasWidth, canvasHeight, centerLat, centerLon, zoom, panX, panY, halfRes, lowMemory });
     },
 
+    // Synchronous reprojection — only works if equirectangular canvas is already built
+    reprojectSync(params) {
+      if (destroyed || !eqCanvas || !eqCtx) return null;
+      return reproject(params);
+    },
+
+    // Whether the equirectangular tile canvas has been built
+    isReady() {
+      return !!eqCanvas && cachedTileZoom >= 0 && !loading;
+    },
+
     setUrl(template) {
       currentTemplate = template;
     },
