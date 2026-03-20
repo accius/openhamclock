@@ -90,15 +90,22 @@ function hourAngleRad(solar, lonDeg) {
 function generateBaseTerminator(solar, numPoints = 360) {
   const { sinDec, cosDec } = solar;
   const tanDec = sinDec / cosDec;
+
+  // Near equinox (small declination) the terminator is nearly a meridian and
+  // latitude flips pole-to-pole over a very narrow longitude band. Increase
+  // resolution so the transition renders smoothly instead of as a square wave.
+  const absDeclDeg = Math.abs(Math.asin(sinDec) * DEG);
+  const effectivePoints = absDeclDeg < 2 ? Math.max(numPoints, 720) : numPoints;
+
   const points = [];
 
-  for (let i = 0; i <= numPoints; i++) {
-    const lon = (i / numPoints) * 360 - 180;
+  for (let i = 0; i <= effectivePoints; i++) {
+    const lon = (i / effectivePoints) * 360 - 180;
     const haRad = hourAngleRad(solar, lon);
     const cosHA = Math.cos(haRad);
 
     let latRad;
-    if (Math.abs(tanDec) < 1e-10) {
+    if (Math.abs(tanDec) < 1e-14) {
       // Near equinox edge case: terminator is nearly a meridian
       latRad = cosHA > 0 ? -PI / 2 + 0.001 : PI / 2 - 0.001;
     } else {
