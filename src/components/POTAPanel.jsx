@@ -4,6 +4,18 @@
  */
 import ActivatePanel from './ActivatePanel.jsx';
 
+export const mapDefs = {
+  name: 'POTA',
+  icon: L.divIcon({
+    // green triangle
+    className: '',
+    html: `<span style="display:inline-block;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid #44cc44;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
+    iconSize: [14, 14],
+    iconAnchor: [7, 14],
+  }),
+  shape: '▲',
+  color: '#44cc44', // green label background and callsign foreground for popup
+};
 export const POTAPanel = ({
   data,
   loading,
@@ -21,9 +33,7 @@ export const POTAPanel = ({
 }) => {
   return (
     <ActivatePanel
-      name={'POTA'}
-      shade={'#44cc44'}
-      shape="▲"
+      mapDefs={mapDefs}
       data={data}
       loading={loading}
       lastUpdated={lastUpdated}

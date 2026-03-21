@@ -4,6 +4,18 @@
  */
 import ActivatePanel from './ActivatePanel.jsx';
 
+export const mapDefs = {
+  name: 'WWBOTA',
+  icon: L.divIcon({
+    // purple square
+    className: '',
+    html: `<span style="display:inline-block;width:12px;height:12px;background:#8b7fff;border:1px solid rgba(0,0,0,0.4);border-radius:2px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
+    iconSize: [12, 12],
+    iconAnchor: [6, 6],
+  }),
+  shape: '■',
+  color: '#8b7fff', // purple label background and callsign foreground for popup
+};
 export const WWBOTAPanel = ({
   data,
   loading,
@@ -21,9 +33,7 @@ export const WWBOTAPanel = ({
 }) => {
   return (
     <ActivatePanel
-      name={'WWBOTA'}
-      shade={'#8b7fff'}
-      shape="■"
+      mapDefs={mapDefs}
       data={data}
       loading={loading}
       lastUpdated={lastUpdated}

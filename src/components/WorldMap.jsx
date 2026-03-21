@@ -70,6 +70,12 @@ const bandFromAnyFrequency = (freq) => {
   return normalizeBandKey(getBandFromFreq(n));
 };
 
+// ActivatePanel defaults
+import { mapDefs as POTADefs } from './POTAPanel.jsx';
+import { mapDefs as SOTADefs } from './SOTAPanel.jsx';
+import { mapDefs as WWBOTADefs } from './WWBOTAPanel.jsx';
+import { mapDefs as WWFFDefs } from './WWFFPanel.jsx';
+
 export const WorldMap = ({
   deLocation,
   dxLocation,
@@ -1323,31 +1329,26 @@ export const WorldMap = ({
     return out;
   };
 
-  // Update POTA markers
-  useEffect(() => {
+  function placeSpots(mapDefaults, spots, show, showLabels, markersRef) {
+    // common code to place spots for ActivatePanel type spots
     if (!mapInstanceRef.current) return;
     const map = mapInstanceRef.current;
 
-    potaMarkersRef.current.forEach((m) => map.removeLayer(m));
-    potaMarkersRef.current = [];
+    markersRef.current.forEach((m) => map.removeLayer(m));
+    markersRef.current = [];
 
-    if (showPOTA && potaSpots) {
-      potaSpots.forEach((spot) => {
-        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
-        if (!bandPassesMapFilter(band)) return;
-
+    if (show && spots) {
+      spots.forEach((spot) => {
         if (spot.lat != null && spot.lon != null) {
-          // Green triangle marker for POTA activators — replicate across world copies
+          const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
+          if (!bandPassesMapFilter(band)) return;
+
           replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
-            const triangleIcon = L.divIcon({
-              className: '',
-              html: `<span style="display:inline-block;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-bottom:14px solid #44cc44;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
-              iconSize: [14, 14],
-              iconAnchor: [7, 14],
-            });
-            const marker = L.marker([lat, lon], { icon: triangleIcon })
+            const marker = L.marker([lat, lon], { icon: mapDefaults.icon })
               .bindPopup(
-                `<b data-qrz-call="${esc(spot.call)}" style="color:#44cc44; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
+                `<span style="color:${mapDefaults.color};background:#000">
+                  ${mapDefaults.shape} ${mapDefaults.name} - </span>
+                <b data-qrz-call="${esc(spot.call)}" style="color:${mapDefaults.color}; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
               )
               .addTo(map);
 
@@ -1355,14 +1356,13 @@ export const WorldMap = ({
               marker.on('click', () => onSpotClick(spot));
             }
 
-            potaMarkersRef.current.push(marker);
+            markersRef.current.push(marker);
           });
 
-          // Only show callsign label when labels are enabled — replicate
-          if (showPOTALabels) {
+          if (showLabels) {
             const labelIcon = L.divIcon({
               className: '',
-              html: `<span style="display:inline-block;background:#44cc44;color:#000;padding:2px 5px;border-radius:3px;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;border:1px solid rgba(0,0,0,0.5);box-shadow:0 1px 2px rgba(0,0,0,0.3);line-height:1.1;">${spot.call}</span>`,
+              html: `<span style="display:inline-block;background:${mapDefaults.color};color:#000;padding:2px 5px;border-radius:3px;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;border:1px solid rgba(0,0,0,0.5);box-shadow:0 1px 2px rgba(0,0,0,0.3);line-height:1.1;">${esc(spot.call)}</span>`,
               iconSize: [0, 0],
               iconAnchor: [0, -2],
             });
@@ -1371,180 +1371,32 @@ export const WorldMap = ({
                 icon: labelIcon,
                 interactive: false,
               }).addTo(map);
-              potaMarkersRef.current.push(label);
+              markersRef.current.push(label);
             });
           }
         }
       });
     }
+  }
+
+  // Update POTA markers
+  useEffect(() => {
+    placeSpots(POTADefs, potaSpots, showPOTA, showPOTALabels, potaMarkersRef, mapInstanceRef);
   }, [potaSpots, showPOTA, showPOTALabels, bandPassesMapFilter]);
 
   // Update WWFF markers
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    const map = mapInstanceRef.current;
-
-    wwffMarkersRef.current.forEach((m) => map.removeLayer(m));
-    wwffMarkersRef.current = [];
-
-    if (showWWFF && wwffSpots) {
-      wwffSpots.forEach((spot) => {
-        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
-        if (!bandPassesMapFilter(band)) return;
-
-        if (spot.lat != null && spot.lon != null) {
-          // Light green inverted triangle for WWFF activators — replicate across world copies
-          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
-            const triangleIcon = L.divIcon({
-              className: '',
-              html: `<span style="display:inline-block;width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:14px solid #a3f3a3;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
-              iconSize: [14, 14],
-              iconAnchor: [7, 0],
-            });
-            const marker = L.marker([lat, lon], { icon: triangleIcon })
-              .bindPopup(
-                `<b data-qrz-call="${esc(spot.call)}" style="color:#a3f3a3; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
-              )
-              .addTo(map);
-
-            if (onSpotClick) {
-              marker.on('click', () => onSpotClick(spot));
-            }
-
-            wwffMarkersRef.current.push(marker);
-          });
-
-          // Only show callsign label when labels are enabled — replicate
-          if (showWWFFLabels) {
-            const labelIcon = L.divIcon({
-              className: '',
-              html: `<span style="display:inline-block;background:#a3f3a3;color:#000;padding:2px 5px;border-radius:3px;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;border:1px solid rgba(0,0,0,0.5);box-shadow:0 1px 2px rgba(0,0,0,0.3);line-height:1.1;">${esc(spot.call)}</span>`,
-              iconSize: [0, 0],
-              iconAnchor: [0, -2],
-            });
-            replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
-              const label = L.marker([lat, lon], {
-                icon: labelIcon,
-                interactive: false,
-              }).addTo(map);
-              wwffMarkersRef.current.push(label);
-            });
-          }
-        }
-      });
-    }
+    placeSpots(WWFFDefs, wwffSpots, showWWFF, showWWFFLabels, wwffMarkersRef, mapInstanceRef);
   }, [wwffSpots, showWWFF, showWWFFLabels, bandPassesMapFilter]);
 
   // Update SOTA markers
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    const map = mapInstanceRef.current;
-
-    sotaMarkersRef.current.forEach((m) => map.removeLayer(m));
-    sotaMarkersRef.current = [];
-
-    if (showSOTA && sotaSpots) {
-      sotaSpots.forEach((spot) => {
-        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
-        if (!bandPassesMapFilter(band)) return;
-
-        if (spot.lat != null && spot.lon != null) {
-          // Orange diamond marker for SOTA activators — replicate across world copies
-          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
-            const diamondIcon = L.divIcon({
-              className: '',
-              html: `<span style="display:inline-block;width:12px;height:12px;background:#ff9632;transform:rotate(45deg);border:1px solid rgba(0,0,0,0.4);filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
-              iconSize: [12, 12],
-              iconAnchor: [6, 6],
-            });
-            const marker = L.marker([lat, lon], { icon: diamondIcon })
-              .bindPopup(
-                `<b data-qrz-call="${esc(spot.call)}" style="color:#ff9632; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span>${spot.summit ? ` — ${esc(spot.summit)}` : ''}${spot.points ? ` <span style="color:#ff9632">(${esc(spot.points)}pt)</span>` : ''}<br>${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
-              )
-              .addTo(map);
-
-            if (onSpotClick) {
-              marker.on('click', () => onSpotClick(spot));
-            }
-
-            sotaMarkersRef.current.push(marker);
-          });
-
-          // Only show callsign label when labels are enabled — replicate
-          if (showSOTALabels) {
-            const labelIcon = L.divIcon({
-              className: '',
-              html: `<span style="display:inline-block;background:#ff9632;color:#000;padding:2px 5px;border-radius:3px;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;border:1px solid rgba(0,0,0,0.5);box-shadow:0 1px 2px rgba(0,0,0,0.3);line-height:1.1;">${spot.call}</span>`,
-              iconSize: [0, 0],
-              iconAnchor: [0, -2],
-            });
-            replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
-              const label = L.marker([lat, lon], {
-                icon: labelIcon,
-                interactive: false,
-              }).addTo(map);
-              sotaMarkersRef.current.push(label);
-            });
-          }
-        }
-      });
-    }
+    placeSpots(SOTADefs, sotaSpots, showSOTA, showSOTALabels, sotaMarkersRef, mapInstanceRef);
   }, [sotaSpots, showSOTA, showSOTALabels, bandPassesMapFilter]);
 
   // Update WWBOTA markers
   useEffect(() => {
-    if (!mapInstanceRef.current) return;
-    const map = mapInstanceRef.current;
-
-    wwbotaMarkersRef.current.forEach((m) => map.removeLayer(m));
-    wwbotaMarkersRef.current = [];
-
-    if (showWWBOTA && wwbotaSpots) {
-      wwbotaSpots.forEach((spot) => {
-        const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
-        if (!bandPassesMapFilter(band)) return;
-
-        if (spot.lat != null && spot.lon != null) {
-          // Purple square marker for WWBOTA activators — replicate across world copies
-          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
-            const squareIcon = L.divIcon({
-              className: '',
-              html: `<span style="display:inline-block;width:12px;height:12px;background:#8b7fff;border:1px solid rgba(0,0,0,0.4);border-radius:2px;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
-              iconSize: [12, 12],
-              iconAnchor: [6, 6],
-            });
-            const marker = L.marker([lat, lon], { icon: squareIcon })
-              .bindPopup(
-                `<b data-qrz-call="${esc(spot.call)}" style="color:#8b7fff; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
-              )
-              .addTo(map);
-
-            if (onSpotClick) {
-              marker.on('click', () => onSpotClick(spot));
-            }
-
-            wwbotaMarkersRef.current.push(marker);
-          });
-
-          // Only show callsign label when labels are enabled — replicate
-          if (showWWBOTALabels) {
-            const labelIcon = L.divIcon({
-              className: '',
-              html: `<span style="display:inline-block;background:#8b7fff;color:#000;padding:2px 5px;border-radius:3px;font-size:11px;font-family:'JetBrains Mono',monospace;font-weight:700;white-space:nowrap;border:1px solid rgba(0,0,0,0.5);box-shadow:0 1px 2px rgba(0,0,0,0.3);line-height:1.1;">${esc(spot.call)}</span>`,
-              iconSize: [0, 0],
-              iconAnchor: [0, -2],
-            });
-            replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
-              const label = L.marker([lat, lon], {
-                icon: labelIcon,
-                interactive: false,
-              }).addTo(map);
-              wwbotaMarkersRef.current.push(label);
-            });
-          }
-        }
-      });
-    }
+    placeSpots(WWBOTADefs, wwbotaSpots, showWWBOTA, showWWBOTALabels, wwbotaMarkersRef, mapInstanceRef);
   }, [wwbotaSpots, showWWBOTA, showWWBOTALabels, bandPassesMapFilter]);
 
   // Plugin layer system - properly load saved states
