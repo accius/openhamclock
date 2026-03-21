@@ -49,6 +49,7 @@ import useScreenWakeLock from './hooks/app/useScreenWakeLock';
 import useResponsiveScale from './hooks/app/useResponsiveScale';
 import useLocalInstall from './hooks/app/useLocalInstall';
 import useVersionCheck from './hooks/app/useVersionCheck';
+import usePresence from './hooks/app/usePresence';
 import WhatsNew from './components/WhatsNew.jsx';
 import { initCtyLookup } from './utils/ctyLookup.js';
 import { getAllLayers } from './plugins/layerRegistry.js';
@@ -226,6 +227,9 @@ const App = () => {
       alert(t('app.update.failed', { error: err.message || t('app.update.unknownError') }));
     }
   }, [updateInProgress, t]);
+
+  // Report presence to active users layer (runs for all configured users)
+  usePresence({ callsign: config.callsign, locator: config.locator });
 
   // Location & map state
   const { dxLocation, dxLocked, handleToggleDxLock, handleDXChange } = useDXLocation(config.defaultDX);

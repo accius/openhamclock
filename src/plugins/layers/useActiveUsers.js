@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { apiFetch } from '../../utils/apiFetch';
 
-// 👥 Active Users layer — shows other OpenHamClock users on the map in real time.
-// Opt-in: enabling the layer starts a heartbeat that reports your callsign and
-// grid-square-derived location (rounded to ~1 km) to the server.
+// 👥 Active Users layer — shows all active OpenHamClock users on the map.
+// Presence heartbeats are sent globally from usePresence hook in App.jsx
+// for ALL configured users. This layer only controls display.
 
 export const metadata = {
   id: 'active-users',
@@ -16,63 +16,11 @@ export const metadata = {
   version: '1.0.0',
 };
 
-const HEARTBEAT_INTERVAL = 2 * 60 * 1000; // 2 minutes
 const FETCH_INTERVAL = 60 * 1000; // 1 minute
 
-export function useLayer({ enabled = false, opacity = 0.85, map = null, callsign, locator }) {
+export function useLayer({ enabled = false, opacity = 0.85, map = null, callsign }) {
   const [users, setUsers] = useState([]);
   const markersRef = useRef([]);
-  const heartbeatRef = useRef(null);
-
-  // Parse own location from locator for heartbeat
-  const ownLocation = useRef(null);
-  useEffect(() => {
-    if (!locator || locator.length < 4) {
-      ownLocation.current = null;
-      return;
-    }
-    // Simple Maidenhead to lat/lon (center of grid)
-    const g = locator.toUpperCase();
-    const lonField = (g.charCodeAt(0) - 65) * 20 - 180;
-    const latField = (g.charCodeAt(1) - 65) * 10 - 90;
-    const lonSquare = parseInt(g[2]) * 2;
-    const latSquare = parseInt(g[3]) * 1;
-    let lat = latField + latSquare + 0.5;
-    let lon = lonField + lonSquare + 1;
-    if (g.length >= 6) {
-      const lonSub = (g.charCodeAt(4) - 65) * (2 / 24);
-      const latSub = (g.charCodeAt(5) - 65) * (1 / 24);
-      lat = latField + latSquare + latSub + 1 / 48;
-      lon = lonField + lonSquare + lonSub + 1 / 24;
-    }
-    ownLocation.current = { lat, lon };
-  }, [locator]);
-
-  // Heartbeat — report presence when layer is enabled
-  useEffect(() => {
-    if (!enabled || !callsign || callsign === 'N0CALL' || !ownLocation.current) return;
-
-    const sendHeartbeat = async () => {
-      try {
-        await apiFetch('/api/presence', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            callsign,
-            lat: ownLocation.current.lat,
-            lon: ownLocation.current.lon,
-            grid: locator || '',
-          }),
-        });
-      } catch {
-        // Silently fail — not critical
-      }
-    };
-
-    sendHeartbeat();
-    heartbeatRef.current = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL);
-    return () => clearInterval(heartbeatRef.current);
-  }, [enabled, callsign, locator]);
 
   // Fetch active users
   useEffect(() => {
@@ -93,13 +41,9 @@ export function useLayer({ enabled = false, opacity = 0.85, map = null, callsign
       }
     };
 
-    // Small delay on first fetch so heartbeat registers before we query
-    const initialDelay = setTimeout(fetchUsers, 2000);
+    fetchUsers();
     const interval = setInterval(fetchUsers, FETCH_INTERVAL);
-    return () => {
-      clearTimeout(initialDelay);
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
   }, [enabled]);
 
   // Render markers

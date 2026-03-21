@@ -50,6 +50,11 @@ const CHANGELOG = [
         desc: 'The Classic layout has been refreshed with a cleaner look while keeping the spirit of the original HamClock by WB0OEW. Improved spacing, updated color palette, and better readability on dedicated displays and Raspberry Pi kiosk setups.',
       },
       {
+        icon: '👥',
+        title: 'Active Users Map Layer',
+        desc: 'See other OpenHamClock operators on the map in real time. Every configured user automatically reports their presence — enable the Active Users layer in Map Layers to see who else is online. Your own callsign shows in green, others in purple. Found under the new Community category in Settings.',
+      },
+      {
         icon: '📻',
         title: 'SDR Integration — FlexRadio SmartSDR & RTL-SDR',
         desc: 'Rig-bridge now supports FlexRadio 6000/8000 series via native SmartSDR TCP API (port 4992) and cheap RTL-SDR dongles via rtl_tcp. No rigctld or Windows-only software needed.',
