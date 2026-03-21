@@ -1291,12 +1291,14 @@ export const SettingsPanel = ({
                   letterSpacing: '1px',
                 }}
               >
-                ⌇ Propagation Mode & Power
+                ⌇ {t('station.settings.operatingMode.title')}
               </label>
 
               {/* Mode */}
               <div style={{ marginBottom: '8px' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>Operating Mode</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  {t('station.settings.operatingMode')}
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px' }}>
                   {[
                     { id: 'SSB', label: 'SSB', desc: 'Voice' },
@@ -1334,7 +1336,9 @@ export const SettingsPanel = ({
 
               {/* Power */}
               <div style={{ marginBottom: '6px' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>TX Power</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '4px' }}>
+                  {t('station.settings.operatingMode.txPower')}
+                </div>
                 <div
                   style={{
                     display: 'grid',
