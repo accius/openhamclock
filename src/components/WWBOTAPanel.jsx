@@ -4,7 +4,7 @@
  */
 import ActivatePanel from './ActivatePanel.jsx';
 
-export const WWBOTADefs = {
+export const mapDefs = {
   name: 'WWBOTA',
   icon: L.divIcon({
     // purple square
@@ -33,9 +33,9 @@ export const WWBOTAPanel = ({
 }) => {
   return (
     <ActivatePanel
-      name={WWBOTADefs.name}
-      shade={WWBOTADefs.color}
-      shape={WWBOTADefs.shape}
+      name={mapDefs.name}
+      shade={mapDefs.color}
+      shape={mapDefs.shape}
       data={data}
       loading={loading}
       lastUpdated={lastUpdated}

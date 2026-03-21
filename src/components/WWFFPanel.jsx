@@ -4,7 +4,7 @@
  */
 import ActivatePanel from './ActivatePanel.jsx';
 
-export const WWFFDefs = {
+export const mapDefs = {
   name: 'WWFF',
   icon: L.divIcon({
     // light green inverted triangle
@@ -33,9 +33,9 @@ export const WWFFPanel = ({
 }) => {
   return (
     <ActivatePanel
-      name={WWFFDefs.name}
-      shade={WWFFDefs.color}
-      shape={WWFFDefs.shape}
+      name={mapDefs.name}
+      shade={mapDefs.color}
+      shape={mapDefs.shape}
       data={data}
       loading={loading}
       lastUpdated={lastUpdated}

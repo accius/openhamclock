@@ -4,7 +4,7 @@
  */
 import ActivatePanel from './ActivatePanel.jsx';
 
-export const SOTADefs = {
+export const mapDefs = {
   name: 'SOTA',
   icon: L.divIcon({
     //orange diamond
@@ -34,9 +34,9 @@ export const SOTAPanel = ({
 }) => {
   return (
     <ActivatePanel
-      name={SOTADefs.name}
-      shade={SOTADefs.color}
-      shape={SOTADefs.shape}
+      name={mapDefs.name}
+      shade={mapDefs.color}
+      shape={mapDefs.shape}
       data={data}
       loading={loading}
       lastUpdated={lastUpdated}

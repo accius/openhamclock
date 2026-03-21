@@ -71,10 +71,10 @@ const bandFromAnyFrequency = (freq) => {
 };
 
 // ActivatePanel defaults
-import { POTADefs } from './POTAPanel.jsx';
-import { SOTADefs } from './SOTAPanel.jsx';
-import { WWBOTADefs } from './WWBOTAPanel.jsx';
-import { WWFFDefs } from './WWFFPanel.jsx';
+import { mapDefs as POTADefs } from './POTAPanel.jsx';
+import { mapDefs as SOTADefs } from './SOTAPanel.jsx';
+import { mapDefs as WWBOTADefs } from './WWBOTAPanel.jsx';
+import { mapDefs as WWFFDefs } from './WWFFPanel.jsx';
 
 export const WorldMap = ({
   deLocation,

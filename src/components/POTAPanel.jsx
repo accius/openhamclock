@@ -4,7 +4,7 @@
  */
 import ActivatePanel from './ActivatePanel.jsx';
 
-export const POTADefs = {
+export const mapDefs = {
   name: 'POTA',
   icon: L.divIcon({
     // green triangle
@@ -33,9 +33,9 @@ export const POTAPanel = ({
 }) => {
   return (
     <ActivatePanel
-      name={POTADefs.name}
-      shade={POTADefs.color}
-      shape={POTADefs.shape}
+      name={mapDefs.name}
+      shade={mapDefs.color}
+      shape={mapDefs.shape}
       data={data}
       loading={loading}
       lastUpdated={lastUpdated}
