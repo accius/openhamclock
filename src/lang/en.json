@@ -75,7 +75,7 @@
   "app.update.failedToStart": "Update failed to start",
   "app.update.started": "Update started. The page will reload after the server restarts.",
   "app.update.unknownError": "Unknown error",
-  "app.uptime": "Up {{uptime}} ? {{version}}",
+  "app.uptime": "Up {{uptime}} • {{version}}",
   "band.conditions": "⌇ BAND CONDITIONS",
   "band.conditions.fair": "FAIR",
   "band.conditions.good": "GOOD",

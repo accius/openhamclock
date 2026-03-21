@@ -561,9 +561,10 @@ export default function ClassicLayout(props) {
       label: 'VOACAP',
       render: () => {
         const bands = ['80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m'];
-        const currentHour = propagation?.currentHour ?? new Date().getUTCHours();
-        const currentBands = propagation?.currentBands || [];
-        const hourlyPredictions = propagation?.hourlyPredictions || {};
+        const pd = propagation?.data || {};
+        const currentHour = pd.currentHour ?? new Date().getUTCHours();
+        const currentBands = pd.currentBands || [];
+        const hourlyPredictions = pd.hourlyPredictions || {};
         const getHeatColor = (rel) => {
           if (rel >= 80) return '#00cc00';
           if (rel >= 60) return '#55bb00';
@@ -574,7 +575,7 @@ export default function ClassicLayout(props) {
         };
         return (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            {propagation?.muf && (
+            {pd.muf && (
               <div
                 style={{
                   display: 'flex',
@@ -586,11 +587,11 @@ export default function ClassicLayout(props) {
               >
                 <span>
                   <span style={{ color: '#aaa' }}>MUF </span>
-                  <span style={{ color: '#ff8800', fontWeight: '700' }}>{propagation.muf} MHz</span>
+                  <span style={{ color: '#ff8800', fontWeight: '700' }}>{pd.muf} MHz</span>
                 </span>
                 <span>
                   <span style={{ color: '#aaa' }}>LUF </span>
-                  <span style={{ color: '#00aaff', fontWeight: '700' }}>{propagation.luf || '?'} MHz</span>
+                  <span style={{ color: '#00aaff', fontWeight: '700' }}>{pd.luf || '?'} MHz</span>
                 </span>
               </div>
             )}
