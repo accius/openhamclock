@@ -127,8 +127,8 @@ export const WorldMap = ({
   const terminatorRef = useRef(null);
   const deMarkerRef = useRef([]);
   const dxMarkerRef = useRef([]);
-  const sunMarkerRef = useRef(null);
-  const moonMarkerRef = useRef(null);
+  const sunMarkerRef = useRef([]);
+  const moonMarkerRef = useRef([]);
   const potaMarkersRef = useRef([]);
   const wwffMarkersRef = useRef([]);
   const sotaMarkersRef = useRef([]);
@@ -1064,10 +1064,23 @@ export const WorldMap = ({
     const map = mapInstanceRef.current;
 
     const updateCelestial = () => {
-      if (sunMarkerRef.current) map.removeLayer(sunMarkerRef.current);
-      if (moonMarkerRef.current) map.removeLayer(moonMarkerRef.current);
+      // Remove previous markers
+      sunMarkerRef.current.forEach((m) => {
+        try {
+          map.removeLayer(m);
+        } catch (e) {}
+      });
+      moonMarkerRef.current.forEach((m) => {
+        try {
+          map.removeLayer(m);
+        } catch (e) {}
+      });
+      sunMarkerRef.current = [];
+      moonMarkerRef.current = [];
 
       const now = new Date();
+      // World copy offsets so sun/moon appear on all visible map copies
+      const worldOffsets = [-360, 0, 360];
 
       // Sun marker — SVG sun with rays
       const sunPos = getSunPosition(now);
@@ -1081,17 +1094,18 @@ export const WorldMap = ({
         </g>
         <circle cx="14" cy="14" r="7" fill="url(#sg)" stroke="#ffaa00" stroke-width="1"/>
       </svg>`;
-      const sunIcon = L.divIcon({
-        className: 'sun-marker-icon',
-        html: sunSvg,
-        iconSize: [28, 28],
-        iconAnchor: [14, 14],
-      });
-      sunMarkerRef.current = L.marker([sunPos.lat, sunPos.lon], {
-        icon: sunIcon,
-      })
-        .bindPopup(`<b>Subsolar Point</b><br>${sunPos.lat.toFixed(2)}°, ${sunPos.lon.toFixed(2)}°`)
-        .addTo(map);
+      for (const offset of worldOffsets) {
+        const sunIcon = L.divIcon({
+          className: 'sun-marker-icon',
+          html: sunSvg,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        });
+        const m = L.marker([sunPos.lat, sunPos.lon + offset], { icon: sunIcon })
+          .bindPopup(`<b>Subsolar Point</b><br>${sunPos.lat.toFixed(2)}°, ${sunPos.lon.toFixed(2)}°`)
+          .addTo(map);
+        sunMarkerRef.current.push(m);
+      }
 
       // Moon marker — SVG crescent moon
       const moonPos = getMoonPosition(now);
@@ -1100,17 +1114,18 @@ export const WorldMap = ({
         <circle cx="12" cy="12" r="9" fill="url(#mg)" stroke="#aaaacc" stroke-width="1"/>
         <circle cx="16" cy="10" r="7" fill="rgba(0,0,20,0.85)"/>
       </svg>`;
-      const moonIcon = L.divIcon({
-        className: 'moon-marker-icon',
-        html: moonSvg,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      });
-      moonMarkerRef.current = L.marker([moonPos.lat, moonPos.lon], {
-        icon: moonIcon,
-      })
-        .bindPopup(`<b>Sublunar Point</b><br>${moonPos.lat.toFixed(2)}°, ${moonPos.lon.toFixed(2)}°`)
-        .addTo(map);
+      for (const offset of worldOffsets) {
+        const moonIcon = L.divIcon({
+          className: 'moon-marker-icon',
+          html: moonSvg,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+        const m = L.marker([moonPos.lat, moonPos.lon + offset], { icon: moonIcon })
+          .bindPopup(`<b>Sublunar Point</b><br>${moonPos.lat.toFixed(2)}°, ${moonPos.lon.toFixed(2)}°`)
+          .addTo(map);
+        moonMarkerRef.current.push(m);
+      }
     };
 
     // Initial render
@@ -1120,8 +1135,16 @@ export const WorldMap = ({
     const interval = setInterval(updateCelestial, 60000);
     return () => {
       clearInterval(interval);
-      if (sunMarkerRef.current) map.removeLayer(sunMarkerRef.current);
-      if (moonMarkerRef.current) map.removeLayer(moonMarkerRef.current);
+      sunMarkerRef.current.forEach((m) => {
+        try {
+          map.removeLayer(m);
+        } catch (e) {}
+      });
+      moonMarkerRef.current.forEach((m) => {
+        try {
+          map.removeLayer(m);
+        } catch (e) {}
+      });
     };
   }, []);
 
