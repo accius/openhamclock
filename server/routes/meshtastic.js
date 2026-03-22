@@ -154,7 +154,9 @@ module.exports = function meshtasticRoutes(app, ctx) {
   }
 
   function getSessionId(req) {
-    const id = req.headers['x-mesh-session'] || req.query.meshSession || '';
+    const raw = req.headers['x-mesh-session'] || req.query.meshSession || '';
+    // Coerce to string — Express may return arrays for repeated query params or headers
+    const id = String(Array.isArray(raw) ? raw[0] || '' : raw);
     if (!id || !SESSION_ID_REGEX.test(id)) return null;
     return id;
   }
@@ -627,7 +629,16 @@ module.exports = function meshtasticRoutes(app, ctx) {
 
   // POST /api/meshtastic/configure
   app.post('/api/meshtastic/configure', writeLimiter, async (req, res) => {
-    const { enabled, mode, host, mqttBroker, mqttTopic, mqttUsername, mqttPassword, pollMs } = req.body || {};
+    const body = req.body || {};
+    const enabled = body.enabled;
+    // Coerce all string params — req.body values may not be strings if JSON is malformed
+    const mode = typeof body.mode === 'string' ? body.mode : '';
+    const host = typeof body.host === 'string' ? body.host : '';
+    const mqttBroker = typeof body.mqttBroker === 'string' ? body.mqttBroker : '';
+    const mqttTopic = typeof body.mqttTopic === 'string' ? body.mqttTopic : '';
+    const mqttUsername = typeof body.mqttUsername === 'string' ? body.mqttUsername : '';
+    const mqttPassword = typeof body.mqttPassword === 'string' ? body.mqttPassword : '';
+    const pollMs = body.pollMs;
     const sessionId = getSessionId(req);
 
     // Disable

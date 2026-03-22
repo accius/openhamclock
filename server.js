@@ -201,7 +201,10 @@ const VENDOR_CDN_MAP = {
 };
 
 app.use('/vendor', (req, res, next) => {
-  const localPath = path.join(publicDir, 'vendor', req.path);
+  const vendorDir = path.join(publicDir, 'vendor');
+  const localPath = path.resolve(vendorDir, req.path.replace(/^\//, ''));
+  // Prevent path traversal — resolved path must stay inside vendor directory
+  if (!localPath.startsWith(vendorDir)) return next();
   if (fs.existsSync(localPath)) return next();
   const cdnUrl = VENDOR_CDN_MAP['/vendor' + req.path];
   if (cdnUrl) return res.redirect(302, cdnUrl);
