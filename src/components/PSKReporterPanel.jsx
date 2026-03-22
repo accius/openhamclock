@@ -40,6 +40,7 @@ const PSKReporterPanel = ({
   wsjtxSessionId,
   showWSJTXOnMap,
   onToggleWSJTXMap,
+  wsjtxRelayMulticast,
 }) => {
   const { t } = useTranslation();
   const [panelMode, setPanelMode] = useState(() => {
@@ -146,6 +147,10 @@ const PSKReporterPanel = ({
   const activeClients = Object.entries(wsjtxClients);
   const primaryClient = activeClients[0]?.[1] || null;
   const isWSPRMode = primaryClient?.mode?.toUpperCase() === 'WSPR';
+  const wsjtxDownloadParams =
+    'session=' +
+    (wsjtxSessionId ? wsjtxSessionId : '') +
+    (wsjtxRelayMulticast.enabled ? `&multicast=${wsjtxRelayMulticast.address}` : '');
 
   // WSPR decodes filtered by age
   const filteredWspr = useMemo(() => {
@@ -643,9 +648,15 @@ const PSKReporterPanel = ({
                   ) : (
                     <div style={{ fontSize: '10px', opacity: 0.8, lineHeight: 1.6 }}>
                       <div style={{ marginBottom: '8px' }}>{t('pskReporterPanel.wsjtx.downloadRelay')}</div>
+                      {wsjtxRelayMulticast.enabled ? (
+                        <div style={{ marginBottom: '8px' }}>Multicast Address: {wsjtxRelayMulticast.address}</div>
+                      ) : (
+                        ''
+                      )}
+
                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
                         <a
-                          href={`/api/wsjtx/relay/download/linux?session=${wsjtxSessionId || ''}`}
+                          href={`/api/wsjtx/relay/download/linux?${wsjtxDownloadParams}`}
                           style={{
                             padding: '4px 10px',
                             borderRadius: '4px',
@@ -661,7 +672,7 @@ const PSKReporterPanel = ({
                           {t('pskReporterPanel.wsjtx.platformLinux')}
                         </a>
                         <a
-                          href={`/api/wsjtx/relay/download/mac?session=${wsjtxSessionId || ''}`}
+                          href={`/api/wsjtx/relay/download/mac?${wsjtxDownloadParams}`}
                           style={{
                             padding: '4px 10px',
                             borderRadius: '4px',
@@ -677,7 +688,7 @@ const PSKReporterPanel = ({
                           {t('pskReporterPanel.wsjtx.platformMac')}
                         </a>
                         <a
-                          href={`/api/wsjtx/relay/download/windows?session=${wsjtxSessionId || ''}`}
+                          href={`/api/wsjtx/relay/download/windows?${wsjtxDownloadParams}`}
                           style={{
                             padding: '4px 10px',
                             borderRadius: '4px',
