@@ -97,8 +97,12 @@ function parse(data, updateState, getState, debug) {
         const mode = MODES[modeDigit] || getState('mode');
         updateState('mode', mode);
 
-        const txState = data.charAt(22); // TX/RX
-        updateState('ptt', txState !== '0');
+        // '0' = RX, '1' = PTT TX, '2' = CAT/linear TX
+        // Only assert ON for an explicit '1' or '2'; anything else (garbage,
+        // model-specific extension, truncation) leaves PTT state unchanged.
+        const txState = data.charAt(22);
+        if (txState === '0') updateState('ptt', false);
+        else if (txState === '1' || txState === '2') updateState('ptt', true);
       }
       break;
     }
@@ -117,13 +121,15 @@ function parse(data, updateState, getState, debug) {
     case 'TX':
     case 'RX': {
       // Handles both TX;/RX; (unsolicited) and TXn; (auto-info)
-      // TX0 = RX, TX1 = PTT TX, TX2 = CAT TX
+      // TX0 = RX, TX1 = PTT TX, TX2 = CAT/linear TX
+      // A bare TX; (no digit) is ignored — don't infer TX state from absence of '0'.
       if (cmd === 'RX') {
         updateState('ptt', false);
       } else {
         const txDigit = data.length >= 3 ? data.charAt(2) : '';
         if (txDigit === '0') updateState('ptt', false);
-        else updateState('ptt', true);
+        else if (txDigit === '1' || txDigit === '2') updateState('ptt', true);
+        // else: no digit or unrecognised — leave PTT state unchanged
       }
       break;
     }
