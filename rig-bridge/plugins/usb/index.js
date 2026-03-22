@@ -129,19 +129,25 @@ function createUsbPlugin(radioType) {
               else
                 serialPort.drain(() => {
                   console.log(`[USB/${radioType}] Auto-info enabled (AI1). Listening for radio updates...`);
-                  // Also send one immediate IF; poll to get current state right away
+                  // Also send one immediate IF; + TX; poll to get current state right away.
+                  // TX; is sent separately (not combined) so the radio echoes a clean
+                  // TXn; response that parse() can unambiguously decode as PTT state.
+                  // IF; alone is not used for PTT because its TX/RX field position
+                  // varies across Yaesu models and can cause false TX readings.
                   initialPollTimer = setTimeout(() => {
                     if (serialPort && serialPort.isOpen) {
-                      console.log(`[USB/${radioType}] Initial state poll → IF;`);
-                      serialPort.write('IF;', () => serialPort.drain(() => {}));
+                      console.log(`[USB/${radioType}] Initial state poll → IF; TX;`);
+                      serialPort.write('IF;TX;', () => serialPort.drain(() => {}));
                     }
                   }, 300);
                 });
             });
-            // Slow keepalive: re-enable AI and poll IF every 30s as fallback
+            // Slow keepalive: re-enable AI, poll IF for freq/mode, and TX; for PTT every 30s.
+            // TX; is the only reliable PTT query across all Yaesu models — IF; TX/RX
+            // field position varies by model and is not used for PTT state.
             pollTimer = setInterval(() => {
               if (!serialPort || !serialPort.isOpen) return;
-              serialPort.write('AI1;IF;', () => serialPort.drain(() => {}));
+              serialPort.write('AI1;IF;TX;', () => serialPort.drain(() => {}));
             }, 30000);
           }
         } else {

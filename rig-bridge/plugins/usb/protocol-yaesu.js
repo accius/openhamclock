@@ -88,7 +88,7 @@ function parse(data, updateState, getState, debug) {
       // pos 22   (1): TX/RX (0=RX, 1=TX)        → "0"
       // pos 23-25(3): memory channel            → "100"
       // pos 26   (1): VFO (0=A, 1=B)            → "0"
-      if (data.length >= 23) {
+      if (data.length >= 22) {
         const freqStr = data.substring(5, 14); // 9-digit frequency (confirmed by FA; cross-check)
         const freq = parseInt(freqStr, 10);
         if (freq > 0) updateState('freq', freq);
@@ -97,12 +97,17 @@ function parse(data, updateState, getState, debug) {
         const mode = MODES[modeDigit] || getState('mode');
         updateState('mode', mode);
 
-        // '0' = RX, '1' = PTT TX, '2' = CAT/linear TX
-        // Only assert ON for an explicit '1' or '2'; anything else (garbage,
-        // model-specific extension, truncation) leaves PTT state unchanged.
-        const txState = data.charAt(22);
-        if (txState === '0') updateState('ptt', false);
-        else if (txState === '1' || txState === '2') updateState('ptt', true);
+        // PTT is intentionally NOT parsed from IF; here.
+        //
+        // The IF; TX/RX flag is at position 22, but that position is only confirmed
+        // on the FT-991A. On other models (FT-891, FT-710, FT-DX10, etc.) the
+        // "unknown" byte at position 4 may be absent, shifting all subsequent fields
+        // left by one — causing the memory channel digit ('1' for ch 100-199) to land
+        // at position 22 and trigger a false PTT=TX.
+        //
+        // PTT state is instead read exclusively from TX;/RX; auto-info responses
+        // (which use unambiguous 3-character format) and from explicit TX; queries
+        // sent at startup and in the 30-second keepalive.
       }
       break;
     }
