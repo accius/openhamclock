@@ -1074,7 +1074,7 @@ export const SettingsPanel = ({
                   letterSpacing: '1px',
                 }}
               >
-                📏 zzz Units
+                📏 {t('station.settings.units.title')}
               </label>
               <div style={{ display: 'flex', gap: '8px' }}>
                 <button
@@ -1091,7 +1091,7 @@ export const SettingsPanel = ({
                     fontWeight: '600',
                   }}
                 >
-                  {`zzz Distance: ${unitString(distUnits)}`}
+                  {`t('station.settings.units.distance')}: ${unitString(distUnits)}`}
                 </button>
                 <button
                   onClick={() => toggleTempUnits()}
@@ -1107,7 +1107,7 @@ export const SettingsPanel = ({
                     fontWeight: '600',
                   }}
                 >
-                  {`zzz Temperature: ${unitString(tempUnits)}`}
+                  {`t('station.settings.units.temperature')}: ${unitString(tempUnits)}`}
                 </button>
                 <button
                   onClick={() => togglePressUnits()}
@@ -1123,7 +1123,7 @@ export const SettingsPanel = ({
                     fontWeight: '600',
                   }}
                 >
-                  {`zzz Pressure: ${unitString(pressUnits)}`}
+                  {`t('station.settings.units.pressure')}: ${unitString(pressUnits)}`}
                 </button>
               </div>
             </div>
