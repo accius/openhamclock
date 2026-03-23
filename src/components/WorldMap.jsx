@@ -400,7 +400,8 @@ export const WorldMap = ({
   // Migration: saved isAzimuthal → split into projection + style
   // Also validate that saved mapStyle still exists in MAP_STYLES to prevent stale references
   const migratedStyle = storedSettings.isAzimuthal ? 'dark' : storedSettings.mapStyle || 'dark';
-  const initialStyle = MAP_STYLES[migratedStyle] ? migratedStyle : 'dark';
+  // Validate style exists and isn't the legacy 'azimuthal' canvas entry
+  const initialStyle = MAP_STYLES[migratedStyle] && !MAP_STYLES[migratedStyle].legacy ? migratedStyle : 'dark';
   const initialProjection = storedSettings.isAzimuthal ? 'azimuthal' : storedSettings.mapProjection || 'mercator';
   const [mapStyle, setMapStyle] = useState(initialStyle);
   const [mapProjection, setMapProjection] = useState(initialProjection);

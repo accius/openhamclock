@@ -25,11 +25,13 @@ export const useLayer = ({ map, enabled, opacity }) => {
 
     // Create the layer if it doesn't exist
     if (!layerRef.current) {
+      // Use nightPane if it exists on this map (Mercator), otherwise default pane
+      const paneOpts = map.getPane('nightPane') ? { pane: 'nightPane' } : {};
       layerRef.current = L.tileLayer(nightUrl, {
         attribution: 'NASA GIBS',
         noWrap: false,
-        pane: 'nightPane', // Ensure it still uses the blended pane
         zIndex: 1,
+        ...paneOpts,
       });
     }
 
