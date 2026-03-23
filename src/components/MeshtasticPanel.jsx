@@ -8,7 +8,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 
 const POLL_INTERVAL = 10000;
-const DIRECT_POLL_MS = 10000;
 
 // Polyfill for crypto.randomUUID — not available over plain HTTP (non-secure context)
 function generateUUID() {
@@ -88,7 +87,7 @@ const labelStyle = {
 
 // ── Setup screen with mode selector ──
 function SetupView({ status, onConnect }) {
-  const [mode, setMode] = useState(status?.mode || 'direct');
+  const [mode, setMode] = useState(status?.mode === 'direct' ? 'mqtt' : status?.mode || 'mqtt');
   const [host, setHost] = useState(status?.host || 'http://meshtastic.local');
   const [mqttBroker, setMqttBroker] = useState(status?.mqttBroker || 'mqtt://mqtt.meshtastic.org');
   const [mqttTopic, setMqttTopic] = useState(status?.mqttTopic || 'msh/US/#');
@@ -100,41 +99,6 @@ function SetupView({ status, onConnect }) {
   const handleConnect = async () => {
     setTesting(true);
     setError(null);
-
-    if (mode === 'direct') {
-      // Test browser-direct connection
-      try {
-        const testRes = await fetch(`${host.trim().replace(/\/+$/, '')}/api/v1/nodes`, {
-          headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(5000),
-        });
-        if (!testRes.ok) throw new Error(`Device returned HTTP ${testRes.status}`);
-      } catch (e) {
-        setError(
-          `Cannot reach ${host} from your browser — ${e.message}. Make sure you're on the same network as the device.`,
-        );
-        setTesting(false);
-        return;
-      }
-      // Save config on server (just stores the mode + host for persistence)
-      try {
-        await fetch('/api/meshtastic/configure', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...meshHeaders },
-          body: JSON.stringify({ enabled: true, mode: 'direct', host: host.trim() }),
-        });
-      } catch {}
-      // Save to localStorage for browser-direct polling
-      try {
-        localStorage.setItem(
-          'openhamclock_meshtastic',
-          JSON.stringify({ mode: 'direct', host: host.trim().replace(/\/+$/, ''), enabled: true }),
-        );
-      } catch {}
-      onConnect();
-      setTesting(false);
-      return;
-    }
 
     // MQTT or Proxy — configure via server
     try {
@@ -217,13 +181,12 @@ function SetupView({ status, onConnect }) {
       {/* Mode selector */}
       <label style={labelStyle}>Connection Mode</label>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '16px' }}>
-        {modeBtn('direct', '🌐', 'Direct (Browser)', 'Browser connects to device on your WiFi — works on hosted sites')}
         {modeBtn('mqtt', '📡', 'MQTT Broker', 'Server subscribes to MQTT — works from anywhere, even remote')}
         {modeBtn('proxy', '🖥️', 'Server Proxy', 'Server connects to device — for self-hosted/Pi installs only')}
       </div>
 
       {/* Mode-specific fields */}
-      {(mode === 'direct' || mode === 'proxy') && (
+      {mode === 'proxy' && (
         <>
           <label style={labelStyle}>Device Address</label>
           <input
@@ -234,11 +197,6 @@ function SetupView({ status, onConnect }) {
             placeholder="http://meshtastic.local or http://192.168.1.x"
             style={inputStyle}
           />
-          {mode === 'direct' && (
-            <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
-              Your browser will connect directly to the device. You must be on the same network.
-            </div>
-          )}
         </>
       )}
 
@@ -328,125 +286,6 @@ function SetupView({ status, onConnect }) {
   );
 }
 
-// ── Browser-direct polling hook ──
-function useDirectMeshtastic(enabled, deviceHost) {
-  const [nodes, setNodes] = useState([]);
-  const [messages, setMessages] = useState([]);
-  const [connected, setConnected] = useState(false);
-  const [lastError, setLastError] = useState(null);
-  const [deviceInfo, setDeviceInfo] = useState(null);
-  const lastMsgTs = useRef(0);
-
-  const fetchDirect = useCallback(async () => {
-    if (!enabled || !deviceHost) return;
-    try {
-      // Fetch nodes
-      const nodesRes = await fetch(`${deviceHost}/api/v1/nodes`, {
-        headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(5000),
-      });
-      if (!nodesRes.ok) throw new Error(`HTTP ${nodesRes.status}`);
-      const nodesData = await nodesRes.json();
-      const nodeList = nodesData.nodes || nodesData;
-      const parsed = (Array.isArray(nodeList) ? nodeList : Object.values(nodeList || {}))
-        .map((n) => ({
-          num: n.num || n.nodeNum,
-          id: n.user?.id || `!${(n.num || 0).toString(16)}`,
-          longName: n.user?.longName || '',
-          shortName: n.user?.shortName || '',
-          hwModel: n.user?.hwModel || '',
-          lat: n.position?.latitudeI != null ? n.position.latitudeI / 1e7 : (n.position?.latitude ?? null),
-          lon: n.position?.longitudeI != null ? n.position.longitudeI / 1e7 : (n.position?.longitude ?? null),
-          alt: n.position?.altitude ?? null,
-          batteryLevel: n.deviceMetrics?.batteryLevel ?? null,
-          snr: n.snr ?? null,
-          lastHeard: n.lastHeard ? n.lastHeard * 1000 : Date.now(),
-          hopsAway: n.hopsAway ?? null,
-          hasPosition: n.position?.latitudeI != null || n.position?.latitude != null,
-        }))
-        .filter((n) => n.num);
-      setNodes(parsed);
-      setConnected(true);
-      setLastError(null);
-
-      // Fetch messages
-      try {
-        const msgsRes = await fetch(`${deviceHost}/api/v1/messages`, {
-          headers: { Accept: 'application/json' },
-          signal: AbortSignal.timeout(5000),
-        });
-        if (msgsRes.ok) {
-          const msgsData = await msgsRes.json();
-          const msgList = msgsData.messages || msgsData;
-          if (Array.isArray(msgList)) {
-            setMessages((prev) => {
-              const ids = new Set(prev.map((m) => m.id));
-              const newMsgs = msgList
-                .filter((m) => !ids.has(m.id || m.packetId))
-                .map((m) => ({
-                  id: m.id || m.packetId || `${m.from}-${m.rxTime || Date.now()}`,
-                  from: m.from,
-                  to: m.to,
-                  text: m.text || m.payload || '',
-                  timestamp: m.rxTime ? m.rxTime * 1000 : Date.now(),
-                  channel: m.channel ?? 0,
-                  fromName: parsed.find((n) => n.num === m.from)?.longName || `!${(m.from || 0).toString(16)}`,
-                }));
-              return [...prev, ...newMsgs].slice(-200);
-            });
-          }
-        }
-      } catch {}
-
-      // Fetch device info (less frequently)
-      if (!deviceInfo) {
-        try {
-          const infoRes = await fetch(`${deviceHost}/api/v1/config`, {
-            headers: { Accept: 'application/json' },
-            signal: AbortSignal.timeout(5000),
-          });
-          if (infoRes.ok) {
-            const d = await infoRes.json();
-            setDeviceInfo({
-              firmwareVersion: d.firmwareVersion || d.version || null,
-              hwModel: d.hwModel || null,
-              region: d.lora?.region || null,
-              longName: d.owner?.longName || null,
-              shortName: d.owner?.shortName || null,
-            });
-          }
-        } catch {}
-      }
-    } catch (e) {
-      setConnected(false);
-      setLastError(e.message);
-    }
-  }, [enabled, deviceHost, deviceInfo]);
-
-  useEffect(() => {
-    if (!enabled || !deviceHost) return;
-    fetchDirect();
-    const interval = setInterval(fetchDirect, DIRECT_POLL_MS);
-    return () => clearInterval(interval);
-  }, [enabled, deviceHost, fetchDirect]);
-
-  const sendDirect = useCallback(
-    async (text, to, channel) => {
-      const payload = { text: text.trim(), to: to || 0xffffffff, channel: channel || 0 };
-      const res = await fetch(`${deviceHost}/api/v1/sendtext`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(10000),
-      });
-      if (!res.ok) throw new Error(`Device returned ${res.status}`);
-    },
-    [deviceHost],
-  );
-
-  return { nodes, messages, connected, lastError, deviceInfo, sendDirect };
-}
-
 // ── Main panel ──
 export default function MeshtasticPanel() {
   const [tab, setTab] = useState('nodes');
@@ -466,25 +305,20 @@ export default function MeshtasticPanel() {
     }
   });
 
-  const isDirectMode = meshConfig.mode === 'direct' && meshConfig.enabled;
-
   // Server-side state (for proxy/mqtt modes)
   const [serverStatus, setServerStatus] = useState(null);
   const [serverNodes, setServerNodes] = useState([]);
   const [serverMessages, setServerMessages] = useState([]);
   const serverLastMsgTs = useRef(0);
 
-  // Browser-direct state
-  const direct = useDirectMeshtastic(isDirectMode, meshConfig.host);
-
   // Pick active data source
-  const nodes = isDirectMode ? direct.nodes : serverNodes;
-  const messages = isDirectMode ? direct.messages : serverMessages;
-  const isConnected = isDirectMode ? direct.connected : serverStatus?.connected;
-  const lastError = isDirectMode ? direct.lastError : serverStatus?.lastError;
-  const deviceInfo = isDirectMode ? direct.deviceInfo : serverStatus?.deviceInfo;
-  const activeMode = isDirectMode ? 'direct' : serverStatus?.mode || meshConfig.mode || '';
-  const isEnabled = isDirectMode ? true : serverStatus?.enabled;
+  const nodes = serverNodes;
+  const messages = serverMessages;
+  const isConnected = serverStatus?.connected;
+  const lastError = serverStatus?.lastError;
+  const deviceInfo = serverStatus?.deviceInfo;
+  const activeMode = serverStatus?.mode || meshConfig.mode || '';
+  const isEnabled = serverStatus?.enabled;
 
   // Server polling (for proxy/mqtt modes)
   const fetchServerStatus = useCallback(async () => {
@@ -524,24 +358,22 @@ export default function MeshtasticPanel() {
 
   useEffect(() => {
     fetchServerStatus();
-    if (!isDirectMode) {
-      fetchServerNodes();
-      fetchServerMessages();
-    }
+    fetchServerNodes();
+    fetchServerMessages();
     const interval = setInterval(() => {
       fetchServerStatus();
-      if (!isDirectMode && serverStatus?.enabled) {
+      if (serverStatus?.enabled) {
         fetchServerNodes();
         fetchServerMessages();
       }
     }, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [fetchServerStatus, fetchServerNodes, fetchServerMessages, isDirectMode, serverStatus?.enabled]);
+  }, [fetchServerStatus, fetchServerNodes, fetchServerMessages, serverStatus?.enabled]);
 
   // Show setup if nothing configured
   useEffect(() => {
-    if (!isEnabled && !isDirectMode && serverStatus && !serverStatus.enabled) setShowSetup(true);
-  }, [isEnabled, isDirectMode, serverStatus]);
+    if (!isEnabled && serverStatus && !serverStatus.enabled) setShowSetup(true);
+  }, [isEnabled, serverStatus]);
 
   useEffect(() => {
     if (tab === 'messages') msgEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -552,17 +384,12 @@ export default function MeshtasticPanel() {
     if (!sendText.trim() || sending) return;
     setSending(true);
     try {
-      if (isDirectMode) {
-        await direct.sendDirect(sendText.trim(), sendTo?.num, sendChannel);
-        setSendText('');
-      } else {
-        const res = await fetch('/api/meshtastic/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...meshHeaders },
-          body: JSON.stringify({ text: sendText.trim(), to: sendTo?.num || 0xffffffff, channel: sendChannel }),
-        });
-        if (res.ok) setSendText('');
-      }
+      const res = await fetch('/api/meshtastic/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...meshHeaders },
+        body: JSON.stringify({ text: sendText.trim(), to: sendTo?.num || 0xffffffff, channel: sendChannel }),
+      });
+      if (res.ok) setSendText('');
     } catch {}
     setSending(false);
   };
@@ -586,7 +413,7 @@ export default function MeshtasticPanel() {
   };
 
   // Setup screen
-  if (showSetup || (!isEnabled && !isDirectMode)) {
+  if (showSetup || !isEnabled) {
     return (
       <SetupView
         status={serverStatus}
@@ -603,7 +430,7 @@ export default function MeshtasticPanel() {
     );
   }
 
-  if (!serverStatus && !isDirectMode) {
+  if (!serverStatus) {
     return (
       <div className="panel" style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>
         Loading...
@@ -623,7 +450,7 @@ export default function MeshtasticPanel() {
     fontFamily: 'JetBrains Mono, monospace',
   });
 
-  const modeLabel = activeMode === 'direct' ? '🌐 Direct' : activeMode === 'mqtt' ? '📡 MQTT' : '🖥️ Proxy';
+  const modeLabel = activeMode === 'mqtt' ? '📡 MQTT' : '🖥️ Proxy';
 
   return (
     <div
@@ -951,14 +778,7 @@ export default function MeshtasticPanel() {
           <div style={{ padding: '12px', fontSize: '11px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               {[
-                [
-                  'Mode',
-                  activeMode === 'direct'
-                    ? '🌐 Direct (Browser)'
-                    : activeMode === 'mqtt'
-                      ? '📡 MQTT Broker'
-                      : '🖥️ Server Proxy',
-                ],
+                ['Mode', activeMode === 'mqtt' ? '📡 MQTT Broker' : '🖥️ Server Proxy'],
                 ['Status', isConnected ? '🟢 Connected' : '🔴 Disconnected'],
                 ...(activeMode === 'proxy' ? [['Host', serverStatus?.host || 'N/A']] : []),
                 ...(activeMode === 'mqtt'
@@ -967,7 +787,6 @@ export default function MeshtasticPanel() {
                       ['Topic', serverStatus?.mqttTopic || 'N/A'],
                     ]
                   : []),
-                ...(activeMode === 'direct' ? [['Device', meshConfig.host || 'N/A']] : []),
                 ['Firmware', deviceInfo?.firmwareVersion || 'N/A'],
                 ['Hardware', deviceInfo?.hwModel || 'N/A'],
                 ['Region', deviceInfo?.region || 'N/A'],
