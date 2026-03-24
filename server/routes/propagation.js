@@ -196,44 +196,13 @@ module.exports = function (app, ctx) {
     );
 
     try {
-      // Get current space weather data
-      let sfi = 150,
-        ssn = 100,
-        kIndex = 2,
-        aIndex = 10;
-
-      try {
-        // Prefer SWPC summary (updates every few hours) + N0NBH for SSN
-        const [summaryRes, kRes] = await Promise.allSettled([
-          fetch('https://services.swpc.noaa.gov/products/summary/10cm-flux.json'),
-          fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
-        ]);
-
-        if (summaryRes.status === 'fulfilled' && summaryRes.value.ok) {
-          try {
-            const summary = await summaryRes.value.json();
-            const flux = parseInt(summary?.Flux);
-            if (flux > 0) sfi = flux;
-          } catch {}
-        }
-        // Fallback: N0NBH cache (daily, same as hamqsl.com)
-        if (sfi === 150 && n0nbhCache.data?.solarData?.solarFlux) {
-          const flux = parseInt(n0nbhCache.data.solarData.solarFlux);
-          if (flux > 0) sfi = flux;
-        }
-        // SSN: prefer N0NBH (daily), then estimate from SFI
-        if (n0nbhCache.data?.solarData?.sunspots) {
-          const s = parseInt(n0nbhCache.data.solarData.sunspots);
-          if (s >= 0) ssn = s;
-        } else {
-          ssn = Math.max(0, Math.round((sfi - 67) / 0.97));
-        }
-        if (kRes.status === 'fulfilled' && kRes.value.ok) {
-          const data = await kRes.value.json();
-          if (data?.length > 1) kIndex = parseInt(data[data.length - 1][1]) || 2;
-        }
-      } catch (e) {
-        logDebug('[Propagation] Using default solar values');
+      // Solar data — uses shared 15-minute cache (same as heatmap)
+      const { sfi, ssn, kIndex } = await getSolarData();
+      // Also check N0NBH for more accurate SSN if available
+      let effectiveSSN = ssn;
+      if (n0nbhCache.data?.solarData?.sunspots) {
+        const s = parseInt(n0nbhCache.data.solarData.sunspots);
+        if (s >= 0) effectiveSSN = s;
       }
 
       // Calculate path geometry
@@ -254,7 +223,7 @@ module.exports = function (app, ctx) {
       const currentMonth = new Date().getMonth() + 1;
 
       logDebug('[Propagation] Distance:', Math.round(distance), 'km');
-      logDebug('[Propagation] Solar: SFI', sfi, 'SSN', ssn, 'K', kIndex);
+      logDebug('[Propagation] Solar: SFI', sfi, 'SSN', effectiveSSN, 'K', kIndex);
       const bands = ['160m', '80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m'];
       const bandFreqs = [1.8, 3.5, 7, 10, 14, 18, 21, 24, 28];
 
@@ -285,7 +254,7 @@ module.exports = function (app, ctx) {
           de.lon,
           dx.lat,
           dx.lon,
-          ssn,
+          effectiveSSN,
           currentMonth,
           txPower,
           txGain,
@@ -351,7 +320,7 @@ module.exports = function (app, ctx) {
           de.lon,
           dx.lat,
           dx.lon,
-          ssn,
+          effectiveSSN,
           currentMonth,
           currentHour,
           txPower,
@@ -396,7 +365,7 @@ module.exports = function (app, ctx) {
               midLon,
               hour,
               sfi,
-              ssn,
+              effectiveSSN,
               kIndex,
               de,
               dx,
@@ -425,12 +394,12 @@ module.exports = function (app, ctx) {
       }
 
       // Calculate MUF and LUF
-      const currentMuf = iturhfpropMuf || calculateMUF(distance, midLat, midLon, currentHour, sfi, ssn);
+      const currentMuf = iturhfpropMuf || calculateMUF(distance, midLat, midLon, currentHour, sfi, effectiveSSN);
       const currentLuf = calculateLUF(distance, midLat, midLon, currentHour, sfi, kIndex);
 
       res.json({
         model: usedITURHFProp ? 'ITU-R P.533-14' : 'Built-in estimation',
-        solarData: { sfi, ssn, kIndex },
+        solarData: { sfi, ssn: effectiveSSN, kIndex },
         muf: Math.round(currentMuf * 10) / 10,
         luf: Math.round(currentLuf * 10) / 10,
         distance: Math.round(distance),
