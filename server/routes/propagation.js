@@ -39,11 +39,17 @@ module.exports = function (app, ctx) {
     maxAge: 5 * 60 * 1000, // 5 minutes
   };
 
+  // Negative cache: if ITURHFProp fails, don't retry for 2 minutes
+  // Prevents 90s+ hangs on every DX click when the service is down
+  let iturhfpropDown = 0;
+  const ITURHFPROP_BACKOFF = 2 * 60 * 1000; // 2 minutes
+
   /**
    * Fetch base prediction from ITURHFProp service
    */
   async function fetchITURHFPropPrediction(txLat, txLon, rxLat, rxLon, ssn, month, hour, txPower, txGain) {
     if (!ITURHFPROP_URL) return null;
+    if (Date.now() - iturhfpropDown < ITURHFPROP_BACKOFF) return null;
 
     const pw = Math.round(txPower || 100);
     const gn = Math.round((txGain || 0) * 10) / 10;
@@ -60,7 +66,7 @@ module.exports = function (app, ctx) {
 
       // Create abort controller for timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s — fail fast
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -83,6 +89,7 @@ module.exports = function (app, ctx) {
 
       return data;
     } catch (err) {
+      iturhfpropDown = Date.now();
       if (err.name !== 'AbortError') {
         logErrorOnce('Hybrid', `ITURHFProp: ${err.message}`);
       }
@@ -104,6 +111,7 @@ module.exports = function (app, ctx) {
 
   async function fetchITURHFPropHourly(txLat, txLon, rxLat, rxLon, ssn, month, txPower, txGain) {
     if (!ITURHFPROP_URL) return null;
+    if (Date.now() - iturhfpropDown < ITURHFPROP_BACKOFF) return null; // service recently failed
 
     const pw = Math.round(txPower || 100);
     const gn = Math.round((txGain || 0) * 10) / 10;
@@ -121,7 +129,7 @@ module.exports = function (app, ctx) {
       const url = `${ITURHFPROP_URL}/api/predict/hourly?txLat=${txLat}&txLon=${txLon}&rxLat=${rxLat}&rxLon=${rxLon}&ssn=${ssn}&month=${month}&txPower=${pw}&txGain=${gn}`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s for 24-hour calc
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s — fail fast, fallback to built-in
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -138,7 +146,10 @@ module.exports = function (app, ctx) {
 
       return data;
     } catch (err) {
-      if (err.name !== 'AbortError') {
+      iturhfpropDown = Date.now(); // back off for 2 minutes
+      if (err.name === 'AbortError') {
+        logErrorOnce('ITURHFProp', 'Hourly fetch timed out — using built-in model');
+      } else {
         logErrorOnce('ITURHFProp', `Hourly fetch: ${err.message}`);
       }
       return null;
