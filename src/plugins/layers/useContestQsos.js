@@ -30,13 +30,22 @@ const bandFromAnyFrequency = (freq) => {
   return normalizeBandKey(getBandFromFreq(n));
 };
 
-export function useLayer({ enabled = false, opacity = 0.7, map = null, mapBandFilter }) {
+export function useLayer({
+  enabled = false,
+  opacity = 0.7,
+  map = null,
+  dxLocation = null,
+  onDXChange,
+  dxLocked = false,
+  mapBandFilter,
+}) {
   const [qsos, setQsos] = useState([]);
   const [deLocation, setDeLocation] = useState(null);
   const markersRef = useRef([]);
   const linesRef = useRef([]);
   const pollRef = useRef(null);
   const configLoadedRef = useRef(false);
+  const lastAutoTargetQsoRef = useRef(null);
 
   useEffect(() => {
     if (!enabled || configLoadedRef.current) return;
@@ -79,6 +88,41 @@ export function useLayer({ enabled = false, opacity = 0.7, map = null, mapBandFi
       }
     };
   }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled) {
+      lastAutoTargetQsoRef.current = null;
+    }
+  }, [enabled]);
+
+  useEffect(() => {
+    if (!enabled || typeof onDXChange !== 'function' || dxLocked) return;
+
+    const latestLocatedQso = [...qsos]
+      .reverse()
+      .find((qso) => Number.isFinite(parseFloat(qso?.lat)) && Number.isFinite(parseFloat(qso?.lon)));
+
+    if (!latestLocatedQso) return;
+
+    const lat = parseFloat(latestLocatedQso.lat);
+    const lon = parseFloat(latestLocatedQso.lon);
+    const targetKey =
+      latestLocatedQso.id ||
+      `${latestLocatedQso.timestamp || ''}:${latestLocatedQso.dxCall || ''}:${lat.toFixed(4)}:${lon.toFixed(4)}`;
+
+    if (lastAutoTargetQsoRef.current === targetKey) return;
+
+    const alreadySelected =
+      Number.isFinite(dxLocation?.lat) &&
+      Number.isFinite(dxLocation?.lon) &&
+      Math.abs(dxLocation.lat - lat) < 1e-6 &&
+      Math.abs(dxLocation.lon - lon) < 1e-6;
+
+    lastAutoTargetQsoRef.current = targetKey;
+    if (!alreadySelected) {
+      onDXChange({ lat, lon });
+    }
+  }, [enabled, qsos, onDXChange, dxLocked, dxLocation]);
 
   useEffect(() => {
     if (!map || typeof L === 'undefined') return;
