@@ -1821,6 +1821,23 @@ module.exports = function (app, ctx) {
         'spots)',
       );
 
+      // Pre-warm P.533-14 propagation cache for new DX spots.
+      // Uses the server's configured DE location — covers most hosted users.
+      if (ctx.prewarmPropagation && CONFIG.latitude && CONFIG.longitude && newPaths.length > 0) {
+        const seen = new Set();
+        for (const p of newPaths) {
+          if (p.dxLat != null && p.dxLon != null) {
+            // Deduplicate by rounded DX coordinates
+            const dxKey = `${Math.round(p.dxLat)},${Math.round(p.dxLon)}`;
+            if (!seen.has(dxKey)) {
+              seen.add(dxKey);
+              ctx.prewarmPropagation(CONFIG.latitude, CONFIG.longitude, p.dxLat, p.dxLon);
+            }
+          }
+        }
+        if (seen.size > 0) logDebug(`[DX Paths] Queued P.533 pre-warm for ${seen.size} new DX targets`);
+      }
+
       // Update cache
       dxSpotPathsCacheByKey.set(cacheKey, {
         paths: sortedPaths.slice(0, 50), // Return 50 for display

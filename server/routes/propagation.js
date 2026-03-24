@@ -31,18 +31,48 @@ module.exports = function (app, ctx) {
   // ITURHFProp SERVICE INTEGRATION (ITU-R P.533-14)
   // ============================================
 
-  // Cache for ITURHFProp predictions (5-minute cache)
-  let iturhfpropCache = {
-    data: null,
-    key: null,
-    timestamp: 0,
-    maxAge: 5 * 60 * 1000, // 5 minutes
-  };
+  // Multi-entry LRU cache for ITURHFProp results — different DE/DX paths
+  // don't evict each other. Keyed by rounded coordinates + solar params.
+  const iturhfpropSingleCache = new Map(); // key → { data, ts }
+  const iturhfpropHourlyMap = new Map(); // key → { data, ts }
+  const ITUCACHE_TTL = 30 * 60 * 1000; // 30 min — predictions don't change fast
+  const ITUCACHE_MAX = 200; // max entries per cache
+
+  function ituCacheGet(cache, key) {
+    const entry = cache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.ts > ITUCACHE_TTL) {
+      cache.delete(key);
+      return null;
+    }
+    return entry.data;
+  }
+  function ituCacheSet(cache, key, data) {
+    cache.set(key, { data, ts: Date.now() });
+    // LRU eviction
+    if (cache.size > ITUCACHE_MAX) {
+      const oldest = cache.keys().next().value;
+      cache.delete(oldest);
+    }
+  }
 
   // Negative cache: if ITURHFProp fails, don't retry for 2 minutes
-  // Prevents 90s+ hangs on every DX click when the service is down
   let iturhfpropDown = 0;
   const ITURHFPROP_BACKOFF = 2 * 60 * 1000; // 2 minutes
+
+  // Background fetch queue — runs ITURHFProp requests without blocking the response
+  const bgQueue = new Set(); // active queue keys (prevents duplicate requests)
+
+  function queueBackgroundFetch(cacheKey, fetchFn) {
+    if (bgQueue.has(cacheKey) || bgQueue.size > 20) return; // dedup & cap
+    bgQueue.add(cacheKey);
+    fetchFn()
+      .then((data) => {
+        if (data) logDebug(`[ITURHFProp] Background fetch complete: ${cacheKey.substring(0, 40)}`);
+      })
+      .catch(() => {})
+      .finally(() => bgQueue.delete(cacheKey));
+  }
 
   /**
    * Fetch base prediction from ITURHFProp service
@@ -56,17 +86,14 @@ module.exports = function (app, ctx) {
     const cacheKey = `${txLat.toFixed(1)},${txLon.toFixed(1)}-${rxLat.toFixed(1)},${rxLon.toFixed(1)}-${ssn}-${month}-${hour}-${pw}-${gn}`;
     const now = Date.now();
 
-    // Check cache
-    if (iturhfpropCache.key === cacheKey && now - iturhfpropCache.timestamp < iturhfpropCache.maxAge) {
-      return iturhfpropCache.data;
-    }
+    const cached = ituCacheGet(iturhfpropSingleCache, cacheKey);
+    if (cached) return cached;
 
     try {
       const url = `${ITURHFPROP_URL}/api/bands?txLat=${txLat}&txLon=${txLon}&rxLat=${rxLat}&rxLon=${rxLon}&ssn=${ssn}&month=${month}&hour=${hour}&txPower=${pw}&txGain=${gn}`;
 
-      // Create abort controller for timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8s — fail fast
+      const timeoutId = setTimeout(() => controller.abort(), 8000);
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -77,16 +104,7 @@ module.exports = function (app, ctx) {
       }
 
       const data = await response.json();
-      // Only log success occasionally to reduce noise
-
-      // Cache the result
-      iturhfpropCache = {
-        data,
-        key: cacheKey,
-        timestamp: now,
-        maxAge: iturhfpropCache.maxAge,
-      };
-
+      ituCacheSet(iturhfpropSingleCache, cacheKey, data);
       return data;
     } catch (err) {
       iturhfpropDown = Date.now();
@@ -102,34 +120,27 @@ module.exports = function (app, ctx) {
    * This calls P.533-14 for all 24 hours and returns per-band, per-hour reliability.
    * Results are cached for 10 minutes since they change slowly (SSN is daily).
    */
-  let iturhfpropHourlyCache = {
-    data: null,
-    key: null,
-    timestamp: 0,
-    maxAge: 10 * 60 * 1000, // 10 minutes — SSN/month don't change faster than this
-  };
+  // Round path coordinates to 1 decimal for cache key — paths within ~10km share results
+  function roundPath(lat, lon) {
+    return `${(Math.round(lat * 2) / 2).toFixed(1)},${(Math.round(lon * 2) / 2).toFixed(1)}`;
+  }
 
   async function fetchITURHFPropHourly(txLat, txLon, rxLat, rxLon, ssn, month, txPower, txGain) {
     if (!ITURHFPROP_URL) return null;
-    if (Date.now() - iturhfpropDown < ITURHFPROP_BACKOFF) return null; // service recently failed
+    if (Date.now() - iturhfpropDown < ITURHFPROP_BACKOFF) return null;
 
     const pw = Math.round(txPower || 100);
     const gn = Math.round((txGain || 0) * 10) / 10;
-    const cacheKey = `hourly-${txLat.toFixed(1)},${txLon.toFixed(1)}-${rxLat.toFixed(1)},${rxLon.toFixed(1)}-${ssn}-${month}-${pw}-${gn}`;
-    const now = Date.now();
+    const cacheKey = `h-${roundPath(txLat, txLon)}-${roundPath(rxLat, rxLon)}-${ssn}-${month}-${pw}-${gn}`;
 
-    if (
-      iturhfpropHourlyCache.key === cacheKey &&
-      now - iturhfpropHourlyCache.timestamp < iturhfpropHourlyCache.maxAge
-    ) {
-      return iturhfpropHourlyCache.data;
-    }
+    const cached = ituCacheGet(iturhfpropHourlyMap, cacheKey);
+    if (cached) return cached;
 
     try {
       const url = `${ITURHFPROP_URL}/api/predict/hourly?txLat=${txLat}&txLon=${txLon}&rxLat=${rxLat}&rxLon=${rxLon}&ssn=${ssn}&month=${month}&txPower=${pw}&txGain=${gn}`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s — fail fast, fallback to built-in
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
 
       const response = await fetch(url, { signal: controller.signal });
       clearTimeout(timeoutId);
@@ -138,10 +149,9 @@ module.exports = function (app, ctx) {
 
       const data = await response.json();
 
-      // Cache on success
       if (data?.hourly?.length > 0) {
-        iturhfpropHourlyCache = { data, key: cacheKey, timestamp: now, maxAge: iturhfpropHourlyCache.maxAge };
-        logDebug(`[ITURHFProp] Cached 24-hour prediction (${data.hourly.length} hours)`);
+        ituCacheSet(iturhfpropHourlyMap, cacheKey, data);
+        logDebug(`[ITURHFProp] Cached 24h prediction: ${cacheKey.substring(0, 40)}`);
       }
 
       return data;
@@ -258,18 +268,29 @@ module.exports = function (app, ctx) {
       let usedITURHFProp = false;
       let iturhfpropMuf = null;
 
-      // Try ITURHFProp 24-hour prediction first
+      // Try ITURHFProp from cache first (instant). If cache miss, check if
+      // service is reachable (quick inline fetch). If that also misses, serve
+      // built-in model immediately and queue ITURHFProp in the background so
+      // the NEXT request for this path gets precise P.533-14 results.
       if (useITURHFProp) {
-        const hourlyData = await fetchITURHFPropHourly(
-          de.lat,
-          de.lon,
-          dx.lat,
-          dx.lon,
-          effectiveSSN,
-          currentMonth,
-          txPower,
-          txGain,
-        );
+        // Check cache synchronously first — no network call
+        const pw = Math.round(txPower || 100);
+        const gn = Math.round((txGain || 0) * 10) / 10;
+        const hourlyKey = `h-${roundPath(de.lat, de.lon)}-${roundPath(dx.lat, dx.lon)}-${effectiveSSN}-${currentMonth}-${pw}-${gn}`;
+        const cachedHourly = ituCacheGet(iturhfpropHourlyMap, hourlyKey);
+
+        // If not in cache, try a quick inline fetch (10s timeout)
+        const hourlyData =
+          cachedHourly ||
+          (await fetchITURHFPropHourly(de.lat, de.lon, dx.lat, dx.lon, effectiveSSN, currentMonth, txPower, txGain));
+
+        // If still no data and service isn't down, queue background fetch
+        // so the next poll (10 min) gets precise results
+        if (!hourlyData && Date.now() - iturhfpropDown >= ITURHFPROP_BACKOFF) {
+          queueBackgroundFetch(hourlyKey, () =>
+            fetchITURHFPropHourly(de.lat, de.lon, dx.lat, dx.lon, effectiveSSN, currentMonth, txPower, txGain),
+          );
+        }
 
         if (hourlyData?.hourly?.length === 24) {
           logDebug('[Propagation] Using ITURHFProp P.533-14 for all 24 hours');
@@ -960,6 +981,24 @@ module.exports = function (app, ctx) {
     return 'CLOSED';
   }
 
+  // ── Pre-warm cache for DX spots ──────────────────────────────────
+  // Called from dxcluster.js when new DX callsigns appear.
+  // Fires background ITURHFProp requests so that by the time a user
+  // clicks the spot, the precise P.533-14 prediction is already cached.
+  function prewarmPropagation(deLat, deLon, dxLat, dxLon) {
+    if (!ITURHFPROP_URL || Date.now() - iturhfpropDown < ITURHFPROP_BACKOFF) return;
+
+    const currentMonth = new Date().getMonth() + 1;
+    // Use defaults for mode/power — most users are SSB/100W
+    const pw = 100;
+    const gn = 0;
+    getSolarData().then(({ ssn }) => {
+      const key = `h-${roundPath(deLat, deLon)}-${roundPath(dxLat, dxLon)}-${ssn}-${currentMonth}-${pw}-${gn}`;
+      if (ituCacheGet(iturhfpropHourlyMap, key)) return; // already cached
+      queueBackgroundFetch(key, () => fetchITURHFPropHourly(deLat, deLon, dxLat, dxLon, ssn, currentMonth, pw, gn));
+    });
+  }
+
   // Return shared state
-  return { PROP_HEATMAP_CACHE };
+  return { PROP_HEATMAP_CACHE, prewarmPropagation };
 };
