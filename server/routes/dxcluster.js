@@ -1774,16 +1774,20 @@ module.exports = function (app, ctx) {
 
           // Keep spots even when coordinates are missing so the list view can still show them.
           // World map rendering already filters to entries with valid coordinates.
+          // Sanitize coordinates — NaN must not leak to the frontend
+          // (NaN != null is true, so null checks don't catch it)
+          const safeLat = (v) => (Number.isFinite(v) ? v : null);
+
           return {
             spotter: spot.spotter,
-            spotterLat: spotterLoc?.lat ?? null,
-            spotterLon: spotterLoc?.lon ?? null,
+            spotterLat: safeLat(spotterLoc?.lat),
+            spotterLon: safeLat(spotterLoc?.lon),
             spotterCountry: spotterLoc?.country || '',
             spotterGrid: spotterGridSquare,
             spotterLocSource: spotterLoc?.source || null,
             dxCall: spot.dxCall,
-            dxLat: dxLoc?.lat ?? null,
-            dxLon: dxLoc?.lon ?? null,
+            dxLat: safeLat(dxLoc?.lat),
+            dxLon: safeLat(dxLoc?.lon),
             dxCountry: dxLoc?.country || '',
             dxGrid: dxGridSquare,
             dxLocSource: dxLoc?.source || null,

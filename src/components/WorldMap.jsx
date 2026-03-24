@@ -1193,8 +1193,13 @@ export const WorldMap = ({
         if (!bandPassesMapFilter(band)) return;
 
         try {
-          if (path.spotterLat == null || path.spotterLon == null || path.dxLat == null || path.dxLon == null) return;
-          if (isNaN(path.spotterLat) || isNaN(path.spotterLon) || isNaN(path.dxLat) || isNaN(path.dxLon)) return;
+          if (
+            !Number.isFinite(path.spotterLat) ||
+            !Number.isFinite(path.spotterLon) ||
+            !Number.isFinite(path.dxLat) ||
+            !Number.isFinite(path.dxLon)
+          )
+            return;
 
           const pathPoints = getGreatCirclePoints(path.spotterLat, path.spotterLon, path.dxLat, path.dxLon);
 
@@ -1355,7 +1360,7 @@ export const WorldMap = ({
 
     if (show && spots) {
       spots.forEach((spot) => {
-        if (spot.lat != null && spot.lon != null) {
+        if (Number.isFinite(spot.lat) && Number.isFinite(spot.lon)) {
           const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
           if (!bandPassesMapFilter(band)) return;
 
