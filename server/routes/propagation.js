@@ -458,6 +458,43 @@ module.exports = function (app, ctx) {
   // ===== PROPAGATION HEATMAP =====
   // Computes reliability grid from DE location to world grid for a selected band
   // Used by VOACAP Heatmap map layer plugin
+
+  // Solar data cache — shared across all heatmap requests so band/mode/power
+  // changes don't each trigger a slow NOAA fetch
+  let solarCache = { sfi: 150, ssn: 100, kIndex: 2, ts: 0 };
+  const SOLAR_CACHE_TTL = 15 * 60 * 1000; // 15 minutes
+
+  async function getSolarData() {
+    const now = Date.now();
+    if (now - solarCache.ts < SOLAR_CACHE_TTL) {
+      return { sfi: solarCache.sfi, ssn: solarCache.ssn, kIndex: solarCache.kIndex };
+    }
+    let sfi = 150,
+      ssn = 100,
+      kIndex = 2;
+    try {
+      const [fluxRes, kRes] = await Promise.allSettled([
+        fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json', { signal: AbortSignal.timeout(5000) }),
+        fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json', {
+          signal: AbortSignal.timeout(5000),
+        }),
+      ]);
+      if (fluxRes.status === 'fulfilled' && fluxRes.value.ok) {
+        const data = await fluxRes.value.json();
+        if (data?.length) sfi = Math.round(data[data.length - 1].flux || 150);
+      }
+      if (kRes.status === 'fulfilled' && kRes.value.ok) {
+        const data = await kRes.value.json();
+        if (data?.length > 1) kIndex = parseInt(data[data.length - 1][1]) || 2;
+      }
+      ssn = Math.max(0, Math.round((sfi - 67) / 0.97));
+    } catch (e) {
+      logDebug('[PropHeatmap] Using cached/default solar values');
+    }
+    solarCache = { sfi, ssn, kIndex, ts: now };
+    return { sfi, ssn, kIndex };
+  }
+
   const PROP_HEATMAP_CACHE = {};
   const PROP_HEATMAP_TTL = 5 * 60 * 1000; // 5 minutes
   const PROP_HEATMAP_MAX_ENTRIES = 200; // Hard cap on cache entries
@@ -512,27 +549,9 @@ module.exports = function (app, ctx) {
     }
 
     try {
-      // Fetch current solar conditions (same as main propagation endpoint)
-      let sfi = 150,
-        ssn = 100,
-        kIndex = 2;
-      try {
-        const [fluxRes, kRes] = await Promise.allSettled([
-          fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json'),
-          fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
-        ]);
-        if (fluxRes.status === 'fulfilled' && fluxRes.value.ok) {
-          const data = await fluxRes.value.json();
-          if (data?.length) sfi = Math.round(data[data.length - 1].flux || 150);
-        }
-        if (kRes.status === 'fulfilled' && kRes.value.ok) {
-          const data = await kRes.value.json();
-          if (data?.length > 1) kIndex = parseInt(data[data.length - 1][1]) || 2;
-        }
-        ssn = Math.max(0, Math.round((sfi - 67) / 0.97));
-      } catch (e) {
-        logDebug('[PropHeatmap] Using default solar values');
-      }
+      // Solar conditions — cached separately so band/mode/power changes don't
+      // each trigger a slow NOAA round-trip
+      const { sfi, ssn, kIndex } = await getSolarData();
 
       const currentHour = new Date().getUTCHours();
       const de = { lat: deLat, lon: deLon };
