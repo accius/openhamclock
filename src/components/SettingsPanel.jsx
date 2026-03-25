@@ -4815,19 +4815,38 @@ export const SettingsPanel = ({
                     onClick={async () => {
                       const rigBridgeUrl = `${rigHost.replace(/\/$/, '')}:${rigPort}`;
                       try {
-                        const res = await fetch('/api/rig-bridge/relay/configure', {
+                        // Step 1: Get credentials from OHC server
+                        const credRes = await fetch('/api/rig-bridge/relay/configure', {
                           method: 'POST',
                           headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ rigBridgeUrl, rigBridgeToken: rigApiToken }),
+                          body: JSON.stringify({}),
                         });
-                        const data = await res.json();
-                        if (res.ok) {
-                          alert(`Cloud Relay configured! Session: ${data.session}`);
+                        const credData = await credRes.json();
+                        if (!credRes.ok) {
+                          alert(`Error: ${credData.error}`);
+                          return;
+                        }
+
+                        // Step 2: Push config directly to local rig-bridge (browser can reach localhost)
+                        const headers = { 'Content-Type': 'application/json' };
+                        if (rigApiToken) headers['X-RigBridge-Token'] = rigApiToken;
+                        const pushRes = await fetch(`${rigBridgeUrl}/api/config`, {
+                          method: 'POST',
+                          headers,
+                          body: JSON.stringify(credData.configPayload),
+                        });
+                        if (pushRes.ok) {
+                          alert(
+                            `Cloud Relay configured!\n\nSession: ${credData.session}\nServer: ${credData.serverUrl}\n\nRestart rig-bridge to activate.`,
+                          );
                         } else {
-                          alert(`Error: ${data.error}`);
+                          const err = await pushRes.text();
+                          alert(`Rig Bridge rejected config: ${err}`);
                         }
                       } catch (e) {
-                        alert(`Failed to configure cloud relay: ${e.message}`);
+                        alert(
+                          `Failed to configure cloud relay: ${e.message}\n\nMake sure rig-bridge is running at ${rigHost.replace(/\/$/, '')}:${rigPort}`,
+                        );
                       }
                     }}
                     style={{

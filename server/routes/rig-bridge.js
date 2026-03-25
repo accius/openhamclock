@@ -153,10 +153,11 @@ module.exports = function (app, ctx) {
     res.json({ commands });
   });
 
-  // ─── Cloud Relay: Configure (browser pushes config to rig-bridge) ─────
-  app.post('/api/rig-bridge/relay/configure', async (req, res) => {
-    const { rigBridgeUrl, rigBridgeToken } = req.body;
-    if (!rigBridgeUrl) return res.status(400).json({ error: 'Missing rigBridgeUrl' });
+  // ─── Cloud Relay: Configure ─────────────────────────────────────────
+  // Returns credentials for the browser to push directly to the user's
+  // local rig-bridge. The server can't reach localhost:5555 when cloud-hosted,
+  // but the browser CAN because it's on the user's machine.
+  app.post('/api/rig-bridge/relay/configure', (req, res) => {
     if (!RIG_BRIDGE_RELAY_KEY) {
       return res.status(503).json({ error: 'Cloud relay not configured — set RIG_BRIDGE_RELAY_KEY in .env' });
     }
@@ -164,35 +165,22 @@ module.exports = function (app, ctx) {
     const sessionId = crypto.randomBytes(8).toString('hex');
     const serverUrl = `${req.protocol}://${req.get('host')}`;
 
-    try {
-      // Push cloud relay config to the local rig-bridge
-      const headers = {
-        'Content-Type': 'application/json',
-        ...(rigBridgeToken ? { 'X-RigBridge-Token': rigBridgeToken } : {}),
-      };
-
-      const response = await ctx.fetch(`${rigBridgeUrl}/api/config`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          cloudRelay: {
-            enabled: true,
-            url: serverUrl,
-            apiKey: RIG_BRIDGE_RELAY_KEY,
-            session: sessionId,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const err = await response.text();
-        return res.status(response.status).json({ error: `Rig Bridge rejected config: ${err}` });
-      }
-
-      res.json({ ok: true, session: sessionId, serverUrl });
-    } catch (err) {
-      res.status(500).json({ error: `Cannot reach Rig Bridge at ${rigBridgeUrl}: ${err.message}` });
-    }
+    // Return the config payload — the browser will push it to the local rig-bridge
+    res.json({
+      ok: true,
+      session: sessionId,
+      serverUrl,
+      relayKey: RIG_BRIDGE_RELAY_KEY,
+      // The browser should POST this to rigBridgeUrl/api/config:
+      configPayload: {
+        cloudRelay: {
+          enabled: true,
+          url: serverUrl,
+          apiKey: RIG_BRIDGE_RELAY_KEY,
+          session: sessionId,
+        },
+      },
+    });
   });
 
   // ─── Downloads: Platform-specific installer scripts ────────────────────
