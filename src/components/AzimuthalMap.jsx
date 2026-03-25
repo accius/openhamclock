@@ -542,7 +542,7 @@ export default function AzimuthalMap({
 
         // Only draw spotter circle and lines if spotter coordinates are valid (not null/undefined).
         // Using != null instead of truthy check (&&) ensures coordinates at 0,0 are handled correctly.
-        if (path.spotterLat != null && path.spotterLon != null) {
+        if (Number.isFinite(path.spotterLat) && Number.isFinite(path.spotterLon)) {
           const s = toCanvas(path.spotterLat, path.spotterLon);
           ctx.beginPath();
           ctx.moveTo(s.x, s.y);
@@ -691,7 +691,7 @@ export default function AzimuthalMap({
     // ── POTA spots ───────────────────────────────────────
     if (showPOTA && potaSpots?.length > 0) {
       potaSpots.forEach((spot) => {
-        if (spot.lat == null || spot.lon == null) return;
+        if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lon)) return;
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 
@@ -712,7 +712,7 @@ export default function AzimuthalMap({
     // ── WWFF spots ───────────────────────────────────────
     if (showWWFF && wwffSpots?.length > 0) {
       wwffSpots.forEach((spot) => {
-        if (spot.lat == null || spot.lon == null) return;
+        if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lon)) return;
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 
@@ -733,7 +733,7 @@ export default function AzimuthalMap({
     // ── SOTA spots ───────────────────────────────────────
     if (showSOTA && sotaSpots?.length > 0) {
       sotaSpots.forEach((spot) => {
-        if (spot.lat == null || spot.lon == null) return;
+        if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lon)) return;
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 
@@ -753,7 +753,7 @@ export default function AzimuthalMap({
     // ── WWBOTA spots ─────────────────────────────────────
     if (showWWBOTA && wwbotaSpots?.length > 0) {
       wwbotaSpots.forEach((spot) => {
-        if (spot.lat == null || spot.lon == null) return;
+        if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lon)) return;
         const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
         if (!bandPassesMapFilter(band)) return;
 
@@ -770,7 +770,7 @@ export default function AzimuthalMap({
     }
 
     // ── DX marker ────────────────────────────────────────
-    if (dxLocation?.lat != null && dxLocation?.lon != null) {
+    if (Number.isFinite(dxLocation?.lat) && Number.isFinite(dxLocation?.lon)) {
       const dp = toCanvas(dxLocation.lat, dxLocation.lon);
       ctx.beginPath();
       ctx.arc(dp.x, dp.y, 10, 0, Math.PI * 2);

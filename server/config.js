@@ -177,22 +177,21 @@ if (configMissing) {
   console.log('[Config] Settings popup will appear in browser');
 }
 
-// ITURHFProp service URL
-const ITURHFPROP_DEFAULT = 'https://proppy-production.up.railway.app';
+// ITURHFProp service URL — only enabled when explicitly configured.
+// Self-hosted users get the built-in model by default (no external dependency).
+// The hosted deployment (openhamclock.com) sets this in its .env.
+// Users can set ITURHFPROP_URL in their .env to use a custom P.533 service.
 const ITURHFPROP_URL =
   process.env.ITURHFPROP_URL && process.env.ITURHFPROP_URL.trim().startsWith('http')
     ? process.env.ITURHFPROP_URL.trim()
-    : ITURHFPROP_DEFAULT;
+    : null;
 
 // Log configuration
 console.log(`[Config] Station: ${CONFIG.callsign} @ ${CONFIG.gridSquare || 'No grid'}`);
 console.log(`[Config] Location: ${CONFIG.latitude.toFixed(4)}, ${CONFIG.longitude.toFixed(4)}`);
 console.log(`[Config] Units: ${CONFIG.units}, Time: ${CONFIG.timeFormat}h`);
 if (ITURHFPROP_URL) {
-  const isDefault = ITURHFPROP_URL === ITURHFPROP_DEFAULT;
-  console.log(
-    `[Propagation] ITU-R P.533-14 enabled via ${isDefault ? 'public service' : 'custom service'}: ${ITURHFPROP_URL}`,
-  );
+  console.log(`[Propagation] ITU-R P.533-14 enabled: ${ITURHFPROP_URL}`);
 } else {
   console.log('[Propagation] Standalone mode - using built-in calculations');
 }
@@ -243,7 +242,6 @@ module.exports = {
   TRUST_PROXY,
   API_WRITE_KEY,
   ITURHFPROP_URL,
-  ITURHFPROP_DEFAULT,
   WSJTX_ENABLED,
   WSJTX_UDP_PORT,
   WSJTX_MULTICAST_ADDRESS,
