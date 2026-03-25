@@ -47,6 +47,7 @@ module.exports = function (app, ctx) {
       relaySessions.set(sessionId, {
         state: { connected: false, freq: 0, mode: '', ptt: false },
         commands: [],
+        decodes: [],
         lastPush: Date.now(),
         lastPoll: 0,
       });
@@ -106,6 +107,16 @@ module.exports = function (app, ctx) {
     };
     session.lastPush = Date.now();
 
+    // Store any batched decodes
+    if (Array.isArray(req.body.decodes) && req.body.decodes.length > 0) {
+      if (!session.decodes) session.decodes = [];
+      session.decodes.push(...req.body.decodes);
+      // Cap decode buffer (ring buffer — keep newest)
+      if (session.decodes.length > 500) {
+        session.decodes = session.decodes.slice(-500);
+      }
+    }
+
     res.json({ ok: true });
   });
 
@@ -116,8 +127,20 @@ module.exports = function (app, ctx) {
       return res.json({ connected: false, freq: 0, mode: '', ptt: false, relayActive: false });
     }
     const session = relaySessions.get(sessionId);
-    const relayActive = Date.now() - session.lastPush < 15000; // Consider active if pushed in last 15s
+    const relayActive = Date.now() - session.lastPush < 15000;
     res.json({ ...session.state, relayActive });
+  });
+
+  // ─── Cloud Relay: Decodes Poll (browser → server) ─────────────────────
+  app.get('/api/rig-bridge/relay/decodes', (req, res) => {
+    const sessionId = req.query.session;
+    const since = parseInt(req.query.since) || 0;
+    if (!sessionId || !relaySessions.has(sessionId)) {
+      return res.json({ decodes: [] });
+    }
+    const session = relaySessions.get(sessionId);
+    const decodes = (session.decodes || []).filter((d) => (d.timestamp || 0) > since);
+    res.json({ count: decodes.length, decodes });
   });
 
   // ─── Cloud Relay: Command Push (browser → server, for rig-bridge to pick up) ─

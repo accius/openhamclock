@@ -59,12 +59,15 @@ Examples:
   process.exit(0);
 }
 
-// 4. Initialize message log
+// 4. Initialize shared services
 const { MessageLog } = require('./lib/message-log');
+const EventEmitter = require('events');
+
 const messageLog = new MessageLog({ maxAgeDays: config.messageLogRetentionDays || 7 });
+const pluginBus = new EventEmitter(); // Shared event bus for inter-plugin communication
 
 // 5. Create plugin registry, wire shared services, register all built-in plugins
-const registry = new PluginRegistry(config, { updateState, state, messageLog });
+const registry = new PluginRegistry(config, { updateState, state, messageLog, pluginBus });
 registry.registerBuiltins();
 
 // 6. Start HTTP server (passes registry for route dispatch and plugin route registration)

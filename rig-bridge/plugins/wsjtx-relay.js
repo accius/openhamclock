@@ -131,10 +131,11 @@ const descriptor = {
     });
   },
 
-  create(config) {
+  create(config, services) {
     const cfg = config.wsjtxRelay || {};
     const serverUrl = (cfg.url || '').replace(/\/$/, '');
     const relayEndpoint = `${serverUrl}/api/wsjtx/relay`;
+    const bus = services?.pluginBus;
 
     const mcEnabled = !!cfg.multicast;
     const mcGroup = cfg.multicastGroup || '224.0.0.1';
@@ -314,7 +315,12 @@ const descriptor = {
         remoteAddress = rinfo.address;
         remotePort = rinfo.port;
         if (msg.id) appId = msg.id;
-        if (msg.type === WSJTX_MSG.DECODE && msg.isNew) totalDecodes++;
+        if (msg.type === WSJTX_MSG.DECODE && msg.isNew) {
+          totalDecodes++;
+          if (bus) bus.emit('decode', { source: 'wsjtx-relay', ...msg });
+        }
+        if (msg.type === WSJTX_MSG.STATUS && bus) bus.emit('status', { source: 'wsjtx-relay', ...msg });
+        if (msg.type === WSJTX_MSG.QSO_LOGGED && bus) bus.emit('qso', { source: 'wsjtx-relay', ...msg });
         if (msg.type !== WSJTX_MSG.REPLAY) {
           messageQueue.push(msg);
           if (cfg.verbose && msg.type === WSJTX_MSG.DECODE) {

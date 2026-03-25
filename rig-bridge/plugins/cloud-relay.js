@@ -55,15 +55,17 @@ const descriptor = {
     const session = cfg.session || '';
     const pushInterval = cfg.pushInterval || 2000;
     const pollInterval = cfg.pollInterval || 1000;
-    const { state } = services;
+    const { state, pluginBus } = services;
 
     let pushTimer = null;
     let pollTimer = null;
     let serverReachable = false;
     let totalPushed = 0;
     let totalCommands = 0;
+    let totalDecodes = 0;
     let consecutiveErrors = 0;
     let lastState = {};
+    let pendingDecodes = []; // Batched decodes to push
 
     function makeRequest(urlStr, method, body, callback) {
       let parsed;
@@ -106,7 +108,7 @@ const descriptor = {
       req.end();
     }
 
-    // Push current rig state to cloud
+    // Push current rig state + batched decodes to cloud
     function pushState() {
       const currentState = {
         freq: state.freq,
@@ -117,29 +119,41 @@ const descriptor = {
         timestamp: Date.now(),
       };
 
-      // Only push if state changed
-      if (
-        currentState.freq === lastState.freq &&
-        currentState.mode === lastState.mode &&
-        currentState.ptt === lastState.ptt &&
-        currentState.connected === lastState.connected
-      ) {
-        return;
-      }
+      const hasDecodes = pendingDecodes.length > 0;
+      const stateChanged =
+        currentState.freq !== lastState.freq ||
+        currentState.mode !== lastState.mode ||
+        currentState.ptt !== lastState.ptt ||
+        currentState.connected !== lastState.connected;
+
+      // Only push if state changed or there are decodes to send
+      if (!stateChanged && !hasDecodes) return;
       lastState = { ...currentState };
 
-      makeRequest(`${serverUrl}/api/rig-bridge/relay/state`, 'POST', currentState, (err, status) => {
+      // Include batched decodes in the push
+      const payload = { ...currentState };
+      if (hasDecodes) {
+        payload.decodes = pendingDecodes.splice(0, 50); // Send up to 50 at a time
+        totalDecodes += payload.decodes.length;
+      }
+
+      makeRequest(`${serverUrl}/api/rig-bridge/relay/state`, 'POST', payload, (err, status) => {
         if (err) {
           if (serverReachable) console.error(`[CloudRelay] Push error: ${err.message}`);
           serverReachable = false;
           consecutiveErrors++;
+          // Put decodes back if push failed
+          if (payload.decodes) pendingDecodes.unshift(...payload.decodes);
           return;
         }
         if (status === 200) {
           serverReachable = true;
           consecutiveErrors = 0;
           totalPushed++;
-          if (cfg.verbose) console.log(`[CloudRelay] Pushed state (${currentState.freq} Hz ${currentState.mode})`);
+          if (cfg.verbose) {
+            const decodeInfo = payload.decodes ? ` + ${payload.decodes.length} decodes` : '';
+            console.log(`[CloudRelay] Pushed state (${currentState.freq} Hz ${currentState.mode}${decodeInfo})`);
+          }
         } else if (status === 401 || status === 403) {
           console.error(`[CloudRelay] Authentication failed (${status}) — check relay API key`);
         }
@@ -247,6 +261,24 @@ const descriptor = {
 
       pushTimer = setInterval(pushState, pushInterval);
       pollTimer = setInterval(pollCommands, pollInterval);
+
+      // Subscribe to plugin bus — batch decodes and APRS packets for push
+      if (pluginBus) {
+        pluginBus.on('decode', (msg) => {
+          pendingDecodes.push({
+            source: msg.source,
+            message: msg.message,
+            snr: msg.snr,
+            deltaFreq: msg.deltaFreq,
+            mode: msg.mode,
+            time: msg.time?.formatted,
+            timestamp: msg.timestamp,
+          });
+          // Cap pending queue
+          if (pendingDecodes.length > 200) pendingDecodes.splice(0, pendingDecodes.length - 200);
+        });
+        console.log('[CloudRelay] Subscribed to plugin bus (decodes, status, QSOs)');
+      }
     }
 
     function disconnect() {

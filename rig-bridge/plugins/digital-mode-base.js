@@ -127,9 +127,10 @@ function createDigitalModePlugin({ id, name, configKey, defaultPort, tag }) {
       });
     },
 
-    create(config) {
+    create(config, services) {
       const cfg = config[configKey] || {};
       const udpPort = cfg.udpPort || defaultPort;
+      const bus = services?.pluginBus;
 
       let socket = null;
       let remoteAddress = null;
@@ -151,6 +152,7 @@ function createDigitalModePlugin({ id, name, configKey, defaultPort, tag }) {
 
           if (msg.type === WSJTX_MSG.DECODE && msg.isNew) {
             totalDecodes++;
+            if (bus) bus.emit('decode', { source: id, ...msg });
             if (cfg.verbose) {
               const snr = msg.snr != null ? (msg.snr >= 0 ? `+${msg.snr}` : msg.snr) : '?';
               console.log(`[${tag}] Decode ${msg.time?.formatted || '??'} ${snr}dB ${msg.deltaFreq}Hz ${msg.message}`);
@@ -159,6 +161,11 @@ function createDigitalModePlugin({ id, name, configKey, defaultPort, tag }) {
 
           if (msg.type === WSJTX_MSG.STATUS) {
             lastStatus = msg;
+            if (bus) bus.emit('status', { source: id, ...msg });
+          }
+
+          if (msg.type === WSJTX_MSG.QSO_LOGGED) {
+            if (bus) bus.emit('qso', { source: id, ...msg });
           }
 
           if (msg.type === WSJTX_MSG.HEARTBEAT) {
