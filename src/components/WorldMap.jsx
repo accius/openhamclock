@@ -1365,11 +1365,16 @@ export const WorldMap = ({
           if (!bandPassesMapFilter(band)) return;
 
           replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+            const grid = spot.grid6 ? spot.grid6 : spot.grid ? spot.grid : null;
             const marker = L.marker([lat, lon], { icon: mapDefaults.icon })
               .bindPopup(
                 `<span style="color:${mapDefaults.color};background:#000">
-                  ${mapDefaults.shape} ${mapDefaults.name} - </span>
-                <b data-qrz-call="${esc(spot.call)}" style="color:${mapDefaults.color}; cursor:pointer">${esc(spot.call)}</b><br><span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br>${spot.name ? `<i>${esc(spot.name)}</i><br>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>`,
+                    ${mapDefaults.shape} ${mapDefaults.name} - </span>
+                  <b data-qrz-call="${esc(spot.call)}" style="color:${mapDefaults.color}; cursor:pointer">${esc(spot.call)}</b><br/>
+                  ${grid ? `${grid}<br/>` : ''}
+                  <span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br/>
+                  ${spot.name ? `<i>${esc(spot.name)}</i><br/>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>
+                  ${spot.comments.length > 0 ? `<br/><i>(${esc(spot.comments)})</i>` : ''}`,
               )
               .addTo(map);
 
