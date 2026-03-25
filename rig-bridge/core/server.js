@@ -1789,6 +1789,47 @@ function createServer(registry, version) {
   });
 
   // ─── OHC-compatible API ───
+  // ─── Message Log API ─────────────────────────────────────────────────
+  app.get('/api/messages', (req, res) => {
+    const log = registry.services?.messageLog;
+    if (!log) return res.json({ entries: [] });
+    const { callsign, type, since, until, limit } = req.query;
+    const entries = log.query({
+      callsign,
+      type,
+      since: since ? parseInt(since) : undefined,
+      until: until ? parseInt(until) : undefined,
+      limit: limit ? parseInt(limit) : 200,
+    });
+    res.json({ count: entries.length, entries });
+  });
+
+  app.get('/api/messages/export', (req, res) => {
+    const log = registry.services?.messageLog;
+    if (!log) return res.status(503).json({ error: 'Message log not available' });
+    const format = req.query.format || 'csv';
+    const filters = {
+      callsign: req.query.callsign,
+      type: req.query.type,
+      since: req.query.since ? parseInt(req.query.since) : undefined,
+    };
+    if (format === 'csv') {
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="messages.csv"');
+      res.send(log.exportCSV(filters));
+    } else {
+      res.setHeader('Content-Type', 'text/plain');
+      res.setHeader('Content-Disposition', 'attachment; filename="messages.txt"');
+      res.send(log.exportText(filters));
+    }
+  });
+
+  app.get('/api/messages/stats', (req, res) => {
+    const log = registry.services?.messageLog;
+    if (!log) return res.json({ total: 0 });
+    res.json(log.stats());
+  });
+
   // Diagnostic endpoint — no auth required, designed for troubleshooting
   app.get('/health', (req, res) => {
     // Collect integration plugin status

@@ -59,15 +59,19 @@ Examples:
   process.exit(0);
 }
 
-// 4. Create plugin registry, wire shared services, register all built-in plugins
-const registry = new PluginRegistry(config, { updateState, state });
+// 4. Initialize message log
+const { MessageLog } = require('./lib/message-log');
+const messageLog = new MessageLog({ maxAgeDays: config.messageLogRetentionDays || 7 });
+
+// 5. Create plugin registry, wire shared services, register all built-in plugins
+const registry = new PluginRegistry(config, { updateState, state, messageLog });
 registry.registerBuiltins();
 
-// 5. Start HTTP server (passes registry for route dispatch and plugin route registration)
+// 6. Start HTTP server (passes registry for route dispatch and plugin route registration)
 startServer(config.port, registry, VERSION);
 
-// 6. Auto-connect to configured radio (if any)
+// 7. Auto-connect to configured radio (if any)
 registry.connectActive();
 
-// 7. Start all enabled integration plugins (e.g. WSJT-X relay)
+// 8. Start all enabled integration plugins (e.g. WSJT-X relay)
 registry.connectIntegrations();
