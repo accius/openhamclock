@@ -50,7 +50,8 @@ const RigControlPanel = () => {
         {error === 'ptt-disabled' && (
           <div className="error-banner warning">{t('app.rigControl.error.pttDisabled')}</div>
         )}
-        {error && error !== 'unauthorized' && error !== 'ptt-disabled' && (
+        {error === 'no-plugin' && <div className="error-banner warning">{t('app.rigControl.error.noPlugin')}</div>}
+        {error && error !== 'unauthorized' && error !== 'ptt-disabled' && error !== 'no-plugin' && (
           <div className="error-banner">{t('app.rigControl.error.daemon')}</div>
         )}
 

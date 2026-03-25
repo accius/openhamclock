@@ -141,6 +141,11 @@ export const RigProvider = ({ children, rigConfig }) => {
           setError('unauthorized');
           return;
         }
+        if (res.status === 503) {
+          setError('no-plugin');
+          return;
+        }
+        if (error === 'no-plugin') setError(null);
         // No need to poll, SSE will push update
       } catch (err) {
         console.error('Failed to set freq:', err);
@@ -163,6 +168,11 @@ export const RigProvider = ({ children, rigConfig }) => {
           setError('unauthorized');
           return;
         }
+        if (res.status === 503) {
+          setError('no-plugin');
+          return;
+        }
+        if (error === 'no-plugin') setError(null);
         // SSE will push update
       } catch (err) {
         console.error('Failed to set mode:', err);
@@ -195,8 +205,13 @@ export const RigProvider = ({ children, rigConfig }) => {
           setRigState((prev) => ({ ...prev, ptt: !enabled }));
           return;
         }
+        if (res.status === 503) {
+          setError('no-plugin');
+          setRigState((prev) => ({ ...prev, ptt: !enabled }));
+          return;
+        }
         // Success — clear any previous PTT-related error
-        if (error === 'ptt-disabled') setError(null);
+        if (error === 'ptt-disabled' || error === 'no-plugin') setError(null);
       } catch (err) {
         console.error('Failed to set PTT:', err);
       }

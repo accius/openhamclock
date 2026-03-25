@@ -47,6 +47,7 @@
   "app.rigControl.disabled": "Rig Control Disabled",
   "app.rigControl.disconnected": "Rig Disconnected",
   "app.rigControl.error.daemon": "Daemon not reachable",
+  "app.rigControl.error.noPlugin": "No radio plugin active — configure your radio at http://localhost:5555",
   "app.rigControl.error.pttDisabled": "PTT is disabled on rig-bridge — enable it in the Integrations tab at http://localhost:5555",
   "app.rigControl.error.unauthorized": "Unauthorized — check API token in Settings → Rig Control",
   "app.rigControl.ptt": "PTT",

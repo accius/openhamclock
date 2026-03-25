@@ -4,6 +4,7 @@
  *
  * Exposes the openhamclock-compatible API:
  *   GET  /             Setup UI (HTML) or JSON health check
+ *   GET  /health       Diagnostic endpoint (auth, plugin, ptt status)
  *   GET  /status       Current rig state snapshot
  *   GET  /stream       SSE stream for real-time state updates
  *   POST /freq         Set frequency  { freq: Hz }
@@ -1526,6 +1527,7 @@ function createServer(registry, version) {
     if (!config.apiToken) return next(); // auth disabled — backwards-compatible
     const provided = req.headers['x-rigbridge-token'] || '';
     if (provided === config.apiToken) return next();
+    console.warn(`[Auth] Rejected ${req.method} ${req.path} — invalid or missing token`);
     return res.status(401).json({ error: 'Unauthorized' });
   }
 
@@ -1778,6 +1780,17 @@ function createServer(registry, version) {
   });
 
   // ─── OHC-compatible API ───
+  // Diagnostic endpoint — no auth required, designed for troubleshooting
+  app.get('/health', (req, res) => {
+    res.json({
+      auth: config.apiToken ? 'enabled' : 'disabled',
+      plugin: registry.activeId || 'none',
+      connected: state.connected,
+      pttEnabled: !!(config.radio && config.radio.pttEnabled),
+      uptime: Math.floor(process.uptime()),
+    });
+  });
+
   app.get('/status', (req, res) => {
     res.json({
       connected: state.connected,
@@ -1822,7 +1835,9 @@ function createServer(registry, version) {
     if (!Number.isFinite(hz) || hz < 1000 || hz > 75e9) {
       return res.status(400).json({ error: 'Frequency out of range (1 kHz–75 GHz)' });
     }
-    registry.dispatch('setFreq', hz);
+    if (!registry.dispatch('setFreq', hz)) {
+      return res.status(503).json({ error: 'No radio plugin active' });
+    }
     res.json({ success: true });
   });
 
@@ -1832,7 +1847,9 @@ function createServer(registry, version) {
     if (typeof mode !== 'string' || !/^[A-Za-z0-9-]{1,20}$/.test(mode)) {
       return res.status(400).json({ error: 'Invalid mode value' });
     }
-    registry.dispatch('setMode', mode);
+    if (!registry.dispatch('setMode', mode)) {
+      return res.status(503).json({ error: 'No radio plugin active' });
+    }
     res.json({ success: true });
   });
 
@@ -1841,7 +1858,9 @@ function createServer(registry, version) {
     if (ptt && !config.radio.pttEnabled) {
       return res.status(403).json({ error: 'PTT disabled in configuration' });
     }
-    registry.dispatch('setPTT', !!ptt);
+    if (!registry.dispatch('setPTT', !!ptt)) {
+      return res.status(503).json({ error: 'No radio plugin active' });
+    }
     res.json({ success: true });
   });
 
