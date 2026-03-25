@@ -22,7 +22,7 @@
 const VERSION = '1.2.0';
 
 const { config, loadConfig, applyCliArgs } = require('./core/config');
-const { updateState, state } = require('./core/state');
+const { updateState, state, onStateChange, removeStateChangeListener } = require('./core/state');
 const PluginRegistry = require('./core/plugin-registry');
 const { startServer } = require('./core/server');
 
@@ -67,7 +67,14 @@ const messageLog = new MessageLog({ maxAgeDays: config.messageLogRetentionDays |
 const pluginBus = new EventEmitter(); // Shared event bus for inter-plugin communication
 
 // 5. Create plugin registry, wire shared services, register all built-in plugins
-const registry = new PluginRegistry(config, { updateState, state, messageLog, pluginBus });
+const registry = new PluginRegistry(config, {
+  updateState,
+  state,
+  messageLog,
+  pluginBus,
+  onStateChange,
+  removeStateChangeListener,
+});
 registry.registerBuiltins();
 
 // 6. Start HTTP server (passes registry for route dispatch and plugin route registration)

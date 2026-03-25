@@ -143,7 +143,7 @@ module.exports = function (app, ctx) {
       return res.json({ connected: false, freq: 0, mode: '', ptt: false, relayActive: false });
     }
     const session = relaySessions.get(sessionId);
-    const relayActive = Date.now() - session.lastPush < 15000;
+    const relayActive = Date.now() - session.lastPush < 30000; // 30s timeout — generous for network jitter
     res.json({ ...session.state, relayActive });
   });
 

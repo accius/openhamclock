@@ -114,7 +114,7 @@ export const RigProvider = ({ children, rigConfig }) => {
       };
 
       pollRelayState();
-      pollInterval = setInterval(pollRelayState, 2000);
+      pollInterval = setInterval(pollRelayState, 1000); // Poll every 1s for responsive updates
 
       return () => {
         active = false;

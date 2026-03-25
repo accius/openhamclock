@@ -53,12 +53,14 @@ const descriptor = {
     const serverUrl = (cfg.url || '').replace(/\/$/, '');
     const apiKey = cfg.apiKey || '';
     const session = cfg.session || '';
-    const pushInterval = cfg.pushInterval || 2000;
+    const pushInterval = cfg.pushInterval || 2000; // Fallback interval for data batches
     const pollInterval = cfg.pollInterval || 1000;
-    const { state, pluginBus } = services;
+    const { state, pluginBus, onStateChange, removeStateChangeListener } = services;
 
     let pushTimer = null;
     let pollTimer = null;
+    let immediatePushTimer = null;
+    let stateChangeHandler = null;
     let serverReachable = false;
     let totalPushed = 0;
     let totalCommands = 0;
@@ -264,6 +266,17 @@ const descriptor = {
         }
       });
 
+      // Push immediately on any state change (freq, mode, PTT) with 100ms debounce
+      if (typeof onStateChange === 'function') {
+        stateChangeHandler = () => {
+          if (immediatePushTimer) clearTimeout(immediatePushTimer);
+          immediatePushTimer = setTimeout(pushState, 100);
+        };
+        onStateChange(stateChangeHandler);
+        console.log('[CloudRelay] Subscribed to immediate state changes');
+      }
+
+      // Fallback interval for batched data (decodes, APRS) even if state hasn't changed
       pushTimer = setInterval(pushState, pushInterval);
       pollTimer = setInterval(pollCommands, pollInterval);
 
@@ -298,6 +311,13 @@ const descriptor = {
       if (pollTimer) {
         clearInterval(pollTimer);
         pollTimer = null;
+      }
+      if (immediatePushTimer) {
+        clearTimeout(immediatePushTimer);
+        immediatePushTimer = null;
+      }
+      if (stateChangeHandler && typeof removeStateChangeListener === 'function') {
+        removeStateChangeListener(stateChangeHandler);
       }
       _currentInstance = null;
       console.log(`[CloudRelay] Stopped (pushed: ${totalPushed}, commands: ${totalCommands})`);
