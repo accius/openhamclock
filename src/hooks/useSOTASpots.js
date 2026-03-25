@@ -47,14 +47,7 @@ export const useSOTASpots = () => {
             .filter((s) => {
               if (!(s.activatorCallsign && s.frequency)) return false;
               // Filter out QRT (operator signed off)
-              const comments = (s.comments || '').toUpperCase().trim();
-              if (
-                comments.toUpperCase() === 'QRT' ||
-                comments.toUpperCase().startsWith('QRT ') ||
-                comments.toUpperCase().startsWith('QRT,') ||
-                comments.toUpperCase().includes(' QRT')
-              )
-                return false;
+              if (/\bQRT\b/.test((s.comments || '').toUpperCase().trim())) return false;
               // Filter out spots older than 60 minutes
               if (s.timeStamp) {
                 const ts = s.timeStamp.endsWith('Z') || s.timeStamp.endsWith('z') ? s.timeStamp : s.timeStamp + 'Z';
