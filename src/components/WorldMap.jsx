@@ -1374,7 +1374,7 @@ export const WorldMap = ({
                   ${grid ? `${grid}<br/>` : ''}
                   <span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br/>
                   ${spot.name ? `<i>${esc(spot.name)}</i><br/>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>
-                  ${spot.comments?.length > 0 && `<br/><i>(${esc(spot.comments)})</i>`}`,
+                  ${spot.comments?.length > 0 ? `<br/><i>(${esc(spot.comments)})</i>` : ''}`,
               )
               .addTo(map);
 
