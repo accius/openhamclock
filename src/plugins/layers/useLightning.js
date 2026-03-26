@@ -591,10 +591,10 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       return;
     }
 
-    const stationLat = config.location?.lat || config.latitude;
-    const stationLon = config.location?.lon || config.longitude;
+    const stationLat = config.location?.lat ?? config.latitude;
+    const stationLon = config.location?.lon ?? config.longitude;
 
-    if (!stationLat || !stationLon || lightningData.length === 0) return;
+    if (!Number.isFinite(stationLat) || !Number.isFinite(stationLon) || lightningData.length === 0) return;
 
     const now = Date.now();
     const ONE_MINUTE_AGO = now - 60000;
@@ -678,12 +678,12 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       return;
     }
 
-    const stationLat = config.location?.lat || config.latitude;
-    const stationLon = config.location?.lon || config.longitude;
+    const stationLat = config.location?.lat ?? config.latitude;
+    const stationLon = config.location?.lon ?? config.longitude;
 
     console.log('[Lightning] Proximity: Station location:', { stationLat, stationLon });
 
-    if (!stationLat || !stationLon) {
+    if (!Number.isFinite(stationLat) || !Number.isFinite(stationLon)) {
       console.log('[Lightning] Proximity: No station location - aborting');
       return;
     }
@@ -827,10 +827,10 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       return;
     }
 
-    const stationLat = config.location?.lat || config.latitude;
-    const stationLon = config.location?.lon || config.longitude;
+    const stationLat = config.location?.lat ?? config.latitude;
+    const stationLon = config.location?.lon ?? config.longitude;
 
-    if (!stationLat || !stationLon) return;
+    if (!Number.isFinite(stationLat) || !Number.isFinite(stationLon)) return;
 
     const now = Date.now();
 

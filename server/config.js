@@ -103,24 +103,24 @@ if (fs.existsSync(configJsonPath)) {
 let stationLat = parseFloat(process.env.LATITUDE);
 let stationLon = parseFloat(process.env.LONGITUDE);
 
-if ((!stationLat || !stationLon) && locator) {
+if ((!Number.isFinite(stationLat) || !Number.isFinite(stationLon)) && locator) {
   const coords = gridToLatLon(locator);
   if (coords) {
-    stationLat = stationLat || coords.latitude;
-    stationLon = stationLon || coords.longitude;
+    stationLat = Number.isFinite(stationLat) ? stationLat : coords.latitude;
+    stationLon = Number.isFinite(stationLon) ? stationLon : coords.longitude;
   }
 }
 
 // Fallback to config.json location if no env
-if (!stationLat && jsonConfig.location?.lat) stationLat = jsonConfig.location.lat;
-if (!stationLon && jsonConfig.location?.lon) stationLon = jsonConfig.location.lon;
+if (!Number.isFinite(stationLat) && jsonConfig.location?.lat != null) stationLat = jsonConfig.location.lat;
+if (!Number.isFinite(stationLon) && jsonConfig.location?.lon != null) stationLon = jsonConfig.location.lon;
 
 const CONFIG = {
   // Station info (env takes precedence over config.json)
   callsign: process.env.CALLSIGN || jsonConfig.callsign || 'N0CALL',
   gridSquare: locator || jsonConfig.locator || '',
-  latitude: stationLat || 40.7128,
-  longitude: stationLon || -74.006,
+  latitude: Number.isFinite(stationLat) ? stationLat : 40.7128,
+  longitude: Number.isFinite(stationLon) ? stationLon : -74.006,
 
   // Display preferences
   units: process.env.UNITS || jsonConfig.units || 'imperial',
@@ -134,8 +134,12 @@ const CONFIG = {
   layout: process.env.LAYOUT || jsonConfig.layout || 'modern',
 
   // DX target
-  dxLatitude: parseFloat(process.env.DX_LATITUDE) || jsonConfig.defaultDX?.lat || 51.5074,
-  dxLongitude: parseFloat(process.env.DX_LONGITUDE) || jsonConfig.defaultDX?.lon || -0.1278,
+  dxLatitude: Number.isFinite(parseFloat(process.env.DX_LATITUDE))
+    ? parseFloat(process.env.DX_LATITUDE)
+    : (jsonConfig.defaultDX?.lat ?? 51.5074),
+  dxLongitude: Number.isFinite(parseFloat(process.env.DX_LONGITUDE))
+    ? parseFloat(process.env.DX_LONGITUDE)
+    : (jsonConfig.defaultDX?.lon ?? -0.1278),
 
   // Feature toggles
   showSatellites: process.env.SHOW_SATELLITES !== 'false' && jsonConfig.features?.showSatellites !== false,

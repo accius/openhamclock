@@ -65,7 +65,7 @@ export function useLayer({ enabled = false, opacity = 0.85, map = null, callsign
     const newMarkers = [];
 
     users.forEach((user) => {
-      if (!user.lat || !user.lon) return;
+      if (user.lat == null || user.lon == null) return;
       const isMe = user.call === myCall;
 
       const bg = isMe ? 'rgba(34, 197, 94, 0.9)' : 'rgba(99, 102, 241, 0.85)';

@@ -162,8 +162,8 @@ export default function AzimuthalMap({
     return !!key && selectedMapBands.has(key);
   };
 
-  const lat0 = deLocation?.lat || 0;
-  const lon0 = deLocation?.lon || 0;
+  const lat0 = deLocation?.lat ?? 0;
+  const lon0 = deLocation?.lon ?? 0;
 
   // Load GeoJSON once
   useEffect(() => {

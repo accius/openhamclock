@@ -110,7 +110,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       currentQuakeIds.add(quakeId);
 
       // Skip if invalid coordinates
-      if (!lat || !lon || isNaN(lat) || isNaN(lon)) return;
+      if (lat == null || lon == null || isNaN(lat) || isNaN(lon)) return;
 
       // Check if this is a new earthquake (but not on first load)
       const isNew = !isFirstLoad.current && !previousQuakeIds.current.has(quakeId);

@@ -51,8 +51,8 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       const data = await response.json();
 
       const observerGd = {
-        latitude: satellite.degreesToRadians(config?.lat || 43.44),
-        longitude: satellite.degreesToRadians(config?.lon || -88.63),
+        latitude: satellite.degreesToRadians(config?.lat ?? 43.44),
+        longitude: satellite.degreesToRadians(config?.lon ?? -88.63),
         height: (config?.alt || 260) / 1000,
       };
 

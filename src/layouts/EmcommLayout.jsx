@@ -191,7 +191,7 @@ export default function EmcommLayout(props) {
 
   // Calculate distance from DE for shelters
   const sheltersWithDistance = useMemo(() => {
-    if (!config.location?.lat || !config.location?.lon) return shelters;
+    if (config.location?.lat == null || config.location?.lon == null) return shelters;
     return shelters
       .map((s) => ({
         ...s,
@@ -202,7 +202,7 @@ export default function EmcommLayout(props) {
 
   // Calculate distance for emcomm APRS stations
   const emcommStationsWithDistance = useMemo(() => {
-    if (!config.location?.lat || !config.location?.lon) return emcommStations;
+    if (config.location?.lat == null || config.location?.lon == null) return emcommStations;
     return emcommStations
       .map((s) => ({
         ...s,
@@ -239,7 +239,7 @@ export default function EmcommLayout(props) {
     overlayLayersRef.current = [];
 
     const de = config.location;
-    if (!de?.lat || !de?.lon) return;
+    if (de?.lat == null || de?.lon == null) return;
 
     // Range rings at 50, 100, 200 km
     [50, 100, 200].forEach((km) => {
@@ -293,7 +293,7 @@ export default function EmcommLayout(props) {
 
     // Shelter markers
     shelters.forEach((shelter) => {
-      if (!shelter.lat || !shelter.lon) return;
+      if (shelter.lat == null || shelter.lon == null) return;
       const color = SHELTER_STATUS_COLORS[shelter.status] || '#6b7280';
       const marker = L.circleMarker([shelter.lat, shelter.lon], {
         radius: 8,
@@ -314,7 +314,7 @@ export default function EmcommLayout(props) {
 
     // EmComm APRS station markers with token popups
     emcommStationsWithDistance.forEach((station) => {
-      if (!station.lat || !station.lon) return;
+      if (station.lat == null || station.lon == null) return;
       const marker = L.circleMarker([station.lat, station.lon], {
         radius: 6,
         color: '#22d3ee',

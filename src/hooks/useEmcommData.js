@@ -24,7 +24,7 @@ export const useEmcommData = (options = {}) => {
 
   // Reverse geocode lat/lon to state code via Nominatim
   const resolveState = useCallback(async (loc) => {
-    if (loc.state || !loc.lat || !loc.lon) return loc;
+    if (loc.state || loc.lat == null || loc.lon == null) return loc;
     // Use cached result if location hasn't changed
     if (resolvedStateRef.current?.lat === loc.lat && resolvedStateRef.current?.lon === loc.lon) {
       return { ...loc, state: resolvedStateRef.current.state };
@@ -49,7 +49,7 @@ export const useEmcommData = (options = {}) => {
 
   const fetchAlerts = useCallback(async () => {
     const loc = locationRef.current;
-    if (!loc?.lat || !loc?.lon) return;
+    if (loc?.lat == null || loc?.lon == null) return;
     try {
       const res = await apiFetch(`/api/emcomm/alerts?lat=${loc.lat}&lon=${loc.lon}`, { cache: 'no-store' });
       if (res?.ok) {
@@ -63,7 +63,7 @@ export const useEmcommData = (options = {}) => {
 
   const fetchShelters = useCallback(async () => {
     const loc = locationRef.current;
-    if (!loc?.lat || !loc?.lon) return;
+    if (loc?.lat == null || loc?.lon == null) return;
     try {
       const res = await apiFetch(`/api/emcomm/shelters?lat=${loc.lat}&lon=${loc.lon}&radius=200`, {
         cache: 'no-store',

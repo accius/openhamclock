@@ -621,7 +621,7 @@ module.exports = function (app, ctx) {
         }
 
         // If no grid from message, try callsign → grid cache (from prior CQ/exchange with grid)
-        if (!decode.lat) {
+        if (decode.lat == null) {
           const targetCall = (
             parsed.caller ||
             (parsed.deCall == CONFIG.callsign ? parsed.dxCall : parsed.deCall) ||
@@ -639,7 +639,7 @@ module.exports = function (app, ctx) {
         }
 
         // Try HamQTH callsign cache (DXCC-level, more accurate than prefix centroid)
-        if (!decode.lat) {
+        if (decode.lat == null) {
           const rawCall = (
             parsed.caller ||
             (parsed.deCall == CONFIG.callsign ? parsed.dxCall : parsed.deCall) ||
@@ -686,7 +686,7 @@ module.exports = function (app, ctx) {
         }
 
         // Last resort: estimate from callsign prefix
-        if (!decode.lat) {
+        if (decode.lat == null) {
           const rawCall = parsed.caller || (parsed.deCall == CONFIG.callsign ? parsed.dxCall : parsed.deCall) || '';
           const targetCall = extractBaseCallsign(rawCall);
           if (targetCall) {

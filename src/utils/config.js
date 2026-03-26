@@ -107,12 +107,12 @@ export const loadConfig = () => {
       callsign: serverConfig.callsign && serverConfig.callsign !== 'N0CALL' ? serverConfig.callsign : config.callsign,
       locator: serverConfig.locator || config.locator,
       location: {
-        lat: serverConfig.latitude || config.location.lat,
-        lon: serverConfig.longitude || config.location.lon,
+        lat: serverConfig.latitude ?? config.location.lat,
+        lon: serverConfig.longitude ?? config.location.lon,
       },
       defaultDX: {
-        lat: serverConfig.dxLatitude || config.defaultDX.lat,
-        lon: serverConfig.dxLongitude || config.defaultDX.lon,
+        lat: serverConfig.dxLatitude ?? config.defaultDX.lat,
+        lon: serverConfig.dxLongitude ?? config.defaultDX.lon,
       },
       units: serverConfig.units || config.units,
       allUnits: serverConfig.allUnits || config.allUnits,

@@ -400,8 +400,8 @@ module.exports = function (app, ctx) {
                   status: status || 'Checked in',
                   checkinTime: Date.now(),
                   lastHeard: Date.now(),
-                  lat: station.lat || null,
-                  lon: station.lon || null,
+                  lat: station.lat ?? null,
+                  lon: station.lon ?? null,
                   tokens: station.tokens || [],
                   source: station.source || null,
                 });
@@ -545,8 +545,8 @@ module.exports = function (app, ctx) {
       status: status || 'Checked in',
       checkinTime: Date.now(),
       lastHeard: Date.now(),
-      lat: station?.lat || null,
-      lon: station?.lon || null,
+      lat: station?.lat ?? null,
+      lon: station?.lon ?? null,
       tokens: station?.tokens || [],
       source: 'manual',
     });

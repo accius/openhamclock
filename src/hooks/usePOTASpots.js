@@ -96,17 +96,17 @@ export const usePOTASpots = () => {
           setData(
             validSpots.map((s) => {
               // Use API coordinates, fall back to grid square
-              let lat = s.latitude ? parseFloat(s.latitude) : null;
-              let lon = s.longitude ? parseFloat(s.longitude) : null;
+              let lat = s.latitude != null ? parseFloat(s.latitude) : null;
+              let lon = s.longitude != null ? parseFloat(s.longitude) : null;
 
-              if ((!lat || !lon) && s.grid6) {
+              if ((lat == null || lon == null) && s.grid6) {
                 const loc = gridToLatLon(s.grid6);
                 if (loc) {
                   lat = loc.lat;
                   lon = loc.lon;
                 }
               }
-              if ((!lat || !lon) && s.grid4) {
+              if ((lat == null || lon == null) && s.grid4) {
                 const loc = gridToLatLon(s.grid4);
                 if (loc) {
                   lat = loc.lat;

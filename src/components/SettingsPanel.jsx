@@ -47,8 +47,8 @@ export const SettingsPanel = ({
   const [swapHeaderClocks, setSwapHeaderClocks] = useState(config?.swapHeaderClocks || false);
   const [showMutualReception, setShowMutualReception] = useState(config?.showMutualReception ?? true);
   const [gridSquare, setGridSquare] = useState(config?.locator || '');
-  const [lat, setLat] = useState(config?.location?.lat || 0);
-  const [lon, setLon] = useState(config?.location?.lon || 0);
+  const [lat, setLat] = useState(config?.location?.lat ?? 0);
+  const [lon, setLon] = useState(config?.location?.lon ?? 0);
   const [layout, setLayout] = useState(config?.layout || 'modern');
   const [mouseZoom, setMouseZoom] = useState(config?.mouseZoom || 50);
   const [timezone, setTimezone] = useState(config?.timezone || '');
@@ -177,8 +177,8 @@ export const SettingsPanel = ({
     if (config) {
       setCallsign(config.callsign || '');
       setheaderSize(config.headerSize || 1.0);
-      setLat(config.location?.lat || 0);
-      setLon(config.location?.lon || 0);
+      setLat(config.location?.lat ?? 0);
+      setLon(config.location?.lon ?? 0);
       setLayout(config.layout || 'modern');
       setMouseZoom(config.mouseZoom || 50);
       setTimezone(config.timezone || '');
