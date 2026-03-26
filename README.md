@@ -635,37 +635,61 @@ Three layout modes, selectable in Settings or via `LAYOUT` in `.env`:
 
 ### EmComm Layout
 
-The EmComm (Emergency Communications) layout is a purpose-built dashboard for ARES, RACES, SKYWARN, and served agency operations. It replaces the standard sidebar panels with emergency-focused data.
+The EmComm (Emergency Communications) layout is a purpose-built dashboard for ARES, RACES, SKYWARN, and served agency operations. It replaces the standard sidebar panels with emergency-focused data including real-time APRS station tracking, net operations, point-to-point messaging, and resource aggregation. All features are designed to work over RF alone when internet is unavailable.
+
+For the full guide including API endpoints, configuration, and architecture details, see [docs/emcomm-roadmap.md](docs/emcomm-roadmap.md).
 
 **Sidebar panels:**
 
-| Panel                     | Description                                                                                                                                   |
-| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Resource Summary**      | Aggregated resource dashboard showing totals across all APRS stations reporting resource tokens. Progress bars for capacity, need indicators. |
-| **NWS Alerts**            | Active weather watches, warnings, and advisories from the National Weather Service, color-coded by severity with countdown to expiry.         |
-| **Disaster Declarations** | Recent FEMA disaster declarations for your state, auto-resolved from your station coordinates via reverse geocoding.                          |
-| **Nearby Shelters**       | Open shelters within 200 km, sorted by distance, with capacity bars and accessibility indicators.                                             |
-| **EmComm Stations**       | APRS stations using emergency symbols (EOC, Shelter, ARES, Skywarn, Red Cross, Emergency), with resource token pills when available.          |
+| Panel                     | Description                                                                                                                                  |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Resource Summary**      | Aggregated resource dashboard showing totals across all APRS stations reporting resource tokens. Capacity bars with color coding.            |
+| **NWS Alerts**            | Active weather watches, warnings, and advisories from the National Weather Service, color-coded by severity with countdown to expiry.        |
+| **Disaster Declarations** | Recent FEMA disaster declarations for your state, auto-resolved from your station coordinates via reverse geocoding.                         |
+| **Nearby Shelters**       | Open shelters within 200 km, sorted by distance, with capacity bars, wheelchair (♿) and pet-friendly (🐾) indicators. Click to pan map.     |
+| **EmComm Stations**       | APRS stations using emergency symbols (EOC, Shelter, ARES, Skywarn, Red Cross, Emergency), with resource token pills and RF source badges.   |
+| **Net Roster**            | Live net operations with operator check-ins, status messages, last-heard time, resource tokens, and MSG button for point-to-point messaging. |
 
-**APRS Resource Tokens:**
+**APRS integration:**
+
+The EmComm layout receives APRS data from two sources:
+
+- **APRS-IS (Internet)** — Read-only connection to `rotate.aprs2.net`. Set `APRS_ENABLED=true` in `.env`.
+- **Local TNC (RF)** — Via rig-bridge's APRS TNC plugin connected to Direwolf or a hardware TNC (Mobilinkd, TNC-X, KPC-3+). Stations heard over RF are tagged with a green "RF" badge.
+
+An **APRS Source Selector** lets you filter between All Sources, RF Only, or Internet Only.
+
+**Net operations:**
+
+Operators check in to emergency nets via APRS message:
+
+- **Check in:** Send `CQ NETNAME <status>` to `EMCOMM` (e.g., `CQ HOTG Deployed to Shelter Alpha`)
+- **Check out:** Send `U NETNAME` to `EMCOMM`
+- Manual check-in also available via REST API for operators without APRS TX
+
+**APRS messaging:**
+
+Click the MSG button on any net roster entry to compose a point-to-point APRS message (67-character limit). Messages are sent via your local TNC. Incoming messages, bulletins, and shelter reports are displayed in the feed.
+
+**APRS resource tokens:**
 
 Operators at shelters or EOCs can encode structured resource data in their APRS beacon comments using bracket notation. OpenHamClock parses these tokens and displays them as visual resource cards.
 
-Token format (within the 67-character APRS comment field):
+| Token            | Content                                |
+| ---------------- | -------------------------------------- |
+| `[Key Value]`    | quantity (e.g., `[Food 50]`)           |
+| `[Key Curr/Max]` | capacity (e.g., `[Beds 30/100]`)       |
+| `[Key -Value]`   | resource NEEDED (e.g., `[Water -100]`) |
+| `[Key OK]`       | status nominal                         |
+| `[Key !]`        | critical alert                         |
 
-| Token.            | Content                              |
-| ----------------- | ------------------------------------ |
-| [Key Value]       | quantity (e.g., [Food 50])           |
-| [Key Current/Max] | capacity (e.g., [Beds 30/100])       |
-| [Key -Value]      | resource NEEDED (e.g., [Water -100]) |
-| [Key OK]          | status nominal                       |
-| [Key !]           | critical alert                       |
+Built-in token keys: `Beds`, `Water`, `Food`, `Power`, `Fuel`, `Med`, `Staff`, `Evac`, `Comms`, `Gen`. The parser accepts any key.
 
-Built-in token keys with icons: `Beds`, `Water`, `Food`, `Power`, `Fuel`, `Med`, `Staff`, `Evac`, `Comms`, `Gen`. The parser accepts any key — unknown keys display with a generic icon.
+Example: `[Beds 30/100][Power OK][Water -50] Shelter Alpha` renders as three color-coded pills and feeds the Resource Summary dashboard.
 
-Example beacon comment: `[Beds 30/100][Power OK][Water -50] Shelter Alpha` (47 chars)
+**Winlink gateway integration:**
 
-This renders as three color-coded pills on the station card, and the values are aggregated into the Resource Summary panel at the top of the sidebar.
+A rig-bridge plugin for Winlink RMS gateway discovery and Pat client messaging is built but waiting on API key approval from the Winlink team. See [issue #297](https://github.com/accius/openhamclock/issues/297). Pat client integration (local messaging) works independently without the API key.
 
 **Map features:**
 

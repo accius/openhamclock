@@ -1,7 +1,7 @@
 # OpenHamClock Roadmap
 
 > Amateur Radio Dashboard — A modern web-based HamClock alternative
-> Created by K0CJH | Current version: v26.1.1 | License: MIT
+> Created by K0CJH | Current version: v26.2.1 | License: MIT
 
 ---
 
@@ -64,8 +64,8 @@ Comprehensive security audit and hardening pass:
 
 Adopted year-based versioning: X = year, Y = visual/UI, Z = backend. The jump from v15 to v26 resets the scheme to something meaningful.
 
-- **EmComm layout** — Dedicated emergency communications dashboard with range rings, NWS alerts, FEMA declarations, shelters, and filtered APRS stations
-- **APRS resource tokens** — Structured emergency data in beacon comments with visual resource cards
+- **EmComm layout** — Dedicated emergency communications dashboard with range rings, NWS alerts, FEMA declarations, shelters, filtered APRS stations, net operations, and point-to-point messaging
+- **APRS resource tokens** — Structured emergency data in beacon comments with visual resource cards and aggregation dashboard
 - **Classic layout redesign** — Refreshed while keeping the WB0OEW spirit
 - **Active users map layer** — See other operators in real time
 - **Audio alerts** — Configurable tones per feed (POTA, SOTA, DX Cluster, etc.)
@@ -74,27 +74,27 @@ Adopted year-based versioning: X = year, Y = visual/UI, Z = backend. The jump fr
 
 ---
 
-## Current State (v26.1.1)
+## Current State (v26.2.1)
 
 ### What's Working Well
 
 - **30+ dashboard modules** — DX Cluster, PSK Reporter, WSJT-X, POTA, SOTA, WWFF, WWBOTA, satellites, APRS, contests, DXpeditions, propagation, solar indices, weather, and more
 - **6 layouts** — Modern, Classic, Tablet, Compact, Dockable, EmComm
 - **5 themes** — Dark, Light, Legacy, Retro, Custom
-- **Rig control** — Click-to-tune across all spot panels
+- **Rig control** — Click-to-tune across all spot panels, unified rig-bridge with 22 plugins, cloud relay for remote operation
+- **EmComm platform** — Full emergency communications dashboard with APRS station tracking (internet + local RF), net operations, point-to-point APRS messaging, resource token aggregation, NWS alerts, FEMA shelters/disasters, and telemetry parsing
 - **Multi-platform** — Browser, Electron desktop, Raspberry Pi kiosk, Docker, Railway
 - **16 languages** — ca, de, en, es, fr, it, ja, ka, ko, ms, nl, pt, ru, sl, th, zh
 - **Real-time data** — PSK Reporter via server-side MQTT proxy, WSJT-X via UDP, APRS-IS, DX cluster telnet
 
 ### Open Issues
 
-| #    | Type    | Description                                                       |
-| ---- | ------- | ----------------------------------------------------------------- |
-| #797 | Feature | Button to disable/enable hamlib rig control                       |
-| #790 | Feature | Mutual reception indicator for FT8 (implemented, pending release) |
-| #707 | Bug     | Rig Bridge does not PTT or show PTT state                         |
-| #453 | Feature | Rig config persistence across updates + auto-launch               |
-| #297 | Feature | Winlink gateway layer for EmComm                                  |
+| #    | Type    | Description                                                                       |
+| ---- | ------- | --------------------------------------------------------------------------------- |
+| #797 | Feature | Button to disable/enable hamlib rig control                                       |
+| #790 | Feature | Mutual reception indicator for FT8 (implemented, pending release)                 |
+| #453 | Feature | Rig config persistence across updates + auto-launch                               |
+| #297 | Feature | Winlink gateway layer — plugin built, waiting on API key from Winlink team (W3QA) |
 
 ---
 
@@ -104,15 +104,14 @@ Adopted year-based versioning: X = year, Y = visual/UI, Z = backend. The jump fr
 
 - Hamlib enable/disable toggle without restarting (#797)
 - Rig config persistence across updates (#453)
-- PTT state display and control in rig bridge (#707)
 - Rig bridge auto-launch option on startup
 
 ### EmComm & APRS Expansion
 
-- Winlink gateway map layer (#297)
-- APRS messaging support (send/receive)
-- Enhanced shelter/resource tracking
-- SKYWARN net integration improvements
+- Winlink gateway map layer — plugin built, waiting on API key (#297)
+- Winlink Pat client integration for RF messaging (works now without API key)
+- APRS telemetry visualization (sensor dashboards, resource trend charts)
+- Event log export (CSV/PDF) for After Action Reviews
 
 ### DX Cluster & Spots
 
@@ -141,4 +140,4 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instr
 
 ---
 
-_Last updated: 2026-03-21_
+_Last updated: 2026-03-26_
