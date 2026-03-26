@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Check comment body
         if: |
-          github.event.comment.body == '/close' &&
+          startsWith(github.event.comment.body, '/close') &&
           github.event.issue.pull_request == null
         uses: actions/github-script@v7
         with:

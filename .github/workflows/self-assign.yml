@@ -13,7 +13,7 @@ jobs:
     steps:
       - name: Assign commenter to issue
         if: |
-          github.event.comment.body == '/assign' &&
+          startsWith(github.event.comment.body, '/assign') &&
           github.event.issue.pull_request == null
         uses: actions/github-script@v7
         with:
