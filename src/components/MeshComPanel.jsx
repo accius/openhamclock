@@ -252,7 +252,13 @@ function MessagesTab({ messages, nodes, sendMessage }) {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
                   <span>
-                    <span style={{ fontWeight: '700', color: '#8B1A2A', fontFamily: 'JetBrains Mono, monospace' }}>
+                    <span
+                      style={{
+                        fontWeight: '700',
+                        color: 'var(--accent-cyan)',
+                        fontFamily: 'JetBrains Mono, monospace',
+                      }}
+                    >
                       {src}
                     </span>
                     {msg.dst && msg.dst !== '*' && (
