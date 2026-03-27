@@ -8,13 +8,14 @@
  *   - GET /api/meshcom/nodes and /messages support ?since=<ms> for delta responses
  *   - ETag / 304 Not Modified on nodes endpoint (no body when nothing changed)
  *   - Node max-age pruning (MESHCOM_NODE_MAX_AGE_MINUTES, default 60)
- *   - Messages ring buffer (max 200 entries)
+ *   - Messages time-based expiry (MESHCOM_MESSAGE_MAX_AGE_HOURS, default 8) + ring buffer (max 200)
  */
 
 module.exports = function (app, ctx) {
   const { logDebug, logInfo, CONFIG } = ctx;
 
   const NODE_MAX_AGE_MS = parseInt(process.env.MESHCOM_NODE_MAX_AGE_MINUTES || '60') * 60_000;
+  const MESSAGE_MAX_AGE_MS = parseFloat(process.env.MESHCOM_MESSAGE_MAX_AGE_HOURS || '8') * 3_600_000;
   const MAX_MESSAGES = 200;
 
   // ── In-memory state ────────────────────────────────────────────────────────
@@ -40,13 +41,22 @@ module.exports = function (app, ctx) {
 
   // ── Periodic cleanup ────────────────────────────────────────────────────────
   setInterval(() => {
-    const cutoff = Date.now() - NODE_MAX_AGE_MS;
+    const now = Date.now();
+
+    // Expire stale nodes (and their weather entries)
+    const nodeCutoff = now - NODE_MAX_AGE_MS;
     for (const [call, node] of nodes) {
-      if (node.timestamp < cutoff) {
+      if (node.timestamp < nodeCutoff) {
         nodes.delete(call);
         weather.delete(call);
       }
     }
+
+    // Expire old messages
+    const msgCutoff = now - MESSAGE_MAX_AGE_MS;
+    let i = 0;
+    while (i < messages.length && messages[i].timestamp < msgCutoff) i++;
+    if (i > 0) messages.splice(0, i);
   }, 60_000);
 
   // ── Ingest: position ────────────────────────────────────────────────────────
