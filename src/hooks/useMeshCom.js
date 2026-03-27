@@ -4,11 +4,11 @@
  * message data received via the rig-bridge UDP plugin.
  *
  * Session isolation:
- *   Each browser tab generates a persistent session ID (stored in
- *   localStorage under 'ohc-meshcom-session') and appends it as
- *   ?session=<id> on every request. The server scopes all data to that
- *   session so data from different users' rig-bridge instances is never
- *   mixed on a shared server.
+ *   Uses the shared relay session ID from src/utils/relaySession.js
+ *   (localStorage key 'ohc-relay-session'). The rig-bridge cloud relay
+ *   plugin sends this same ID in the x-relay-session header on every push,
+ *   so ingest and poll always use the same session. All relay-delivered
+ *   data types (WSJTX, APRS, MeshCom) share one session ID.
  *
  * Traffic optimisations:
  *   - 30s poll interval (LoRa beacons are every 5-15 min, 15s is wasteful)
@@ -27,39 +27,16 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiFetch } from '../utils/apiFetch';
+import { getRelaySessionId } from '../utils/relaySession';
 
 const POLL_INTERVAL = 30_000; // 30 s — LoRa beacon rate is much slower than APRS
 const FETCH_TIMEOUT_MS = 5_000; // hard cap per request — never tie up a connection longer
 
-// Read the relay session ID from localStorage.
-// MeshCom data arrives via the rig-bridge cloud relay, which uses the
-// same session ID as WSJTX ('ohc-wsjtx-session'). Using the same key
-// ensures the session used for ingest (relay push) matches the session
-// used for polling — without it, the server stores data under the relay
-// session but the browser polls under a different ID and gets nothing.
-function getSessionId() {
-  // This is the relay session key — shared by all relay-delivered data
-  // (WSJTX, APRS, MeshCom). Do not change to a MeshCom-specific key.
-  const RELAY_KEY = 'ohc-wsjtx-session';
-  const generate = () => Math.random().toString(36).substring(2, 10);
-  try {
-    let id = localStorage.getItem(RELAY_KEY);
-    // Accept only 8–12 char lowercase alphanumeric IDs — reject legacy UUIDs
-    if (id && id.length >= 8 && id.length <= 12 && /^[a-z0-9]+$/.test(id)) return id;
-    id = generate();
-    localStorage.setItem(RELAY_KEY, id);
-    return id;
-  } catch {
-    // Fallback for privacy browsers that block localStorage
-    return generate();
-  }
-}
-
 export function useMeshCom(options = {}) {
   const { enabled = true } = options;
 
-  // Stable session ID for the lifetime of this browser tab
-  const [sessionId] = useState(getSessionId);
+  // Stable relay session ID — shared with useWSJTX and all other relay-delivered data
+  const [sessionId] = useState(getRelaySessionId);
 
   const [nodes, setNodes] = useState([]);
   const [messages, setMessages] = useState([]);

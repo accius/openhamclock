@@ -10,34 +10,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useVisibilityRefresh } from './useVisibilityRefresh';
 import { apiFetch } from '../utils/apiFetch';
+import { getRelaySessionId } from '../utils/relaySession';
 
 const POLL_FAST = 2000; // 2s when data is flowing
 const POLL_SLOW = 30000; // 30s idle check — is anything connected?
 const API_URL = '/api/wsjtx';
 const DECODES_URL = '/api/wsjtx/decodes';
 
-// Generate or retrieve persistent session ID
-// NOTE: Kept short (8 chars) intentionally — long UUIDs in query strings
-// trigger false positives in Bitdefender and similar security software
-function getSessionId() {
-  const KEY = 'ohc-wsjtx-session';
-  const generate = () => Math.random().toString(36).substring(2, 10);
-  try {
-    let id = localStorage.getItem(KEY);
-    // Must be 8-12 chars alphanumeric — reject old UUIDs (36 chars with dashes)
-    // which trigger Bitdefender false positives as "tracking tokens"
-    if (id && id.length >= 8 && id.length <= 12 && /^[a-z0-9]+$/.test(id)) return id;
-    id = generate();
-    localStorage.setItem(KEY, id);
-    return id;
-  } catch {
-    // Fallback for privacy browsers that block localStorage
-    return generate();
-  }
-}
-
 export function useWSJTX(enabled = true) {
-  const [sessionId] = useState(getSessionId);
+  const [sessionId] = useState(getRelaySessionId);
   const [data, setData] = useState({
     clients: {},
     decodes: [],
