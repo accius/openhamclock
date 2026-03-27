@@ -29,7 +29,7 @@ function formatTime(ts) {
 function BatteryBar({ batt }) {
   if (batt == null) return null;
   const pct = Math.max(0, Math.min(100, Math.round(batt)));
-  const color = pct < 20 ? '#ef4444' : pct < 50 ? '#f59e0b' : '#22c55e';
+  const color = pct < 20 ? 'var(--accent-red)' : pct < 50 ? 'var(--accent-amber)' : 'var(--accent-green)';
   return (
     <span
       title={`Battery: ${pct}%`}
@@ -119,7 +119,7 @@ function NodesTab({ nodes, loading, onSpotClick, onHoverSpot }) {
               background: i % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent',
               cursor: hasPos ? 'pointer' : 'default',
               transition: 'background 0.15s',
-              borderLeft: `2px solid ${isAged ? 'var(--border-color)' : '#2dd4bf'}`,
+              borderLeft: `2px solid ${isAged ? 'var(--border-color)' : 'var(--accent-cyan)'}`,
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -243,10 +243,10 @@ function MessagesTab({ messages, nodes, sendMessage }) {
                 style={{
                   padding: '4px 0 4px 4px',
                   borderBottom: '1px solid var(--border-color)',
-                  borderLeft: isSelected ? '2px solid #8B1A2A' : '2px solid transparent',
+                  borderLeft: isSelected ? '2px solid var(--accent-red)' : '2px solid transparent',
                   fontSize: '11px',
                   cursor: 'pointer',
-                  background: isSelected ? 'rgba(139,26,42,0.07)' : 'transparent',
+                  background: isSelected ? 'var(--bg-tertiary)' : 'transparent',
                   transition: 'background 0.12s, border-color 0.12s',
                 }}
               >
@@ -282,10 +282,10 @@ function MessagesTab({ messages, nodes, sendMessage }) {
                       style={{
                         padding: '2px 7px',
                         fontSize: '10px',
-                        background: 'rgba(139,26,42,0.12)',
-                        border: '1px solid #8B1A2A',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--accent-red)',
                         borderRadius: '3px',
-                        color: '#c0394e',
+                        color: 'var(--accent-red)',
                         cursor: 'pointer',
                         fontFamily: 'JetBrains Mono, monospace',
                       }}
@@ -307,10 +307,10 @@ function MessagesTab({ messages, nodes, sendMessage }) {
                         style={{
                           padding: '2px 7px',
                           fontSize: '10px',
-                          background: 'rgba(139,26,42,0.12)',
-                          border: '1px solid #8B1A2A',
+                          background: 'var(--bg-secondary)',
+                          border: '1px solid var(--accent-red)',
                           borderRadius: '3px',
-                          color: '#c0394e',
+                          color: 'var(--accent-red)',
                           cursor: 'pointer',
                           fontFamily: 'JetBrains Mono, monospace',
                         }}
@@ -334,10 +334,10 @@ function MessagesTab({ messages, nodes, sendMessage }) {
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '3px 8px',
-            background: 'rgba(139,26,42,0.1)',
-            borderTop: '1px solid rgba(139,26,42,0.3)',
+            background: 'var(--bg-secondary)',
+            borderTop: '1px solid var(--border-color)',
             fontSize: '10px',
-            color: '#c0394e',
+            color: 'var(--accent-red)',
             fontFamily: 'JetBrains Mono, monospace',
           }}
         >
@@ -348,7 +348,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
             style={{
               background: 'none',
               border: 'none',
-              color: '#c0394e',
+              color: 'var(--accent-red)',
               cursor: 'pointer',
               fontSize: '12px',
               lineHeight: 1,
@@ -424,10 +424,10 @@ function MessagesTab({ messages, nodes, sendMessage }) {
             style={{
               padding: '4px 10px',
               fontSize: '11px',
-              background: msgText.trim() && !sending ? '#8B1A2A' : 'var(--bg-tertiary)',
+              background: msgText.trim() && !sending ? 'var(--accent-red)' : 'var(--bg-tertiary)',
               border: 'none',
               borderRadius: '3px',
-              color: msgText.trim() && !sending ? '#fff' : 'var(--text-muted)',
+              color: msgText.trim() && !sending ? 'var(--title-bar-text)' : 'var(--text-muted)',
               cursor: msgText.trim() && !sending ? 'pointer' : 'default',
               fontFamily: 'inherit',
               fontWeight: '600',
@@ -437,7 +437,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
             {sending ? '…' : t('meshcomPanel.sendButton')}
           </button>
         </div>
-        {sendError && <div style={{ fontSize: '10px', color: '#ef4444', marginTop: '4px' }}>{sendError}</div>}
+        {sendError && <div style={{ fontSize: '10px', color: 'var(--accent-red)', marginTop: '4px' }}>{sendError}</div>}
         <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '2px', textAlign: 'right' }}>
           {msgText.length}/150
         </div>
@@ -462,7 +462,7 @@ function InfoTab({ connected, nodes, messages }) {
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              background: connected ? '#22c55e' : '#6b7280',
+              background: connected ? 'var(--accent-green)' : 'var(--text-muted)',
               display: 'inline-block',
               flexShrink: 0,
             }}
@@ -576,7 +576,7 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
               width: '8px',
               height: '8px',
               borderRadius: '50%',
-              background: connected ? '#22c55e' : '#6b7280',
+              background: connected ? 'var(--accent-green)' : 'var(--text-muted)',
               display: 'inline-block',
               flexShrink: 0,
             }}
@@ -589,9 +589,9 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
           onClick={onToggleMap}
           title={showOnMap ? t('meshcomPanel.mapToggleHide') : t('meshcomPanel.mapToggleShow')}
           style={{
-            background: showOnMap ? 'rgba(139, 26, 42, 0.25)' : 'rgba(100, 100, 100, 0.3)',
-            border: `1px solid ${showOnMap ? '#8B1A2A' : '#666'}`,
-            color: showOnMap ? '#c0394e' : '#888',
+            background: showOnMap ? 'var(--bg-secondary)' : 'var(--bg-secondary)',
+            border: `1px solid ${showOnMap ? 'var(--accent-red)' : 'var(--border-color)'}`,
+            color: showOnMap ? 'var(--accent-red)' : 'var(--text-muted)',
             padding: '2px 8px',
             borderRadius: '4px',
             fontSize: '10px',
@@ -623,8 +623,8 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
               padding: '3px 10px',
               fontSize: '10px',
               borderRadius: '3px',
-              border: activeTab === tabId ? '1px solid #2dd4bf' : '1px solid var(--border-color)',
-              background: activeTab === tabId ? '#2dd4bf' : 'transparent',
+              border: activeTab === tabId ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)',
+              background: activeTab === tabId ? 'var(--accent-cyan)' : 'transparent',
               color: activeTab === tabId ? '#000' : 'var(--text-muted)',
               cursor: 'pointer',
               fontFamily: 'inherit',
