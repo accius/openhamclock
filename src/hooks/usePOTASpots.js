@@ -126,6 +126,7 @@ export const usePOTASpots = () => {
                 band: getBandFromFreq(s.frequency),
                 mode: s.mode,
                 name: s.name || s.locationDesc,
+                comments: (s.comments || '').trim(),
                 locationDesc: s.locationDesc,
                 lat,
                 lon,

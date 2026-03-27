@@ -81,7 +81,7 @@ export const useSOTASpots = () => {
                 freq,
                 band: getBandFromFreq(s.frequency),
                 mode: s.mode || '',
-                comments: s.comments || '',
+                comments: (s.comments || '').trim(),
                 lat,
                 lon,
                 // SOTA API returns UTC timestamps without 'Z' suffix, violating ISO 8601

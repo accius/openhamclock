@@ -75,7 +75,7 @@ export const useWWFFSpots = () => {
                 band: getBandFromFreq(s.frequency_khz),
                 mode: s.mode,
                 name: s.reference_name,
-                remarks: s.remarks,
+                comments: (s.remarks || '').trim(),
                 lat,
                 lon,
                 time: s.spot_time ? s.spot_time_formatted.substr(11, 5) + 'z' : '',

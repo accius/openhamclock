@@ -130,7 +130,8 @@ export const useWWBOTASpots = () => {
                 mode,
                 spotter,
                 name: name,
-                remarks: comment
+                comments: comment
+                  .trim()
                   .replace(
                     /\b(B\/(?:[0-9][A-Z][0-9A-Z]*|[A-Z][0-9A-Z]*))(?:- ?| -?)?([0-9]{4}(?:(?:[ \/-]|, ?)[0-9]{4})*)\b/gi,
                     '',
