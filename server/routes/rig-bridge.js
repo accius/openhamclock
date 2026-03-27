@@ -194,7 +194,9 @@ module.exports = function (app, ctx) {
         } catch (e) {}
       }
 
-      // Forward MeshCom packets received from the rig-bridge cloud relay
+      // Forward MeshCom packets received from the rig-bridge cloud relay.
+      // sessionId is injected so the meshcom route can store data in the
+      // correct per-user session rather than a shared global pool.
       if (Array.isArray(req.body.meshcomPackets) && req.body.meshcomPackets.length > 0) {
         for (const pkt of req.body.meshcomPackets) {
           const subtype = pkt.subtype;
@@ -203,7 +205,7 @@ module.exports = function (app, ctx) {
             .fetch(`http://localhost:${ctx.PORT}/api/meshcom/local/${subtype}`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(pkt),
+              body: JSON.stringify({ ...pkt, sessionId }),
             })
             .then((r) => {
               if (!r.ok) {

@@ -2,7 +2,17 @@
  * MeshCom integration routes.
  *
  * Receives JSON packets from the rig-bridge meshcom-udp plugin and
- * maintains an in-memory cache of nodes, messages and weather/telemetry.
+ * maintains a per-session in-memory cache of nodes, messages and
+ * weather/telemetry. Each browser tab gets a unique session ID (generated
+ * by useMeshCom and stored in localStorage) so data from different users'
+ * rig-bridge instances is never mixed.
+ *
+ * Session lifecycle:
+ *   - Created on first ingest POST (rig-bridge relay push).
+ *   - Touched (lastAccessTime updated) on every read or write.
+ *   - Expired and deleted after MESHCOM_SESSION_TTL_MS of inactivity
+ *     (default 90 min) — longer than the relay session TTL so a session
+ *     is never evicted while rig-bridge is actively pushing data.
  *
  * Traffic optimisations built in:
  *   - GET /api/meshcom/nodes and /messages support ?since=<ms> for delta responses
@@ -18,21 +28,49 @@ module.exports = function (app, ctx) {
   const NODE_MAX_AGE_MS = parseInt(process.env.MESHCOM_NODE_MAX_AGE_MINUTES || '60') * 60_000;
   const MESSAGE_MAX_AGE_MS = parseFloat(process.env.MESHCOM_MESSAGE_MAX_AGE_HOURS || '8') * 3_600_000;
   const MAX_MESSAGES = 200;
+  // Sessions expire after 90 min of no reads or writes — 30 min longer than
+  // the relay session TTL so active sessions are never evicted mid-use.
+  const SESSION_TTL_MS = parseInt(process.env.MESHCOM_SESSION_TTL_MINUTES || '90') * 60_000;
 
-  // ── In-memory state ────────────────────────────────────────────────────────
-  // nodes: callsign → NodeObject
-  const nodes = new Map();
-  // messages: bounded FIFO array — entries arrive in chronological order
-  const messages = [];
-  // weather: callsign → WeatherObject (latest telemetry per node)
-  const weather = new Map();
-  // Timestamp of the most recent packet received from rig-bridge (any type).
-  // Used by /api/meshcom/status to report connectivity without making an
-  // outbound HTTP call to rig-bridge (which can block the connection pool).
-  let lastIngestTime = 0;
+  // ── Per-session state ────────────────────────────────────────────────────────
+  // sessions: sessionId → SessionState
+  // Each browser tab creates its own session via useMeshCom's getSessionId().
+  const sessions = new Map();
+
+  /**
+   * Return the SessionState for the given ID, creating it if this is the
+   * first ingest for that session. Updates lastAccessTime on every call.
+   * Only call from write paths — reads use getSessionIfExists().
+   */
+  function getOrCreateSession(sessionId) {
+    if (!sessions.has(sessionId)) {
+      sessions.set(sessionId, {
+        nodes: new Map(), // callsign → NodeObject
+        messages: [], // bounded FIFO, arrival order
+        weather: new Map(), // callsign → WeatherObject (latest per node)
+        lastIngestTime: 0,
+        lastAccessTime: Date.now(),
+      });
+    }
+    const s = sessions.get(sessionId);
+    s.lastAccessTime = Date.now();
+    return s;
+  }
+
+  /**
+   * Return the SessionState if it exists, or null. Updates lastAccessTime.
+   * Use on all read paths so we never silently create an empty session on a
+   * GET (which would prevent it from ever being expired by the cleanup timer).
+   */
+  function getSessionIfExists(sessionId) {
+    if (!sessionId || !sessions.has(sessionId)) return null;
+    const s = sessions.get(sessionId);
+    s.lastAccessTime = Date.now();
+    return s;
+  }
 
   // ── ETag helpers ───────────────────────────────────────────────────────────
-  function computeNodeEtag() {
+  function computeNodeEtag(nodes) {
     let latest = 0;
     for (const n of nodes.values()) {
       if (n.timestamp > latest) latest = n.timestamp;
@@ -47,45 +85,55 @@ module.exports = function (app, ctx) {
   }
 
   // ── Periodic cleanup ────────────────────────────────────────────────────────
-  // Reference stored so it can be cleared by tests or graceful shutdown.
+  // Two levels:
+  //   1. Session-level — evict entire sessions idle for SESSION_TTL_MS.
+  //   2. Data-level    — expire old nodes and messages within each live session.
   const cleanupTimer = setInterval(() => {
     const now = Date.now();
+    const sessionCutoff = now - SESSION_TTL_MS;
 
-    // Expire stale nodes (and their weather entries)
-    const nodeCutoff = now - NODE_MAX_AGE_MS;
-    for (const [call, node] of nodes) {
-      if (node.timestamp < nodeCutoff) {
-        nodes.delete(call);
-        weather.delete(call);
+    for (const [sessionId, s] of sessions) {
+      // ── Session-level expiry ──────────────────────────────────────────────
+      if (s.lastAccessTime < sessionCutoff) {
+        sessions.delete(sessionId);
+        logDebug(`[MeshCom] Session ${sessionId} expired (idle > ${SESSION_TTL_MS / 60_000} min)`);
+        continue;
       }
-    }
 
-    // Expire old messages — messages are stored in arrival order, so walk
-    // from the front until we hit a non-expired entry, then splice once.
-    const msgCutoff = now - MESSAGE_MAX_AGE_MS;
-    let i = 0;
-    while (i < messages.length && messages[i].timestamp < msgCutoff) i++;
-    if (i > 0) messages.splice(0, i);
+      // ── Data-level expiry (within active session) ─────────────────────────
+      const nodeCutoff = now - NODE_MAX_AGE_MS;
+      for (const [call, node] of s.nodes) {
+        if (node.timestamp < nodeCutoff) {
+          s.nodes.delete(call);
+          s.weather.delete(call);
+        }
+      }
+
+      const msgCutoff = now - MESSAGE_MAX_AGE_MS;
+      let i = 0;
+      while (i < s.messages.length && s.messages[i].timestamp < msgCutoff) i++;
+      if (i > 0) s.messages.splice(0, i);
+    }
   }, 60_000);
 
-  // Allow callers (e.g. tests) to stop the timer
-  cleanupTimer.unref?.(); // non-blocking in Node — won't prevent process exit
+  cleanupTimer.unref?.();
 
   // ── Ingest: position ────────────────────────────────────────────────────────
-  // Posted by the rig-bridge meshcom-udp plugin.
-  // lat and lon arrive already normalised to signed decimals (plugin handles
-  // the lat_dir/long_dir conversion), so we only need null-safe guards here.
+  // Posted by the rig-bridge relay (server/routes/rig-bridge.js).
+  // sessionId is included in the body by the relay forwarder.
   app.post('/api/meshcom/local/pos', (req, res) => {
     const pkt = req.body;
     if (!pkt || !pkt.src) return res.status(400).json({ error: 'Missing src' });
+    if (!pkt.sessionId) return res.status(400).json({ error: 'Missing sessionId' });
 
+    const s = getOrCreateSession(pkt.sessionId);
     const call = String(pkt.src).toUpperCase().trim();
 
     // null-safe coordinate guard — 0 is a valid position (equator / prime meridian)
     const lat = parseOrNull(pkt.lat);
     const lon = parseOrNull(pkt.lon);
 
-    const existing = nodes.get(call);
+    const existing = s.nodes.get(call);
     const ts = pkt.timestamp ?? Date.now();
     if (existing && ts <= existing.timestamp) {
       return res.json({ ok: true, updated: false });
@@ -106,12 +154,12 @@ module.exports = function (app, ctx) {
 
     // Carry forward any telemetry already received for this node so the map
     // popup has fresh weather data without waiting for the next telem packet.
-    const wx = weather.get(call);
+    const wx = s.weather.get(call);
     if (wx) node.weather = wx;
 
-    nodes.set(call, node);
-    lastIngestTime = Date.now();
-    logDebug(`[MeshCom] Position from ${call}: lat=${lat}, lon=${lon}, batt=${pkt.batt}`);
+    s.nodes.set(call, node);
+    s.lastIngestTime = Date.now();
+    logDebug(`[MeshCom] [${pkt.sessionId}] Position from ${call}: lat=${lat}, lon=${lon}, batt=${pkt.batt}`);
     res.json({ ok: true, updated: true });
   });
 
@@ -119,8 +167,11 @@ module.exports = function (app, ctx) {
   app.post('/api/meshcom/local/msg', (req, res) => {
     const pkt = req.body;
     if (!pkt || !pkt.src || !pkt.msg) return res.status(400).json({ error: 'Missing src or msg' });
+    if (!pkt.sessionId) return res.status(400).json({ error: 'Missing sessionId' });
 
-    messages.push({
+    const s = getOrCreateSession(pkt.sessionId);
+
+    s.messages.push({
       src: String(pkt.src).toUpperCase(),
       dst: pkt.dst ? String(pkt.dst).toUpperCase() : '*',
       text: pkt.msg,
@@ -129,9 +180,9 @@ module.exports = function (app, ctx) {
       timestamp: pkt.timestamp ?? Date.now(),
     });
 
-    if (messages.length > MAX_MESSAGES) messages.shift();
-    lastIngestTime = Date.now();
-    logDebug(`[MeshCom] Message from ${pkt.src} → ${pkt.dst || '*'}: ${pkt.msg}`);
+    if (s.messages.length > MAX_MESSAGES) s.messages.shift();
+    s.lastIngestTime = Date.now();
+    logDebug(`[MeshCom] [${pkt.sessionId}] Message from ${pkt.src} → ${pkt.dst || '*'}: ${pkt.msg}`);
     res.json({ ok: true });
   });
 
@@ -139,7 +190,9 @@ module.exports = function (app, ctx) {
   app.post('/api/meshcom/local/telem', (req, res) => {
     const pkt = req.body;
     if (!pkt || !pkt.src) return res.status(400).json({ error: 'Missing src' });
+    if (!pkt.sessionId) return res.status(400).json({ error: 'Missing sessionId' });
 
+    const s = getOrCreateSession(pkt.sessionId);
     const call = String(pkt.src).toUpperCase().trim();
     const ts = pkt.timestamp ?? Date.now();
 
@@ -154,26 +207,27 @@ module.exports = function (app, ctx) {
       timestamp: ts,
     };
 
-    weather.set(call, wx);
+    s.weather.set(call, wx);
 
     // Update weather on existing node too so the map popup has fresh data
-    const node = nodes.get(call);
+    const node = s.nodes.get(call);
     if (node) {
       node.weather = wx;
-      // Touch timestamp so ETag changes and clients know to refresh
       if (ts > node.timestamp) node.timestamp = ts;
     }
 
-    lastIngestTime = Date.now();
-    logDebug(`[MeshCom] Telemetry from ${call}: temp=${pkt.tempC}°C hum=${pkt.humidity}%`);
+    s.lastIngestTime = Date.now();
+    logDebug(`[MeshCom] [${pkt.sessionId}] Telemetry from ${call}: temp=${pkt.tempC}°C hum=${pkt.humidity}%`);
     res.json({ ok: true });
   });
 
   // ── GET /api/meshcom/nodes ──────────────────────────────────────────────────
-  // Supports ?since=<ms> (return only nodes updated after that time).
-  // Supports ETag / If-None-Match for 304 responses when nothing changed.
+  // Requires ?session=<id>. Supports ?since=<ms> and ETag / If-None-Match.
   app.get('/api/meshcom/nodes', (req, res) => {
-    const etag = computeNodeEtag();
+    const s = getSessionIfExists(req.query.session);
+    if (!s) return res.json({ count: 0, nodes: [] });
+
+    const etag = computeNodeEtag(s.nodes);
     if (req.headers['if-none-match'] === etag) {
       return res.status(304).end();
     }
@@ -182,7 +236,7 @@ module.exports = function (app, ctx) {
     const cutoff = Date.now() - NODE_MAX_AGE_MS;
 
     const result = [];
-    for (const node of nodes.values()) {
+    for (const node of s.nodes.values()) {
       if (node.timestamp < cutoff) continue;
       if (since > 0 && node.timestamp <= since) continue;
       const ageMin = Math.floor((Date.now() - node.timestamp) / 60_000);
@@ -194,39 +248,55 @@ module.exports = function (app, ctx) {
   });
 
   // ── GET /api/meshcom/messages ───────────────────────────────────────────────
-  // Supports ?since=<ms>.
+  // Requires ?session=<id>. Supports ?since=<ms>.
   app.get('/api/meshcom/messages', (req, res) => {
+    const s = getSessionIfExists(req.query.session);
+    if (!s) return res.json({ count: 0, messages: [] });
+
     const since = req.query.since != null ? parseInt(req.query.since) : 0;
-    const result = since > 0 ? messages.filter((m) => m.timestamp > since) : messages.slice();
+    const result = since > 0 ? s.messages.filter((m) => m.timestamp > since) : s.messages.slice();
     res.json({ count: result.length, messages: result });
   });
 
   // ── GET /api/meshcom/weather ────────────────────────────────────────────────
+  // Requires ?session=<id>.
   app.get('/api/meshcom/weather', (req, res) => {
-    const result = Array.from(weather.values());
+    const s = getSessionIfExists(req.query.session);
+    if (!s) return res.json({ count: 0, weather: [] });
+
+    const result = Array.from(s.weather.values());
     res.json({ count: result.length, weather: result });
   });
 
   // ── GET /api/meshcom/status ─────────────────────────────────────────────────
   // Purely synchronous — no outbound HTTP calls. Derives rig-bridge
-  // connectivity from lastIngestTime so it never holds a browser connection
-  // open waiting for rig-bridge to respond (or time out).
+  // connectivity from this session's lastIngestTime.
   app.get('/api/meshcom/status', (req, res) => {
-    // Consider rig-bridge "running" if a packet arrived within the last 5 min.
+    const s = getSessionIfExists(req.query.session);
+    if (!s) {
+      return res.json({
+        nodeCount: 0,
+        messageCount: 0,
+        lastIngestTime: 0,
+        rigBridge: { running: false },
+      });
+    }
+
     const ACTIVE_WINDOW_MS = 5 * 60_000;
-    const running = lastIngestTime > 0 && Date.now() - lastIngestTime < ACTIVE_WINDOW_MS;
+    const running = s.lastIngestTime > 0 && Date.now() - s.lastIngestTime < ACTIVE_WINDOW_MS;
     res.json({
-      nodeCount: nodes.size,
-      messageCount: messages.length,
-      lastIngestTime,
+      nodeCount: s.nodes.size,
+      messageCount: s.messages.length,
+      lastIngestTime: s.lastIngestTime,
       rigBridge: { running },
     });
   });
 
   // ── POST /api/meshcom/send ──────────────────────────────────────────────────
-  // Proxies send request to rig-bridge plugin.
+  // Proxies send request to rig-bridge plugin. Session is validated but not
+  // used for routing — UDP send goes to the local mesh regardless.
   app.post('/api/meshcom/send', async (req, res) => {
-    const { to, message } = req.body;
+    const { to, message, session } = req.body;
     if (!message) return res.status(400).json({ error: 'Missing message' });
     if (message.length > 150) return res.status(400).json({ error: 'Message exceeds 150 char MeshCom limit' });
 
@@ -243,7 +313,7 @@ module.exports = function (app, ctx) {
       const err = await r.text();
       return res.status(r.status).json({ error: `Rig Bridge: ${err}` });
     } catch (e) {
-      logWarn(`[MeshCom] Send proxy error: ${e.message}`);
+      logWarn(`[MeshCom] Send proxy error (session=${session}): ${e.message}`);
       const isTimeout = e?.name === 'AbortError' || e?.name === 'TimeoutError';
       const isRefused = e?.code === 'ECONNREFUSED';
       if (isTimeout) {

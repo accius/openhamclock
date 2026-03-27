@@ -3,6 +3,13 @@
  * Polls /api/meshcom/nodes and /api/meshcom/messages for MeshCom node and
  * message data received via the rig-bridge UDP plugin.
  *
+ * Session isolation:
+ *   Each browser tab generates a persistent session ID (stored in
+ *   localStorage under 'ohc-meshcom-session') and appends it as
+ *   ?session=<id> on every request. The server scopes all data to that
+ *   session so data from different users' rig-bridge instances is never
+ *   mixed on a shared server.
+ *
  * Traffic optimisations:
  *   - 30s poll interval (LoRa beacons are every 5-15 min, 15s is wasteful)
  *   - ETag / If-None-Match on nodes — 304 with no body when nothing changed
@@ -24,8 +31,30 @@ import { apiFetch } from '../utils/apiFetch';
 const POLL_INTERVAL = 30_000; // 30 s — LoRa beacon rate is much slower than APRS
 const FETCH_TIMEOUT_MS = 5_000; // hard cap per request — never tie up a connection longer
 
+// Generate or retrieve a persistent session ID from localStorage.
+// Kept short (8–10 chars) intentionally — long UUIDs in query strings
+// trigger false positives in Bitdefender and similar security software.
+function getSessionId() {
+  const KEY = 'ohc-meshcom-session';
+  const generate = () => Math.random().toString(36).substring(2, 10);
+  try {
+    let id = localStorage.getItem(KEY);
+    // Accept only 8–12 char lowercase alphanumeric IDs — reject legacy UUIDs
+    if (id && id.length >= 8 && id.length <= 12 && /^[a-z0-9]+$/.test(id)) return id;
+    id = generate();
+    localStorage.setItem(KEY, id);
+    return id;
+  } catch {
+    // Fallback for privacy browsers that block localStorage
+    return generate();
+  }
+}
+
 export function useMeshCom(options = {}) {
   const { enabled = true } = options;
+
+  // Stable session ID for the lifetime of this browser tab
+  const [sessionId] = useState(getSessionId);
 
   const [nodes, setNodes] = useState([]);
   const [messages, setMessages] = useState([]);
@@ -45,7 +74,7 @@ export function useMeshCom(options = {}) {
       const headers = {};
       if (nodeEtagRef.current) headers['If-None-Match'] = nodeEtagRef.current;
 
-      const res = await apiFetch('/api/meshcom/nodes', {
+      const res = await apiFetch(`/api/meshcom/nodes?session=${sessionId}`, {
         cache: 'no-store',
         headers,
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -63,13 +92,15 @@ export function useMeshCom(options = {}) {
         console.error('[MeshCom] Nodes fetch error:', err);
       }
     }
-  }, [enabled]);
+  }, [enabled, sessionId]);
 
   const fetchMessages = useCallback(async () => {
     if (!enabled) return;
     try {
       const since = lastMessageTsRef.current;
-      const res = await apiFetch(since > 0 ? `/api/meshcom/messages?since=${since}` : '/api/meshcom/messages', {
+      const base = `/api/meshcom/messages?session=${sessionId}`;
+      const url = since > 0 ? `${base}&since=${since}` : base;
+      const res = await apiFetch(url, {
         cache: 'no-store',
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
@@ -93,12 +124,12 @@ export function useMeshCom(options = {}) {
         console.error('[MeshCom] Messages fetch error:', err);
       }
     }
-  }, [enabled]);
+  }, [enabled, sessionId]);
 
   const fetchStatus = useCallback(async () => {
     if (!enabled) return;
     try {
-      const res = await apiFetch('/api/meshcom/status', {
+      const res = await apiFetch(`/api/meshcom/status?session=${sessionId}`, {
         cache: 'no-store',
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
@@ -112,7 +143,7 @@ export function useMeshCom(options = {}) {
         console.error('[MeshCom] Status fetch error:', err);
       }
     }
-  }, [enabled]);
+  }, [enabled, sessionId]);
 
   // Fire all three fetches independently — not Promise.all — so a slow
   // response on one endpoint cannot delay the others.
@@ -129,33 +160,37 @@ export function useMeshCom(options = {}) {
     return () => clearInterval(id);
   }, [enabled, refresh]);
 
-  const sendMessage = useCallback(async (to, message) => {
-    let res;
-    try {
-      res = await apiFetch('/api/meshcom/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: to || '*', message }),
-        signal: AbortSignal.timeout(10_000),
-      });
-    } catch (err) {
-      if (err?.name === 'AbortError' || err?.name === 'TimeoutError') {
-        throw new Error('Send timed out — check that rig-bridge is running and reachable');
+  const sendMessage = useCallback(
+    async (to, message) => {
+      let res;
+      try {
+        res = await apiFetch('/api/meshcom/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: to || '*', message, session: sessionId }),
+          signal: AbortSignal.timeout(10_000),
+        });
+      } catch (err) {
+        if (err?.name === 'AbortError' || err?.name === 'TimeoutError') {
+          throw new Error('Send timed out — check that rig-bridge is running and reachable');
+        }
+        throw new Error('Could not reach the server — check your network connection');
       }
-      throw new Error('Could not reach the server — check your network connection');
-    }
-    if (!res?.ok) {
-      const data = await res?.json().catch(() => ({}));
-      throw new Error(data.error || 'Send failed');
-    }
-    return true;
-  }, []);
+      if (!res?.ok) {
+        const data = await res?.json().catch(() => ({}));
+        throw new Error(data.error || 'Send failed');
+      }
+      return true;
+    },
+    [sessionId],
+  );
 
   return {
     nodes,
     messages,
     connected,
     loading,
+    sessionId,
     sendMessage,
     refresh,
   };
