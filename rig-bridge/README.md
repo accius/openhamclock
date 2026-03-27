@@ -475,13 +475,191 @@ This works alongside the regular internet-based APRS-IS feed. When the internet 
 
 APRS packets from nearby stations on RF will now appear alongside internet-sourced APRS stations on the map.
 
-### Hardware TNC (serial port)
+### MeshCom UDP Plugin
+
+Receives MeshCom LoRa mesh network packets and forwards them to OHC. See [MeshCom UDP Plugin](#meshcom-udp-plugin) for full setup instructions.
+
+| Setting   | Default   | Description                     |
+| --------- | --------- | ------------------------------- |
+| UDP Port  | `1799`    | Port MeshCom nodes broadcast to |
+| Bind Host | `0.0.0.0` | Network interface to listen on  |
+
+### APRS TNC Plugin
 
 If you have a traditional hardware TNC connected via serial port:
 
-1. Protocol → **KISS Serial**
-2. Serial Port → select your TNC's COM port
-3. Baud Rate → **9600** (check your TNC's documentation)
+| Setting         | Default     | Description                                             |
+| --------------- | ----------- | ------------------------------------------------------- |
+| Protocol        | `kiss-tcp`  | `kiss-tcp` for Direwolf, `kiss-serial` for hardware TNC |
+| Host            | `127.0.0.1` | Direwolf KISS TCP host                                  |
+| Port            | `8001`      | Direwolf KISS TCP port                                  |
+| Callsign        | (required)  | Your callsign for TX                                    |
+| SSID            | `0`         | APRS SSID                                               |
+| Beacon Interval | `600`       | Seconds between position beacons (0 = disabled)         |
+
+**With Direwolf:**
+
+1. Start Direwolf with KISS enabled (default port 8001)
+2. Enable the APRS TNC plugin in rig-bridge
+3. Set your callsign
+4. APRS packets from nearby stations appear in OHC's APRS panel
+
+The APRS TNC runs alongside APRS-IS (internet) for dual-path coverage. When internet goes down, local RF keeps working.
+
+### MeshCom UDP Plugin
+
+Receives JSON packets broadcast by [MeshCom](https://github.com/icssw-org/MeshCom-Firmware) LoRa mesh network nodes over UDP and forwards them to OpenHamClock. MeshCom nodes appear on the OHC world map and in the dedicated MeshCom panel with live positions, battery levels, weather/telemetry, and text messages.
+
+#### How it works
+
+MeshCom firmware can broadcast its status packets as UDP JSON to the local network (`--extudp on`). Rig Bridge binds a UDP socket on port 1799, receives those packets, deduplicates them (the mesh rebroadcasts each packet via multiple paths), and forwards them to OpenHamClock via the Cloud Relay plugin — no direct HTTP connection from the plugin itself is needed.
+
+```
+MeshCom node (LoRa)
+      │ UDP JSON broadcast
+      ▼
+Rig Bridge :1799 (meshcom-udp plugin)
+      │ dedup → normalise → bus.emit('meshcom')
+      ▼
+Cloud Relay plugin ──HTTPS──→ OpenHamClock server
+                                    └─ /api/meshcom/nodes
+                                    └─ /api/meshcom/messages
+                                    └─ MeshCom panel + map
+```
+
+#### MeshCom firmware setup
+
+Enable UDP output in your MeshCom node firmware. The exact method depends on your firmware version and hardware — typical options:
+
+- **Serial/USB console:** `--extudp on` and `--extudpip 255.255.255.255`
+- **Web config UI:** Enable _External UDP_, set IP to `255.255.255.255` (broadcast) or the specific IP of the machine running rig-bridge
+
+The node will broadcast JSON packets to UDP port 1799 on the local network.
+
+#### Rig Bridge setup
+
+1. Open **http://localhost:5555** → **Plugins** tab
+2. Enable **MeshCom UDP Receiver**
+3. Set the **UDP Listen Port** (default `1799`) — must match the firmware's UDP destination port
+4. Click **Save**
+
+You should see in the console:
+
+```
+[MeshCom-UDP] Listening on 0.0.0.0:1799
+```
+
+When packets arrive:
+
+```
+[MeshCom-UDP] RX: {"type":"pos","src":"OE1XYZ-12","lat":48.2,"lat_dir":"N",...}
+```
+
+#### Config reference
+
+| Field      | Description                                 | Default           |
+| ---------- | ------------------------------------------- | ----------------- |
+| `enabled`  | Activate the plugin on startup              | `false`           |
+| `bindPort` | UDP port to listen on                       | `1799`            |
+| `bindHost` | Network interface to bind (`0.0.0.0` = all) | `0.0.0.0`         |
+| `sendHost` | Destination IP for outgoing messages        | `255.255.255.255` |
+| `sendPort` | Destination UDP port for outgoing messages  | `1799`            |
+| `verbose`  | Log every received packet to the console    | `false`           |
+
+Manual config in `rig-bridge-config.json`:
+
+```json
+{
+  "meshcom": {
+    "enabled": true,
+    "bindPort": 1799,
+    "bindHost": "0.0.0.0",
+    "sendHost": "255.255.255.255",
+    "sendPort": 1799,
+    "verbose": false
+  }
+}
+```
+
+#### Packet types
+
+| Type    | Description                                                                |
+| ------- | -------------------------------------------------------------------------- |
+| `pos`   | Node position — callsign, lat/lon, altitude, battery                       |
+| `msg`   | Text message — source, destination (callsign, group, or `*` for broadcast) |
+| `telem` | Weather/sensor data — temperature, humidity, pressure, CO₂, RSSI, SNR      |
+
+Altitude is converted from feet (MeshCom GPS) to metres automatically. Firmware version strings are normalised across local-node and relay-hop encoding variants.
+
+#### Deduplication
+
+LoRa mesh networks rebroadcast each packet via multiple paths, so the same packet can arrive many times within seconds. The plugin deduplicates by `hw_id + msg_id` with a 60-second TTL — only the first copy is forwarded.
+
+#### OpenHamClock data retention
+
+On the OHC server, received data is held in memory:
+
+| Data     | Retention                                                        | Env override                    |
+| -------- | ---------------------------------------------------------------- | ------------------------------- |
+| Nodes    | 60 minutes after last packet (stale nodes removed automatically) | `MESHCOM_NODE_MAX_AGE_MINUTES`  |
+| Messages | 8 hours (oldest messages pruned every minute)                    | `MESHCOM_MESSAGE_MAX_AGE_HOURS` |
+
+#### Troubleshooting
+
+| Problem                          | Solution                                                                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| No packets arriving              | Verify `--extudp on` is set in MeshCom firmware; check UDP destination IP reaches the rig-bridge host                                |
+| Port already in use              | Another app is listening on 1799 — change `bindPort` in rig-bridge and in firmware                                                   |
+| Duplicate packets in OHC         | Normal — dedup is active; if you see duplicates, check that `hw_id` is present in firmware packets                                   |
+| Nodes appear but no map marker   | Node has no GPS fix yet — position packets without valid coordinates are stored but not mapped                                       |
+| Altitude shows wrong value       | Plugin converts MeshCom GPS feet → metres automatically; values should be correct                                                    |
+| MeshCom panel not visible in OHC | Requires Cloud Relay to be configured and connected (see [Scenario 3](#scenario-3-cloud-relay-ohc-on-openhamclockcom-radio-at-home)) |
+
+---
+
+### Rotator Plugin
+
+Controls antenna rotators via Hamlib's `rotctld`.
+
+1. Start rotctld: `rotctld -m 202 -r /dev/ttyUSB1 -t 4533`
+2. Enable the Rotator plugin in rig-bridge
+3. Set host and port (default: `127.0.0.1:4533`)
+
+### Winlink Plugin
+
+Two features:
+
+- **Gateway Discovery** — shows nearby Winlink RMS gateways on the map (requires API key from winlink.org)
+- **Pat Client** — integrates with [Pat](https://getpat.io/) for composing and sending Winlink messages over RF
+
+### Cloud Relay Plugin
+
+Bridges a locally-running rig-bridge to a cloud-hosted OpenHamClock instance so cloud users get the same rig control as local users — click-to-tune, PTT, WSJT-X decodes, APRS packets.
+
+See [Scenario 3](#scenario-3-cloud-relay-ohc-on-openhamclockcom-radio-at-home) for setup instructions.
+
+**How latency is minimised:**
+
+| Path                  | Mechanism                                              | Typical latency |
+| --------------------- | ------------------------------------------------------ | --------------- |
+| Rig state → browser   | Event-driven push + SSE fan-out                        | < 100 ms        |
+| Browser command → rig | Long-poll (server wakes rig-bridge on command arrival) | ~RTT (< 100 ms) |
+
+The rig-bridge holds a persistent long-poll connection to the server. The moment you click PTT or a DX spot, the server wakes that connection and delivers the command — no fixed poll tick to wait for.
+
+**Config reference:**
+
+| Field          | Description                                     | Default |
+| -------------- | ----------------------------------------------- | ------- |
+| `enabled`      | Activate the relay on startup                   | `false` |
+| `url`          | Cloud OHC server URL                            | —       |
+| `apiKey`       | Relay authentication key (from your OHC server) | —       |
+| `session`      | Browser session ID for per-user isolation       | —       |
+| `pushInterval` | Fallback push interval for batched data (ms)    | `2000`  |
+| `relayRig`     | Relay rig state (freq, mode, PTT)               | `true`  |
+| `relayWsjtx`   | Relay WSJT-X decodes                            | `true`  |
+| `relayAprs`    | Relay APRS packets from local TNC               | `false` |
+| `verbose`      | Log all relay activity to the console           | `false` |
 
 ---
 
@@ -766,19 +944,26 @@ rig-bridge/
 │   ├── wsjtx-protocol.js  # WSJT-X UDP protocol parser
 │   └── aprs-parser.js     # APRS packet decoder
 └── plugins/
-    ├── usb/               # Direct USB CAT (Yaesu, Kenwood, Icom)
-    ├── tci.js             # TCI/SDR WebSocket (Thetis, ExpertSDR)
-    ├── smartsdr.js        # FlexRadio SmartSDR
-    ├── rtl-tcp.js         # RTL-SDR via rtl_tcp
-    ├── rigctld.js         # Hamlib rigctld
-    ├── flrig.js           # flrig XML-RPC
-    ├── mock.js            # Simulated radio (for testing)
-    ├── wsjtx-relay.js     # WSJT-X / JTDX / MSHV relay
-    ├── js8call.js         # JS8Call messaging
-    ├── aprs-tnc.js        # APRS KISS TNC (Direwolf / hardware)
-    ├── rotator.js         # Antenna rotator via rotctld
-    ├── winlink-gateway.js # Winlink RMS gateway discovery
-    └── cloud-relay.js     # Cloud relay to hosted OpenHamClock
+    ├── usb/
+    │   ├── index.js            # USB serial lifecycle (open, reconnect, poll)
+    │   ├── protocol-yaesu.js   # Yaesu CAT ASCII protocol
+    │   ├── protocol-kenwood.js # Kenwood ASCII protocol
+    │   └── protocol-icom.js    # Icom CI-V binary protocol
+    ├── tci.js             # TCI/SDR WebSocket plugin (Thetis, ExpertSDR, etc.)
+    ├── smartsdr.js        # FlexRadio SmartSDR native TCP API plugin
+    ├── rtl-tcp.js         # RTL-SDR via rtl_tcp binary protocol (receive-only)
+    ├── rigctld.js         # rigctld TCP plugin
+    ├── flrig.js           # flrig XML-RPC plugin
+    ├── mock.js            # Simulated radio for testing (no hardware needed)
+    ├── wsjtx-relay.js     # WSJT-X UDP listener → OpenHamClock relay
+    ├── mshv.js            # MSHV UDP listener (multi-stream digital modes)
+    ├── jtdx.js            # JTDX UDP listener (FT8/JT65 enhanced decoding)
+    ├── js8call.js         # JS8Call UDP listener (JS8 keyboard messaging)
+    ├── aprs-tnc.js        # APRS KISS TNC plugin (Direwolf / hardware TNC)
+    ├── meshcom-udp.js     # MeshCom LoRa mesh UDP receiver (port 1799)
+    ├── rotator.js         # Antenna rotator via rotctld (Hamlib)
+    ├── winlink-gateway.js # Winlink RMS gateway discovery + Pat client
+    └── cloud-relay.js     # Cloud relay — bridges local rig-bridge to cloud OHC
 ```
 
 ### Writing a plugin
