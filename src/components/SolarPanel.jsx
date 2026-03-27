@@ -356,31 +356,56 @@ export const SolarPanel = ({ solarIndices, bandConditions, forcedMode }) => {
   // Lunar phase renderer — uses live NASA SVS Dial-A-Moon imagery
   const [moonImageUrl, setMoonImageUrl] = useState(null);
   const [moonImageError, setMoonImageError] = useState(false);
+  const [moonData, setMoonData] = useState(null);
 
   useEffect(() => {
     const fetchMoonImage = () => {
       setMoonImageUrl(`/api/moon-image?t=${Math.floor(Date.now() / 3600000)}`);
       setMoonImageError(false);
     };
+    const fetchMoonData = async () => {
+      try {
+        const res = await fetch('/api/moon-data');
+        if (res.ok) setMoonData(await res.json());
+      } catch {
+        // fall back to local calculation
+      }
+    };
     fetchMoonImage();
-    const interval = setInterval(fetchMoonImage, 60 * 60 * 1000);
+    fetchMoonData();
+    const interval = setInterval(
+      () => {
+        fetchMoonImage();
+        fetchMoonData();
+      },
+      60 * 60 * 1000,
+    );
     return () => clearInterval(interval);
   }, []);
 
   const renderLunar = () => {
     const now = new Date();
     const phase = getMoonPhase(now); // 0-1, 0=new, 0.5=full
-    const illumination = Math.round(((1 - Math.cos(phase * 2 * Math.PI)) / 2) * 100);
 
-    // Phase name
-    let phaseName = 'New Moon';
-    if (phase >= 0.0625 && phase < 0.1875) phaseName = 'Waxing Crescent';
-    else if (phase >= 0.1875 && phase < 0.3125) phaseName = 'First Quarter';
-    else if (phase >= 0.3125 && phase < 0.4375) phaseName = 'Waxing Gibbous';
-    else if (phase >= 0.4375 && phase < 0.5625) phaseName = 'Full Moon';
-    else if (phase >= 0.5625 && phase < 0.6875) phaseName = 'Waning Gibbous';
-    else if (phase >= 0.6875 && phase < 0.8125) phaseName = 'Last Quarter';
-    else if (phase >= 0.8125 && phase < 0.9375) phaseName = 'Waning Crescent';
+    // Use NASA Dial-A-Moon data when available, fall back to local cosine approximation
+    const nasaIllumination = moonData?.phase;
+    const nasaAge = moonData?.age;
+    const illumination =
+      nasaIllumination != null
+        ? Math.round(nasaIllumination)
+        : Math.round(((1 - Math.cos(phase * 2 * Math.PI)) / 2) * 100);
+
+    // Derive phase name from illumination + waxing/waning direction
+    // Age < ~14.77 days = waxing (new→full), otherwise waning (full→new)
+    const SYNODIC_HALF = 14.765;
+    const waxing = nasaAge != null ? nasaAge < SYNODIC_HALF : phase < 0.5;
+
+    let phaseName;
+    if (illumination <= 2) phaseName = 'New Moon';
+    else if (illumination >= 98) phaseName = 'Full Moon';
+    else if (illumination < 50) phaseName = waxing ? 'Waxing Crescent' : 'Waning Crescent';
+    else if (illumination <= 52) phaseName = waxing ? 'First Quarter' : 'Last Quarter';
+    else phaseName = waxing ? 'Waxing Gibbous' : 'Waning Gibbous';
 
     // Find next full moon & new moon by scanning forward
     const findNextPhase = (targetPhase) => {

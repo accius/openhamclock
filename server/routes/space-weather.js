@@ -429,9 +429,42 @@ module.exports = function (app, ctx) {
 
   // NASA Dial-A-Moon
   let moonImageCache = { buffer: null, contentType: null, timestamp: 0 };
+  let moonMetaCache = { data: null, timestamp: 0 };
   let moonImageNegativeCache = 0;
   const MOON_CACHE_TTL = 60 * 60 * 1000;
   const MOON_NEGATIVE_CACHE_TTL = 5 * 60 * 1000;
+
+  // Shared fetch: retrieves both image and metadata from Dial-A-Moon API
+  async function fetchDialAMoon() {
+    const now = new Date();
+    const ts = now.toISOString().slice(0, 16);
+
+    const apiUrl = `https://svs.gsfc.nasa.gov/api/dialamoon/${ts}`;
+    const metaResponse = await fetch(apiUrl);
+    if (!metaResponse.ok) throw new Error(`Dial-A-Moon API returned ${metaResponse.status}`);
+    const meta = await metaResponse.json();
+
+    // Cache metadata (phase %, age, diameter, distance)
+    moonMetaCache = {
+      data: {
+        phase: meta.phase ?? null,
+        age: meta.age ?? null,
+        diameter: meta.diameter ?? null,
+        distance: meta.distance ?? null,
+      },
+      timestamp: Date.now(),
+    };
+
+    const imageUrl = meta?.image?.url;
+    if (!imageUrl) throw new Error('No image URL in Dial-A-Moon response');
+
+    const imgResponse = await fetch(imageUrl);
+    if (!imgResponse.ok) throw new Error(`Moon image fetch returned ${imgResponse.status}`);
+    const buffer = Buffer.from(await imgResponse.arrayBuffer());
+    const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
+
+    moonImageCache = { buffer, contentType, timestamp: Date.now() };
+  }
 
   app.get('/api/moon-image', async (req, res) => {
     try {
@@ -450,27 +483,11 @@ module.exports = function (app, ctx) {
         return res.status(503).json({ error: 'Moon image temporarily unavailable' });
       }
 
-      const now = new Date();
-      const ts = now.toISOString().slice(0, 16);
+      await fetchDialAMoon();
 
-      const apiUrl = `https://svs.gsfc.nasa.gov/api/dialamoon/${ts}`;
-      const metaResponse = await fetch(apiUrl);
-      if (!metaResponse.ok) throw new Error(`Dial-A-Moon API returned ${metaResponse.status}`);
-      const meta = await metaResponse.json();
-
-      const imageUrl = meta?.image?.url;
-      if (!imageUrl) throw new Error('No image URL in Dial-A-Moon response');
-
-      const imgResponse = await fetch(imageUrl);
-      if (!imgResponse.ok) throw new Error(`Moon image fetch returned ${imgResponse.status}`);
-      const buffer = Buffer.from(await imgResponse.arrayBuffer());
-      const contentType = imgResponse.headers.get('content-type') || 'image/jpeg';
-
-      moonImageCache = { buffer, contentType, timestamp: Date.now() };
-
-      res.set('Content-Type', contentType);
+      res.set('Content-Type', moonImageCache.contentType);
       res.set('Cache-Control', 'public, max-age=3600');
-      res.send(buffer);
+      res.send(moonImageCache.buffer);
     } catch (error) {
       moonImageNegativeCache = Date.now();
       logErrorOnce('Moon Image', error.message);
@@ -479,6 +496,30 @@ module.exports = function (app, ctx) {
         return res.send(moonImageCache.buffer);
       }
       res.status(500).json({ error: 'Failed to fetch moon image' });
+    }
+  });
+
+  // Moon metadata from Dial-A-Moon (phase %, age, diameter, distance)
+  // Piggybacks on the same cache — no extra NASA requests.
+  app.get('/api/moon-data', async (req, res) => {
+    try {
+      // If metadata is stale but image cache is also stale, fetch both
+      if (!moonMetaCache.data || Date.now() - moonMetaCache.timestamp >= MOON_CACHE_TTL) {
+        if (!moonImageCache.buffer || Date.now() - moonImageCache.timestamp >= MOON_CACHE_TTL) {
+          if (Date.now() - moonImageNegativeCache >= MOON_NEGATIVE_CACHE_TTL) {
+            await fetchDialAMoon();
+          }
+        }
+      }
+      if (moonMetaCache.data) {
+        res.set('Cache-Control', 'public, max-age=3600');
+        return res.json(moonMetaCache.data);
+      }
+      res.status(503).json({ error: 'Moon data not yet available' });
+    } catch (error) {
+      moonImageNegativeCache = Date.now();
+      logErrorOnce('Moon Data', error.message);
+      res.status(503).json({ error: 'Moon data temporarily unavailable' });
     }
   });
 
