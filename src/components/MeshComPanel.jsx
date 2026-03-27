@@ -165,7 +165,9 @@ function MessagesTab({ messages, nodes, sendMessage }) {
   const [msgText, setMsgText] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState(null);
+  const [selectedMsg, setSelectedMsg] = useState(null); // message being replied to
   const listRef = useRef(null);
+  const inputRef = useRef(null);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -181,6 +183,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
     try {
       await sendMessage(toField || '*', msgText.trim());
       setMsgText('');
+      setSelectedMsg(null);
     } catch (e) {
       setSendError(e.message);
     } finally {
@@ -188,7 +191,35 @@ function MessagesTab({ messages, nodes, sendMessage }) {
     }
   }, [msgText, toField, sendMessage, sending]);
 
+  const handleSelectMsg = useCallback((msg) => {
+    setSelectedMsg((prev) => (prev === msg ? null : msg));
+  }, []);
+
+  // Activate a reply target — set To: field and focus the input
+  const handleReplyTarget = useCallback((target) => {
+    setToField(target);
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
+
+  const handleCancelReply = useCallback(() => {
+    setSelectedMsg(null);
+    setToField('*');
+  }, []);
+
   const nodeCalls = nodes.map((n) => primaryCall(n.call));
+
+  // Ensure the reply-to sender appears in the dropdown even if not a known node
+  const dropdownCalls = selectedMsg ? [...new Set([...nodeCalls, primaryCall(selectedMsg.src)])] : nodeCalls;
+
+  // Determine the "group/broadcast" reply target for a given message
+  const groupTarget = (msg) => {
+    if (!msg) return '*';
+    const { dst } = msg;
+    // Groups 0–5 or broadcast: reply to same destination
+    if (dst === '*' || (dst >= '0' && dst <= '5')) return dst;
+    // Direct message: reply direct to sender
+    return primaryCall(msg.src);
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -199,38 +230,135 @@ function MessagesTab({ messages, nodes, sendMessage }) {
             {t('meshcomPanel.noMessages')}
           </div>
         ) : (
-          [...messages].reverse().map((msg, i) => (
-            <div
-              key={i}
-              style={{
-                padding: '4px 0',
-                borderBottom: '1px solid var(--border-color)',
-                fontSize: '11px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-                <span>
-                  <span style={{ fontWeight: '700', color: '#2dd4bf', fontFamily: 'JetBrains Mono, monospace' }}>
-                    {primaryCall(msg.src)}
+          [...messages].reverse().map((msg, i) => {
+            const isSelected = selectedMsg === msg;
+            const src = primaryCall(msg.src);
+            const isDirect = msg.dst && msg.dst !== '*' && (msg.dst < '0' || msg.dst > '5');
+            const gTarget = groupTarget(msg);
+
+            return (
+              <div
+                key={i}
+                onClick={() => handleSelectMsg(msg)}
+                style={{
+                  padding: '4px 0 4px 4px',
+                  borderBottom: '1px solid var(--border-color)',
+                  borderLeft: isSelected ? '2px solid #8B1A2A' : '2px solid transparent',
+                  fontSize: '11px',
+                  cursor: 'pointer',
+                  background: isSelected ? 'rgba(139,26,42,0.07)' : 'transparent',
+                  transition: 'background 0.12s, border-color 0.12s',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span>
+                    <span style={{ fontWeight: '700', color: '#8B1A2A', fontFamily: 'JetBrains Mono, monospace' }}>
+                      {src}
+                    </span>
+                    {msg.dst && msg.dst !== '*' && (
+                      <span style={{ color: 'var(--text-muted)' }}> → {primaryCall(msg.dst)}</span>
+                    )}
+                    {msg.dst === '*' && <span style={{ color: 'var(--text-muted)' }}> → ALL</span>}
                   </span>
-                  {msg.dst && msg.dst !== '*' && (
-                    <span style={{ color: 'var(--text-muted)' }}> → {primaryCall(msg.dst)}</span>
-                  )}
-                  {msg.dst === '*' && <span style={{ color: 'var(--text-muted)' }}> → ALL</span>}
-                </span>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{formatTime(msg.timestamp)}</span>
+                  <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{formatTime(msg.timestamp)}</span>
+                </div>
+                <div style={{ color: 'var(--text-primary)', marginTop: '2px' }}>{msg.text}</div>
+
+                {/* Inline reply buttons — only shown on selected message */}
+                {isSelected && (
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '5px', flexWrap: 'wrap' }}>
+                    {/* Group / broadcast reply */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleReplyTarget(gTarget);
+                      }}
+                      style={{
+                        padding: '2px 7px',
+                        fontSize: '10px',
+                        background: 'rgba(139,26,42,0.12)',
+                        border: '1px solid #8B1A2A',
+                        borderRadius: '3px',
+                        color: '#c0394e',
+                        cursor: 'pointer',
+                        fontFamily: 'JetBrains Mono, monospace',
+                      }}
+                    >
+                      {gTarget === '*'
+                        ? t('meshcomPanel.replyToBroadcast')
+                        : gTarget >= '0' && gTarget <= '5'
+                          ? t('meshcomPanel.replyToGroup', { n: gTarget })
+                          : t('meshcomPanel.replyToDirect', { call: gTarget })}
+                    </button>
+
+                    {/* Direct reply to sender — only show when group/broadcast target differs from sender */}
+                    {gTarget !== src && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleReplyTarget(src);
+                        }}
+                        style={{
+                          padding: '2px 7px',
+                          fontSize: '10px',
+                          background: 'rgba(139,26,42,0.12)',
+                          border: '1px solid #8B1A2A',
+                          borderRadius: '3px',
+                          color: '#c0394e',
+                          cursor: 'pointer',
+                          fontFamily: 'JetBrains Mono, monospace',
+                        }}
+                      >
+                        {t('meshcomPanel.replyToDirect', { call: src })}
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-              <div style={{ color: 'var(--text-primary)', marginTop: '2px' }}>{msg.text}</div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
+
+      {/* "Replying to" context strip */}
+      {selectedMsg && (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '3px 8px',
+            background: 'rgba(139,26,42,0.1)',
+            borderTop: '1px solid rgba(139,26,42,0.3)',
+            fontSize: '10px',
+            color: '#c0394e',
+            fontFamily: 'JetBrains Mono, monospace',
+          }}
+        >
+          <span>{t('meshcomPanel.replyingTo', { call: primaryCall(selectedMsg.src) })}</span>
+          <button
+            onClick={handleCancelReply}
+            title={t('meshcomPanel.replyCancel')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#c0394e',
+              cursor: 'pointer',
+              fontSize: '12px',
+              lineHeight: 1,
+              padding: '0 2px',
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Send form */}
       <div
         style={{
           padding: '6px 8px',
-          borderTop: '1px solid var(--border-color)',
+          borderTop: selectedMsg ? 'none' : '1px solid var(--border-color)',
           background: 'var(--bg-secondary)',
         }}
       >
@@ -258,7 +386,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
                 {t('meshcomPanel.sendGroup', { n: g })}
               </option>
             ))}
-            {nodeCalls.map((call) => (
+            {dropdownCalls.map((call) => (
               <option key={call} value={call}>
                 {call}
               </option>
@@ -267,6 +395,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
           <input
+            ref={inputRef}
             value={msgText}
             onChange={(e) => setMsgText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
@@ -289,10 +418,10 @@ function MessagesTab({ messages, nodes, sendMessage }) {
             style={{
               padding: '4px 10px',
               fontSize: '11px',
-              background: msgText.trim() && !sending ? '#2dd4bf' : 'var(--bg-tertiary)',
+              background: msgText.trim() && !sending ? '#8B1A2A' : 'var(--bg-tertiary)',
               border: 'none',
               borderRadius: '3px',
-              color: msgText.trim() && !sending ? '#000' : 'var(--text-muted)',
+              color: msgText.trim() && !sending ? '#fff' : 'var(--text-muted)',
               cursor: msgText.trim() && !sending ? 'pointer' : 'default',
               fontFamily: 'inherit',
               fontWeight: '600',
