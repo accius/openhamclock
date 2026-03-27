@@ -6,6 +6,7 @@
  * Three tabs: Nodes | Messages | Info
  */
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useMeshCom } from '../hooks/useMeshCom.js';
 import CallsignLink from './CallsignLink.jsx';
 import { primaryCall } from '../utils/callsign.js';
@@ -82,16 +83,19 @@ function WeatherRow({ wx }) {
 // ── Tab: Nodes ────────────────────────────────────────────────────────────────
 
 function NodesTab({ nodes, loading, onSpotClick, onHoverSpot }) {
+  const { t } = useTranslation();
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>Loading…</div>;
+    return (
+      <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
+        {t('meshcomPanel.loading')}
+      </div>
+    );
   }
   if (nodes.length === 0) {
     return (
       <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
-        No MeshCom nodes heard yet.
-        <div style={{ fontSize: '11px', marginTop: '8px' }}>
-          Make sure the MeshCom UDP plugin is enabled in rig-bridge config.
-        </div>
+        {t('meshcomPanel.noNodes')}
+        <div style={{ fontSize: '11px', marginTop: '8px' }}>{t('meshcomPanel.noNodesHint')}</div>
       </div>
     );
   }
@@ -121,7 +125,9 @@ function NodesTab({ nodes, loading, onSpotClick, onHoverSpot }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                 <CallsignLink call={primaryCall(node.call)} color="var(--text-primary)" fontWeight="700" />
                 {!hasPos && (
-                  <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontStyle: 'italic' }}>no pos</span>
+                  <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    {t('meshcomPanel.noPosition')}
+                  </span>
                 )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
@@ -153,6 +159,7 @@ function NodesTab({ nodes, loading, onSpotClick, onHoverSpot }) {
 // ── Tab: Messages ─────────────────────────────────────────────────────────────
 
 function MessagesTab({ messages, nodes, sendMessage }) {
+  const { t } = useTranslation();
   const [toField, setToField] = useState('*');
   const [msgText, setMsgText] = useState('');
   const [sending, setSending] = useState(false);
@@ -188,7 +195,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
       <div ref={listRef} style={{ flex: 1, overflow: 'auto', padding: '4px 8px' }}>
         {messages.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)', fontSize: '12px' }}>
-            No messages yet
+            {t('meshcomPanel.noMessages')}
           </div>
         ) : (
           [...messages].reverse().map((msg, i) => (
@@ -228,7 +235,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
       >
         <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
           <span style={{ fontSize: '11px', color: 'var(--text-muted)', alignSelf: 'center', whiteSpace: 'nowrap' }}>
-            To:
+            {t('meshcomPanel.sendTo')}
           </span>
           <select
             value={toField}
@@ -244,10 +251,10 @@ function MessagesTab({ messages, nodes, sendMessage }) {
               fontFamily: 'inherit',
             }}
           >
-            <option value="*">Broadcast (*)</option>
+            <option value="*">{t('meshcomPanel.sendBroadcast')}</option>
             {[0, 1, 2, 3, 4, 5].map((g) => (
               <option key={g} value={String(g)}>
-                Group {g}
+                {t('meshcomPanel.sendGroup', { n: g })}
               </option>
             ))}
             {nodeCalls.map((call) => (
@@ -262,7 +269,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
             value={msgText}
             onChange={(e) => setMsgText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
-            placeholder="Message (max 150 chars)"
+            placeholder={t('meshcomPanel.messagePlaceholder')}
             maxLength={150}
             style={{
               flex: 1,
@@ -291,7 +298,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
               whiteSpace: 'nowrap',
             }}
           >
-            {sending ? '…' : 'Send'}
+            {sending ? '…' : t('meshcomPanel.sendButton')}
           </button>
         </div>
         {sendError && <div style={{ fontSize: '10px', color: '#ef4444', marginTop: '4px' }}>{sendError}</div>}
@@ -306,10 +313,13 @@ function MessagesTab({ messages, nodes, sendMessage }) {
 // ── Tab: Info ─────────────────────────────────────────────────────────────────
 
 function InfoTab({ connected, nodes, messages }) {
+  const { t } = useTranslation();
   return (
     <div style={{ padding: '12px', fontSize: '12px' }}>
       <div style={{ marginBottom: '12px' }}>
-        <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>Status</div>
+        <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>
+          {t('meshcomPanel.infoStatus')}
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
           <span
             style={{
@@ -321,17 +331,18 @@ function InfoTab({ connected, nodes, messages }) {
               flexShrink: 0,
             }}
           />
-          {connected ? 'UDP socket active (port 1799)' : 'UDP plugin not connected'}
+          {connected ? t('meshcomPanel.infoActive') : t('meshcomPanel.infoInactive')}
         </div>
         <div style={{ marginTop: '6px', color: 'var(--text-muted)' }}>
-          {nodes.length} node{nodes.length !== 1 ? 's' : ''} · {messages.length} message
-          {messages.length !== 1 ? 's' : ''}
+          {t('meshcomPanel.infoStats', { nodes: nodes.length, messages: messages.length })}
         </div>
       </div>
       <div style={{ marginBottom: '12px' }}>
-        <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>Setup</div>
+        <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>
+          {t('meshcomPanel.infoSetup')}
+        </div>
         <div style={{ color: 'var(--text-muted)', lineHeight: '1.5' }}>
-          Enable in rig-bridge config:
+          {t('meshcomPanel.infoSetupRigbridge')}
           <pre
             style={{
               background: 'var(--bg-tertiary)',
@@ -344,7 +355,7 @@ function InfoTab({ connected, nodes, messages }) {
           >
             {`"meshcom": {\n  "enabled": true,\n  "bindPort": 1799\n}`}
           </pre>
-          On each MeshCom node enable UDP output:
+          {t('meshcomPanel.infoSetupNode')}
           <pre
             style={{
               background: 'var(--bg-tertiary)',
@@ -359,10 +370,10 @@ function InfoTab({ connected, nodes, messages }) {
         </div>
       </div>
       <div>
-        <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>About MeshCom</div>
-        <div style={{ color: 'var(--text-muted)', lineHeight: '1.5' }}>
-          MeshCom is an open LoRa mesh network for amateur radio operators, developed by OE1KBC and the ICSSW team.
+        <div style={{ fontWeight: '700', color: 'var(--text-primary)', marginBottom: '4px' }}>
+          {t('meshcomPanel.infoAbout')}
         </div>
+        <div style={{ color: 'var(--text-muted)', lineHeight: '1.5' }}>{t('meshcomPanel.infoAboutText')}</div>
       </div>
     </div>
   );
@@ -370,11 +381,18 @@ function InfoTab({ connected, nodes, messages }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-const TABS = ['Nodes', 'Messages', 'Info'];
+const TAB_IDS = ['nodes', 'messages', 'info'];
 
 const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
-  const [activeTab, setActiveTab] = useState('Nodes');
+  const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState('nodes');
   const { nodes, messages, connected, loading, sendMessage } = useMeshCom();
+
+  const tabLabels = {
+    nodes: t('meshcomPanel.tabNodes'),
+    messages: t('meshcomPanel.tabMessages'),
+    info: t('meshcomPanel.tabInfo'),
+  };
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontSize: '12px' }}>
@@ -405,7 +423,7 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
             <line x1="6.3" y1="8.1" x2="1.5" y2="5" stroke="#0d9488" strokeWidth="0.9" />
             <line x1="9.7" y1="8.1" x2="14.5" y2="5" stroke="#0d9488" strokeWidth="0.9" />
           </svg>
-          <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>MeshCom</span>
+          <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{t('meshcomPanel.title')}</span>
           <span
             style={{
               width: '8px',
@@ -416,11 +434,13 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
               flexShrink: 0,
             }}
           />
-          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>{nodes.length} nodes</span>
+          <span style={{ color: 'var(--text-muted)', fontSize: '11px' }}>
+            {t('meshcomPanel.nodeCount', { count: nodes.length })}
+          </span>
         </div>
         <button
           onClick={onToggleMap}
-          title={showOnMap ? 'Hide MeshCom nodes on map' : 'Show MeshCom nodes on map'}
+          title={showOnMap ? t('meshcomPanel.mapToggleHide') : t('meshcomPanel.mapToggleShow')}
           style={{
             background: showOnMap ? '#2dd4bf' : 'var(--bg-tertiary)',
             border: '1px solid var(--border-color)',
@@ -432,7 +452,7 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
             fontFamily: 'inherit',
           }}
         >
-          {showOnMap ? 'ON' : 'OFF'}
+          {showOnMap ? t('meshcomPanel.mapToggleOn') : t('meshcomPanel.mapToggleOff')}
         </button>
       </div>
 
@@ -447,28 +467,28 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
           flexShrink: 0,
         }}
       >
-        {TABS.map((tab) => (
+        {TAB_IDS.map((tabId) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
+            key={tabId}
+            onClick={() => setActiveTab(tabId)}
             style={{
               padding: '3px 10px',
               fontSize: '10px',
               borderRadius: '3px',
-              border: activeTab === tab ? '1px solid #2dd4bf' : '1px solid var(--border-color)',
-              background: activeTab === tab ? '#2dd4bf' : 'transparent',
-              color: activeTab === tab ? '#000' : 'var(--text-muted)',
+              border: activeTab === tabId ? '1px solid #2dd4bf' : '1px solid var(--border-color)',
+              background: activeTab === tabId ? '#2dd4bf' : 'transparent',
+              color: activeTab === tabId ? '#000' : 'var(--text-muted)',
               cursor: 'pointer',
               fontFamily: 'inherit',
-              fontWeight: activeTab === tab ? '600' : '400',
+              fontWeight: activeTab === tabId ? '600' : '400',
             }}
           >
-            {tab}
-            {tab === 'Messages' && messages.length > 0 && (
+            {tabLabels[tabId]}
+            {tabId === 'messages' && messages.length > 0 && (
               <span
                 style={{
                   marginLeft: '4px',
-                  background: activeTab === tab ? 'rgba(0,0,0,0.2)' : 'var(--bg-tertiary)',
+                  background: activeTab === tabId ? 'rgba(0,0,0,0.2)' : 'var(--bg-tertiary)',
                   borderRadius: '8px',
                   padding: '0 4px',
                   fontSize: '9px',
@@ -483,11 +503,11 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
 
       {/* Tab content */}
       <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-        {activeTab === 'Nodes' && (
+        {activeTab === 'nodes' && (
           <NodesTab nodes={nodes} loading={loading} onSpotClick={onSpotClick} onHoverSpot={onHoverSpot} />
         )}
-        {activeTab === 'Messages' && <MessagesTab messages={messages} nodes={nodes} sendMessage={sendMessage} />}
-        {activeTab === 'Info' && <InfoTab connected={connected} nodes={nodes} messages={messages} />}
+        {activeTab === 'messages' && <MessagesTab messages={messages} nodes={nodes} sendMessage={sendMessage} />}
+        {activeTab === 'info' && <InfoTab connected={connected} nodes={nodes} messages={messages} />}
       </div>
     </div>
   );

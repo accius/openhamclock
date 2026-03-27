@@ -2151,8 +2151,8 @@ export const WorldMap = ({
               ? `${node.ageMin}m ago`
               : `${Math.floor((node.ageMin ?? 0) / 60)}h ago`;
 
-        const battLine = node.batt != null ? `Battery: ${Math.round(node.batt)}%<br>` : '';
-        const altLine = node.alt != null ? `Alt: ${Math.round(node.alt)}m<br>` : '';
+        const battLine = node.batt != null ? `${t('meshcomPanel.mapPopupBattery')} ${Math.round(node.batt)}%<br>` : '';
+        const altLine = node.alt != null ? `${t('meshcomPanel.mapPopupAlt')} ${Math.round(node.alt)}m<br>` : '';
         const wxLine =
           node.weather?.tempC != null
             ? `${node.weather.tempC.toFixed(1)}°C ${node.weather.humidity != null ? node.weather.humidity.toFixed(0) + '% ' : ''}${node.weather.pressureHpa != null ? node.weather.pressureHpa.toFixed(0) + 'hPa' : ''}<br>`
@@ -2173,9 +2173,9 @@ export const WorldMap = ({
             marker
               .bindPopup(
                 `<b style="color:#2dd4bf">${esc(primaryCall(node.call))}</b><br>
-                <span style="color:#888;font-size:11px">MeshCom · ${ageStr}</span><br>
+                <span style="color:#888;font-size:11px">${t('meshcomPanel.mapPopupAge', { age: ageStr })}</span><br>
                 ${battLine}${altLine}${wxLine}
-                ${node.firmware ? `<span style="font-size:10px;color:#aaa">FW: ${esc(node.firmware)}</span>` : ''}`,
+                ${node.firmware ? `<span style="font-size:10px;color:#aaa">${t('meshcomPanel.mapPopupFirmware')} ${esc(node.firmware)}</span>` : ''}`,
               )
               .addTo(map);
 
@@ -2186,7 +2186,7 @@ export const WorldMap = ({
         }
       });
     }
-  }, [meshcomNodes, showMeshCom]);
+  }, [meshcomNodes, showMeshCom, t]);
 
   const openBandColorEditor = (band) => {
     setEditingBand(band);
