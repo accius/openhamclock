@@ -24,6 +24,10 @@ module.exports = function (app, ctx) {
   const messages = [];
   // weather: callsign → WeatherObject (latest telemetry per node)
   const weather = new Map();
+  // Timestamp of the most recent packet received from rig-bridge (any type).
+  // Used by /api/meshcom/status to report connectivity without making an
+  // outbound HTTP call to rig-bridge (which can block the connection pool).
+  let lastIngestTime = 0;
 
   // ── ETag helpers ───────────────────────────────────────────────────────────
   function computeNodeEtag() {
@@ -83,6 +87,7 @@ module.exports = function (app, ctx) {
     if (wx) node.weather = wx;
 
     nodes.set(call, node);
+    lastIngestTime = Date.now();
     logDebug(`[MeshCom] Position from ${call}: lat=${lat}, lon=${lon}, batt=${pkt.batt}`);
     res.json({ ok: true, updated: true });
   });
@@ -102,6 +107,7 @@ module.exports = function (app, ctx) {
     });
 
     if (messages.length > MAX_MESSAGES) messages.shift();
+    lastIngestTime = Date.now();
     logDebug(`[MeshCom] Message from ${pkt.src} → ${pkt.dst || '*'}: ${pkt.msg}`);
     res.json({ ok: true });
   });
@@ -135,6 +141,7 @@ module.exports = function (app, ctx) {
       if (ts > node.timestamp) node.timestamp = ts;
     }
 
+    lastIngestTime = Date.now();
     logDebug(`[MeshCom] Telemetry from ${call}: temp=${pkt.tempC}°C hum=${pkt.humidity}%`);
     res.json({ ok: true });
   });
@@ -179,24 +186,19 @@ module.exports = function (app, ctx) {
   });
 
   // ── GET /api/meshcom/status ─────────────────────────────────────────────────
-  // Proxies to rig-bridge plugin status.
-  app.get('/api/meshcom/status', async (req, res) => {
-    const state = {
+  // Purely synchronous — no outbound HTTP calls. Derives rig-bridge
+  // connectivity from lastIngestTime so it never holds a browser connection
+  // open waiting for rig-bridge to respond (or time out).
+  app.get('/api/meshcom/status', (req, res) => {
+    // Consider rig-bridge "running" if a packet arrived within the last 5 min.
+    const ACTIVE_WINDOW_MS = 5 * 60_000;
+    const running = lastIngestTime > 0 && Date.now() - lastIngestTime < ACTIVE_WINDOW_MS;
+    res.json({
       nodeCount: nodes.size,
       messageCount: messages.length,
-      rigBridge: null,
-    };
-
-    try {
-      const rigHost = CONFIG.rigControl?.host || 'http://localhost';
-      const rigPort = CONFIG.rigControl?.port || 5555;
-      const r = await ctx.fetch(`${rigHost}:${rigPort}/api/meshcom-udp/status`, { signal: AbortSignal.timeout(2000) });
-      if (r.ok) state.rigBridge = await r.json();
-    } catch {
-      // rig-bridge not available — that's OK
-    }
-
-    res.json(state);
+      lastIngestTime,
+      rigBridge: { running },
+    });
   });
 
   // ── POST /api/meshcom/send ──────────────────────────────────────────────────
