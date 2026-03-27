@@ -10,6 +10,7 @@ export { BandConditionsPanel } from './BandConditionsPanel.jsx';
 export { DXClusterPanel } from './DXClusterPanel.jsx';
 export { POTAPanel } from './POTAPanel.jsx';
 export { default as APRSPanel } from './APRSPanel.jsx';
+export { default as MeshComPanel } from './MeshComPanel.jsx';
 export { WWFFPanel } from './WWFFPanel.jsx';
 export { SOTAPanel } from './SOTAPanel.jsx';
 export { WWBOTAPanel } from './WWBOTAPanel.jsx';

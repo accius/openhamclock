@@ -13,7 +13,7 @@ import {
   replicatePath,
   replicatePoint,
 } from '../utils/geo.js';
-import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
+import { getBandColor, getBandFromFreq, primaryCall } from '../utils/callsign.js';
 import {
   BAND_LEGEND_ORDER,
   getBandColorForBand,
@@ -127,6 +127,8 @@ export const WorldMap = ({
   showAPRS,
   aprsStations,
   aprsWatchlistCalls,
+  showMeshCom,
+  meshcomNodes,
   onSpotClick,
   hoveredSpot,
   callsign = 'N0CALL',
@@ -162,6 +164,7 @@ export const WorldMap = ({
   const pskMarkersRef = useRef([]);
   const wsjtxMarkersRef = useRef([]);
   const aprsMarkersRef = useRef([]);
+  const meshcomMarkersRef = useRef([]);
   const countriesLayerRef = useRef([]);
   const dxLockedRef = useRef(dxLocked);
   const pinnedPopupRef = useRef({ marker: null, timer: null });
@@ -2113,6 +2116,77 @@ export const WorldMap = ({
       });
     }
   }, [aprsStations, showAPRS, aprsWatchlistCalls]);
+
+  // Update MeshCom node markers
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    meshcomMarkersRef.current.forEach((m) => map.removeLayer(m));
+    meshcomMarkersRef.current = [];
+
+    if (showMeshCom && meshcomNodes && meshcomNodes.length > 0) {
+      meshcomNodes.forEach((node) => {
+        // Coordinates must be finite numbers — 0 is a valid position
+        if (!Number.isFinite(node.lat) || !Number.isFinite(node.lon)) return;
+
+        const isAged = (node.ageMin ?? 0) > 30;
+        const fill = isAged ? '#6b7280' : '#2dd4bf';
+        const stroke = isAged ? '#4b5563' : '#0d9488';
+
+        // MeshCom hexagonal icon — visually distinct from APRS triangles
+        const iconHtml = `<svg width="20" height="22" viewBox="0 0 20 22" xmlns="http://www.w3.org/2000/svg">
+          <polygon points="10,1 19,6 19,16 10,21 1,16 1,6" fill="${fill}" stroke="${stroke}" stroke-width="1.5" opacity="0.95"/>
+          <circle cx="10" cy="11" r="2.2" fill="${stroke}"/>
+          <line x1="10" y1="8.8" x2="10" y2="1.5" stroke="${stroke}" stroke-width="1"/>
+          <line x1="10" y1="13.2" x2="10" y2="20.5" stroke="${stroke}" stroke-width="1"/>
+          <line x1="8.1" y1="9.9" x2="1.5" y2="6.5" stroke="${stroke}" stroke-width="1"/>
+          <line x1="11.9" y1="9.9" x2="18.5" y2="6.5" stroke="${stroke}" stroke-width="1"/>
+        </svg>`;
+
+        const ageStr =
+          (node.ageMin ?? 0) < 1
+            ? 'now'
+            : (node.ageMin ?? 0) < 60
+              ? `${node.ageMin}m ago`
+              : `${Math.floor((node.ageMin ?? 0) / 60)}h ago`;
+
+        const battLine = node.batt != null ? `Battery: ${Math.round(node.batt)}%<br>` : '';
+        const altLine = node.alt != null ? `Alt: ${Math.round(node.alt)}m<br>` : '';
+        const wxLine =
+          node.weather?.tempC != null
+            ? `${node.weather.tempC.toFixed(1)}°C ${node.weather.humidity != null ? node.weather.humidity.toFixed(0) + '% ' : ''}${node.weather.pressureHpa != null ? node.weather.pressureHpa.toFixed(0) + 'hPa' : ''}<br>`
+            : '';
+
+        try {
+          replicatePoint(node.lat, node.lon).forEach(([rLat, rLon]) => {
+            const marker = L.marker([rLat, rLon], {
+              icon: L.divIcon({
+                className: '',
+                html: iconHtml,
+                iconSize: [20, 22],
+                iconAnchor: [10, 22],
+              }),
+              zIndexOffset: 1200,
+            });
+
+            marker
+              .bindPopup(
+                `<b style="color:#2dd4bf">${esc(primaryCall(node.call))}</b><br>
+                <span style="color:#888;font-size:11px">MeshCom · ${ageStr}</span><br>
+                ${battLine}${altLine}${wxLine}
+                ${node.firmware ? `<span style="font-size:10px;color:#aaa">FW: ${esc(node.firmware)}</span>` : ''}`,
+              )
+              .addTo(map);
+
+            meshcomMarkersRef.current.push(marker);
+          });
+        } catch {
+          // skip bad node
+        }
+      });
+    }
+  }, [meshcomNodes, showMeshCom]);
 
   const openBandColorEditor = (band) => {
     setEditingBand(band);

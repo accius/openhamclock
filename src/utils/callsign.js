@@ -410,6 +410,22 @@ export const getCallsignInfo = (call) => {
   };
 };
 
+/**
+ * Extract the originating callsign from a MeshCom path string.
+ *
+ * MeshCom `src` fields contain the full relay path as a comma-separated list,
+ * e.g. "OE1XYZ,OE2ABC,OE3DEF". Only the first entry is the originating node;
+ * the rest are relay hops. This helper returns just that first callsign,
+ * trimmed of whitespace.
+ *
+ * Safe to call on a plain callsign (no commas) — returns it unchanged.
+ */
+export function primaryCall(src) {
+  if (!src) return src;
+  const comma = src.indexOf(',');
+  return comma === -1 ? src : src.slice(0, comma).trim();
+}
+
 export default {
   HF_BANDS,
   CONTINENTS,
@@ -419,4 +435,5 @@ export default {
   detectMode,
   PREFIX_MAP,
   getCallsignInfo,
+  primaryCall,
 };

@@ -194,6 +194,21 @@ module.exports = function (app, ctx) {
         } catch (e) {}
       }
 
+      // Forward MeshCom packets received from the rig-bridge cloud relay
+      if (Array.isArray(req.body.meshcomPackets) && req.body.meshcomPackets.length > 0) {
+        for (const pkt of req.body.meshcomPackets) {
+          const subtype = pkt.subtype;
+          if (subtype !== 'pos' && subtype !== 'msg' && subtype !== 'telem') continue;
+          ctx
+            .fetch(`http://localhost:${ctx.PORT}/api/meshcom/local/${subtype}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(pkt),
+            })
+            .catch(() => {});
+        }
+      }
+
       res.json({ ok: true });
     } catch (err) {
       logWarn(`[RigBridge] relay/state push error: ${err.message}`);
