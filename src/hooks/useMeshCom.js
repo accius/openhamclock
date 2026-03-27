@@ -31,18 +31,23 @@ import { apiFetch } from '../utils/apiFetch';
 const POLL_INTERVAL = 30_000; // 30 s — LoRa beacon rate is much slower than APRS
 const FETCH_TIMEOUT_MS = 5_000; // hard cap per request — never tie up a connection longer
 
-// Generate or retrieve a persistent session ID from localStorage.
-// Kept short (8–10 chars) intentionally — long UUIDs in query strings
-// trigger false positives in Bitdefender and similar security software.
+// Read the relay session ID from localStorage.
+// MeshCom data arrives via the rig-bridge cloud relay, which uses the
+// same session ID as WSJTX ('ohc-wsjtx-session'). Using the same key
+// ensures the session used for ingest (relay push) matches the session
+// used for polling — without it, the server stores data under the relay
+// session but the browser polls under a different ID and gets nothing.
 function getSessionId() {
-  const KEY = 'ohc-meshcom-session';
+  // This is the relay session key — shared by all relay-delivered data
+  // (WSJTX, APRS, MeshCom). Do not change to a MeshCom-specific key.
+  const RELAY_KEY = 'ohc-wsjtx-session';
   const generate = () => Math.random().toString(36).substring(2, 10);
   try {
-    let id = localStorage.getItem(KEY);
+    let id = localStorage.getItem(RELAY_KEY);
     // Accept only 8–12 char lowercase alphanumeric IDs — reject legacy UUIDs
     if (id && id.length >= 8 && id.length <= 12 && /^[a-z0-9]+$/.test(id)) return id;
     id = generate();
-    localStorage.setItem(KEY, id);
+    localStorage.setItem(RELAY_KEY, id);
     return id;
   } catch {
     // Fallback for privacy browsers that block localStorage
