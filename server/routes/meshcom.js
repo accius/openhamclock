@@ -8,11 +8,12 @@
  *   - GET /api/meshcom/nodes and /messages support ?since=<ms> for delta responses
  *   - ETag / 304 Not Modified on nodes endpoint (no body when nothing changed)
  *   - Node max-age pruning (MESHCOM_NODE_MAX_AGE_MINUTES, default 60)
- *   - Messages time-based expiry (MESHCOM_MESSAGE_MAX_AGE_HOURS, default 8) + ring buffer (max 200)
+ *   - Messages time-based expiry (MESHCOM_MESSAGE_MAX_AGE_HOURS, default 8)
+ *   - Bounded FIFO safety cap on messages (max 200 entries)
  */
 
 module.exports = function (app, ctx) {
-  const { logDebug, logInfo, CONFIG } = ctx;
+  const { logDebug, logInfo, logWarn, CONFIG } = ctx;
 
   const NODE_MAX_AGE_MS = parseInt(process.env.MESHCOM_NODE_MAX_AGE_MINUTES || '60') * 60_000;
   const MESSAGE_MAX_AGE_MS = parseFloat(process.env.MESHCOM_MESSAGE_MAX_AGE_HOURS || '8') * 3_600_000;
@@ -21,7 +22,7 @@ module.exports = function (app, ctx) {
   // ── In-memory state ────────────────────────────────────────────────────────
   // nodes: callsign → NodeObject
   const nodes = new Map();
-  // messages: ring buffer array
+  // messages: bounded FIFO array — entries arrive in chronological order
   const messages = [];
   // weather: callsign → WeatherObject (latest telemetry per node)
   const weather = new Map();
@@ -39,8 +40,15 @@ module.exports = function (app, ctx) {
     return `"${nodes.size}-${latest}"`;
   }
 
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  // null-safe parseFloat — preserves 0 as a valid numeric value per CLAUDE.md
+  function parseOrNull(v) {
+    return v != null ? parseFloat(v) : null;
+  }
+
   // ── Periodic cleanup ────────────────────────────────────────────────────────
-  setInterval(() => {
+  // Reference stored so it can be cleared by tests or graceful shutdown.
+  const cleanupTimer = setInterval(() => {
     const now = Date.now();
 
     // Expire stale nodes (and their weather entries)
@@ -52,12 +60,16 @@ module.exports = function (app, ctx) {
       }
     }
 
-    // Expire old messages
+    // Expire old messages — messages are stored in arrival order, so walk
+    // from the front until we hit a non-expired entry, then splice once.
     const msgCutoff = now - MESSAGE_MAX_AGE_MS;
     let i = 0;
     while (i < messages.length && messages[i].timestamp < msgCutoff) i++;
     if (i > 0) messages.splice(0, i);
   }, 60_000);
+
+  // Allow callers (e.g. tests) to stop the timer
+  cleanupTimer.unref?.(); // non-blocking in Node — won't prevent process exit
 
   // ── Ingest: position ────────────────────────────────────────────────────────
   // Posted by the rig-bridge meshcom-udp plugin.
@@ -70,8 +82,8 @@ module.exports = function (app, ctx) {
     const call = String(pkt.src).toUpperCase().trim();
 
     // null-safe coordinate guard — 0 is a valid position (equator / prime meridian)
-    const lat = pkt.lat != null ? parseFloat(pkt.lat) : null;
-    const lon = pkt.lon != null ? parseFloat(pkt.lon) : null;
+    const lat = parseOrNull(pkt.lat);
+    const lon = parseOrNull(pkt.lon);
 
     const existing = nodes.get(call);
     const ts = pkt.timestamp ?? Date.now();
@@ -84,15 +96,16 @@ module.exports = function (app, ctx) {
       hwId: pkt.hwId ?? null,
       lat: Number.isFinite(lat) ? lat : null,
       lon: Number.isFinite(lon) ? lon : null,
-      alt: pkt.alt != null ? parseFloat(pkt.alt) : null,
-      batt: pkt.batt != null ? parseFloat(pkt.batt) : null,
+      alt: parseOrNull(pkt.alt),
+      batt: parseOrNull(pkt.batt),
       aprsSymbol: pkt.aprsSymbol ?? null,
       firmware: pkt.firmware ?? null,
       source: 'local-udp',
       timestamp: ts,
     };
 
-    // Merge weather if we already have telemetry for this node
+    // Carry forward any telemetry already received for this node so the map
+    // popup has fresh weather data without waiting for the next telem packet.
     const wx = weather.get(call);
     if (wx) node.weather = wx;
 
@@ -132,12 +145,12 @@ module.exports = function (app, ctx) {
 
     const wx = {
       call,
-      tempC: pkt.tempC != null ? parseFloat(pkt.tempC) : null,
-      humidity: pkt.humidity != null ? parseFloat(pkt.humidity) : null,
-      pressureHpa: pkt.pressureHpa != null ? parseFloat(pkt.pressureHpa) : null,
-      co2ppm: pkt.co2ppm != null ? parseFloat(pkt.co2ppm) : null,
-      rssi: pkt.rssi != null ? parseFloat(pkt.rssi) : null,
-      snr: pkt.snr != null ? parseFloat(pkt.snr) : null,
+      tempC: parseOrNull(pkt.tempC),
+      humidity: parseOrNull(pkt.humidity),
+      pressureHpa: parseOrNull(pkt.pressureHpa),
+      co2ppm: parseOrNull(pkt.co2ppm),
+      rssi: parseOrNull(pkt.rssi),
+      snr: parseOrNull(pkt.snr),
       timestamp: ts,
     };
 
@@ -190,8 +203,7 @@ module.exports = function (app, ctx) {
 
   // ── GET /api/meshcom/weather ────────────────────────────────────────────────
   app.get('/api/meshcom/weather', (req, res) => {
-    const result = [];
-    for (const wx of weather.values()) result.push(wx);
+    const result = Array.from(weather.values());
     res.json({ count: result.length, weather: result });
   });
 
@@ -220,7 +232,7 @@ module.exports = function (app, ctx) {
 
     try {
       const rigHost = CONFIG.rigControl?.host || 'http://localhost';
-      const rigPort = CONFIG.rigControl?.port || 5555;
+      const rigPort = CONFIG.rigControl?.port ?? 5555;
       const r = await ctx.fetch(`${rigHost}:${rigPort}/api/meshcom-udp/send`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -231,6 +243,15 @@ module.exports = function (app, ctx) {
       const err = await r.text();
       return res.status(r.status).json({ error: `Rig Bridge: ${err}` });
     } catch (e) {
+      logWarn(`[MeshCom] Send proxy error: ${e.message}`);
+      const isTimeout = e?.name === 'AbortError' || e?.name === 'TimeoutError';
+      const isRefused = e?.code === 'ECONNREFUSED';
+      if (isTimeout) {
+        return res.status(503).json({ error: 'Rig-bridge did not respond in time — it may be busy or restarting' });
+      }
+      if (isRefused) {
+        return res.status(503).json({ error: 'Cannot reach rig-bridge — check that it is running' });
+      }
       return res.status(503).json({ error: 'MeshCom UDP plugin not available — enable meshcom in rig-bridge config' });
     }
   });

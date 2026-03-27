@@ -7,7 +7,7 @@
  * Reads the global toggle from localStorage (ohc_qrz_links).
  * When enabled, clicking opens https://www.qrz.com/db/CALLSIGN in a new tab.
  */
-import { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { createContext, useContext, useState, useCallback } from 'react';
 
 // ── Extract base callsign from decorated/portable calls ──
 // 5Z4/OZ6ABL → OZ6ABL, UA1TAN/M → UA1TAN, W1ABC/6 → W1ABC

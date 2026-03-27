@@ -5,8 +5,8 @@
  * Binds a UDP socket on port 1799 (MeshCom default) and receives JSON
  * packets broadcast by MeshCom nodes. Packets are deduplicated (same
  * hw_id+msg_id arriving via multiple mesh paths) then emitted on the
- * plugin bus. The cloud-relay plugin picks them up and forwards them to
- * the OHC server — the same pattern used by the APRS-TNC plugin.
+ * plugin bus. The cloud-relay plugin listens for 'meshcom' events on the
+ * plugin bus and batches them for forwarding via /api/rig-bridge/relay/state.
  *
  * Config section: config.meshcom
  *   enabled:        boolean  (default: false)
@@ -19,7 +19,8 @@
  * MeshCom UDP JSON packet types handled:
  *   type: "pos"   — position (lat, long, lat_dir, long_dir, alt, batt, hw_id)
  *   type: "msg"   — text message (src, dst, msg, msg_id)
- *   type: "telem" — weather/sensor (tempC, humidity, pressureHpa, co2ppm, rssi, snr)
+ *   type: "telem" — weather/sensor; raw firmware fields: temp, humidity, pressure, co2, rssi, snr
+ *                   emitted on bus as:               tempC, humidity, pressureHpa, co2ppm, rssi, snr
  */
 
 const dgram = require('dgram');
@@ -49,18 +50,11 @@ function normalizeFirmware(firmware, fwSub) {
 // ── Coordinate normalisation ─────────────────────────────────────────────────
 // MeshCom sends positive decimals + direction indicators.
 // Always check for null/undefined before applying sign — 0 is a valid coordinate.
-function normalizeLat(lat, latDir) {
-  if (lat == null) return null;
-  const val = parseFloat(lat);
+function normalizeCoord(value, negativeDir, negativeChar) {
+  if (value == null) return null;
+  const val = parseFloat(value);
   if (!Number.isFinite(val)) return null;
-  return latDir === 'S' ? -Math.abs(val) : Math.abs(val);
-}
-
-function normalizeLon(lon, lonDir) {
-  if (lon == null) return null;
-  const val = parseFloat(lon);
-  if (!Number.isFinite(val)) return null;
-  return lonDir === 'W' ? -Math.abs(val) : Math.abs(val);
+  return negativeDir === negativeChar ? -Math.abs(val) : Math.abs(val);
 }
 
 const descriptor = {
@@ -103,7 +97,8 @@ const descriptor = {
     let lastPacketTime = null;
 
     // Deduplication cache: `${hw_id}:${msg_id}` → timestamp (ms)
-    // MeshCom mesh rebroadcasts the same packet via multiple paths.
+    // MeshCom mesh rebroadcasts the same packet via multiple paths; the 60 s
+    // TTL is long enough to catch all relay copies of a single beacon.
     const dedupCache = new Map();
     const DEDUP_TTL_MS = 60_000;
 
@@ -123,61 +118,56 @@ const descriptor = {
     }
 
     // ── Packet handler ───────────────────────────────────────────────────────
-    // Emits normalised packets on the plugin bus. The cloud-relay plugin picks
-    // them up and forwards them to the OHC server, exactly as APRS-TNC does.
+    // Deduplicates then emits normalised packets on the plugin bus.
+    // The cloud-relay plugin picks them up and forwards them to the OHC server.
     function handlePacket(json) {
       const type = json.type;
+      if (type !== 'pos' && type !== 'msg' && type !== 'telem') return;
+
+      // Dedup and bus guard are the same for all packet types — check once.
+      if (isDuplicate(json.hw_id, json.msg_id)) return;
+      if (!bus) return;
 
       if (type === 'pos') {
-        if (isDuplicate(json.hw_id, json.msg_id)) return;
-
-        const lat = normalizeLat(json.lat, json.lat_dir);
-        const lon = normalizeLon(json.long ?? json.lon, json.long_dir ?? json.lon_dir);
-
-        if (bus)
-          bus.emit('meshcom', {
-            subtype: 'pos',
-            src: json.src,
-            hwId: json.hw_id,
-            lat,
-            lon,
-            alt: json.alt != null ? Math.round(parseFloat(json.alt) * 0.3048) : null,
-            batt: json.batt != null ? parseFloat(json.batt) : null,
-            aprsSymbol: json.aprs_symbol || null,
-            firmware: normalizeFirmware(json.firmware, json.fw_sub),
-            msgId: json.msg_id || null,
-            timestamp: Date.now(),
-          });
+        const lat = normalizeCoord(json.lat, json.lat_dir, 'S');
+        const lon = normalizeCoord(json.long ?? json.lon, json.long_dir ?? json.lon_dir, 'W');
+        bus.emit('meshcom', {
+          subtype: 'pos',
+          src: json.src,
+          hwId: json.hw_id,
+          lat,
+          lon,
+          alt: json.alt != null ? Math.round(parseFloat(json.alt) * 0.3048) : null,
+          batt: json.batt != null ? parseFloat(json.batt) : null,
+          aprsSymbol: json.aprs_symbol || null,
+          firmware: normalizeFirmware(json.firmware, json.fw_sub),
+          msgId: json.msg_id ?? null,
+          timestamp: Date.now(),
+        });
       } else if (type === 'msg') {
-        if (isDuplicate(json.hw_id, json.msg_id)) return;
-
-        if (bus)
-          bus.emit('meshcom', {
-            subtype: 'msg',
-            src: json.src,
-            dst: json.dst || '*',
-            msg: json.msg,
-            msgId: json.msg_id || null,
-            timestamp: Date.now(),
-          });
-      } else if (type === 'telem') {
-        if (isDuplicate(json.hw_id, json.msg_id)) return;
-
-        if (bus)
-          bus.emit('meshcom', {
-            subtype: 'telem',
-            src: json.src,
-            hwId: json.hw_id,
-            tempC: json.temp != null ? parseFloat(json.temp) : null,
-            humidity: json.humidity != null ? parseFloat(json.humidity) : null,
-            pressureHpa: json.pressure != null ? parseFloat(json.pressure) : null,
-            co2ppm: json.co2 != null ? parseFloat(json.co2) : null,
-            rssi: json.rssi != null ? parseFloat(json.rssi) : null,
-            snr: json.snr != null ? parseFloat(json.snr) : null,
-            timestamp: Date.now(),
-          });
+        bus.emit('meshcom', {
+          subtype: 'msg',
+          src: json.src,
+          dst: json.dst || '*',
+          msg: json.msg,
+          msgId: json.msg_id ?? null,
+          timestamp: Date.now(),
+        });
+      } else {
+        // telem — raw firmware field names (temp, pressure, co2) are renamed here
+        bus.emit('meshcom', {
+          subtype: 'telem',
+          src: json.src,
+          hwId: json.hw_id,
+          tempC: json.temp != null ? parseFloat(json.temp) : null,
+          humidity: json.humidity != null ? parseFloat(json.humidity) : null,
+          pressureHpa: json.pressure != null ? parseFloat(json.pressure) : null,
+          co2ppm: json.co2 != null ? parseFloat(json.co2) : null,
+          rssi: json.rssi != null ? parseFloat(json.rssi) : null,
+          snr: json.snr != null ? parseFloat(json.snr) : null,
+          timestamp: Date.now(),
+        });
       }
-      // Other types (I, SE, SW, SN, etc.) are informational — ignore.
     }
 
     function sendMessage(to, message) {
@@ -213,24 +203,43 @@ const descriptor = {
     let dedupTimer = null;
 
     function connect() {
+      if (!bus) {
+        console.warn('[MeshCom-UDP] No plugin bus available — packets will be received but not forwarded');
+      }
+
       socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
       socket.on('error', (err) => {
-        console.error(`[MeshCom-UDP] Socket error: ${err.message}`);
+        console.error(`[MeshCom-UDP] Socket error: ${err.message} — plugin disabled. Restart rig-bridge to recover.`);
         running = false;
+        if (dedupTimer) {
+          clearInterval(dedupTimer);
+          dedupTimer = null;
+        }
+        try {
+          socket.close();
+        } catch (closeErr) {
+          console.error(`[MeshCom-UDP] Failed to close socket after error: ${closeErr.message}`);
+        }
+        socket = null;
       });
 
       socket.on('message', (msg) => {
-        packetsRx++;
-        lastPacketTime = Date.now();
+        const raw = msg.toString();
         let json;
         try {
-          json = JSON.parse(msg.toString());
+          json = JSON.parse(raw);
         } catch {
-          return; // Not valid JSON — ignore
+          if (verbose) {
+            console.log(`[MeshCom-UDP] Non-JSON datagram ignored (${msg.length} bytes)`);
+          }
+          return;
         }
+        // Only count packets that are valid JSON from a MeshCom node
+        packetsRx++;
+        lastPacketTime = Date.now();
         if (verbose) {
-          console.log(`[MeshCom-UDP] RX: ${msg.toString().substring(0, 120)}`);
+          console.log(`[MeshCom-UDP] RX: ${raw.substring(0, 120)}`);
         }
         handlePacket(json);
       });
@@ -253,7 +262,10 @@ const descriptor = {
       if (socket) {
         try {
           socket.close();
-        } catch {}
+        } catch (e) {
+          console.error(`[MeshCom-UDP] Failed to close socket: ${e.message}`);
+          console.error(`[MeshCom-UDP] Port ${bindPort} may still be in use`);
+        }
         socket = null;
       }
       running = false;

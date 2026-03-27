@@ -9,12 +9,12 @@
  *   - ?since= incremental messages — only new messages each poll
  *
  * Isolation — MeshCom must never block other panels:
- *   - loading is cleared immediately on mount (panel never stays "Loading…")
+ *   - loading is always false — the panel renders immediately with empty state
+ *     rather than blocking on the first fetch
  *   - Each fetch carries a 5s AbortSignal timeout — a slow/absent server
  *     cannot hold a browser HTTP connection open indefinitely
  *   - The three fetches fire independently (not Promise.all) so a slow
- *     nodes response cannot delay message or status updates, and never
- *     consumes more than one browser connection at a time
+ *     response on one endpoint cannot delay the others
  *   - /api/meshcom/status is purely synchronous server-side (no outbound
  *     rig-bridge call) so it resolves in < 1 ms
  */
@@ -24,15 +24,15 @@ import { apiFetch } from '../utils/apiFetch';
 const POLL_INTERVAL = 30_000; // 30 s — LoRa beacon rate is much slower than APRS
 const FETCH_TIMEOUT_MS = 5_000; // hard cap per request — never tie up a connection longer
 
-export const useMeshCom = (options = {}) => {
+export function useMeshCom(options = {}) {
   const { enabled = true } = options;
 
   const [nodes, setNodes] = useState([]);
   const [messages, setMessages] = useState([]);
   const [connected, setConnected] = useState(false);
-  // Start as false — panel renders immediately with empty state rather than
+  // Always false — panel renders immediately with empty state rather than
   // showing "Loading…" and potentially blocking perceived page readiness.
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
 
   // ETag for nodes endpoint — avoid body transfer when nothing changed
   const nodeEtagRef = useRef(null);
@@ -106,14 +106,16 @@ export const useMeshCom = (options = {}) => {
         const data = await res.json();
         setConnected(data.rigBridge?.running === true);
       }
-    } catch {
+    } catch (err) {
       setConnected(false);
+      if (err?.name !== 'AbortError' && err?.name !== 'TimeoutError') {
+        console.error('[MeshCom] Status fetch error:', err);
+      }
     }
   }, [enabled]);
 
   // Fire all three fetches independently — not Promise.all — so a slow
-  // response on one endpoint cannot delay the others or occupy multiple
-  // connections simultaneously from the browser's per-host pool.
+  // response on one endpoint cannot delay the others.
   const refresh = useCallback(() => {
     fetchNodes();
     fetchMessages();
@@ -128,12 +130,20 @@ export const useMeshCom = (options = {}) => {
   }, [enabled, refresh]);
 
   const sendMessage = useCallback(async (to, message) => {
-    const res = await apiFetch('/api/meshcom/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: to || '*', message }),
-      signal: AbortSignal.timeout(10_000),
-    });
+    let res;
+    try {
+      res = await apiFetch('/api/meshcom/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: to || '*', message }),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (err) {
+      if (err?.name === 'AbortError' || err?.name === 'TimeoutError') {
+        throw new Error('Send timed out — check that rig-bridge is running and reachable');
+      }
+      throw new Error('Could not reach the server — check your network connection');
+    }
     if (!res?.ok) {
       const data = await res?.json().catch(() => ({}));
       throw new Error(data.error || 'Send failed');
@@ -149,4 +159,4 @@ export const useMeshCom = (options = {}) => {
     sendMessage,
     refresh,
   };
-};
+}

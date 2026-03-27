@@ -205,7 +205,14 @@ module.exports = function (app, ctx) {
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(pkt),
             })
-            .catch(() => {});
+            .then((r) => {
+              if (!r.ok) {
+                logWarn(`[RigBridge] MeshCom ingest rejected subtype=${subtype} status=${r.status}`);
+              }
+            })
+            .catch((e) => {
+              logWarn(`[RigBridge] MeshCom ingest forward failed subtype=${subtype}: ${e.message}`);
+            });
         }
       }
 

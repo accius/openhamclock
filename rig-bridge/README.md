@@ -516,15 +516,21 @@ MeshCom firmware can broadcast its status packets as UDP JSON to the local netwo
 
 ```
 MeshCom node (LoRa)
-      │ UDP JSON broadcast
+      │ UDP JSON broadcast (port 1799)
       ▼
-Rig Bridge :1799 (meshcom-udp plugin)
+Rig Bridge — meshcom-udp plugin
       │ dedup → normalise → bus.emit('meshcom')
       ▼
-Cloud Relay plugin ──HTTPS──→ OpenHamClock server
-                                    └─ /api/meshcom/nodes
-                                    └─ /api/meshcom/messages
-                                    └─ MeshCom panel + map
+cloud-relay plugin ──HTTPS──→ OpenHamClock server
+                                    │ POST /api/rig-bridge/relay/state
+                                    ▼
+                              meshcom route
+                                    │ POST /api/meshcom/local/{pos|msg|telem}
+                                    ▼
+                              in-memory store
+                                    │ GET /api/meshcom/nodes|messages|weather
+                                    ▼
+                              MeshCom panel + map
 ```
 
 #### MeshCom firmware setup
@@ -583,11 +589,11 @@ Manual config in `rig-bridge-config.json`:
 
 #### Packet types
 
-| Type    | Description                                                                |
-| ------- | -------------------------------------------------------------------------- |
-| `pos`   | Node position — callsign, lat/lon, altitude, battery                       |
-| `msg`   | Text message — source, destination (callsign, group, or `*` for broadcast) |
-| `telem` | Weather/sensor data — temperature, humidity, pressure, CO₂, RSSI, SNR      |
+| Type    | Description                                                                                                                        |
+| ------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `pos`   | Node position — callsign, lat/lon, altitude, battery                                                                               |
+| `msg`   | Text message — source, destination (callsign, group, or `*` for broadcast)                                                         |
+| `telem` | Weather/sensor data — temperature (`temp`→`tempC`), humidity, pressure (`pressure`→`pressureHpa`), CO₂ (`co2`→`co2ppm`), RSSI, SNR |
 
 Altitude is converted from feet (MeshCom GPS) to metres automatically. Firmware version strings are normalised across local-node and relay-hop encoding variants.
 

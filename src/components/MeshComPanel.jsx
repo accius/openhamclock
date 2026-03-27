@@ -104,14 +104,15 @@ function NodesTab({ nodes, loading, onSpotClick, onHoverSpot }) {
   return (
     <div style={{ flex: 1, overflow: 'auto', padding: '4px' }}>
       {nodes.map((node, i) => {
+        const call = primaryCall(node.call);
         const hasPos = node.lat != null && node.lon != null;
         const isAged = (node.ageMin ?? 0) > 30;
         return (
           <div
             key={`${node.call}-${i}`}
-            onMouseEnter={() => hasPos && onHoverSpot?.({ call: primaryCall(node.call), lat: node.lat, lon: node.lon })}
+            onMouseEnter={() => hasPos && onHoverSpot?.({ call, lat: node.lat, lon: node.lon })}
             onMouseLeave={() => onHoverSpot?.(null)}
-            onClick={() => hasPos && onSpotClick?.({ call: primaryCall(node.call), lat: node.lat, lon: node.lon })}
+            onClick={() => hasPos && onSpotClick?.({ call, lat: node.lat, lon: node.lon })}
             style={{
               padding: '5px 6px',
               borderRadius: '3px',
@@ -124,7 +125,7 @@ function NodesTab({ nodes, loading, onSpotClick, onHoverSpot }) {
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                <CallsignLink call={primaryCall(node.call)} color="var(--text-primary)" fontWeight="700" />
+                <CallsignLink call={call} color="var(--text-primary)" fontWeight="700" />
                 {!hasPos && (
                   <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
                     {t('meshcomPanel.noPosition')}
@@ -221,6 +222,24 @@ function MessagesTab({ messages, nodes, sendMessage }) {
     return primaryCall(msg.src);
   };
 
+  // Label for the group/broadcast reply button
+  const replyLabel = (target) => {
+    if (target === '*') return t('meshcomPanel.replyToBroadcast');
+    if (target >= '0' && target <= '5') return t('meshcomPanel.replyToGroup', { n: target });
+    return t('meshcomPanel.replyToDirect', { call: target });
+  };
+
+  const replyButtonStyle = {
+    padding: '2px 7px',
+    fontSize: '10px',
+    background: 'var(--bg-secondary)',
+    border: '1px solid var(--accent-red)',
+    borderRadius: '3px',
+    color: 'var(--accent-red)',
+    cursor: 'pointer',
+    fontFamily: 'JetBrains Mono, monospace',
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Message list */}
@@ -233,7 +252,6 @@ function MessagesTab({ messages, nodes, sendMessage }) {
           [...messages].reverse().map((msg, i) => {
             const isSelected = selectedMsg === msg;
             const src = primaryCall(msg.src);
-            const isDirect = msg.dst && msg.dst !== '*' && (msg.dst < '0' || msg.dst > '5');
             const gTarget = groupTarget(msg);
 
             return (
@@ -279,22 +297,9 @@ function MessagesTab({ messages, nodes, sendMessage }) {
                         e.stopPropagation();
                         handleReplyTarget(gTarget);
                       }}
-                      style={{
-                        padding: '2px 7px',
-                        fontSize: '10px',
-                        background: 'var(--bg-secondary)',
-                        border: '1px solid var(--accent-red)',
-                        borderRadius: '3px',
-                        color: 'var(--accent-red)',
-                        cursor: 'pointer',
-                        fontFamily: 'JetBrains Mono, monospace',
-                      }}
+                      style={replyButtonStyle}
                     >
-                      {gTarget === '*'
-                        ? t('meshcomPanel.replyToBroadcast')
-                        : gTarget >= '0' && gTarget <= '5'
-                          ? t('meshcomPanel.replyToGroup', { n: gTarget })
-                          : t('meshcomPanel.replyToDirect', { call: gTarget })}
+                      {replyLabel(gTarget)}
                     </button>
 
                     {/* Direct reply to sender — only show when group/broadcast target differs from sender */}
@@ -304,16 +309,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
                           e.stopPropagation();
                           handleReplyTarget(src);
                         }}
-                        style={{
-                          padding: '2px 7px',
-                          fontSize: '10px',
-                          background: 'var(--bg-secondary)',
-                          border: '1px solid var(--accent-red)',
-                          borderRadius: '3px',
-                          color: 'var(--accent-red)',
-                          cursor: 'pointer',
-                          fontFamily: 'JetBrains Mono, monospace',
-                        }}
+                        style={replyButtonStyle}
                       >
                         {t('meshcomPanel.replyToDirect', { call: src })}
                       </button>
@@ -589,7 +585,7 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
           onClick={onToggleMap}
           title={showOnMap ? t('meshcomPanel.mapToggleHide') : t('meshcomPanel.mapToggleShow')}
           style={{
-            background: showOnMap ? 'var(--bg-secondary)' : 'var(--bg-secondary)',
+            background: 'var(--bg-secondary)',
             border: `1px solid ${showOnMap ? 'var(--accent-red)' : 'var(--border-color)'}`,
             color: showOnMap ? 'var(--accent-red)' : 'var(--text-muted)',
             padding: '2px 8px',
