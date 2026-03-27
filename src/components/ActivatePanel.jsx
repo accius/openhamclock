@@ -175,8 +175,6 @@ export const ActivatePanel = ({
                     display: 'grid',
                     gridTemplateColumns: '62px 72px 58px 1fr',
                     gap: '4px',
-                    padding: '3px 0',
-                    // borderBottom: i < spots.length - 1 ? '1px solid var(--border-color)' : 'none',
                     cursor: 'pointer',
                   }}
                   onMouseEnter={() => onHoverSpot?.(spot)}
