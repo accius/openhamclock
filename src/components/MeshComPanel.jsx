@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useMeshCom } from '../hooks/useMeshCom.js';
 import CallsignLink from './CallsignLink.jsx';
 import { primaryCall } from '../utils/callsign.js';
+import { IconMap } from './Icons.jsx';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -408,20 +409,31 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {/* MeshCom hexagonal logo mark */}
-          <svg width="16" height="18" viewBox="0 0 16 18" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
-            <polygon
-              points="8,1 15,4.5 15,13.5 8,17 1,13.5 1,4.5"
-              fill="#2dd4bf"
-              stroke="#0d9488"
-              strokeWidth="1.2"
-              opacity="0.95"
-            />
-            <circle cx="8" cy="9" r="2" fill="#0d9488" />
-            <line x1="8" y1="7" x2="8" y2="1.5" stroke="#0d9488" strokeWidth="0.9" />
-            <line x1="8" y1="11" x2="8" y2="16.5" stroke="#0d9488" strokeWidth="0.9" />
-            <line x1="6.3" y1="8.1" x2="1.5" y2="5" stroke="#0d9488" strokeWidth="0.9" />
-            <line x1="9.7" y1="8.1" x2="14.5" y2="5" stroke="#0d9488" strokeWidth="0.9" />
+          {/* MeshCom logo — mesh network: centre node + 6 outer nodes + ring, brand crimson */}
+          <svg width="18" height="18" viewBox="0 0 22 22" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+            {/* outer ring */}
+            <line x1="11" y1="3.5" x2="17.5" y2="7.25" stroke="#8B1A2A" strokeWidth="1.3" />
+            <line x1="17.5" y1="7.25" x2="17.5" y2="14.75" stroke="#8B1A2A" strokeWidth="1.3" />
+            <line x1="17.5" y1="14.75" x2="11" y2="18.5" stroke="#8B1A2A" strokeWidth="1.3" />
+            <line x1="11" y1="18.5" x2="4.5" y2="14.75" stroke="#8B1A2A" strokeWidth="1.3" />
+            <line x1="4.5" y1="14.75" x2="4.5" y2="7.25" stroke="#8B1A2A" strokeWidth="1.3" />
+            <line x1="4.5" y1="7.25" x2="11" y2="3.5" stroke="#8B1A2A" strokeWidth="1.3" />
+            {/* spokes */}
+            <line x1="11" y1="11" x2="11" y2="3.5" stroke="#8B1A2A" strokeWidth="1.3" />
+            <line x1="11" y1="11" x2="17.5" y2="7.25" stroke="#8B1A2A" strokeWidth="1.3" />
+            <line x1="11" y1="11" x2="17.5" y2="14.75" stroke="#8B1A2A" strokeWidth="1.3" />
+            <line x1="11" y1="11" x2="11" y2="18.5" stroke="#8B1A2A" strokeWidth="1.3" />
+            <line x1="11" y1="11" x2="4.5" y2="14.75" stroke="#8B1A2A" strokeWidth="1.3" />
+            <line x1="11" y1="11" x2="4.5" y2="7.25" stroke="#8B1A2A" strokeWidth="1.3" />
+            {/* outer open nodes (drawn after lines so they sit on top) */}
+            <circle cx="11" cy="3.5" r="2" fill="var(--bg-panel,#1a1a2e)" stroke="#8B1A2A" strokeWidth="1.3" />
+            <circle cx="17.5" cy="7.25" r="2" fill="var(--bg-panel,#1a1a2e)" stroke="#8B1A2A" strokeWidth="1.3" />
+            <circle cx="17.5" cy="14.75" r="2" fill="var(--bg-panel,#1a1a2e)" stroke="#8B1A2A" strokeWidth="1.3" />
+            <circle cx="11" cy="18.5" r="2" fill="var(--bg-panel,#1a1a2e)" stroke="#8B1A2A" strokeWidth="1.3" />
+            <circle cx="4.5" cy="14.75" r="2" fill="var(--bg-panel,#1a1a2e)" stroke="#8B1A2A" strokeWidth="1.3" />
+            <circle cx="4.5" cy="7.25" r="2" fill="var(--bg-panel,#1a1a2e)" stroke="#8B1A2A" strokeWidth="1.3" />
+            {/* central filled node */}
+            <circle cx="11" cy="11" r="3.5" fill="#8B1A2A" />
           </svg>
           <span style={{ fontWeight: '700', color: 'var(--text-primary)' }}>{t('meshcomPanel.title')}</span>
           <span
@@ -442,16 +454,17 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
           onClick={onToggleMap}
           title={showOnMap ? t('meshcomPanel.mapToggleHide') : t('meshcomPanel.mapToggleShow')}
           style={{
-            background: showOnMap ? '#2dd4bf' : 'var(--bg-tertiary)',
-            border: '1px solid var(--border-color)',
+            background: showOnMap ? 'rgba(139, 26, 42, 0.25)' : 'rgba(100, 100, 100, 0.3)',
+            border: `1px solid ${showOnMap ? '#8B1A2A' : '#666'}`,
+            color: showOnMap ? '#c0394e' : '#888',
+            padding: '2px 8px',
             borderRadius: '4px',
-            padding: '3px 8px',
-            fontSize: '11px',
-            color: showOnMap ? '#000' : 'var(--text-muted)',
+            fontSize: '10px',
+            fontFamily: 'JetBrains Mono',
             cursor: 'pointer',
-            fontFamily: 'inherit',
           }}
         >
+          <IconMap size={10} style={{ verticalAlign: 'middle', marginRight: '3px' }} />
           {showOnMap ? t('meshcomPanel.mapToggleOn') : t('meshcomPanel.mapToggleOff')}
         </button>
       </div>

@@ -2131,17 +2131,33 @@ export const WorldMap = ({
         if (!Number.isFinite(node.lat) || !Number.isFinite(node.lon)) return;
 
         const isAged = (node.ageMin ?? 0) > 30;
-        const fill = isAged ? '#6b7280' : '#2dd4bf';
-        const stroke = isAged ? '#4b5563' : '#0d9488';
+        // Brand crimson when fresh, grey when aged >30 min
+        const nodeColor = isAged ? '#6b7280' : '#8B1A2A';
 
-        // MeshCom hexagonal icon — visually distinct from APRS triangles
-        const iconHtml = `<svg width="20" height="22" viewBox="0 0 20 22" xmlns="http://www.w3.org/2000/svg">
-          <polygon points="10,1 19,6 19,16 10,21 1,16 1,6" fill="${fill}" stroke="${stroke}" stroke-width="1.5" opacity="0.95"/>
-          <circle cx="10" cy="11" r="2.2" fill="${stroke}"/>
-          <line x1="10" y1="8.8" x2="10" y2="1.5" stroke="${stroke}" stroke-width="1"/>
-          <line x1="10" y1="13.2" x2="10" y2="20.5" stroke="${stroke}" stroke-width="1"/>
-          <line x1="8.1" y1="9.9" x2="1.5" y2="6.5" stroke="${stroke}" stroke-width="1"/>
-          <line x1="11.9" y1="9.9" x2="18.5" y2="6.5" stroke="${stroke}" stroke-width="1"/>
+        // MeshCom logo — mesh network icon matching the official brand mark.
+        // White disc background ensures visibility on any map tile colour.
+        // Centre: (12,12), outer radius 7.5, outer node r 2.2, centre node r 3.8
+        const iconHtml = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="11.5" fill="white" fill-opacity="0.88" stroke="${nodeColor}" stroke-width="0.6"/>
+          <line x1="12" y1="4.5"  x2="18.5" y2="8.25"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="18.5" y1="8.25"  x2="18.5" y2="15.75" stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="18.5" y1="15.75" x2="12"   y2="19.5"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12"   y1="19.5"  x2="5.5"  y2="15.75" stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="5.5"  y1="15.75" x2="5.5"  y2="8.25"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="5.5"  y1="8.25"  x2="12"   y2="4.5"   stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="12"   y2="4.5"   stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="18.5" y2="8.25"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="18.5" y2="15.75" stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="12"   y2="19.5"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="5.5"  y2="15.75" stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="5.5"  y2="8.25"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="12"  cy="4.5"  r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="18.5" cy="8.25"  r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="18.5" cy="15.75" r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="12"  cy="19.5" r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="5.5" cy="15.75" r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="5.5" cy="8.25"  r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="12" cy="12" r="3.8" fill="${nodeColor}"/>
         </svg>`;
 
         const ageStr =
@@ -2164,8 +2180,8 @@ export const WorldMap = ({
               icon: L.divIcon({
                 className: '',
                 html: iconHtml,
-                iconSize: [20, 22],
-                iconAnchor: [10, 22],
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
               }),
               zIndexOffset: 1200,
             });
