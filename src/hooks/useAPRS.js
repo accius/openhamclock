@@ -25,6 +25,9 @@ export const useAPRS = (options = {}) => {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [tncConnected, setTncConnected] = useState(false);
+  // True once SSE confirms aprs-tnc is running — prevents server poll from
+  // resetting aprsEnabled to false when the OHC server has APRS_ENABLED=false.
+  const tncDetectedViaSse = useRef(false);
   // sourceFilter: 'all' | 'internet' | 'rf'
   const [sourceFilter, setSourceFilter] = useState('all');
 
@@ -54,7 +57,12 @@ export const useAPRS = (options = {}) => {
         const data = await res.json();
         setStations(data.stations || []);
         setConnected(data.connected || false);
-        setAprsEnabled(data.enabled || data.tncActive || false);
+        // Don't let the server poll override aprsEnabled when the TNC was
+        // detected locally via SSE — the OHC server may have APRS_ENABLED=false
+        // even while rig-bridge's aprs-tnc plugin is actively receiving packets.
+        if (!tncDetectedViaSse.current) {
+          setAprsEnabled(data.enabled || data.tncActive || false);
+        }
         setLastUpdate(new Date());
         setLoading(false);
       }
@@ -124,8 +132,10 @@ export const useAPRS = (options = {}) => {
       const msg = e.detail;
 
       if (msg.type === 'plugin-init') {
-        setTncConnected(msg.plugins?.includes('aprs-tnc') ?? false);
-        if (msg.plugins?.includes('aprs-tnc')) {
+        const hasTnc = msg.plugins?.includes('aprs-tnc') ?? false;
+        setTncConnected(hasTnc);
+        if (hasTnc) {
+          tncDetectedViaSse.current = true;
           setAprsEnabled(true);
           setLoading(false);
         }
@@ -149,6 +159,7 @@ export const useAPRS = (options = {}) => {
         });
         return next;
       });
+      tncDetectedViaSse.current = true;
       setTncConnected(true);
       setAprsEnabled(true);
       setLastUpdate(new Date());

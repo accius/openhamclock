@@ -14,10 +14,13 @@ import { createContext, useContext, useState, useCallback, useEffect } from 'rea
 // Picks the segment that looks most like a home callsign.
 const MODIFIERS = new Set(['M', 'P', 'QRP', 'MM', 'AM', 'R', 'T', 'B', 'BCN', 'LH', 'A', 'E', 'J', 'AG', 'AE', 'KT']);
 function extractBaseCall(raw) {
-  if (!raw || !raw.includes('/')) return raw || '';
-  const parts = raw.toUpperCase().split('/');
+  if (!raw) return '';
+  // Strip APRS SSID suffix (-0 through -15) before any other processing
+  const withoutSsid = raw.replace(/-\d{1,2}$/, '');
+  if (!withoutSsid.includes('/')) return withoutSsid;
+  const parts = withoutSsid.toUpperCase().split('/');
   const candidates = parts.filter((p) => p && !MODIFIERS.has(p) && !/^\d$/.test(p));
-  if (candidates.length === 0) return parts[0] || raw;
+  if (candidates.length === 0) return parts[0] || withoutSsid;
   if (candidates.length === 1) return candidates[0];
   const pat = /^[A-Z]{1,3}\d{1,4}[A-Z]{1,4}$/;
   const full = candidates.filter((c) => pat.test(c));

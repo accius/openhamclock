@@ -935,6 +935,8 @@ export const DockableApp = ({
               onToggleMap={toggleAPRSEff}
               onHoverSpot={setHoveredSpot}
               onSpotClick={handleSpotClick}
+              deLocation={config.location}
+              units={config.allUnits?.dist}
             />
           );
           break;

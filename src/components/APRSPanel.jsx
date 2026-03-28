@@ -6,8 +6,9 @@
 import { useState, useMemo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import CallsignLink from './CallsignLink.jsx';
+import { calculateDistance, formatDistance } from '../utils/geo.js';
 
-const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
+const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onSpotClick, onHoverSpot, deLocation, units = 'metric' }) => {
   const {
     filteredStations = [],
     stations = [],
@@ -34,6 +35,7 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onSpotClick, onHoverSpot 
   const [newGroupName, setNewGroupName] = useState('');
   const [addCallInput, setAddCallInput] = useState('');
   const [addCallTarget, setAddCallTarget] = useState('');
+  const [tooltip, setTooltip] = useState(null); // { station, distKm, x, y }
 
   // Search filter
   const displayStations = useMemo(() => {
@@ -60,7 +62,13 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onSpotClick, onHoverSpot 
     }
   }, [addCallInput, addCallTarget, addCallToGroup]);
 
-  const formatAge = (minutes) => (minutes < 1 ? 'now' : minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`);
+  const formatAge = (minutes) =>
+    minutes == null ? '?' : minutes < 1 ? 'now' : minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`;
+  const stationAgeMinutes = (station) => {
+    if (station.age != null) return station.age;
+    if (station.timestamp != null) return Math.floor((Date.now() - station.timestamp) / 60000);
+    return null;
+  };
 
   if (!aprsEnabled) {
     return (
@@ -482,12 +490,23 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onSpotClick, onHoverSpot 
         ) : (
           displayStations.map((station, i) => {
             const isWatched = allWatchlistCalls.has(station.call) || allWatchlistCalls.has(station.ssid);
+            const distKm =
+              deLocation?.lat != null && deLocation?.lon != null && station.lat != null && station.lon != null
+                ? calculateDistance(deLocation.lat, deLocation.lon, station.lat, station.lon)
+                : null;
 
             return (
               <div
                 key={`${station.ssid}-${i}`}
-                onMouseEnter={() => onHoverSpot?.({ call: station.call, lat: station.lat, lon: station.lon })}
-                onMouseLeave={() => onHoverSpot?.(null)}
+                onMouseEnter={(e) => {
+                  onHoverSpot?.({ call: station.call, lat: station.lat, lon: station.lon });
+                  setTooltip({ station, distKm, x: e.clientX, y: e.clientY });
+                }}
+                onMouseMove={(e) => setTooltip((prev) => (prev ? { ...prev, x: e.clientX, y: e.clientY } : prev))}
+                onMouseLeave={() => {
+                  onHoverSpot?.(null);
+                  setTooltip(null);
+                }}
                 onClick={() => onSpotClick?.({ call: station.call, lat: station.lat, lon: station.lon })}
                 style={{
                   display: 'grid',
@@ -548,7 +567,8 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onSpotClick, onHoverSpot 
                     color: 'var(--text-muted)',
                   }}
                 >
-                  <span>{formatAge(station.age)}</span>
+                  <span>{formatAge(stationAgeMinutes(station))}</span>
+                  {distKm != null && <span>{formatDistance(distKm, units)}</span>}
                   {station.speed > 0 && <span>{station.speed} kt</span>}
                 </div>
               </div>
@@ -556,6 +576,78 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onSpotClick, onHoverSpot 
           })
         )}
       </div>
+
+      {/* Hover tooltip */}
+      {tooltip &&
+        (() => {
+          const s = tooltip.station;
+          const age = stationAgeMinutes(s);
+          // Keep tooltip within viewport
+          const tipX = tooltip.x + 14;
+          const tipY = tooltip.y + 14;
+          return (
+            <div
+              style={{
+                position: 'fixed',
+                left: tipX,
+                top: tipY,
+                zIndex: 9999,
+                background: 'var(--bg-primary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '6px',
+                padding: '8px 10px',
+                fontSize: '11px',
+                color: 'var(--text-primary)',
+                pointerEvents: 'none',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.4)',
+                maxWidth: '280px',
+                lineHeight: '1.6',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                <span style={{ fontWeight: '700', fontFamily: 'JetBrains Mono, monospace', fontSize: '12px' }}>
+                  {s.ssid || s.call}
+                </span>
+                {s.source === 'local-tnc' && (
+                  <span
+                    style={{
+                      fontSize: '9px',
+                      padding: '1px 4px',
+                      borderRadius: '2px',
+                      background: 'rgba(74,222,128,0.15)',
+                      border: '1px solid rgba(74,222,128,0.4)',
+                      color: '#4ade80',
+                      fontWeight: '600',
+                    }}
+                  >
+                    RF
+                  </span>
+                )}
+              </div>
+              {s.comment && (
+                <div style={{ color: 'var(--text-secondary)', marginBottom: '4px', wordBreak: 'break-word' }}>
+                  {s.comment}
+                </div>
+              )}
+              <div style={{ color: 'var(--text-muted)', display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                {s.lat != null && s.lon != null && (
+                  <span>
+                    {s.lat.toFixed(4)}°, {s.lon.toFixed(4)}°
+                  </span>
+                )}
+                {tooltip.distKm != null && <span>{formatDistance(tooltip.distKm, units)}</span>}
+                {age != null && <span>Age: {formatAge(age)}</span>}
+                {s.speed > 0 && (
+                  <span>
+                    Speed: {s.speed} kt{s.course != null ? ` / ${s.course}°` : ''}
+                  </span>
+                )}
+                {s.altitude != null && <span>Altitude: {s.altitude} ft</span>}
+                {s.symbol && <span>Symbol: {s.symbol}</span>}
+              </div>
+            </div>
+          );
+        })()}
     </div>
   );
 };
