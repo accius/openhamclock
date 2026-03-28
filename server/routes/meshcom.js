@@ -159,7 +159,7 @@ module.exports = function (app, ctx) {
 
     s.nodes.set(call, node);
     s.lastIngestTime = Date.now();
-    logDebug(`[MeshCom] [${pkt.sessionId}] Position from ${call}: lat=${lat}, lon=${lon}, batt=${pkt.batt}`);
+    logInfo(`[MeshCom] [${pkt.sessionId}] Position from ${call}: lat=${lat}, lon=${lon}, batt=${pkt.batt}`);
     res.json({ ok: true, updated: true });
   });
 
@@ -182,7 +182,7 @@ module.exports = function (app, ctx) {
 
     if (s.messages.length > MAX_MESSAGES) s.messages.shift();
     s.lastIngestTime = Date.now();
-    logDebug(`[MeshCom] [${pkt.sessionId}] Message from ${pkt.src} → ${pkt.dst || '*'}: ${pkt.msg}`);
+    logInfo(`[MeshCom] [${pkt.sessionId}] Message from ${pkt.src} → ${pkt.dst || '*'}: ${pkt.msg}`);
     res.json({ ok: true });
   });
 
@@ -217,7 +217,7 @@ module.exports = function (app, ctx) {
     }
 
     s.lastIngestTime = Date.now();
-    logDebug(`[MeshCom] [${pkt.sessionId}] Telemetry from ${call}: temp=${pkt.tempC}°C hum=${pkt.humidity}%`);
+    logInfo(`[MeshCom] [${pkt.sessionId}] Telemetry from ${call}: temp=${pkt.tempC}°C hum=${pkt.humidity}%`);
     res.json({ ok: true });
   });
 

@@ -19,7 +19,13 @@ const RELAY_KEY = 'ohc-relay-session';
 const LEGACY_KEY = 'ohc-wsjtx-session'; // migrated on first read
 
 function isValidId(id) {
-  return typeof id === 'string' && id.length >= 8 && id.length <= 12 && /^[a-z0-9]+$/.test(id);
+  // Accept 8–32 char lowercase alphanumeric strings.
+  // Lower bound (8): long enough to avoid accidental collisions.
+  // Upper bound (32): accommodates both the 8-char IDs generated here and
+  // the 16-char hex IDs produced by the /api/rig-bridge/relay/configure
+  // endpoint (crypto.randomBytes(8).toString('hex') = 16 chars).
+  // Uppercase is rejected — all generators in this codebase produce lowercase.
+  return typeof id === 'string' && id.length >= 8 && id.length <= 32 && /^[a-z0-9]+$/.test(id);
 }
 
 function generate() {
