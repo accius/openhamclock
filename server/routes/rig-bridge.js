@@ -198,6 +198,7 @@ module.exports = function (app, ctx) {
       // sessionId is injected so the meshcom route can store data in the
       // correct per-user session rather than a shared global pool.
       if (Array.isArray(req.body.meshcomPackets) && req.body.meshcomPackets.length > 0) {
+        logInfo(`[RigBridge] Relaying ${req.body.meshcomPackets.length} MeshCom packet(s) for session=${sessionId}`);
         for (const pkt of req.body.meshcomPackets) {
           const subtype = pkt.subtype;
           if (subtype !== 'pos' && subtype !== 'msg' && subtype !== 'telem') continue;
