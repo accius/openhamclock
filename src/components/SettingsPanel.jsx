@@ -23,6 +23,7 @@ import CustomThemeEditor from './CustomThemeEditor';
 import useLocalInstall from '../hooks/app/useLocalInstall.js';
 import { emojiToIso2 } from '../utils/countryFlags';
 import { getAlertSettings, saveAlertSettings, playTone, TONE_PRESETS, ALERT_FEEDS } from '../utils/audioAlerts';
+import { setRelaySessionId } from '../utils/relaySession';
 
 export const SettingsPanel = ({
   isOpen,
@@ -5175,6 +5176,10 @@ export const SettingsPanel = ({
                             }
 
                             setCloudRelaySession(credData.session);
+                            // Persist in localStorage so all relay-consuming hooks
+                            // (WSJTX, MeshCom, APRS) immediately poll with this ID
+                            // instead of whatever random ID they generated earlier.
+                            setRelaySessionId(credData.session);
 
                             // Copy config to clipboard for easy paste into rig-bridge
                             const configText = JSON.stringify(credData.configPayload, null, 2);

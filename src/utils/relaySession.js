@@ -33,6 +33,22 @@ function generate() {
 }
 
 /**
+ * Persist a session ID supplied by an external source (e.g. relay/configure).
+ * Overwrites any existing value so the browser immediately starts polling with
+ * the same ID that was written into the rig-bridge config.
+ * Returns the id that was stored, or null if storage is unavailable.
+ */
+export function setRelaySessionId(id) {
+  if (!isValidId(id)) return null;
+  try {
+    localStorage.setItem(RELAY_KEY, id);
+    return id;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Return the persistent relay session ID for this browser, creating one if
  * necessary. The result is stable for the lifetime of the localStorage entry.
  */
