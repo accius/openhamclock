@@ -3386,7 +3386,7 @@ export const SettingsPanel = ({
                               type="number"
                               step="1"
                               value={isNaN(stationAlt) ? '' : stationAlt}
-                              onChange={(e) => setStationAlt(parseInt(e.target.value) || 100)}
+                              onChange={(e) => setStationAlt(e.target.valueAsNumber ?? 100)}
                               style={{
                                 width: '100%',
                                 padding: '10px',
@@ -3418,7 +3418,7 @@ export const SettingsPanel = ({
                               min="-89.0"
                               max="89.0"
                               value={isNaN(minElev) ? '' : minElev}
-                              onChange={(e) => setMinElev(parseFloat(e.target.value) || 5.0)}
+                              onChange={(e) => setMinElev(e.target.valueAsNumber ?? 5.0)}
                               style={{
                                 width: '100%',
                                 padding: '10px',
