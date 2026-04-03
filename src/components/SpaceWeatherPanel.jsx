@@ -38,7 +38,7 @@ export const SpaceWeatherPanel = ({ data, loading }) => {
                 fontFamily: 'Orbitron, monospace',
               }}
             >
-              {data?.solarFlux || '--'}
+              {data?.solarFlux ?? '--'}
             </div>
           </div>
           <div>
@@ -51,7 +51,7 @@ export const SpaceWeatherPanel = ({ data, loading }) => {
                 fontFamily: 'Orbitron, monospace',
               }}
             >
-              {data?.kIndex || '--'}
+              {data?.kIndex ?? '--'}
             </div>
           </div>
           <div>

@@ -240,18 +240,19 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       `<div style="padding: 0 12px 8px;">` +
       activeSats
         .map((sat) => {
-          const isVisible = sat.visible === true;
+          const isVisible = sat.isVisible === true;
 
           const isMetric = allUnits.dist === 'metric';
           const distanceUnitsStr = isMetric ? 'km' : 'miles';
           const speedUnitsStr = isMetric ? 'km/h' : 'mph';
+          const rangeRateUnitsStr = isMetric ? 'km/s' : 'miles/s';
           const km_to_miles_factor = 0.621371;
 
-          let speed = isMetric ? Math.round(sat.speedKmH || 0) : Math.round((sat.speedKmH || 0) * km_to_miles_factor);
+          let speed = Math.round((sat.speedKmH || 0) * (isMetric ? 1 : km_to_miles_factor));
           let speedStr = `${speed.toLocaleString()} ${speedUnitsStr}`;
           speedStr = `${sat.speedKmH ? speedStr : 'N/A'}`;
 
-          let altitude = isMetric ? Math.round(sat.alt) : Math.round(sat.alt * km_to_miles_factor);
+          let altitude = Math.round(sat.alt * (isMetric ? 1 : km_to_miles_factor));
           let altitudeStr = `${altitude.toLocaleString()} ${distanceUnitsStr}`;
 
           return `
@@ -266,7 +267,18 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
             <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.longitude')}:</td><td align="right" style="padding:2px 0;">${sat.lon.toFixed(2)}°</td></tr>
             <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.speed')}:</td><td align="right" style="padding:2px 0;">${speedStr}</td></tr>
             <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.altitude')}:</td><td align="right" style="padding:2px 0;">${altitudeStr}</td></tr>
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.azimuth_elevation')}:</td><td align="right" style="padding:2px 0;">${Math.round(sat.azimuth)}° / ${Math.round(sat.elevation)}°</td></tr>
+            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.azimuth_elevation')}:</td><td align="right" style="padding:2px 0;">${sat.azimuth}° / ${sat.elevation}°</td></tr>
+
+            ${
+              isVisible
+                ? `
+              <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.range')}:</td><td align="right" style="padding:2px 0;">${(sat.range * (isMetric ? 1 : km_to_miles_factor)).toFixed(0)} ${distanceUnitsStr}</td></tr>
+              <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.rangeRate')}:</td><td align="right" style="padding:2px 0;">${(sat.rangeRate * (isMetric ? 1 : km_to_miles_factor)).toFixed(2)} ${rangeRateUnitsStr}</td></tr>
+              <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.dopplerFactor')}:</td><td align="right" style="padding:2px 0;">${sat.dopplerFactor.toFixed(7)}</td></tr>
+            `
+                : ``
+            }
+
             <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.mode')}:</td><td align="right" style="color:#ffa500; padding:2px 0;">${sat.mode || 'N/A'}</td></tr>
             ${sat.downlink ? `<tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.downlink')}:</td><td align="right" style="color:#00ffcc; padding:2px 0;">${sat.downlink}</td></tr>` : ''}
             ${sat.uplink ? `<tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.uplink')}:</td><td align="right" style="color:#ffcc00; padding:2px 0;">${sat.uplink}</td></tr>` : ''}
@@ -308,7 +320,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         const EARTH_RADIUS = 6371;
         const centralAngle = Math.acos(EARTH_RADIUS / (EARTH_RADIUS + sat.alt));
         const footprintRadiusMeters = centralAngle * EARTH_RADIUS * 1000;
-        const footColor = sat.visible === true ? '#00ff00' : '#00ffff';
+        const footColor = sat.isVisible === true ? '#00ff00' : '#00ffff';
 
         replicatePoint(sat.lat, sat.lon).forEach((pos) => {
           window.L.circle(pos, {

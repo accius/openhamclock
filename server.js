@@ -150,10 +150,6 @@ const visitorStatsService = createVisitorStatsService(ctx);
 Object.assign(ctx, {
   visitorStats: visitorStatsService.visitorStats,
   sessionTracker: visitorStatsService.sessionTracker,
-  geoIPCache: visitorStatsService.geoIPCache,
-  geoIPQueue: visitorStatsService.geoIPQueue,
-  todayIPSet: visitorStatsService.todayIPSet,
-  allTimeIPSet: visitorStatsService.allTimeIPSet,
   saveVisitorStats: visitorStatsService.saveVisitorStats,
   rolloverVisitorStats: visitorStatsService.rolloverVisitorStats,
   STATS_FILE: visitorStatsService.STATS_FILE,

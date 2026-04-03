@@ -28,7 +28,11 @@ export const useSpaceWeather = () => {
         }
         if (kIndexRes.status === 'fulfilled' && kIndexRes.value.ok) {
           const d = await kIndexRes.value.json();
-          if (d?.length > 1) kIndex = d[d.length - 1][1] || '--';
+          // NOAA changed from array-of-arrays to array-of-objects — support both.
+          if (d?.length) {
+            const last = d[d.length - 1];
+            kIndex = (Array.isArray(last) ? last[1] : last?.Kp) ?? '--';
+          }
         }
         if (sunspotRes.status === 'fulfilled' && sunspotRes.value.ok) {
           const d = await sunspotRes.value.json();
