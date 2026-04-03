@@ -1,18 +1,11 @@
-import React, { createContext, useMemo, useEffect } from 'react';
+import React from 'react';
 import { getDebugConfig } from './debugConfig';
-import { createLogger } from './logger';
 import { overrideConsole } from './consoleOverride';
 
-export const DebugContext = createContext(null);
-
 export function DebugProvider({ children }) {
-  const config = useMemo(() => getDebugConfig(), []);
-  const logger = useMemo(() => createLogger(config), [config]);
+  const config = getDebugConfig();
 
-  // Hybrid strategy: override console globally
-  useEffect(() => {
-    overrideConsole(config);
-  }, [config]);
+  overrideConsole(config);
 
-  return <DebugContext.Provider value={{ config, logger }}>{children}</DebugContext.Provider>;
+  return children;
 }
