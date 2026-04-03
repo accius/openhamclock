@@ -135,11 +135,11 @@ function UserProfile({ user }) {
 
 # Replacing console.\*
 
-| Before                            | After                          |
-| --------------------------------- | ------------------------------ |
-| `jsconsole.log('loaded');`        | `logger.debug('loaded');`      |
-| `jsconsole.warn('missing data');` | `logger.warn('missing data');` |
-| `jsconsole.error('failed');`      | `logger.error('failed');`      |
+| Before                          | After                          |
+| ------------------------------- | ------------------------------ |
+| `console.log('loaded');`        | `logger.debug('loaded');`      |
+| `console.warn('missing data');` | `logger.warn('missing data');` |
+| `console.error('failed');`      | `logger.error('failed');`      |
 
 ---
 
