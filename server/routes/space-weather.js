@@ -20,6 +20,10 @@ module.exports = function (app, ctx) {
   // N0NBH / HamQSL cache
   let n0nbhCache = { data: null, timestamp: 0 };
   const N0NBH_CACHE_TTL = 60 * 60 * 1000;
+  // Maximum age of stale error-fallback data.  N0NBH updates every ~3 hours;
+  // beyond 4 hours the data is definitively out of date and we should stop
+  // serving it rather than silently mislead clients.
+  const N0NBH_MAX_STALE_TTL = 4 * 60 * 60 * 1000;
 
   // Parse N0NBH solarxml.php XML into clean JSON
   function parseN0NBHxml(xml) {
@@ -165,7 +169,7 @@ module.exports = function (app, ctx) {
       }
 
       // SFI current fallback: N0NBH
-      if (!result.sfi.current && n0nbhCache.data?.solarData?.solarFlux) {
+      if (result.sfi.current == null && n0nbhCache.data?.solarData?.solarFlux) {
         const flux = parseInt(n0nbhCache.data.solarData.solarFlux);
         if (flux > 0) result.sfi.current = flux;
       }
@@ -174,37 +178,46 @@ module.exports = function (app, ctx) {
       if (fluxRes.status === 'fulfilled' && fluxRes.value.ok) {
         const data = await fluxRes.value.json();
         if (data?.length) {
-          const recent = data.slice(-30);
+          // f107_cm_flux.json is not chronologically sorted — sort before slicing
+          // so history shows the correct 30 most-recent readings in order.
+          const sorted = [...data].sort((a, b) => (a.time_tag > b.time_tag ? 1 : -1));
+          const recent = sorted.slice(-30);
           result.sfi.history = recent.map((d) => ({
             date: d.time_tag || d.date,
             value: Math.round(d.flux || d.value || 0),
           }));
-          if (!result.sfi.current) {
-            result.sfi.current = result.sfi.history[result.sfi.history.length - 1]?.value || null;
+          if (result.sfi.current == null) {
+            result.sfi.current = result.sfi.history[result.sfi.history.length - 1]?.value ?? null;
           }
         }
       }
 
       // Kp history
+      // NOAA changed from array-of-arrays [[header],[time,Kp,...],...] to
+      // array-of-objects [{time_tag,Kp,...},...] — support both formats.
       if (kIndexRes.status === 'fulfilled' && kIndexRes.value.ok) {
         const data = await kIndexRes.value.json();
-        if (data?.length > 1) {
-          const recent = data.slice(1).slice(-24);
+        if (data?.length) {
+          const isObj = !Array.isArray(data[0]);
+          const rows = isObj ? data : data.slice(1); // old format has a header row
+          const recent = rows.slice(-24);
           result.kp.history = recent.map((d) => ({
-            time: d[0],
-            value: parseFloat(d[1]) || 0,
+            time: isObj ? d.time_tag : d[0],
+            value: Number.isFinite(isObj ? d.Kp : parseFloat(d[1])) ? (isObj ? d.Kp : parseFloat(d[1])) : 0,
           }));
-          result.kp.current = result.kp.history[result.kp.history.length - 1]?.value || null;
+          result.kp.current = result.kp.history[result.kp.history.length - 1]?.value ?? null;
         }
       }
 
-      // Kp forecast
+      // Kp forecast — same format change; forecast uses lowercase 'kp' field.
       if (kForecastRes.status === 'fulfilled' && kForecastRes.value.ok) {
         const data = await kForecastRes.value.json();
-        if (data?.length > 1) {
-          result.kp.forecast = data.slice(1).map((d) => ({
-            time: d[0],
-            value: parseFloat(d[1]) || 0,
+        if (data?.length) {
+          const isObj = !Array.isArray(data[0]);
+          const rows = isObj ? data : data.slice(1);
+          result.kp.forecast = rows.map((d) => ({
+            time: isObj ? d.time_tag : d[0],
+            value: Number.isFinite(isObj ? d.kp : parseFloat(d[1])) ? (isObj ? d.kp : parseFloat(d[1])) : 0,
           }));
         }
       }
@@ -224,8 +237,8 @@ module.exports = function (app, ctx) {
             date: `${d['time-tag'] || d.time_tag || ''}`,
             value: Math.round(d.ssn || d['ISES SSN'] || 0),
           }));
-          if (!result.ssn.current) {
-            result.ssn.current = result.ssn.history[result.ssn.history.length - 1]?.value || null;
+          if (result.ssn.current == null) {
+            result.ssn.current = result.ssn.history[result.ssn.history.length - 1]?.value ?? null;
           }
         }
       }
@@ -529,10 +542,18 @@ module.exports = function (app, ctx) {
       const parsed = parseN0NBHxml(xml);
 
       n0nbhCache = { data: parsed, timestamp: Date.now() };
-      res.json(parsed);
+      res.json({ ...parsed, fetchedAt: n0nbhCache.timestamp });
     } catch (error) {
       logErrorOnce('N0NBH', error.message);
-      if (n0nbhCache.data) return res.json(n0nbhCache.data);
+      if (n0nbhCache.data) {
+        const age = Date.now() - n0nbhCache.timestamp;
+        if (age > N0NBH_MAX_STALE_TTL) {
+          // Cache is too old to be useful; tell the client so it can show a
+          // meaningful error rather than silently displaying stale conditions.
+          return res.status(503).json({ error: 'N0NBH data unavailable and cached data is too stale' });
+        }
+        return res.json({ ...n0nbhCache.data, fetchedAt: n0nbhCache.timestamp, stale: true });
+      }
       res.status(500).json({ error: 'Failed to fetch N0NBH data' });
     }
   });
@@ -558,7 +579,8 @@ module.exports = function (app, ctx) {
     try {
       const response = await fetch('https://www.hamqsl.com/solarxml.php');
       const xml = await response.text();
-      n0nbhCache = { data: parseN0NBHxml(xml), timestamp: Date.now() };
+      const ts = Date.now();
+      n0nbhCache = { data: { ...parseN0NBHxml(xml), fetchedAt: ts }, timestamp: ts };
       logInfo('[Startup] N0NBH solar data pre-warmed');
     } catch (e) {
       logWarn('[Startup] N0NBH pre-warm failed:', e.message);

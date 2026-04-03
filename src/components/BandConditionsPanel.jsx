@@ -4,7 +4,7 @@
  */
 import { useTranslation } from 'react-i18next';
 
-export const BandConditionsPanel = ({ data, loading }) => {
+export const BandConditionsPanel = ({ data, loading, extras }) => {
   const { t } = useTranslation();
   const getConditionStyle = (condition) => {
     switch (condition) {
@@ -19,9 +19,33 @@ export const BandConditionsPanel = ({ data, loading }) => {
     }
   };
 
+  // Show a staleness badge when the server is serving error-fallback data.
+  // fetchedAt is the Unix ms timestamp of the last successful N0NBH fetch.
+  const staleMinutes =
+    extras?.stale && extras?.fetchedAt != null ? Math.round((Date.now() - extras.fetchedAt) / 60_000) : null;
+
   return (
     <div className="panel" style={{ padding: '12px' }}>
-      <div className="panel-header">{t('band.conditions')}</div>
+      <div className="panel-header" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {t('band.conditions')}
+        {staleMinutes != null && (
+          <span
+            title={t('band.conditions.stale.tooltip', { mins: staleMinutes })}
+            style={{
+              fontSize: '10px',
+              fontWeight: '600',
+              color: 'var(--accent-amber)',
+              background: 'rgba(255,180,50,0.15)',
+              border: '1px solid var(--accent-amber)',
+              borderRadius: '4px',
+              padding: '1px 5px',
+              cursor: 'default',
+            }}
+          >
+            {t('band.conditions.stale.label', { mins: staleMinutes })}
+          </span>
+        )}
+      </div>
       {loading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
           <div className="loading-spinner" />

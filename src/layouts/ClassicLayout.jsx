@@ -746,12 +746,12 @@ export default function ClassicLayout(props) {
             </div>
             <div>
               <span style={{ color: '#aaa' }}>A </span>
-              <span style={{ color: '#00ffff', fontWeight: '700' }}>{bandConditions?.extras?.aIndex || '--'}</span>
+              <span style={{ color: '#00ffff', fontWeight: '700' }}>{bandConditions?.extras?.aIndex ?? '--'}</span>
             </div>
             <div>
               <span style={{ color: '#aaa' }}>SFI </span>
               <span style={{ color: '#ff66ff', fontWeight: '700' }}>
-                {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
+                {solarIndices?.data?.sfi?.current ?? spaceWeather?.data?.solarFlux ?? '--'}
               </span>
             </div>
             <div>
@@ -1118,7 +1118,7 @@ export default function ClassicLayout(props) {
           <div style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '13px', color: '#aaa' }}>SFI</div>
             <div style={{ fontSize: '22px', fontWeight: '700', color: '#ff66ff' }}>
-              {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
+              {solarIndices?.data?.sfi?.current ?? spaceWeather?.data?.solarFlux ?? '--'}
             </div>
           </div>
           {/* SSN */}
@@ -1294,7 +1294,7 @@ export default function ClassicLayout(props) {
           <span>
             <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.sfiShort')} </span>
             <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
-              {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
+              {solarIndices?.data?.sfi?.current ?? spaceWeather?.data?.solarFlux ?? '--'}
             </span>
           </span>
           <span>
@@ -1532,9 +1532,34 @@ export default function ClassicLayout(props) {
                 marginBottom: '6px',
                 textTransform: 'uppercase',
                 letterSpacing: '0.5px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
               }}
             >
               {t('band.conditions')}
+              {(() => {
+                if (!bandConditions?.extras?.stale || bandConditions.extras.fetchedAt == null) return null;
+                const mins = Math.round((Date.now() - bandConditions.extras.fetchedAt) / 60_000);
+                return (
+                  <span
+                    title={t('band.conditions.stale.tooltip', { mins })}
+                    style={{
+                      fontSize: '10px',
+                      fontWeight: '600',
+                      color: 'var(--accent-amber)',
+                      background: 'rgba(255,180,50,0.15)',
+                      border: '1px solid var(--accent-amber)',
+                      borderRadius: '4px',
+                      padding: '1px 5px',
+                      cursor: 'default',
+                      textTransform: 'none',
+                    }}
+                  >
+                    {t('band.conditions.stale.label', { mins })}
+                  </span>
+                );
+              })()}
             </div>
             <div
               style={{
@@ -1877,7 +1902,7 @@ export default function ClassicLayout(props) {
           <span>
             <span style={{ color: 'var(--text-muted)' }}>{t('app.solar.sfiShort')} </span>
             <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
-              {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
+              {solarIndices?.data?.sfi?.current ?? spaceWeather?.data?.solarFlux ?? '--'}
             </span>
           </span>
           <span>
