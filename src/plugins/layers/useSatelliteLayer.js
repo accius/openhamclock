@@ -79,7 +79,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
             az = lookAngles.azimuth * (180 / Math.PI);
             el = lookAngles.elevation * (180 / Math.PI);
             range = lookAngles.rangeSat;
-            isVisible = el > 0;
+            isVisible = el >= (config?.satellite?.minElev || 0); // visible only if above minimum elevation
           }
 
           const minutesToPredict = config?.leadTimeMins || 45;
