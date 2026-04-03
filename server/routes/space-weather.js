@@ -210,15 +210,20 @@ module.exports = function (app, ctx) {
       }
 
       // Kp forecast — same format change; forecast uses lowercase 'kp' field.
+      // The endpoint mixes past observations with future predictions; keep only
+      // entries whose time_tag is in the future so the chart shows predictions.
       if (kForecastRes.status === 'fulfilled' && kForecastRes.value.ok) {
         const data = await kForecastRes.value.json();
         if (data?.length) {
           const isObj = !Array.isArray(data[0]);
           const rows = isObj ? data : data.slice(1);
-          result.kp.forecast = rows.map((d) => ({
-            time: isObj ? d.time_tag : d[0],
-            value: Number.isFinite(isObj ? d.kp : parseFloat(d[1])) ? (isObj ? d.kp : parseFloat(d[1])) : 0,
-          }));
+          const nowIso = new Date().toISOString();
+          result.kp.forecast = rows
+            .filter((d) => (isObj ? d.time_tag : d[0]) > nowIso)
+            .map((d) => ({
+              time: isObj ? d.time_tag : d[0],
+              value: Number.isFinite(isObj ? d.kp : parseFloat(d[1])) ? (isObj ? d.kp : parseFloat(d[1])) : 0,
+            }));
         }
       }
 
