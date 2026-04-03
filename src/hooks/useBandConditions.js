@@ -93,6 +93,8 @@ export const useBandConditions = () => {
           signalNoise: n0nbh.signalNoise,
           muf: n0nbh.solarData?.muf,
           updated: n0nbh.updated,
+          fetchedAt: n0nbh.fetchedAt ?? null,
+          stale: n0nbh.stale ?? false,
           source: 'N0NBH',
         });
       } catch (err) {

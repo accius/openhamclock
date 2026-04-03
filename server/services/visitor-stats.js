@@ -1,6 +1,7 @@
 /**
- * Visitor tracking, GeoIP resolution, and session tracking service.
+ * Visitor tracking and session tracking service.
  * Persistent visitor stats that survive server restarts.
+ * Privacy: No raw IPs are stored to disk or sent to third parties.
  */
 
 const fs = require('fs');
@@ -9,11 +10,11 @@ const { formatDuration } = require('../utils/helpers');
 
 /**
  * Initialize and return the visitor stats service.
- * @param {object} ctx - Shared context (fetch, logDebug, logInfo, logWarn, logErrorOnce, ROOT_DIR)
- * @returns {object} { visitorStats, sessionTracker, visitorMiddleware, geoIPCache, todayIPSet, allTimeIPSet }
+ * @param {object} ctx - Shared context (logInfo, ROOT_DIR)
+ * @returns {object} { visitorStats, sessionTracker, visitorMiddleware, saveVisitorStats, rolloverVisitorStats, formatDuration, STATS_FILE }
  */
 function createVisitorStatsService(ctx) {
-  const { fetch, logDebug, logInfo, logWarn, logErrorOnce, ROOT_DIR } = ctx;
+  const { logInfo, ROOT_DIR } = ctx;
 
   // Determine best location for stats file with write permission check
   function getStatsFilePath() {
@@ -51,11 +52,10 @@ function createVisitorStatsService(ctx) {
   function loadVisitorStats() {
     const defaults = {
       today: new Date().toISOString().slice(0, 10),
-      uniqueIPsToday: [],
+      uniqueVisitorsToday: 0,
       totalRequestsToday: 0,
       allTimeVisitors: 0,
       allTimeRequests: 0,
-      allTimeUniqueIPs: [],
       serverFirstStarted: new Date().toISOString(),
       lastDeployment: new Date().toISOString(),
       deploymentCount: 1,
@@ -80,17 +80,18 @@ function createVisitorStatsService(ctx) {
           `[Stats]   🚀 Deployment #${(data.deploymentCount || 0) + 1} (first: ${data.serverFirstStarted || 'unknown'})`,
         );
 
+        const isSameDay = data.today === new Date().toISOString().slice(0, 10);
+
         return {
           today: new Date().toISOString().slice(0, 10),
-          uniqueIPsToday: data.today === new Date().toISOString().slice(0, 10) ? data.uniqueIPsToday || [] : [],
-          totalRequestsToday: data.today === new Date().toISOString().slice(0, 10) ? data.totalRequestsToday || 0 : 0,
+          uniqueVisitorsToday: isSameDay ? data.uniqueVisitorsToday || (data.uniqueIPsToday || []).length || 0 : 0,
+          totalRequestsToday: isSameDay ? data.totalRequestsToday || 0 : 0,
           allTimeVisitors: data.allTimeVisitors || 0,
           allTimeRequests: data.allTimeRequests || 0,
-          allTimeUniqueIPs: [...new Set([...(data.allTimeUniqueIPs || []), ...Object.keys(data.geoIPCache || {})])],
           serverFirstStarted: data.serverFirstStarted || defaults.serverFirstStarted,
           lastDeployment: new Date().toISOString(),
           deploymentCount: (data.deploymentCount || 0) + 1,
-          history: data.history || [],
+          history: (data.history || []).map(({ countries, ...rest }) => rest),
           lastSaved: data.lastSaved,
         };
       }
@@ -102,9 +103,9 @@ function createVisitorStatsService(ctx) {
     return defaults;
   }
 
-  // Save stats to disk
+  // Save stats to disk (no PII — only aggregate counts)
   let saveErrorCount = 0;
-  function saveVisitorStats(includeGeoCache = false) {
+  function saveVisitorStats() {
     if (!STATS_FILE) return;
 
     try {
@@ -115,8 +116,6 @@ function createVisitorStatsService(ctx) {
 
       const data = {
         ...visitorStats,
-        allTimeUniqueIPs: undefined,
-        geoIPCache: includeGeoCache ? Object.fromEntries(geoIPCache) : undefined,
         lastSaved: new Date().toISOString(),
       };
 
@@ -125,7 +124,7 @@ function createVisitorStatsService(ctx) {
       saveErrorCount = 0;
       if (Math.random() < 0.1) {
         console.log(
-          `[Stats] Saved - ${visitorStats.allTimeVisitors} all-time visitors, ${visitorStats.uniqueIPsToday.length} today`,
+          `[Stats] Saved - ${visitorStats.allTimeVisitors} all-time visitors, ${visitorStats.uniqueVisitorsToday} today`,
         );
       }
     } catch (err) {
@@ -142,120 +141,22 @@ function createVisitorStatsService(ctx) {
   // Initialize stats
   const visitorStats = loadVisitorStats();
 
-  // Convert today's IPs to a Set for fast lookup
-  const todayIPSet = new Set(visitorStats.uniqueIPsToday);
-  const allTimeIPSet = new Set(visitorStats.allTimeUniqueIPs);
-  const MAX_TRACKED_IPS = 10000;
+  // In-memory sets for dedup (never persisted to disk)
+  const crypto = require('crypto');
+  const todayIPHashes = new Set();
+  const allTimeIPHashes = new Set();
+  const MAX_TRACKED_HASHES = 10000;
 
-  // Free the array
-  visitorStats.allTimeUniqueIPs = [];
+  function hashIP(ip) {
+    return crypto.createHash('sha256').update(ip).digest('hex').slice(0, 16);
+  }
 
-  // GEO-IP COUNTRY RESOLUTION
-  if (!visitorStats.countryStats) visitorStats.countryStats = {};
-  if (!visitorStats.countryStatsToday) visitorStats.countryStatsToday = {};
-  if (!visitorStats.geoIPCache) visitorStats.geoIPCache = {};
-
-  const geoIPCache = new Map(Object.entries(visitorStats.geoIPCache));
+  // Strip legacy fields that may have been loaded from old stats files
+  delete visitorStats.countryStats;
+  delete visitorStats.countryStatsToday;
   delete visitorStats.geoIPCache;
-  const geoIPQueue = new Set();
-  let geoIPLastBatch = 0;
-  const GEOIP_BATCH_INTERVAL = 30 * 1000;
-  const GEOIP_BATCH_SIZE = 100;
-
-  // Queue any existing IPs that haven't been resolved yet
-  for (const ip of allTimeIPSet) {
-    if (!geoIPCache.has(ip) && ip !== 'unknown' && !ip.startsWith('127.') && !ip.startsWith('::')) {
-      geoIPQueue.add(ip);
-    }
-  }
-  if (geoIPQueue.size > 0) {
-    logInfo(`[GeoIP] Queued ${geoIPQueue.size} unresolved IPs from history for batch lookup`);
-  }
-
-  function queueGeoIPLookup(ip) {
-    if (!ip || ip === 'unknown' || ip.startsWith('127.') || ip.startsWith('::1') || ip === '0.0.0.0') return;
-    if (geoIPCache.has(ip)) return;
-    geoIPQueue.add(ip);
-  }
-
-  function recordCountry(ip, countryCode) {
-    if (!countryCode || countryCode === 'Unknown') return;
-    if (geoIPCache.size < MAX_TRACKED_IPS || geoIPCache.has(ip)) {
-      geoIPCache.set(ip, countryCode);
-    }
-    visitorStats.countryStats[countryCode] = (visitorStats.countryStats[countryCode] || 0) + 1;
-    if (todayIPSet.has(ip)) {
-      visitorStats.countryStatsToday[countryCode] = (visitorStats.countryStatsToday[countryCode] || 0) + 1;
-    }
-  }
-
-  async function resolveGeoIPBatch() {
-    if (geoIPQueue.size === 0) return;
-    const now = Date.now();
-    if (now - geoIPLastBatch < GEOIP_BATCH_INTERVAL) return;
-    geoIPLastBatch = now;
-
-    const batch = [];
-    for (const ip of geoIPQueue) {
-      batch.push(ip);
-      if (batch.length >= GEOIP_BATCH_SIZE) break;
-    }
-    batch.forEach((ip) => geoIPQueue.delete(ip));
-
-    try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
-
-      const response = await fetch('http://ip-api.com/batch?fields=query,countryCode,status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          batch.map((ip) => ({
-            query: ip,
-            fields: 'query,countryCode,status',
-          })),
-        ),
-        signal: controller.signal,
-      });
-      clearTimeout(timeout);
-
-      if (response.status === 429) {
-        batch.forEach((ip) => geoIPQueue.add(ip));
-        logWarn('[GeoIP] Rate limited by ip-api.com, will retry later');
-        geoIPLastBatch = now + 60000;
-        return;
-      }
-
-      if (!response.ok) {
-        batch.forEach((ip) => geoIPQueue.add(ip));
-        logWarn(`[GeoIP] Batch lookup failed: HTTP ${response.status}`);
-        return;
-      }
-
-      const results = await response.json();
-      let resolved = 0;
-
-      for (const entry of results) {
-        if (entry.status === 'success' && entry.countryCode) {
-          recordCountry(entry.query, entry.countryCode);
-          resolved++;
-        }
-      }
-
-      if (resolved > 0) {
-        logDebug(`[GeoIP] Resolved ${resolved}/${batch.length} IPs (${geoIPQueue.size} remaining)`);
-      }
-    } catch (err) {
-      batch.forEach((ip) => geoIPQueue.add(ip));
-      if (err.name !== 'AbortError') {
-        logErrorOnce('GeoIP', `Batch lookup error: ${err.message}`);
-      }
-    }
-  }
-
-  // Run GeoIP batch resolver every 30 seconds
-  setInterval(resolveGeoIPBatch, GEOIP_BATCH_INTERVAL);
-  setTimeout(resolveGeoIPBatch, 5000);
+  delete visitorStats.uniqueIPsToday;
+  delete visitorStats.allTimeUniqueIPs;
 
   // Save immediately on startup
   if (STATS_FILE) {
@@ -269,12 +170,11 @@ function createVisitorStatsService(ctx) {
   function rolloverVisitorStats() {
     const now = new Date().toISOString().slice(0, 10);
     if (now !== visitorStats.today) {
-      if (visitorStats.uniqueIPsToday.length > 0 || visitorStats.totalRequestsToday > 0) {
+      if (visitorStats.uniqueVisitorsToday > 0 || visitorStats.totalRequestsToday > 0) {
         visitorStats.history.push({
           date: visitorStats.today,
-          uniqueVisitors: visitorStats.uniqueIPsToday.length,
+          uniqueVisitors: visitorStats.uniqueVisitorsToday,
           totalRequests: visitorStats.totalRequestsToday,
-          countries: { ...visitorStats.countryStatsToday },
         });
       }
       if (visitorStats.history.length > 90) {
@@ -285,14 +185,13 @@ function createVisitorStatsService(ctx) {
           ? Math.round(visitorStats.history.reduce((sum, d) => sum + d.uniqueVisitors, 0) / visitorStats.history.length)
           : 0;
       console.log(
-        `[Stats] Daily rollover for ${visitorStats.today}: ${visitorStats.uniqueIPsToday.length} unique, ${visitorStats.totalRequestsToday} requests | All-time: ${visitorStats.allTimeVisitors} visitors | ${visitorStats.history.length}-day avg: ${avg}/day`,
+        `[Stats] Daily rollover for ${visitorStats.today}: ${visitorStats.uniqueVisitorsToday} unique, ${visitorStats.totalRequestsToday} requests | All-time: ${visitorStats.allTimeVisitors} visitors | ${visitorStats.history.length}-day avg: ${avg}/day`,
       );
 
       visitorStats.today = now;
-      visitorStats.uniqueIPsToday = [];
+      visitorStats.uniqueVisitorsToday = 0;
       visitorStats.totalRequestsToday = 0;
-      visitorStats.countryStatsToday = {};
-      todayIPSet.clear();
+      todayIPHashes.clear();
       saveVisitorStats();
     }
   }
@@ -302,23 +201,23 @@ function createVisitorStatsService(ctx) {
   const SESSION_CLEANUP_INTERVAL = 60 * 1000;
 
   const sessionTracker = {
-    activeSessions: new Map(),
+    activeSessions: new Map(), // keyed by hashed IP (in-memory only)
     completedSessions: [],
     peakConcurrent: 0,
     peakConcurrentTime: null,
 
-    touch(ip, userAgent) {
+    touch(ip) {
+      const key = hashIP(ip);
       const now = Date.now();
-      if (this.activeSessions.has(ip)) {
-        const session = this.activeSessions.get(ip);
+      if (this.activeSessions.has(key)) {
+        const session = this.activeSessions.get(key);
         session.lastSeen = now;
         session.requests++;
       } else {
-        this.activeSessions.set(ip, {
+        this.activeSessions.set(key, {
           firstSeen: now,
           lastSeen: now,
           requests: 1,
-          userAgent: (userAgent || '').slice(0, 100),
         });
       }
       const current = this.activeSessions.size;
@@ -331,9 +230,9 @@ function createVisitorStatsService(ctx) {
     cleanup() {
       const now = Date.now();
       const expired = [];
-      for (const [ip, session] of this.activeSessions) {
+      for (const [key, session] of this.activeSessions) {
         if (now - session.lastSeen > SESSION_TIMEOUT) {
-          expired.push(ip);
+          expired.push(key);
           const duration = session.lastSeen - session.firstSeen;
           if (duration > 10000) {
             this.completedSessions.push({
@@ -344,7 +243,7 @@ function createVisitorStatsService(ctx) {
           }
         }
       }
-      expired.forEach((ip) => this.activeSessions.delete(ip));
+      expired.forEach((key) => this.activeSessions.delete(key));
       if (this.completedSessions.length > 1000) {
         this.completedSessions = this.completedSessions.slice(-1000);
       }
@@ -429,12 +328,11 @@ function createVisitorStatsService(ctx) {
       }
 
       const activeList = [];
-      for (const [ip, session] of this.activeSessions) {
+      for (const [, session] of this.activeSessions) {
         activeList.push({
           duration: now - session.firstSeen,
           durationFormatted: formatDuration(now - session.firstSeen),
           requests: session.requests,
-          ip: ip.includes('.') ? ip.substring(0, ip.lastIndexOf('.') + 1) + 'x' : ip,
         });
       }
       activeList.sort((a, b) => b.duration - a.duration);
@@ -462,39 +360,35 @@ function createVisitorStatsService(ctx) {
   // Periodic cleanup of stale sessions
   setInterval(() => sessionTracker.cleanup(), SESSION_CLEANUP_INTERVAL);
 
-  // Visitor tracking middleware
+  // Visitor tracking middleware (privacy-safe: only hashed IPs held in memory, never persisted)
   function visitorMiddleware(req, res, next) {
     rolloverVisitorStats();
 
-    const sessionIp = req.ip || req.connection?.remoteAddress || 'unknown';
-    if (req.path !== '/api/health' && !req.path.startsWith('/assets/')) {
-      sessionTracker.touch(sessionIp, req.headers['user-agent']);
-    }
+    const rawIp = req.ip || req.connection?.remoteAddress || 'unknown';
+    const isTrackable = req.path !== '/api/health' && !req.path.startsWith('/assets/');
 
-    const countableRoutes = ['/', '/index.html', '/api/config'];
-    if (countableRoutes.includes(req.path)) {
-      const ip = req.ip || req.connection?.remoteAddress || 'unknown';
+    if (isTrackable) {
+      sessionTracker.touch(rawIp);
 
-      const isNewToday = !todayIPSet.has(ip);
+      const ipHash = hashIP(rawIp);
+
+      const isNewToday = !todayIPHashes.has(ipHash);
       if (isNewToday) {
-        todayIPSet.add(ip);
-        visitorStats.uniqueIPsToday.push(ip);
+        todayIPHashes.add(ipHash);
+        visitorStats.uniqueVisitorsToday++;
       }
       visitorStats.totalRequestsToday++;
       visitorStats.allTimeRequests++;
 
-      const isNewAllTime = !allTimeIPSet.has(ip);
+      const isNewAllTime = !allTimeIPHashes.has(ipHash);
       if (isNewAllTime) {
-        if (allTimeIPSet.size < MAX_TRACKED_IPS) {
-          allTimeIPSet.add(ip);
+        if (allTimeIPHashes.size < MAX_TRACKED_HASHES) {
+          allTimeIPHashes.add(ipHash);
         }
         visitorStats.allTimeVisitors++;
-        queueGeoIPLookup(ip);
         logInfo(
-          `[Stats] New visitor (#${visitorStats.uniqueIPsToday.length} today, #${visitorStats.allTimeVisitors} all-time) from ${ip.includes('.') ? ip.substring(0, ip.lastIndexOf('.') + 1) + 'x' : ip}`,
+          `[Stats] New visitor (#${visitorStats.uniqueVisitorsToday} today, #${visitorStats.allTimeVisitors} all-time)`,
         );
-      } else if (isNewToday) {
-        queueGeoIPLookup(ip);
       }
     }
 
@@ -505,18 +399,18 @@ function createVisitorStatsService(ctx) {
   setInterval(
     () => {
       rolloverVisitorStats();
-      if (visitorStats.uniqueIPsToday.length > 0 || visitorStats.allTimeVisitors > 0) {
+      if (visitorStats.uniqueVisitorsToday > 0 || visitorStats.allTimeVisitors > 0) {
         const avg =
           visitorStats.history.length > 0
             ? Math.round(
                 visitorStats.history.reduce((sum, d) => sum + d.uniqueVisitors, 0) / visitorStats.history.length,
               )
-            : visitorStats.uniqueIPsToday.length;
+            : visitorStats.uniqueVisitorsToday;
         console.log(
-          `[Stats] Hourly: ${visitorStats.uniqueIPsToday.length} unique today, ${visitorStats.totalRequestsToday} requests | All-time: ${visitorStats.allTimeVisitors} visitors | Avg: ${avg}/day`,
+          `[Stats] Hourly: ${visitorStats.uniqueVisitorsToday} unique today, ${visitorStats.totalRequestsToday} requests | All-time: ${visitorStats.allTimeVisitors} visitors | Avg: ${avg}/day`,
         );
       }
-      saveVisitorStats(true);
+      saveVisitorStats();
     },
     60 * 60 * 1000,
   );
@@ -549,10 +443,6 @@ function createVisitorStatsService(ctx) {
     visitorMiddleware,
     saveVisitorStats,
     rolloverVisitorStats,
-    geoIPCache,
-    geoIPQueue,
-    todayIPSet,
-    allTimeIPSet,
     formatDuration,
     STATS_FILE,
   };

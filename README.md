@@ -429,6 +429,9 @@ Real-time tracking of amateur radio satellites with orbital visualization on the
 - Satellite positions as colored markers on the map, updated every 5 seconds
 - Orbital track lines showing each satellite's path over the next pass
 - Satellite name, altitude, and coordinates in the popup
+- When the satellite is visible popup shows range, range-rate, and doppler factor
+- (negative range rate means the satellite is approaching, positive means it is receding (moving away))
+- (doppler factor is uplink/downlink frequency multiplier to account for frequency shift due to relative motion)
 
 **How to use it:**
 

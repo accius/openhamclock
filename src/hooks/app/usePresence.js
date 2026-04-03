@@ -9,7 +9,7 @@ import { apiFetch } from '../../utils/apiFetch';
 
 const HEARTBEAT_INTERVAL = 2 * 60 * 1000; // 2 minutes
 
-export default function usePresence({ callsign, locator }) {
+export default function usePresence({ callsign, locator, sharePresence = true }) {
   const locationRef = useRef(null);
 
   // Parse locator to lat/lon
@@ -36,7 +36,7 @@ export default function usePresence({ callsign, locator }) {
 
   // Send heartbeat
   useEffect(() => {
-    if (!callsign || callsign === 'N0CALL' || !locationRef.current) return;
+    if (!sharePresence || !callsign || callsign === 'N0CALL' || !locationRef.current) return;
 
     const sendHeartbeat = async () => {
       if (!locationRef.current) return;
@@ -70,6 +70,8 @@ export default function usePresence({ callsign, locator }) {
     return () => {
       clearInterval(interval);
       window.removeEventListener('beforeunload', handleUnload);
+      // Remove presence immediately when stopping (toggle off or unmount)
+      navigator.sendBeacon('/api/presence/leave', JSON.stringify({ callsign }));
     };
-  }, [callsign, locator]);
+  }, [callsign, locator, sharePresence]);
 }

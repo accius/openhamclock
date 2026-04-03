@@ -188,7 +188,7 @@ export const Header = ({
           <div>
             <span style={{ color: 'var(--text-muted)' }}>SFI </span>
             <span style={{ color: 'var(--accent-amber)', fontWeight: '700' }}>
-              {solarIndices?.data?.sfi?.current || spaceWeather?.data?.solarFlux || '--'}
+              {solarIndices?.data?.sfi?.current ?? spaceWeather?.data?.solarFlux ?? '--'}
             </span>
           </div>
           <div>

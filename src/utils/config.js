@@ -37,6 +37,7 @@ export const DEFAULT_CONFIG = {
   swapHeaderClocks: false, // false = UTC first, true = Local first
   showMutualReception: true, // Show gold star on PSK spots with mutual reception
   preventSleep: false, // Keep screen awake while app is open (tablet/kiosk mode)
+  sharePresence: true, // Share callsign on the Active Users map layer
   displaySchedule: { enabled: false, sleepTime: '23:00', wakeTime: '07:00' }, // Scheduled display on/off
   showSatellites: true,
   showPota: true,

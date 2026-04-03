@@ -59,6 +59,7 @@ export const SettingsPanel = ({
   const [udpDxCluster, setUdpDxCluster] = useState(config?.udpDxCluster || { host: '', port: 12060 });
   const [lowMemoryMode, setLowMemoryMode] = useState(config?.lowMemoryMode || false);
   const [preventSleep, setPreventSleep] = useState(config?.preventSleep || false);
+  const [sharePresence, setSharePresence] = useState(config?.sharePresence !== false);
   const [displaySchedule, setDisplaySchedule] = useState(
     config?.displaySchedule || { enabled: false, sleepTime: '23:00', wakeTime: '07:00' },
   );
@@ -186,6 +187,7 @@ export const SettingsPanel = ({
       setUdpDxCluster(config.udpDxCluster || { host: '', port: 12060 });
       setLowMemoryMode(config.lowMemoryMode || false);
       setPreventSleep(config.preventSleep || false);
+      setSharePresence(config.sharePresence !== false);
       setDistUnits(config.allUnits?.dist || config.units || 'imperial');
       setTempUnits(config.allUnits?.temp || config.units || 'imperial');
       setPressUnits(config.allUnits?.press || config.units || 'imperial');
@@ -428,6 +430,7 @@ export const SettingsPanel = ({
       udpDxCluster,
       lowMemoryMode,
       preventSleep,
+      sharePresence,
       displaySchedule,
       // units,
       allUnits: { dist: distUnits, temp: tempUnits, press: pressUnits },
@@ -1861,6 +1864,69 @@ export const SettingsPanel = ({
                       : 'station.settings.preventSleep.describe.off',
                   )}
                 </div>
+              </div>
+            </div>
+
+            {/* Active Users Presence */}
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
+                {t('station.settings.sharePresence')}
+              </label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => setSharePresence(false)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: !sharePresence ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+                    border: `1px solid ${!sharePresence ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                    borderRadius: '6px',
+                    color: !sharePresence ? '#000' : 'var(--text-secondary)',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    fontWeight: !sharePresence ? '600' : '400',
+                  }}
+                >
+                  {t('station.settings.sharePresence.off')}
+                </button>
+                <button
+                  onClick={() => setSharePresence(true)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: sharePresence ? 'var(--accent-green)' : 'var(--bg-tertiary)',
+                    border: `1px solid ${sharePresence ? 'var(--accent-green)' : 'var(--border-color)'}`,
+                    borderRadius: '6px',
+                    color: sharePresence ? '#000' : 'var(--text-secondary)',
+                    fontSize: '13px',
+                    cursor: 'pointer',
+                    fontWeight: sharePresence ? '600' : '400',
+                  }}
+                >
+                  {t('station.settings.sharePresence.on')}
+                </button>
+              </div>
+              <div
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  marginTop: '8px',
+                }}
+              >
+                {t(
+                  sharePresence
+                    ? 'station.settings.sharePresence.describe.on'
+                    : 'station.settings.sharePresence.describe.off',
+                )}
               </div>
             </div>
 
@@ -4484,6 +4550,64 @@ export const SettingsPanel = ({
               </div>
               <div style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center', marginTop: '10px' }}>
                 Want to contribute? Check out our GitHub — issues, pull requests, and ideas are all welcome.
+              </div>
+            </div>
+
+            {/* Privacy Notice */}
+            <div
+              style={{ marginTop: '12px', padding: '14px 16px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}
+            >
+              <div
+                style={{
+                  fontSize: '12px',
+                  color: 'var(--accent-amber)',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  marginBottom: '10px',
+                  textAlign: 'center',
+                }}
+              >
+                Privacy
+              </div>
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                <p style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>No Cookies or Tracking</strong>
+                  <br />
+                  OpenHamClock does not set any HTTP cookies. There are no analytics services, tracking pixels, ad
+                  networks, or telemetry. All vendor libraries (maps, fonts) are self-hosted.
+                </p>
+                <p style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Browser Storage</strong>
+                  <br />
+                  Your settings (callsign, theme, filters, layout) are saved to your browser's localStorage. This data
+                  stays on your device and is never shared with third parties. Clearing your browser data removes it.
+                </p>
+                <p style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Visitor Statistics</strong>
+                  <br />
+                  The server counts unique visitors using anonymized, one-way hashed identifiers. No IP addresses are
+                  stored to disk or sent to third parties. Only aggregate counts are retained.
+                </p>
+                <p style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Active Users Layer</strong>
+                  <br />
+                  If enabled, your callsign and grid square (rounded to ~1km) are shared with other operators on the
+                  map. You can opt out in Station settings without affecting other features. Your presence is
+                  automatically removed when you close the tab or disable the setting.
+                </p>
+                <p style={{ marginBottom: '10px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Third-Party APIs</strong>
+                  <br />
+                  Weather data is fetched from Open-Meteo and NOAA directly from your browser. No personal data beyond
+                  your configured coordinates is sent. API keys you provide are stored locally in your browser only.
+                </p>
+                <p style={{ margin: 0 }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>Settings Sync</strong>
+                  <br />
+                  If the server operator has enabled settings sync, your preferences may be synced to the server for
+                  cross-device use. This is off by default and does not include profile data.
+                </p>
               </div>
             </div>
           </div>

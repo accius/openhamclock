@@ -231,7 +231,7 @@ const App = () => {
   }, [updateInProgress, t]);
 
   // Report presence to active users layer (runs for all configured users)
-  usePresence({ callsign: config.callsign, locator: config.locator });
+  usePresence({ callsign: config.callsign, locator: config.locator, sharePresence: config.sharePresence !== false });
 
   // Location & map state
   const { dxLocation, dxLocked, handleToggleDxLock, handleDXChange } = useDXLocation(config.defaultDX);

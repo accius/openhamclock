@@ -6,6 +6,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as satellite from 'satellite.js';
 
+function round(value, decimals) {
+  const factor = Math.pow(10, decimals);
+  return Math.round(value * factor) / factor;
+}
+
 export const useSatellites = (observerLocation) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +44,7 @@ export const useSatellites = (observerLocation) => {
 
     try {
       const now = new Date();
+      const gmst = satellite.gstime(now);
       const positions = [];
 
       // Observer position in radians
@@ -57,11 +63,12 @@ export const useSatellites = (observerLocation) => {
         try {
           const satrec = satellite.twoline2satrec(line1, line2);
           const positionAndVelocity = satellite.propagate(satrec, now);
+          const positionEci = positionAndVelocity.position;
+          const velocityEci = positionAndVelocity.velocity;
 
-          if (!positionAndVelocity.position) return;
+          if (!positionEci) return;
 
-          const gmst = satellite.gstime(now);
-          const positionGd = satellite.eciToGeodetic(positionAndVelocity.position, gmst);
+          const positionGd = satellite.eciToGeodetic(positionEci, gmst);
 
           // Convert to degrees
           const lat = satellite.degreesLat(positionGd.latitude);
@@ -69,20 +76,28 @@ export const useSatellites = (observerLocation) => {
           const alt = positionGd.height;
 
           // Calculate look angles
-          const lookAngles = satellite.ecfToLookAngles(
-            observerGd,
-            satellite.eciToEcf(positionAndVelocity.position, gmst),
-          );
-
+          const positionEcf = satellite.eciToEcf(positionEci, gmst);
+          const lookAngles = satellite.ecfToLookAngles(observerGd, positionEcf);
           const azimuth = satellite.radiansToDegrees(lookAngles.azimuth);
           const elevation = satellite.radiansToDegrees(lookAngles.elevation);
           const rangeSat = lookAngles.rangeSat;
 
-          // Calculate speed from ECI velocity vector (km/s)
+          // Calculate range-rate and doppler factor, only if satellite is above horizon
+          let dopplerFactor = 1;
+          let rangeRate = 0;
+          if (elevation > 0) {
+            const observerEcf = satellite.geodeticToEcf(observerGd);
+            const velocityEcf = satellite.eciToEcf(velocityEci, gmst);
+            dopplerFactor = satellite.dopplerFactor(observerEcf, positionEcf, velocityEcf);
+            const c = 299792.458; // Speed of light [km/s]
+            rangeRate = (1 - dopplerFactor) * c; // [km/s]
+          }
+
+          // Calculate speed from ECI velocity vector [km/s]
           let speedKmH = 0;
-          if (positionAndVelocity.velocity) {
-            const v = positionAndVelocity.velocity;
-            speedKmH = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) * 3600; // km/s → km/h
+          if (velocityEci) {
+            const v = velocityEci;
+            speedKmH = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) * 3600; // [km/s] → [km/h]
           }
 
           // Calculate orbit track (past 45 min and future 45 min = 90 min total)
@@ -105,19 +120,21 @@ export const useSatellites = (observerLocation) => {
 
           // Calculate footprint radius (visibility circle)
           // Formula: radius = Earth_radius * arccos(Earth_radius / (Earth_radius + altitude))
-          const earthRadius = 6371; // km
+          const earthRadius = 6371; // [km]
           const footprintRadius = earthRadius * Math.acos(earthRadius / (earthRadius + alt));
 
           positions.push({
             name: tle.name || name,
             lat,
             lon,
-            alt: Math.round(alt),
-            speedKmH: Math.round(speedKmH),
-            azimuth: Math.round(azimuth),
-            elevation: Math.round(elevation),
-            range: Math.round(rangeSat),
-            visible: elevation > 0,
+            alt: round(alt, 1),
+            speedKmH: round(speedKmH, 1),
+            azimuth: round(azimuth, 0),
+            elevation: round(elevation, 0),
+            range: round(rangeSat, 1),
+            rangeRate: round(rangeRate, 3),
+            dopplerFactor: round(dopplerFactor, 9),
+            isVisible: elevation > 0,
             isPopular: tle.priority <= 2,
             track,
             footprintRadius: Math.round(footprintRadius),

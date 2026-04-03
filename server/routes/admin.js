@@ -24,10 +24,6 @@ module.exports = function (app, ctx) {
     API_WRITE_KEY,
     visitorStats,
     sessionTracker,
-    geoIPCache,
-    geoIPQueue,
-    todayIPSet,
-    allTimeIPSet,
     saveVisitorStats,
     STATS_FILE,
     rolloverVisitorStats,
@@ -64,15 +60,15 @@ module.exports = function (app, ctx) {
     const avg =
       visitorStats.history.length > 0
         ? Math.round(visitorStats.history.reduce((sum, d) => sum + d.uniqueVisitors, 0) / visitorStats.history.length)
-        : visitorStats.uniqueIPsToday.length;
+        : visitorStats.uniqueVisitorsToday;
 
     // Get last 14 days for the chart
     const chartData = [...visitorStats.history].slice(-14);
     // Add today if we have data
-    if (visitorStats.uniqueIPsToday.length > 0) {
+    if (visitorStats.uniqueVisitorsToday > 0) {
       chartData.push({
         date: visitorStats.today,
-        uniqueVisitors: visitorStats.uniqueIPsToday.length,
+        uniqueVisitors: visitorStats.uniqueVisitorsToday,
         totalRequests: visitorStats.totalRequestsToday,
       });
     }
@@ -445,7 +441,7 @@ module.exports = function (app, ctx) {
       </div>
       <div class="stat-card">
         <div class="stat-icon">👥</div>
-        <div class="stat-value">${visitorStats.uniqueIPsToday.length}</div>
+        <div class="stat-value">${visitorStats.uniqueVisitorsToday}</div>
         <div class="stat-label">Visitors Today</div>
       </div>
       <div class="stat-card">
@@ -546,7 +542,6 @@ module.exports = function (app, ctx) {
         <thead>
           <tr>
             <th>#</th>
-            <th>IP</th>
             <th style="text-align: right">Session Duration</th>
             <th style="text-align: right">Requests</th>
           </tr>
@@ -557,7 +552,6 @@ module.exports = function (app, ctx) {
               (s, i) => `
             <tr>
               <td style="color: #888">${i + 1}</td>
-              <td><code style="color: #00ccff">${s.ip}</code></td>
               <td style="text-align: right; color: #00ff88; font-weight: 600">${s.durationFormatted}</td>
               <td style="text-align: right">${s.requests}</td>
             </tr>
@@ -616,74 +610,6 @@ module.exports = function (app, ctx) {
       </div>
     </div>
 
-    ${(() => {
-      // Country statistics section
-      const allTimeCountries = Object.entries(visitorStats.countryStats || {}).sort((a, b) => b[1] - a[1]);
-      const todayCountries = Object.entries(visitorStats.countryStatsToday || {}).sort((a, b) => b[1] - a[1]);
-      const totalResolved = allTimeCountries.reduce((s, [, v]) => s + v, 0);
-
-      if (allTimeCountries.length === 0 && geoIPQueue.size === 0) return '';
-
-      // Country code to flag emoji
-      const flag = (cc) => {
-        try {
-          return String.fromCodePoint(...[...cc.toUpperCase()].map((c) => 0x1f1e5 + c.charCodeAt(0) - 64));
-        } catch {
-          return '🏳';
-        }
-      };
-
-      const maxCount = allTimeCountries[0]?.[1] || 1;
-
-      return `
-    <div class="api-section">
-      <div class="api-title">
-        <span>🌍 Visitor Countries</span>
-        <span style="color: #888; font-size: 0.75rem">${geoIPCache.size} resolved, ${geoIPQueue.size} pending</span>
-      </div>
-
-      ${
-        todayCountries.length > 0
-          ? `
-      <div style="margin-bottom: 16px">
-        <div style="color: #888; font-size: 0.75rem; margin-bottom: 6px">Today</div>
-        <div style="display: flex; flex-wrap: wrap; gap: 6px">
-          ${todayCountries
-            .map(
-              ([cc, count]) => `
-            <span style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 4px 8px; font-size: 0.8rem">
-              ${flag(cc)} ${cc} <span style="color: #00ff88; font-weight: 600">${count}</span>
-            </span>
-          `,
-            )
-            .join('')}
-        </div>
-      </div>`
-          : ''
-      }
-
-      <div style="color: #888; font-size: 0.75rem; margin-bottom: 6px">All-Time (${allTimeCountries.length} countries, ${totalResolved} visitors resolved)</div>
-      <div style="max-height: 300px; overflow-y: auto">
-        ${allTimeCountries
-          .slice(0, 40)
-          .map(([cc, count]) => {
-            const pct = Math.round((count / totalResolved) * 100);
-            const barWidth = Math.max(2, (count / maxCount) * 100);
-            return `
-          <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 3px; font-size: 0.8rem">
-            <span style="width: 28px; text-align: center">${flag(cc)}</span>
-            <span style="width: 28px; color: #888; font-family: monospace">${cc}</span>
-            <div style="flex: 1; background: rgba(255,255,255,0.05); border-radius: 2px; height: 16px; overflow: hidden">
-              <div style="width: ${barWidth}%; height: 100%; background: linear-gradient(90deg, rgba(0,100,255,0.6), rgba(0,200,100,0.6)); border-radius: 2px"></div>
-            </div>
-            <span style="width: 60px; text-align: right; font-family: monospace; color: #ccc">${count}</span>
-            <span style="width: 40px; text-align: right; font-size: 0.7rem; color: #888">${pct}%</span>
-          </div>`;
-          })
-          .join('')}
-      </div>
-    </div>`;
-    })()}
 
     <div class="api-section">
       <div class="api-title">
@@ -834,7 +760,7 @@ module.exports = function (app, ctx) {
       const avg =
         visitorStats.history.length > 0
           ? Math.round(visitorStats.history.reduce((sum, d) => sum + d.uniqueVisitors, 0) / visitorStats.history.length)
-          : visitorStats.uniqueIPsToday.length;
+          : visitorStats.uniqueVisitorsToday;
 
       // Get endpoint monitoring stats
       const apiStats = endpointStats.getStats();
@@ -861,37 +787,17 @@ module.exports = function (app, ctx) {
         visitors: {
           today: {
             date: visitorStats.today,
-            uniqueVisitors: visitorStats.uniqueIPsToday.length,
+            uniqueVisitors: visitorStats.uniqueVisitorsToday,
             totalRequests: visitorStats.totalRequestsToday,
-            countries: Object.entries(visitorStats.countryStatsToday || {})
-              .sort((a, b) => b[1] - a[1])
-              .reduce((o, [k, v]) => {
-                o[k] = v;
-                return o;
-              }, {}),
           },
           allTime: {
             since: visitorStats.serverFirstStarted,
             uniqueVisitors: visitorStats.allTimeVisitors,
             totalRequests: visitorStats.allTimeRequests,
             deployments: visitorStats.deploymentCount,
-            countries: Object.entries(visitorStats.countryStats || {})
-              .sort((a, b) => b[1] - a[1])
-              .reduce((o, [k, v]) => {
-                o[k] = v;
-                return o;
-              }, {}),
-          },
-          geoIP: {
-            resolved: geoIPCache.size,
-            pending: geoIPQueue.size,
-            coverage:
-              visitorStats.allTimeVisitors > 0
-                ? `${Math.round((geoIPCache.size / visitorStats.allTimeVisitors) * 100)}%`
-                : '0%',
           },
           dailyAverage: avg,
-          history: visitorStats.history.slice(-30), // Last 30 days
+          history: visitorStats.history.slice(-30),
         },
         apiTraffic: {
           monitoringStarted: new Date(endpointStats.startTime).toISOString(),
