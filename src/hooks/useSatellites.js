@@ -82,10 +82,13 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
           const elevation = satellite.radiansToDegrees(lookAngles.elevation);
           const rangeSat = lookAngles.rangeSat;
 
-          // Calculate range-rate and doppler factor, only if satellite is above horizon
+          const isVisible = elevation >= satelliteConfig.minElev; // visible only if above minimum elevation
+
+          // Calculate range-rate and doppler factor, only if satellite is visible
           let dopplerFactor = 1;
           let rangeRate = 0;
-          if (elevation > 0) {
+
+          if (isVisible) {
             const observerEcf = satellite.geodeticToEcf(observerGd);
             const velocityEcf = satellite.eciToEcf(velocityEci, gmst);
             dopplerFactor = satellite.dopplerFactor(observerEcf, positionEcf, velocityEcf);
@@ -136,7 +139,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
             range: round(rangeSat, 1),
             rangeRate: round(rangeRate, 3),
             dopplerFactor: round(dopplerFactor, 9),
-            visible: elevation >= satelliteConfig.minElev, // visible if above minimum elevation
+            isVisible, // visible if above minimum elevation
             isPopular: tle.priority <= 2,
             track,
             footprintRadius: Math.round(footprintRadius),
