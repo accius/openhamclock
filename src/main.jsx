@@ -5,7 +5,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { QRZProvider, setupMapQRZHandler } from './components/CallsignLink';
 import './styles/main.css';
 import './lang/i18n';
-import { DebugProvider } from './debug';
+import { DebugProvider } from './debug/DebugProvider';
 
 // Global click handler for QRZ links in Leaflet HTML popups
 setupMapQRZHandler();
