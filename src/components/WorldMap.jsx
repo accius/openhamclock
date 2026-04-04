@@ -161,6 +161,7 @@ export const WorldMap = ({
   const aprsMarkersRef = useRef([]);
   const countriesLayerRef = useRef([]);
   const dxLockedRef = useRef(dxLocked);
+  const pinnedPopupRef = useRef({ marker: null, timer: null });
   const rotatorLineRef = useRef(null);
   const rotatorGlowRef = useRef(null);
   const rotatorTurnRef = useRef(onRotatorTurnRequest);
@@ -744,6 +745,23 @@ export const WorldMap = ({
     };
   }, [leafletReady]); // leafletReady flips to true once window.L is confirmed available
 
+  // Unpin a pinned spot popup when the user clicks anywhere on the map
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const handleMapClick = () => {
+      const pinned = pinnedPopupRef.current;
+      if (pinned.marker) {
+        pinned.marker.closePopup();
+        clearTimeout(pinned.timer);
+        pinned.marker = null;
+        pinned.timer = null;
+      }
+    };
+    map.on('click', handleMapClick);
+    return () => map.off('click', handleMapClick);
+  }, [leafletReady]);
+
   // Update the value for how many scroll pixels count as a zoom level
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -1240,7 +1258,7 @@ export const WorldMap = ({
                 `<b data-qrz-call="${esc(dxCall)}" style="color: ${color}; cursor:pointer">${esc(dxCall)}</b><br>${esc(path.freq)} MHz<br>by <span data-qrz-call="${esc(path.spotter)}" style="cursor:pointer">${esc(path.spotter)}</span>`,
               )
               .on('mouseover', function () {
-                this.openPopup();
+                if (pinnedPopupRef.current.marker !== this) this.openPopup();
                 glowCircle = L.circleMarker([lat, lon], {
                   radius: 16,
                   fillColor: color,
@@ -1253,7 +1271,7 @@ export const WorldMap = ({
                 dxPathsMarkersRef.current.push(glowCircle);
               })
               .on('mouseout', function () {
-                this.closePopup();
+                if (pinnedPopupRef.current.marker !== this) this.closePopup();
                 if (glowCircle) {
                   map.removeLayer(glowCircle);
                   const idx = dxPathsMarkersRef.current.indexOf(glowCircle);
@@ -1264,7 +1282,22 @@ export const WorldMap = ({
               .addTo(map);
 
             if (onSpotClick) {
-              dxCircle.on('click', () => onSpotClick(path));
+              dxCircle.on('click', (e) => {
+                L.DomEvent.stopPropagation(e);
+                const pinned = pinnedPopupRef.current;
+                if (pinned.marker) {
+                  pinned.marker.closePopup();
+                  clearTimeout(pinned.timer);
+                }
+                pinned.marker = dxCircle;
+                dxCircle.openPopup();
+                pinned.timer = setTimeout(() => {
+                  dxCircle.closePopup();
+                  pinned.marker = null;
+                  pinned.timer = null;
+                }, 20000);
+                onSpotClick(path);
+              });
             }
 
             if (isHovered) dxCircle.bringToFront();
@@ -1403,18 +1436,33 @@ export const WorldMap = ({
                   ${spot.comments?.length > 0 ? `<br/><i>(${esc(spot.comments)})</i>` : ''}`,
               )
               .on('mouseover', function () {
-                this.openPopup();
+                if (pinnedPopupRef.current.marker !== this) this.openPopup();
                 if (this._icon)
                   this._icon.style.filter = `drop-shadow(0 0 4px ${mapDefaults.color}) drop-shadow(0 0 10px ${mapDefaults.color}) drop-shadow(0 0 20px ${mapDefaults.color})`;
               })
               .on('mouseout', function () {
-                this.closePopup();
+                if (pinnedPopupRef.current.marker !== this) this.closePopup();
                 if (this._icon) this._icon.style.filter = '';
               })
               .addTo(map);
 
             if (onSpotClick) {
-              marker.on('click', () => onSpotClick(spot));
+              marker.on('click', (e) => {
+                L.DomEvent.stopPropagation(e);
+                const pinned = pinnedPopupRef.current;
+                if (pinned.marker) {
+                  pinned.marker.closePopup();
+                  clearTimeout(pinned.timer);
+                }
+                pinned.marker = marker;
+                marker.openPopup();
+                pinned.timer = setTimeout(() => {
+                  marker.closePopup();
+                  pinned.marker = null;
+                  pinned.timer = null;
+                }, 20000);
+                onSpotClick(spot);
+              });
             }
 
             markersRef.current.push(marker);
@@ -1665,7 +1713,7 @@ export const WorldMap = ({
               `,
                 )
                 .on('mouseover', function () {
-                  this.openPopup();
+                  if (pinnedPopupRef.current.marker !== this) this.openPopup();
                   if (this._path) {
                     // circleMarker (TX) — use a Leaflet glow ring
                     glowCircle = L.circleMarker([rLat, rLon], {
@@ -1684,7 +1732,7 @@ export const WorldMap = ({
                   }
                 })
                 .on('mouseout', function () {
-                  this.closePopup();
+                  if (pinnedPopupRef.current.marker !== this) this.closePopup();
                   if (glowCircle) {
                     map.removeLayer(glowCircle);
                     const idx = pskMarkersRef.current.indexOf(glowCircle);
@@ -1696,7 +1744,22 @@ export const WorldMap = ({
                 .addTo(map);
 
               if (onSpotClick) {
-                marker.on('click', () => onSpotClick(spot));
+                marker.on('click', (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  const pinned = pinnedPopupRef.current;
+                  if (pinned.marker) {
+                    pinned.marker.closePopup();
+                    clearTimeout(pinned.timer);
+                  }
+                  pinned.marker = marker;
+                  marker.openPopup();
+                  pinned.timer = setTimeout(() => {
+                    marker.closePopup();
+                    pinned.marker = null;
+                    pinned.timer = null;
+                  }, 20000);
+                  onSpotClick(spot);
+                });
               }
 
               pskMarkersRef.current.push(marker);
@@ -1803,18 +1866,33 @@ export const WorldMap = ({
               `,
                 )
                 .on('mouseover', function () {
-                  this.openPopup();
+                  if (pinnedPopupRef.current.marker !== this) this.openPopup();
                   if (this._icon)
                     this._icon.style.filter = `drop-shadow(0 0 4px ${bandColor}) drop-shadow(0 0 10px ${bandColor}) drop-shadow(0 0 20px ${bandColor})`;
                 })
                 .on('mouseout', function () {
-                  this.closePopup();
+                  if (pinnedPopupRef.current.marker !== this) this.closePopup();
                   if (this._icon) this._icon.style.filter = '';
                 })
                 .addTo(map);
 
               if (onSpotClick) {
-                diamond.on('click', () => onSpotClick(spot));
+                diamond.on('click', (e) => {
+                  L.DomEvent.stopPropagation(e);
+                  const pinned = pinnedPopupRef.current;
+                  if (pinned.marker) {
+                    pinned.marker.closePopup();
+                    clearTimeout(pinned.timer);
+                  }
+                  pinned.marker = diamond;
+                  diamond.openPopup();
+                  pinned.timer = setTimeout(() => {
+                    diamond.closePopup();
+                    pinned.marker = null;
+                    pinned.timer = null;
+                  }, 20000);
+                  onSpotClick(spot);
+                });
               }
 
               wsjtxMarkersRef.current.push(diamond);
