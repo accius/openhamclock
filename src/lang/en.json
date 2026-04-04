@@ -152,6 +152,8 @@
   "keybindings.panel.toggleDeDx": "Toggle DE and DX Markers",
   "plugins.layers.aurora.description": "NOAA OVATION aurora probability forecast (30-min)",
   "plugins.layers.aurora.name": "Aurora Forecast",
+  "plugins.layers.ibp.name": "IBP Beacons",
+  "plugins.layers.ibp.description": "NCDXF/IARU International Beacon Project — live deterministic schedule",
   "plugins.layers.earthquakes.description": "Live USGS earthquake data (M2.5+ from last 24 hours)",
   "plugins.layers.earthquakes.name": "Earthquakes",
   "plugins.layers.earthquakes.viewDetails": "View Details →",
