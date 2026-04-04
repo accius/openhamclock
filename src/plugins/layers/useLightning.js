@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { makeDraggable } from './makeDraggable.js';
+import { getAlertSettings, playTone } from '../../utils/audioAlerts';
 
 // Lightning Detection Plugin - Real-time lightning strike visualization
 // Data source: Blitzortung.org WebSocket API
@@ -616,14 +617,12 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
         panel.style.boxShadow = '0 0 20px rgba(255, 0, 0, 0.8)';
         panel.style.transition = 'all 0.3s ease';
 
-        // Play alert sound if available
-        try {
-          const audio = new Audio(
-            'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZRAEKT6Ln77BcGAU+ltryxnMnBSp+y/HajDkHGWi77eWdTQ0MUKfj8LZjHAY4kdfy',
-          );
-          audio.volume = 0.3;
-          audio.play().catch(() => {}); // Ignore errors if audio fails
-        } catch (e) {}
+        // Play alert tone via audio alerts system (if enabled in settings)
+        const alertSettings = getAlertSettings();
+        const lightningConf = alertSettings.lightning;
+        if (lightningConf?.enabled) {
+          playTone(lightningConf.tone, alertSettings.volume ?? 0.5);
+        }
       } else {
         // No nearby strikes - restore normal appearance
         panel.style.border = '1px solid var(--border-color)';

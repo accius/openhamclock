@@ -440,7 +440,8 @@ export const PropagationPanel = ({
           {/* Geomag + Signal Noise + Source */}
           <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-muted)', textAlign: 'center' }}>
             <span>
-              SFI {solarData?.sfi} • K {solarData?.kIndex}
+              SFI {bandConditions?.extras?.solarFlux ?? solarData?.sfi} • K{' '}
+              {bandConditions?.extras?.kIndex ?? solarData?.kIndex}
             </span>
             {bandConditions?.extras?.geomagField && (
               <span>

@@ -79,6 +79,8 @@ export const useBandConditions = () => {
 
         // Extra solar/geomag data from N0NBH
         setExtras({
+          solarFlux: n0nbh.solarData?.solarFlux,
+          kIndex: n0nbh.solarData?.kIndex,
           aIndex: n0nbh.solarData?.aIndex,
           xray: n0nbh.solarData?.xray,
           solarWind: n0nbh.solarData?.solarWind,

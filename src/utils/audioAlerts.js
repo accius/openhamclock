@@ -37,6 +37,7 @@ export const ALERT_FEEDS = {
   dxcluster: { label: 'DX Cluster', defaultTone: 'beep' },
   dxpeditions: { label: 'DXpeditions', defaultTone: 'two-tone' },
   contests: { label: 'Contests', defaultTone: 'simple' },
+  lightning: { label: 'Lightning Proximity', defaultTone: 'chirp' },
 };
 
 const LS_KEY = 'ohc_audio_alerts';
