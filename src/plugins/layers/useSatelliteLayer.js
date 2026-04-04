@@ -53,9 +53,9 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       const data = await response.json();
 
       const observerGd = {
-        latitude: satellite.degreesToRadians(config?.lat ?? 43.44),
-        longitude: satellite.degreesToRadians(config?.lon ?? -88.63),
-        height: (config?.alt || 260) / 1000,
+        latitude: satellite.degreesToRadians(config?.lat ?? 0.0),
+        longitude: satellite.degreesToRadians(config?.lon ?? 0.0),
+        height: (config?.stationAlt || 100) / 1000, // above sea level [km], stationAlt is [m], defaults to 100m
       };
 
       const satArray = Object.keys(data).map((name) => {
@@ -79,7 +79,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
             az = lookAngles.azimuth * (180 / Math.PI);
             el = lookAngles.elevation * (180 / Math.PI);
             range = lookAngles.rangeSat;
-            isVisible = el > 0;
+            isVisible = el >= (config?.satellite?.minElev || 0); // visible only if above minimum elevation
           }
 
           const minutesToPredict = config?.leadTimeMins || 45;
@@ -197,7 +197,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         <button class="sat-data-window-minimize"
                 onclick="window.__satWinToggleMinimize()"
                 title="${winMinimized ? 'Expand' : 'Minimize'}"
-                style="background:none; border:none; color:#888; cursor:pointer;
+                style="background:none; border:none; color: #888; cursor:pointer;
                        font-size:10px; line-height:1; padding:2px 4px; margin:0;">
           ${winMinimized ? '▶' : '▼'}
         </button>
@@ -258,38 +258,75 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           return `
         <div class="sat-card" style="border-bottom: 1px solid #004444; margin-bottom: 10px; padding-bottom: 8px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-            <strong style="color:#ffffff; font-size: 14px;">${sat.name}</strong>
+              <strong style="color:#ffffff; font-size: 14px;">${sat.name}</strong>
             <button onclick="window.toggleSat('${sat.name}')" 
                     style="background:none; border:none; color:#ff4444; cursor:pointer; font-weight:bold; font-size:20px; padding: 0 5px;">✕</button>
           </div>
           <table style="width:100%; font-size:11px; border-collapse: collapse;">
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.latitude')}:</td><td align="right" style="padding:2px 0;">${sat.lat.toFixed(2)}°</td></tr>
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.longitude')}:</td><td align="right" style="padding:2px 0;">${sat.lon.toFixed(2)}°</td></tr>
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.speed')}:</td><td align="right" style="padding:2px 0;">${speedStr}</td></tr>
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.altitude')}:</td><td align="right" style="padding:2px 0;">${altitudeStr}</td></tr>
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.azimuth_elevation')}:</td><td align="right" style="padding:2px 0;">${sat.azimuth}° / ${sat.elevation}°</td></tr>
+
+            <!-- section 1: satellite position and motion -->
+            <table style="background-color: #302115; width:100%; font-size:11px; style="color: #888; padding:2px 0;"">
+            <tr>
+              <td>${t('station.settings.satellites.latitude')}:</td>
+              <td align="right" style="padding:2px 0;">${sat.lat.toFixed(2)}°</td>
+            </tr>
+            <tr>
+              <td>${t('station.settings.satellites.longitude')}:</td>
+              <td align="right" style="padding:2px 0;">${sat.lon.toFixed(2)}°</td>
+            </tr>
+            <tr>
+              <td>${t('station.settings.satellites.altitude')}:</td>
+              <td align="right" style="padding:2px 0;">${altitudeStr}</td>
+            </tr>
+            <tr>
+              <td>${t('station.settings.satellites.speed')}:</td>
+              <td align="right" style="padding:2px 0;">${speedStr}</td>
+            </tr>
+            </table>
+
+            <!-- section 2: relative location and visibility -->
+            <table style="width:100%; background-color: ${isVisible ? '#00f800' : '#252e17'}; font-size:11px; color: ${isVisible ? '#000' : '#888'}; padding:2px 0;">
+            <tr><td>${t('station.settings.satellites.azimuth_elevation')}:</td><td align="right">${sat.azimuth}° / ${sat.elevation}°</td></tr>
 
             ${
               isVisible
                 ? `
-              <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.range')}:</td><td align="right" style="padding:2px 0;">${(sat.range * (isMetric ? 1 : km_to_miles_factor)).toFixed(0)} ${distanceUnitsStr}</td></tr>
-              <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.rangeRate')}:</td><td align="right" style="padding:2px 0;">${(sat.rangeRate * (isMetric ? 1 : km_to_miles_factor)).toFixed(2)} ${rangeRateUnitsStr}</td></tr>
-              <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.dopplerFactor')}:</td><td align="right" style="padding:2px 0;">${sat.dopplerFactor.toFixed(7)}</td></tr>
+              <tr>
+                <td>${t('station.settings.satellites.range')}:</td>
+                <td align="right">${(sat.range * (isMetric ? 1 : km_to_miles_factor)).toFixed(0)} ${distanceUnitsStr}</td>
+              </tr>
+              <tr>
+                <td>${t('station.settings.satellites.rangeRate')}:</td>
+                <td align="right">${(sat.rangeRate * (isMetric ? 1 : km_to_miles_factor)).toFixed(2)} ${rangeRateUnitsStr}</td>
+              </tr>
+              <tr>
+                <td>${t('station.settings.satellites.dopplerFactor')}:</td>
+                <td align="right">${sat.dopplerFactor.toFixed(7)}</td>
+              </tr>
             `
                 : ``
             }
 
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.mode')}:</td><td align="right" style="color:#ffa500; padding:2px 0;">${sat.mode || 'N/A'}</td></tr>
-            ${sat.downlink ? `<tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.downlink')}:</td><td align="right" style="color:#00ffcc; padding:2px 0;">${sat.downlink}</td></tr>` : ''}
-            ${sat.uplink ? `<tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.uplink')}:</td><td align="right" style="color:#ffcc00; padding:2px 0;">${sat.uplink}</td></tr>` : ''}
-            ${sat.tone ? `<tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.tone')}:</td><td align="right" style="padding:2px 0;">${sat.tone}</td></tr>` : ''}
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.status')}:</td>
-                <td align="right" class="${isVisible ? 'sat-visible-blink' : ''}" style="padding:2px 0;">
-                  ${isVisible ? `<span style="color:#00ff88;">${t('station.settings.satellites.visible')}</span>` : `<span style="color:#666;">${t('station.settings.satellites.belowHorizon')}</span>`}
-                </td>
+            <tr>
+              <td>${t('station.settings.satellites.status')}:</td>
+              <td align="right">${isVisible ? `${t('station.settings.satellites.visible')}` : `${t('station.settings.satellites.belowHorizon')}`}</td>
             </tr>
-          </table>
-          ${sat.notes ? `<div style="font-size:9px; color:#666; margin-top:4px; font-style:italic;">${sat.notes}</div>` : ''}
+            </table>
+
+            <!-- section 3: miscellaneous satellite information -->
+            <table style="background-color: #233b46; width:100%; font-size:11px; color: #888; padding:2px 0;">
+            <tr>
+              <td>${t('station.settings.satellites.mode')}:</td>
+              <td align="right" style="color:#ffa500; padding:2px 0;">${sat.mode || 'N/A'}</td>
+            </tr>
+            ${sat.downlink ? `<tr><td>${t('station.settings.satellites.downlink')}:</td><td align="right" style="color:#00ffcc;">${sat.downlink}</td></tr>` : ''}
+            ${sat.uplink ? `<tr><td>${t('station.settings.satellites.uplink')}:</td><td align="right" style="color:#ffcc00;">${sat.uplink}</td></tr>` : ''}
+            ${sat.tone ? `<tr><td>${t('station.settings.satellites.tone')}:</td><td align="right">${sat.tone}</td></tr>` : ''}
+            </table>
+
+            </table>
+
+            ${sat.notes ? `<div style="font-size:9px; color:#666; margin-top:4px; font-style:italic;">${sat.notes}</div>` : ''}
         </div>
       `;
         })
