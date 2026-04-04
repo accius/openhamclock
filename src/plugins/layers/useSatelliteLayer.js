@@ -488,31 +488,16 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       console.log('[Satellite] created orbit object:', orbit);
 
       const groundStation = {
-        latitude: 32.895,
+        latitude: 32.896,
         longitude: -117.125,
-        height: 231,
+        height: 0,
       };
-      const startDate = dayjs().toDate();
-      const endDate = dayjs(startDate).add(7, 'day').toDate();
-      const minElevation = 20;
-      const maxPasses = 50;
+      const startDate = dayjs().toDate(); // from now
+      const endDate = dayjs(startDate).add(7, 'day').toDate(); // until 7 days from now
+      const minElevation = 0;
+      const maxPasses = 25;
       const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
       console.log(`[Satellite] computed ${passes.length} passes for ${sat.name}`);
-
-      passes.forEach((pass, index) => {
-        const azimuthStart = pass.azimuthStart.toFixed(1);
-        const azimuthApex = pass.azimuthApex.toFixed(1);
-        const azimuthEnd = pass.azimuthEnd.toFixed(1);
-        const maxElevation = pass.maxElevation.toFixed(1);
-        const durationMins = (pass.duration / 60000).toFixed(1);
-        const startTime = dayjs(pass.start).format('YYYY-MM-DD HH:mm:ss');
-        const apexTime = dayjs(pass.apex).format('YYYY-MM-DD HH:mm:ss');
-        const endTime = dayjs(pass.end).format('YYYY-MM-DD HH:mm:ss');
-
-        console.log(
-          `[Satellite] Pass ${index + 1}: ${sat.name} - Start: ${startTime} (Az: ${azimuthStart}°), Apex: ${apexTime} (Az: ${azimuthApex}°, El: ${maxElevation}°), End: ${endTime} (Az: ${azimuthEnd}°), Duration: ${durationMins} mins`,
-        );
-      });
 
       // Create a modal overlay
       const modalId = 'satellite-predict-modal';
@@ -572,14 +557,20 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid var(--text-muted);">
             <thead>
               <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
-                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Start Time</th>
-                <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az Start [°]</th>
-                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Apex Time</th>
-                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Az Apex [°]</th>
-                <th style="border-right: 3px double var(--text-muted); padding: 4px;">El Apex [°]</th>
-                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">End Time</th>
-                <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az End [°]</th>
-                <th style="padding: 4px;">Duration [mins]</th>
+                <th colspan="2" style="border-right: 3px double var(--text-muted); padding: 4px;">Start</th>
+                <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Apex</th>
+                <th colspan="2" style="border-right: 3px double var(--text-muted); padding: 4px;">End</th>
+                <th style="padding: 4px;">Duration</th>
+              </tr>
+              <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
+                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
+                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Az [°]</th>
+                <th style="border-right: 3px double var(--text-muted); padding: 4px;">El [°]</th>
+                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
+                <th style="padding: 4px;">[mins]</th>
               </tr>
             </thead>
             <tbody>
