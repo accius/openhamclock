@@ -97,11 +97,10 @@ function buildPopup(beacon, activeBands, secondsLeft) {
   const activeLines = activeBands
     .map(
       (b) =>
-        `<span style="color:${DEFAULT_BAND_COLORS[b.band.label] ?? '#aaa'};font-weight:700;">${b.band.label} ${b.band.mhz.toFixed(3)} MHz</span>`,
+        `<span style="color:${DEFAULT_BAND_COLORS[b.label] ?? '#aaa'};font-weight:700;">${b.label} ${b.mhz.toFixed(3)} MHz</span>`,
     )
     .join('<br>');
 
-  const nextOnAll = activeBands.length === 0 ? '' : '';
   // Seconds until this beacon next appears on 14.100 — useful when inactive
   const slot = getCurrentSlot(new Date());
   const beaconIndex = IBP_BEACONS.indexOf(beacon);
