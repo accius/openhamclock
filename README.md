@@ -18,6 +18,44 @@ OpenHamClock brings DX cluster spots, space weather, propagation predictions, PO
 
 ## Quick Start
 
+### Prerequisites
+
+- **Node.js v20.19 or later** (v22.12+ also supported) — required by Vite and the Express
+  backend. The version of Node.js shipped by default in most Linux distributions
+  (including Ubuntu 24.04 via `apt install nodejs`) is too old and **will not work**.
+
+  Install a current LTS release using one of these methods:
+
+  **nvm (Linux / macOS — recommended):**
+
+  ```bash
+  curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | bash
+  nvm install --lts
+  ```
+
+  **NodeSource (Ubuntu / Debian — system-wide):**
+
+  ```bash
+  curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+  sudo apt-get install -y nodejs
+  ```
+
+  **Volta (Windows / macOS / Linux):**
+
+  ```bash
+  curl https://get.volta.sh | bash
+  volta install node
+  ```
+
+  **Windows:** Download the LTS installer from [nodejs.org](https://nodejs.org/).
+
+- **npm v9 or later** — ships with Node 20+ by default. Verify with `npm --version`.
+
+> ⚠️ **Ubuntu / Debian users:** Do **not** use `apt install nodejs` — the packaged version
+> is v18 which is below the minimum required. Use NodeSource or nvm as shown above.
+
+### Install & run
+
 ```bash
 git clone https://github.com/accius/openhamclock.git
 cd openhamclock
