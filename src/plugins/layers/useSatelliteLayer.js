@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import * as satellite from 'satellite.js';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { replicatePoint, replicatePath } from '../../utils/geo.js';
-import Orbit from './satelliteOrbit.js';
+import Orbit from '../../utils/orbit.js';
 import dayjs from 'dayjs';
 import useAppConfig from '../../hooks/app/useAppConfig.js';
 
