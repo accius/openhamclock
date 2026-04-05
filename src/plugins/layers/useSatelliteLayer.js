@@ -571,13 +571,14 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid var(--text-muted);">
             <thead>
               <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
-                <th colspan="2" style="border-right: 3px double var(--text-muted); padding: 4px;">Start</th>
+                <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Start</th>
                 <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Apex</th>
                 <th colspan="2" style="border-right: 3px double var(--text-muted); padding: 4px;">End</th>
                 <th style="padding: 4px;">Duration</th>
               </tr>
               <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
                 <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">From Now</th>
                 <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
                 <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
                 <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Az [°]</th>
@@ -598,8 +599,12 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                   const startTime = dayjs(pass.start).format('YYYY-MM-DD HH:mm:ss');
                   const apexTime = dayjs(pass.apex).format('YYYY-MM-DD HH:mm:ss');
                   const endTime = dayjs(pass.end).format('YYYY-MM-DD HH:mm:ss');
+                  const minsFromNow = dayjs(pass.start).diff(dayjs(), 'minutes');
+                  const timeFromNow =
+                    minsFromNow > 60 ? `${Math.floor(minsFromNow / 60)}hr ${minsFromNow % 60}min` : `${minsFromNow}m`;
                   return `<tr style="background: rgba(0,0,0,0.1); text-align: center; border-bottom: 1px solid var(--text-muted);">
                   <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${startTime}</td>
+                  <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${timeFromNow}</td>
                   <td style="border-right: 3px double var(--text-muted); padding: 4px;">${azimuthStart}</td>
                   <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${apexTime}</td>
                   <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${azimuthApex}</td>
