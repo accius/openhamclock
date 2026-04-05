@@ -179,6 +179,20 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           });
         }
       };
+
+      // Prevent map from capturing events on the window
+      win.addEventListener('wheel', (e) => {
+        e.stopPropagation();
+      });
+      win.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+      });
+      win.addEventListener('mousemove', (e) => {
+        e.stopPropagation();
+      });
+      win.addEventListener('mouseup', (e) => {
+        e.stopPropagation();
+      });
     }
 
     win.style.top = `${winPos.top}px`;
