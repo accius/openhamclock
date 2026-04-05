@@ -510,11 +510,14 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                     const startTime = dayjs(pass.start).format('YYYY-MM-DD HH:mm:ss');
                     const apexTime = dayjs(pass.apex).format('YYYY-MM-DD HH:mm:ss');
                     const endTime = dayjs(pass.end).format('YYYY-MM-DD HH:mm:ss');
-                    const minsFromNow = dayjs(pass.start).diff(dayjs(), 'minutes');
+                    const secsFromNow = dayjs(pass.start).diff(dayjs(), 'second');
                     const timeFromNow =
-                      minsFromNow > 60
-                        ? `${Math.floor(minsFromNow / 60)}hr ${minsFromNow % 60}min`
-                        : `${minsFromNow}min`;
+                      secsFromNow > 3600
+                        ? `${String(Math.floor(secsFromNow / 3600)).padStart(2, '0')}:${String(Math.floor((secsFromNow % 3600) / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
+                        : secsFromNow > 60
+                          ? `00:${String(Math.floor(secsFromNow / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
+                          : `00:00:${String(secsFromNow).padStart(2, '0')}`;
+
                     return `<tr style="background: rgba(0,0,0,0.1); text-align: center; border-bottom: 1px solid var(--text-muted);">
                     <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${startTime}</td>
                     <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${timeFromNow}</td>
@@ -594,21 +597,23 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       modal.appendChild(content);
       document.body.appendChild(modal);
 
-      // Set up periodic updates every minute
+      const currentStartDate = dayjs().toDate();
+      const currentEndDate = dayjs(currentStartDate).add(7, 'day').toDate();
+      const currentPasses = orbit.computePassesElevation(
+        groundStation,
+        currentStartDate,
+        currentEndDate,
+        minElevation,
+        maxPasses,
+      );
+
+      // update modal every second, satellite data currentPasses is not updated unless modal is reopened,
+      // or if satellite layer is updated for instance if TLE data changes
       const updatePasses = () => {
-        const currentStartDate = dayjs().toDate();
-        const currentEndDate = dayjs(currentStartDate).add(7, 'day').toDate();
-        const currentPasses = orbit.computePassesElevation(
-          groundStation,
-          currentStartDate,
-          currentEndDate,
-          minElevation,
-          maxPasses,
-        );
         content.innerHTML = generateModalContent(currentPasses);
       };
 
-      window.satellitePredictInterval = setInterval(updatePasses, 60000);
+      window.satellitePredictInterval = setInterval(updatePasses, 1000); // one second
 
       // Close on backdrop click
       modal.addEventListener('click', (e) => {
