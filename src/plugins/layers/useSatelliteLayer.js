@@ -5,6 +5,7 @@ import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { replicatePoint, replicatePath } from '../../utils/geo.js';
 import Orbit from './satelliteOrbit.js';
 import dayjs from 'dayjs';
+import useAppConfig from '../../hooks/app/useAppConfig.js';
 
 export const metadata = {
   id: 'satellites',
@@ -25,6 +26,7 @@ export const metadata = {
 export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, config, allUnits }) => {
   const layerGroupRef = useRef(null);
   const { t } = useTranslation();
+  const { config: globalConfig } = useAppConfig();
 
   // 1. Multi-select state (Wipes on browser close)
   const [selectedSats, setSelectedSats] = useState(() => {
@@ -49,19 +51,25 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     window.toggleSat = (name) => toggleSatellite(name);
   }, [selectedSats]);
 
+  // MRW note, much of the following code appears unused since satellite location is calculated in the useSatellites hook.
+  // I have commented it out and will leave for someone else to review and potentially remove.
   const fetchSatellites = async () => {
     try {
       const response = await fetch('/api/satellites/tle');
       const data = await response.json();
 
+      /*
       const observerGd = {
         latitude: satellite.degreesToRadians(config?.lat ?? 0.0),
         longitude: satellite.degreesToRadians(config?.lon ?? 0.0),
         height: (config?.stationAlt || 100) / 1000, // above sea level [km], stationAlt is [m], defaults to 100m
       };
+      */
 
       const satArray = Object.keys(data).map((name) => {
         const satData = data[name];
+
+        /*
         let isVisible = false;
         let az = 0,
           el = 0,
@@ -94,16 +102,16 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
               leadTrack.push([satellite.degreesLat(geodetic.latitude), satellite.degreesLong(geodetic.longitude)]);
             }
           }
-        }
+        }*/
 
         return {
           ...satData,
           name,
-          visible: isVisible,
-          azimuth: az,
-          elevation: el,
-          range: range,
-          leadTrack,
+          //visible: isVisible,
+          //azimuth: az,
+          //elevation: el,
+          //range: range,
+          //leadTrack,
         };
       });
 
@@ -496,23 +504,20 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         return;
       }
 
-      console.log('[Satellite] found satellite for prediction:', sat.name);
       const orbit = new Orbit(sat.name, `${sat.name}\n${tle1}\n${tle2}`);
       orbit.error && console.warn('Satellite orbit error:', orbit.error);
-      console.log('[Satellite] created orbit object:', orbit);
 
       const groundStation = {
-        latitude: 32.896,
-        longitude: -117.125,
-        height: 0,
+        latitude: globalConfig.location.lat,
+        longitude: globalConfig.location.lon,
+        height: globalConfig.location.stationAlt, // above sea level [m]
       };
 
       const startDate = dayjs().toDate(); // from now
       const endDate = dayjs(startDate).add(7, 'day').toDate(); // until 7 days from now
-      const minElevation = 0;
+      const minElevation = globalConfig.satellite.minElev;
       const maxPasses = 25;
       const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
-      console.log(`[Satellite] computed ${passes.length} passes for ${sat.name}`);
 
       // Function to generate modal content
       const generateModalContent = (currentPasses) => {
@@ -673,7 +678,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       };
       document.addEventListener('keydown', handleKeyDown);
     };
-  }, [satellites, allUnits]);
+  }, [satellites, globalConfig]);
   /********************************************************************************************/
 
   return null;

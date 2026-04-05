@@ -148,12 +148,12 @@ export default class Orbit {
         }
         ongoingPass = false;
         lastElevation = -180;
-        date.setMinutes(date.getMinutes() + this.orbitalPeriod * 0.5);
+        date.setMinutes(date.getMinutes() + this.orbitalPeriod * 0.05); // modified from original 0.5 value to make first pass calculation more reliable
       } else {
         const deltaElevation = elevation - lastElevation;
         lastElevation = elevation;
         if (deltaElevation < 0) {
-          date.setMinutes(date.getMinutes() + this.orbitalPeriod * 0.5);
+          date.setMinutes(date.getMinutes() + this.orbitalPeriod * 0.05); // modified from original 0.5 value to make first pass calculation more reliable
           lastElevation = -180;
         } else if (elevation < -20) {
           date.setMinutes(date.getMinutes() + 5);
