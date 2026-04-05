@@ -506,12 +506,93 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         longitude: -117.125,
         height: 0,
       };
+
       const startDate = dayjs().toDate(); // from now
       const endDate = dayjs(startDate).add(7, 'day').toDate(); // until 7 days from now
       const minElevation = 0;
       const maxPasses = 25;
       const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
       console.log(`[Satellite] computed ${passes.length} passes for ${sat.name}`);
+
+      // Function to generate modal content
+      const generateModalContent = (currentPasses) => {
+        return `
+          <div style="text-align: center; margin-bottom: 16px; border-bottom: 2px solid var(--accent-red); padding-bottom: 12px;">
+            <h2 style="margin: 0; color: var(--accent-red); font-size: 24px;">🛰 ${satName}</h2>
+            <p style="margin: 8px 0 0 0; color: var(--text-muted); font-size: 12px;">Satellite Prediction Details</p>
+          </div>
+
+          <div style="margin-top: 16px;">
+            <h3 style="margin: 0 0 8px 0; color: var(--accent-red); font-size: 18px;">Upcoming Passes</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid var(--text-muted);">
+              <thead>
+                <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
+                  <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Start</th>
+                  <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Apex</th>
+                  <th colspan="2" style="border-right: 3px double var(--text-muted); padding: 4px;">End</th>
+                  <th style="padding: 4px;">Duration</th>
+                </tr>
+                <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">From Now</th>
+                  <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Az [°]</th>
+                  <th style="border-right: 3px double var(--text-muted); padding: 4px;">El [°]</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                  <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
+                  <th style="padding: 4px;">[mins]</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${currentPasses
+                  .map((pass) => {
+                    const azimuthStart = pass.azimuthStart.toFixed(0);
+                    const azimuthApex = pass.azimuthApex.toFixed(0);
+                    const azimuthEnd = pass.azimuthEnd.toFixed(0);
+                    const maxElevation = pass.maxElevation.toFixed(0);
+                    const durationMins = (pass.duration / 60000).toFixed(1);
+                    const startTime = dayjs(pass.start).format('YYYY-MM-DD HH:mm:ss');
+                    const apexTime = dayjs(pass.apex).format('YYYY-MM-DD HH:mm:ss');
+                    const endTime = dayjs(pass.end).format('YYYY-MM-DD HH:mm:ss');
+                    const minsFromNow = dayjs(pass.start).diff(dayjs(), 'minutes');
+                    const timeFromNow =
+                      minsFromNow > 60
+                        ? `${Math.floor(minsFromNow / 60)}hr ${minsFromNow % 60}min`
+                        : `${minsFromNow}min`;
+                    return `<tr style="background: rgba(0,0,0,0.1); text-align: center; border-bottom: 1px solid var(--text-muted);">
+                    <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${startTime}</td>
+                    <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${timeFromNow}</td>
+                    <td style="border-right: 3px double var(--text-muted); padding: 4px;">${azimuthStart}</td>
+                    <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${apexTime}</td>
+                    <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${azimuthApex}</td>
+                    <td style="border-right: 3px double var(--text-muted); padding: 4px;">${maxElevation}</td>
+                    <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${endTime}</td>
+                    <td style="border-right: 3px double var(--text-muted); padding: 4px;">${azimuthEnd}</td>
+                    <td style="padding: 4px;">${durationMins}</td>
+                  </tr>`;
+                  })
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="text-align: center; margin-top: 16px;">
+            <button onclick="document.getElementById('${modalId}').remove(); clearInterval(window.satellitePredictInterval);" style="
+              background: var(--accent-cyan);
+              border: 1px solid var(--accent-cyan);
+              color: var(--bg-primary);
+              padding: 8px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-weight: bold;
+              font-size: 12px;
+            ">
+              Close
+            </button>
+          </div>
+        `;
+      };
 
       // Create a modal overlay
       const modalId = 'satellite-predict-modal';
@@ -553,95 +634,32 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         color: var(--text-primary);
       `;
 
-      const isMetric = allUnits.dist === 'metric';
-      const distanceUnitsStr = isMetric ? 'km' : 'miles';
-      const km_to_miles_factor = 0.621371;
-
-      let altitude = Math.round(sat.alt * (isMetric ? 1 : km_to_miles_factor));
-      let altitudeStr = sat.alt ? `${altitude.toLocaleString()} ${distanceUnitsStr}` : 'N/A';
-
-      content.innerHTML = `
-        <div style="text-align: center; margin-bottom: 16px; border-bottom: 2px solid var(--accent-red); padding-bottom: 12px;">
-          <h2 style="margin: 0; color: var(--accent-red); font-size: 24px;">🛰 ${satName}</h2>
-          <p style="margin: 8px 0 0 0; color: var(--text-muted); font-size: 12px;">Satellite Prediction Details</p>
-        </div>
-
-        <div style="margin-top: 16px;">
-          <h3 style="margin: 0 0 8px 0; color: var(--accent-red); font-size: 18px;">Upcoming Passes</h3>
-          <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid var(--text-muted);">
-            <thead>
-              <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
-                <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Start</th>
-                <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Apex</th>
-                <th colspan="2" style="border-right: 3px double var(--text-muted); padding: 4px;">End</th>
-                <th style="padding: 4px;">Duration</th>
-              </tr>
-              <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
-                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
-                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">From Now</th>
-                <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
-                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
-                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Az [°]</th>
-                <th style="border-right: 3px double var(--text-muted); padding: 4px;">El [°]</th>
-                <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
-                <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
-                <th style="padding: 4px;">[mins]</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${passes
-                .map((pass) => {
-                  const azimuthStart = pass.azimuthStart.toFixed(0);
-                  const azimuthApex = pass.azimuthApex.toFixed(0);
-                  const azimuthEnd = pass.azimuthEnd.toFixed(0);
-                  const maxElevation = pass.maxElevation.toFixed(0);
-                  const durationMins = (pass.duration / 60000).toFixed(1);
-                  const startTime = dayjs(pass.start).format('YYYY-MM-DD HH:mm:ss');
-                  const apexTime = dayjs(pass.apex).format('YYYY-MM-DD HH:mm:ss');
-                  const endTime = dayjs(pass.end).format('YYYY-MM-DD HH:mm:ss');
-                  const minsFromNow = dayjs(pass.start).diff(dayjs(), 'minutes');
-                  const timeFromNow =
-                    minsFromNow > 60 ? `${Math.floor(minsFromNow / 60)}hr ${minsFromNow % 60}min` : `${minsFromNow}m`;
-                  return `<tr style="background: rgba(0,0,0,0.1); text-align: center; border-bottom: 1px solid var(--text-muted);">
-                  <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${startTime}</td>
-                  <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${timeFromNow}</td>
-                  <td style="border-right: 3px double var(--text-muted); padding: 4px;">${azimuthStart}</td>
-                  <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${apexTime}</td>
-                  <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${azimuthApex}</td>
-                  <td style="border-right: 3px double var(--text-muted); padding: 4px;">${maxElevation}</td>
-                  <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${endTime}</td>
-                  <td style="border-right: 3px double var(--text-muted); padding: 4px;">${azimuthEnd}</td>
-                  <td style="padding: 4px;">${durationMins}</td>
-                </tr>`;
-                })
-                .join('')}
-            </tbody>
-          </table>
-        </div>
-
-        <div style="text-align: center; margin-top: 16px;">
-          <button onclick="document.getElementById('${modalId}').remove();" style="
-            background: var(--accent-cyan);
-            border: 1px solid var(--accent-cyan);
-            color: var(--bg-primary);
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 12px;
-          ">
-            Close
-          </button>
-        </div>
-      `;
+      content.innerHTML = generateModalContent(passes);
 
       modal.appendChild(content);
       document.body.appendChild(modal);
+
+      // Set up periodic updates every minute
+      const updatePasses = () => {
+        const currentStartDate = dayjs().toDate();
+        const currentEndDate = dayjs(currentStartDate).add(7, 'day').toDate();
+        const currentPasses = orbit.computePassesElevation(
+          groundStation,
+          currentStartDate,
+          currentEndDate,
+          minElevation,
+          maxPasses,
+        );
+        content.innerHTML = generateModalContent(currentPasses);
+      };
+
+      window.satellitePredictInterval = setInterval(updatePasses, 60000);
 
       // Close on backdrop click
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
           modal.remove();
+          clearInterval(window.satellitePredictInterval);
         }
       });
 
@@ -649,6 +667,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       const handleKeyDown = (e) => {
         if (e.key === 'Enter' || e.key === 'Escape') {
           modal.remove();
+          clearInterval(window.satellitePredictInterval);
           document.removeEventListener('keydown', handleKeyDown);
         }
       };
