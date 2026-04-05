@@ -51,67 +51,17 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     window.toggleSat = (name) => toggleSatellite(name);
   }, [selectedSats]);
 
-  // MRW note, much of the following code appears unused since satellite location is calculated in the useSatellites hook.
-  // I have commented it out and will leave for someone else to review and potentially remove.
   const fetchSatellites = async () => {
     try {
       const response = await fetch('/api/satellites/tle');
       const data = await response.json();
 
-      /*
-      const observerGd = {
-        latitude: satellite.degreesToRadians(config?.lat ?? 0.0),
-        longitude: satellite.degreesToRadians(config?.lon ?? 0.0),
-        height: (config?.stationAlt || 100) / 1000, // above sea level [km], stationAlt is [m], defaults to 100m
-      };
-      */
-
       const satArray = Object.keys(data).map((name) => {
         const satData = data[name];
-
-        /*
-        let isVisible = false;
-        let az = 0,
-          el = 0,
-          range = 0;
-        const leadTrack = [];
-
-        if (satData.line1 && satData.line2) {
-          const satrec = satellite.twoline2satrec(satData.line1, satData.line2);
-          const now = new Date();
-          const positionAndVelocity = satellite.propagate(satrec, now);
-          const gmst = satellite.gstime(now);
-
-          if (positionAndVelocity.position) {
-            const positionEcf = satellite.eciToEcf(positionAndVelocity.position, gmst);
-            const lookAngles = satellite.ecfToLookAngles(observerGd, positionEcf);
-
-            az = lookAngles.azimuth * (180 / Math.PI);
-            el = lookAngles.elevation * (180 / Math.PI);
-            range = lookAngles.rangeSat;
-            isVisible = el >= (config?.satellite?.minElev || 0); // visible only if above minimum elevation
-          }
-
-          const minutesToPredict = config?.leadTimeMins || 45;
-          for (let i = 0; i <= minutesToPredict; i += 2) {
-            const futureTime = new Date(now.getTime() + i * 60000);
-            const posVel = satellite.propagate(satrec, futureTime);
-            if (posVel.position) {
-              const fGmst = satellite.gstime(futureTime);
-              const geodetic = satellite.eciToGeodetic(posVel.position, fGmst);
-              leadTrack.push([satellite.degreesLat(geodetic.latitude), satellite.degreesLong(geodetic.longitude)]);
-            }
-          }
-        }*/
 
         return {
           ...satData,
           name,
-          //visible: isVisible,
-          //azimuth: az,
-          //elevation: el,
-          //range: range,
-          //leadTrack,
         };
       });
 
