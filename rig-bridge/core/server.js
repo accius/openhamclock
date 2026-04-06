@@ -743,7 +743,7 @@ function buildSetupHtml(version, firstRunToken = null) {
       <!-- Instructions -->
       <div class="ohc-instructions">
         <strong>New to Rig Bridge?</strong><br>
-        Follow <a href="https://github.com/accius/openhamclock/blob/main/rig-bridge/README.md#option-a----installer-from-the-openhamclock-settings-tab-recommended" target="_blank" rel="noopener noreferrer" style="color:#00ffcc;">Option A in the Rig Bridge README</a> for step-by-step setup instructions.
+        Follow <a href="https://github.com/accius/openhamclock/blob/main/rig-bridge/README.md#option-a----installer-from-the-openhamclock-settings-tab-recommended" target="_blank" rel="noopener noreferrer" style="color:#00ffcc;">Quickstart Option A</a> for step-by-step setup instructions.
       </div>
     </div>
 
