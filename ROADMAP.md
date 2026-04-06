@@ -140,6 +140,4 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instr
 
 ---
 
-<!-- markdownlint-disable-next-line MD036 -->
-
-_Last updated: 2026-03-26_
+_Last updated: 2026-03-26_ <!-- markdownlint-disable-line MD036 -->
