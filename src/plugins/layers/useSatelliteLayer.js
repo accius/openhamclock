@@ -510,8 +510,17 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                     const apexTime = dayjs(pass.apex).format('YYYY-MM-DD HH:mm:ss');
                     const endTime = dayjs(pass.end).format('YYYY-MM-DD HH:mm:ss');
                     const secsFromNow = dayjs(pass.start).diff(dayjs(), 'second');
-                    const timeFromNow =
-                      secsFromNow > 3600
+
+                    const isActive = secsFromNow <= 0 && dayjs().isBefore(dayjs(pass.end));
+                    const isPast = secsFromNow <= 0 && dayjs().isAfter(dayjs(pass.end));
+
+                    if (isPast) {
+                      return ``; // skip past passes
+                    }
+
+                    const timeFromNow = isActive
+                      ? 'ACTIVE'
+                      : secsFromNow > 3600
                         ? `${String(Math.floor(secsFromNow / 3600)).padStart(2, '0')}:${String(Math.floor((secsFromNow % 3600) / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
                         : secsFromNow > 60
                           ? `00:${String(Math.floor(secsFromNow / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
