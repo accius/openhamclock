@@ -325,7 +325,14 @@ module.exports = function (app, ctx) {
           );
         }
 
-        if (hourlyData?.hourly?.length === 24) {
+        // Validate that hourly data actually has frequency results — the proppy
+        // service returns 24 entries even when circuit breaker is open, but with
+        // empty frequencies arrays. Without this check we'd show 0% for all bands
+        // instead of falling through to the built-in model.
+        const hasFreqData =
+          hourlyData?.hourly?.length === 24 && hourlyData.hourly.some((h) => h.frequencies?.length > 0);
+
+        if (hasFreqData) {
           logDebug('[Propagation] Using ITURHFProp P.533-14 for all 24 hours');
           usedITURHFProp = true;
 
