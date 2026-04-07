@@ -4903,7 +4903,11 @@ export const SettingsPanel = ({
                       Linux
                     </a>
                     <a
-                      href={`${rigHost.replace(/\/$/, '')}:${rigPort}`}
+                      href={
+                        /^https?:\/\//i.test(rigHost)
+                          ? `${rigHost.replace(/\/$/, '')}:${rigPort}`
+                          : `http://localhost:${rigPort}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
