@@ -618,6 +618,10 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         content.innerHTML = generateModalContent(currentPasses);
       };
 
+      if (window.satellitePredictInterval) {
+        clearInterval(window.satellitePredictInterval);
+      }
+
       window.satellitePredictInterval = setInterval(updatePasses, 1000); // one second
 
       // Close on backdrop click
