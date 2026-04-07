@@ -13,10 +13,12 @@ Installs as a user-level systemd service (`openhamclock-rig`).
 1. Open a terminal.
 2. Navigate to `rig-control/scripts/linux`.
 3. Run the installer:
+
    ```bash
    chmod +x install.sh
    sudo ./install.sh
    ```
+
 4. **Manage Service**:
    - Status: `sudo systemctl status openhamclock-rig`
    - Data Log: `journalctl -u openhamclock-rig -f`
@@ -29,10 +31,12 @@ Installs as a LaunchAgent (`com.openhamclock.rig`) for the current user.
 1. Open Terminal.
 2. Navigate to `rig-control/scripts/mac`.
 3. Run the installer:
+
    ```bash
    chmod +x install.sh
    ./install.sh
    ```
+
 4. **Manage Service**:
    - The Log file is located at `rig-control/daemon.log`.
    - Stop: `launchctl unload ~/Library/LaunchAgents/com.openhamclock.rig.plist`
@@ -44,10 +48,12 @@ Installs as a Scheduled Task that runs at logon (hidden window).
 1. Open PowerShell as Administrator (optional, but recommended for task registration).
 2. Navigate to `rig-control/scripts/windows`.
 3. Run the installer:
+
    ```powershell
    Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
    .\install.ps1
    ```
+
 4. **Manage Service**:
    - Open **Task Scheduler** and look for `OpenHamClockRigDaemon`.
    - You can manually Start/End the task from there.
