@@ -45,11 +45,6 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     setSelectedSats((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
   };
 
-  // Bridge to the popup window HTML
-  useEffect(() => {
-    window.toggleSat = (name) => toggleSatellite(name);
-  }, [selectedSats]);
-
   const fetchSatellites = async () => {
     try {
       const response = await fetch('/api/satellites/tle');
@@ -157,9 +152,6 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
     const activeSats = satellites.filter((s) => selectedSats.includes(s.name));
 
-    // Expose minimize toggle so the inline onclick can reach it
-    window.__satWinToggleMinimize = () => setWinMinimized((prev) => !prev);
-
     const titleBar = `
       <div class="sat-data-window-title" style="display:flex; justify-content:space-between; align-items:center;
                   cursor:grab; user-select:none;
@@ -167,13 +159,26 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         <span data-drag-handle="true" style="font-family: 'JetBrains Mono', monospace; font-size:13px; font-weight:700; color: rgba(0, 187, 255, 1); letter-spacing:0.05em;">
           🛰 ${activeSats.length} ${activeSats.length !== 1 ? t('station.settings.satellites.name_plural') : t('station.settings.satellites.name')}
         </span>
-        <button class="sat-data-window-minimize"
-                onclick="window.__satWinToggleMinimize()"
-                title="${winMinimized ? 'Expand' : 'Minimize'}"
-                style="background:none; border:none; color: rgba(136, 136, 136, 1); cursor:pointer;
-                       font-size:10px; line-height:1; padding:2px 4px; margin:0;">
+        <button
+          class="sat-data-window-minimize"
+          title="${winMinimized ? 'Expand' : 'Minimize'}"
+          style="background:none; border:none; color: rgba(136, 136, 136, 1); cursor:pointer;
+                 font-size:10px; line-height:1; padding:2px 4px; margin:0;">
           ${winMinimized ? '▶' : '▼'}
         </button>
+      </div>
+    `;
+
+    const clearAllBtn = `
+      <div style="margin: 10px 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 5px;">
+        <button
+          class="sat-clear-all"
+          data-action="clear-all-satellites"
+          style="background: rgba(68, 0, 0, 1); border: 1px solid rgba(255, 68, 68, 1); color: rgba(255, 68, 68, 1); cursor: pointer;
+                 padding: 4px 10px; font-size: 10px; border-radius: 3px; font-weight: bold; width: 100%;">
+          ${t('station.settings.satellites.clearFootprints')}
+        </button>
+        <span style="font-size: 9px; color: rgba(136, 136, 136, 1);">${t('station.settings.satellites.dragTitle')}</span>
       </div>
     `;
 
@@ -187,24 +192,13 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         getIsMinimized: () => winMinimized,
         onToggle: setWinMinimized,
         persist: false,
-        manageButtonEvents: false,
+        manageButtonEvents: true,
       });
       return;
     }
 
     win.style.maxHeight = 'calc(100% - 80px)';
     win.style.overflowY = 'auto';
-
-    const clearAllBtn = `
-      <div style="margin: 10px 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 5px;">
-        <button onclick="sessionStorage.removeItem('selected_satellites'); window.location.reload();"
-                style="background: rgba(68, 0, 0, 1); border: 1px solid rgba(255, 68, 68, 1); color: rgba(255, 68, 68, 1); cursor: pointer;
-                       padding: 4px 10px; font-size: 10px; border-radius: 3px; font-weight: bold; width: 100%;">
-          ${t('station.settings.satellites.clearFootprints')}
-        </button>
-        <span style="font-size: 9px; color: rgba(136, 136, 136, 1);">${t('station.settings.satellites.dragTitle')}</span>
-      </div>
-    `;
 
     win.innerHTML =
       titleBar +
@@ -231,12 +225,22 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           return `
         <div class="sat-card" style="border-bottom: 1px solid rgba(0, 68, 68, 1); margin-bottom: 10px; padding-bottom: 8px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-            <button onclick="openSatellitePredict('${sat.name}', '${sat.tle1}', '${sat.tle2}')"
-                    style="background: rgba(68, 0, 0, 1); border: 1px solid rgba(255, 68, 68, 1); padding: 3px 3px; border-radius: 3px; cursor: pointer;">
+            <button
+              class="sat-open-predict"
+              data-action="open-predict"
+              data-sat-name="${sat.name}"
+              data-tle1="${sat.tle1}"
+              data-tle2="${sat.tle2}"
+              style="background: rgba(68, 0, 0, 1); border: 1px solid rgba(255, 68, 68, 1); padding: 3px 3px; border-radius: 3px; cursor: pointer;">
               <strong style="color: rgba(255, 255, 255, 1); font-size: 14px;">${sat.name}</strong>
             </button>
-            <button onclick="window.toggleSat('${sat.name}')" 
-                    style="background:none; border:none; color: rgba(255, 68, 68, 1); cursor:pointer; font-weight:bold; font-size:20px; padding: 0 5px;">✕</button>
+            <button
+              class="sat-toggle"
+              data-action="toggle-satellite"
+              data-sat-name="${sat.name}"
+              style="background:none; border:none; color: rgba(255, 68, 68, 1); cursor:pointer; font-weight:bold; font-size:20px; padding: 0 5px;">
+              ✕
+            </button>
           </div>
           <table style="width:100%; font-size:11px; border-collapse: collapse;">
 
@@ -312,7 +316,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       getIsMinimized: () => winMinimized,
       onToggle: setWinMinimized,
       persist: false,
-      manageButtonEvents: false,
+      manageButtonEvents: true,
     });
   };
 
@@ -437,10 +441,48 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     if (enabled) renderSatellites();
   }, [satellites, selectedSats, allUnits, opacity, config, winMinimized]);
 
+  // Delegated click handling for window buttons
+  useEffect(() => {
+    if (!map) return;
+    const container = map.getContainer();
+
+    const handleClick = (e) => {
+      const actionEl = e.target.closest('[data-action]');
+      if (!actionEl || !container.contains(actionEl)) return;
+
+      const action = actionEl.dataset.action;
+
+      if (action === 'clear-all-satellites') {
+        sessionStorage.removeItem('selected_satellites');
+        window.location.reload();
+        return;
+      }
+
+      if (action === 'toggle-satellite') {
+        const name = actionEl.dataset.satName;
+        if (name) toggleSatellite(name);
+        return;
+      }
+
+      if (action === 'open-predict') {
+        const name = actionEl.dataset.satName;
+        const tle1 = actionEl.dataset.tle1;
+        const tle2 = actionEl.dataset.tle2;
+        if (name && tle1 && tle2 && window.openSatellitePredict) {
+          window.openSatellitePredict(name, tle1, tle2);
+        }
+        return;
+      }
+    };
+
+    container.addEventListener('click', handleClick);
+    return () => container.removeEventListener('click', handleClick);
+  }, [map, toggleSatellite, satellites]);
+
   /********************************************************************************************/
   // Expose satellite prediction panel function
   useEffect(() => {
-    window.openSatellitePredict = (satName, tle1, tle2) => {
+    const openSatellitePredict = (satName, tle1, tle2) => {
       if (!satName || !satellites) return;
 
       // Find the satellite data
@@ -464,6 +506,8 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       const minElevation = globalConfig.satellite.minElev;
       const maxPasses = 25;
       const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
+
+      const modalId = 'satellite-predict-modal';
 
       // Function to generate modal content
       const generateModalContent = (currentPasses) => {
@@ -541,16 +585,19 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           </div>
 
           <div style="text-align: center; margin-top: 16px;">
-            <button onclick="document.getElementById('${modalId}').remove(); clearInterval(window.satellitePredictInterval);" style="
-              background: var(--accent-cyan);
-              border: 1px solid var(--accent-cyan);
-              color: var(--bg-primary);
-              padding: 8px 16px;
-              border-radius: 4px;
-              cursor: pointer;
-              font-weight: bold;
-              font-size: 12px;
-            ">
+            <button
+              class="sat-predict-close"
+              data-action="close-predict-modal"
+              style="
+                background: var(--accent-cyan);
+                border: 1px solid var(--accent-cyan);
+                color: var(--bg-primary);
+                padding: 8px 16px;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: bold;
+                font-size: 12px;
+              ">
               Close
             </button>
           </div>
@@ -558,7 +605,6 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       };
 
       // Create a modal overlay
-      const modalId = 'satellite-predict-modal';
       let modal = document.getElementById(modalId);
 
       if (modal) {
@@ -616,6 +662,18 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       // or if satellite layer is updated for instance if TLE data changes
       const updatePasses = () => {
         content.innerHTML = generateModalContent(currentPasses);
+        const closeBtn = content.querySelector('[data-action="close-predict-modal"]');
+        if (closeBtn) {
+          closeBtn.addEventListener('click', closeModal);
+        }
+      };
+
+      const closeModal = () => {
+        modal.remove();
+        if (window.satellitePredictInterval) {
+          clearInterval(window.satellitePredictInterval);
+        }
+        document.removeEventListener('keydown', handleKeyDown);
       };
 
       if (window.satellitePredictInterval) {
@@ -627,21 +685,27 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       // Close on backdrop click
       modal.addEventListener('click', (e) => {
         if (e.target === modal) {
-          modal.remove();
-          clearInterval(window.satellitePredictInterval);
+          closeModal();
         }
       });
 
       // Close on Enter or Escape key
       const handleKeyDown = (e) => {
         if (e.key === 'Enter' || e.key === 'Escape') {
-          modal.remove();
-          clearInterval(window.satellitePredictInterval);
-          document.removeEventListener('keydown', handleKeyDown);
+          closeModal();
         }
       };
       document.addEventListener('keydown', handleKeyDown);
+
+      // Wire initial close button
+      const initialCloseBtn = content.querySelector('[data-action="close-predict-modal"]');
+      if (initialCloseBtn) {
+        initialCloseBtn.addEventListener('click', closeModal);
+      }
     };
+
+    // expose for other callers if needed
+    window.openSatellitePredict = openSatellitePredict;
   }, [satellites, globalConfig]);
   /********************************************************************************************/
 
