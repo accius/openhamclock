@@ -97,13 +97,11 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
       let isDragging = false;
 
-      // This panel predates the shared Leaflet control widgets and is positioned
-      // relative to the map container using top/right, so it keeps its own drag
-      // logic instead of makeDraggable()'s fixed-position viewport model.
-      win.onmousedown = (e) => {
+      const handleMouseDown = (e) => {
         if (e.button !== 0) return;
         if (!e.target.closest('.sat-data-window-title')) return;
         if (e.target.closest('button')) return;
+
         isDragging = true;
         win.style.cursor = 'move';
         if (map.dragging) map.dragging.disable();
@@ -111,26 +109,40 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         e.stopPropagation();
       };
 
-      window.onmousemove = (e) => {
+      const handleMouseMove = (e) => {
         if (!isDragging) return;
+
         const rect = container.getBoundingClientRect();
         const x = rect.right - e.clientX;
         const y = e.clientY - rect.top;
+
         win.style.right = `${x - 10}px`;
         win.style.top = `${y - 10}px`;
       };
 
-      window.onmouseup = () => {
-        if (isDragging) {
-          isDragging = false;
-          win.style.cursor = 'default';
-          if (map.dragging) map.dragging.enable();
-          setWinPos({
-            top: parseInt(win.style.top),
-            right: parseInt(win.style.right),
-          });
-        }
+      const handleMouseUp = () => {
+        if (!isDragging) return;
+
+        isDragging = false;
+        win.style.cursor = 'default';
+        if (map.dragging) map.dragging.enable();
+
+        setWinPos({
+          top: parseInt(win.style.top),
+          right: parseInt(win.style.right),
+        });
       };
+
+      win.addEventListener('mousedown', handleMouseDown);
+      window.addEventListener('mousemove', handleMouseMove, { capture: true });
+      window.addEventListener('mouseup', handleMouseUp, { capture: true });
+
+      // Make sure we clean up if the window is ever removed
+      win.addEventListener('remove', () => {
+        win.removeEventListener('mousedown', handleMouseDown);
+        window.removeEventListener('mousemove', handleMouseMove, { capture: true });
+        window.removeEventListener('mouseup', handleMouseUp, { capture: true });
+      });
 
       // Prevent map from capturing events on the window
       win.addEventListener('wheel', (e) => {
