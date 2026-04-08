@@ -71,7 +71,13 @@ Select **Simulated Radio** in the setup screen. A fake radio will drift through 
 
 **Option A — Installer from the OpenHamClock Settings tab (recommended)**
 
-> Requires **Node.js** and **git** to be installed on your computer.
+> **Prerequisites:** The installer script requires **Node.js** to run the application and **Git** to download it.
+> Before running the installer, make sure you have both installed on your system:
+>
+> - **Node.js:** Download and install the LTS (Long Term Support) version from [nodejs.org](https://nodejs.org/).
+> - **Git:** Download and install Git from [git-scm.com](https://git-scm.com/) (on Windows, use Git for Windows; on macOS, you may be prompted to install Xcode command line tools; on Linux, install via your package manager like `sudo apt install git`).
+>
+> You only need to do this step once. After both are installed, you can proceed below.
 
 1. In OpenHamClock, open **Settings → Rig Bridge**.
 2. Tick **Enable Rig Bridge**.
@@ -80,7 +86,7 @@ Select **Simulated Radio** in the setup screen. A fake radio will drift through 
 **Windows**
 
 4. Open your Downloads folder and double-click `install-rig-bridge.bat`.
-   A Command Prompt window will open, download Rig Bridge, and start it automatically.
+   A Command Prompt window will open, download Rig Bridge, and then prompt you to press Enter to open the Setup UI in your browser. Leave this window open.
 
 **macOS**
 
@@ -89,7 +95,7 @@ Select **Simulated Radio** in the setup screen. A fake radio will drift through 
    chmod +x ~/Downloads/install-rig-bridge.sh
    ~/Downloads/install-rig-bridge.sh
    ```
-   The script downloads Rig Bridge and starts it. Leave the Terminal window open.
+   The script downloads Rig Bridge and then prompts you to press Enter to open the Setup UI in your browser. Leave the Terminal window open.
 
 **Linux**
 
@@ -98,12 +104,11 @@ Select **Simulated Radio** in the setup screen. A fake radio will drift through 
    chmod +x ~/Downloads/install-rig-bridge.sh
    ~/Downloads/install-rig-bridge.sh
    ```
-   The script downloads Rig Bridge and starts it. Leave the terminal open.
+   The script downloads Rig Bridge and then prompts you to press Enter to open the Setup UI in your browser. Leave the terminal open.
 
 ---
 
-5. Once Rig Bridge is running, return to OpenHamClock **Settings → Rig Bridge** and click
-   **Open Setup UI** — this opens **http://localhost:5555** in a new tab.
+5. The installation script will automatically open the Setup UI (e.g., **http://localhost:5555**) in your web browser. _(If it doesn't, you can click **Open Setup UI** in OpenHamClock's Settings tab)._
 6. Copy the **API Token** shown at the top of that page.
 7. Back in OpenHamClock **Settings → Rig Bridge**, paste the token into the **API Token** field.
 8. Confirm **Host** is `http://localhost` and **Port** is `5555`.
@@ -113,9 +118,11 @@ Now configure your radio in the Rig Bridge Setup UI — see [Connecting Your Rad
 
 To update Rig Bridge in the future, see [Updating Rig Bridge](#updating-rig-bridge).
 
-**Option B — Run from source with Node.js**
+**Option B — Run from source (Advanced)**
 
-If you have Node.js installed:
+"Running from source" means you manually download the raw source code of OpenHamClock (for instance, using `git clone` or downloading the ZIP from GitHub) and execute the program directly from your command line, rather than using an automated installer.
+
+If you have downloaded the code repository and have **Node.js** installed, open a terminal in the project directory and run:
 
 ```bash
 cd rig-bridge
