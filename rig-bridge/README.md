@@ -71,7 +71,13 @@ Select **Simulated Radio** in the setup screen. A fake radio will drift through 
 
 **Option A — Installer from the OpenHamClock Settings tab (recommended)**
 
-> Requires **Node.js** and **git** to be installed on your computer.
+> **Prerequisites:** The installer script requires **Node.js** to run the application and **Git** to download it.
+> Before running the installer, make sure you have both installed on your system:
+>
+> - **Node.js:** Download and install the LTS (Long Term Support) version from [nodejs.org](https://nodejs.org/).
+> - **Git:** Download and install Git from [git-scm.com](https://git-scm.com/) (on Windows, use Git for Windows; on macOS, you may be prompted to install Xcode command line tools; on Linux, install via your package manager like `sudo apt install git`).
+>
+> You only need to do this step once. After both are installed, you can proceed below.
 
 1. In OpenHamClock, open **Settings → Rig Bridge**.
 2. Tick **Enable Rig Bridge**.
@@ -113,9 +119,11 @@ Now configure your radio in the Rig Bridge Setup UI — see [Connecting Your Rad
 
 To update Rig Bridge in the future, see [Updating Rig Bridge](#updating-rig-bridge).
 
-**Option B — Run from source with Node.js**
+**Option B — Run from source (Advanced)**
 
-If you have Node.js installed:
+"Running from source" means you manually download the raw source code of OpenHamClock (for instance, using `git clone` or downloading the ZIP from GitHub) and execute the program directly from your command line, rather than using an automated installer.
+
+If you have downloaded the code repository and have **Node.js** installed, open a terminal in the project directory and run:
 
 ```bash
 cd rig-bridge
