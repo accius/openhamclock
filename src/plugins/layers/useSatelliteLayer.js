@@ -167,7 +167,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     const titleBar = `
       <div class="sat-data-window-title" style="display:flex; justify-content:space-between; align-items:center;
                   cursor:grab; user-select:none;
-                  padding: 8px 10px; border-bottom: 1px solid rgba(0, 68, 68, 1); background: rgba(0, 40, 40, 0.6);">
+                  padding: 8px 10px; border-bottom: 1px solid var(--border-color); background: var(--bg-tertiary);">
         <span data-drag-handle="true" style="font-family: 'JetBrains Mono', monospace; font-size:13px; font-weight:700; color: var(--accent-blue); letter-spacing:0.05em;">
           🛰 ${activeSats.length} ${activeSats.length !== 1 ? t('station.settings.satellites.name_plural') : t('station.settings.satellites.name')}
         </span>
@@ -251,25 +251,25 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           <table style="width:100%; font-size:11px; border-collapse: collapse;">
 
             <!-- section 1: satellite position and motion -->
-            <tr style="background-color: rgba(48, 33, 21, 0.8);">
+            <tr style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
               <td style="padding: 0 2px;">${t('station.settings.satellites.latitude')}:</td>
               <td align="right" style="padding: 0 2px;">${sat.lat.toFixed(2)}°</td>
             </tr>
-            <tr style="background-color: rgba(48, 33, 21, 0.8);">
+            <tr style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
               <td style="padding: 0 2px;">${t('station.settings.satellites.longitude')}:</td>
               <td align="right" style="padding: 0 2px;">${sat.lon.toFixed(2)}°</td>
             </tr>
-            <tr style="background-color: rgba(48, 33, 21, 0.8);">
+            <tr style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
               <td style="padding: 0 2px;">${t('station.settings.satellites.altitude')}:</td>
               <td align="right" style="padding: 0 2px;">${altitudeStr}</td>
             </tr>
-            <tr style="background-color: rgba(48, 33, 21, 0.8);">
+            <tr style="background-color: var(--bg-tertiary); color: var(--text-secondary);">
               <td style="padding: 0 2px;">${t('station.settings.satellites.speed')}:</td>
               <td align="right" style="padding: 0 2px;">${speedStr}</td>
             </tr>
 
             <!-- section 2: relative location and visibility -->
-            <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'rgba(37, 46, 23, 0.8)'}; color: ${isVisible ? '#000' : 'rgba(136, 136, 136, 1)'};">
+            <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'var(--bg-primary)'}; color: ${isVisible ? '#000' : 'var(--text-secondary)'};">
               <td style="padding: 0 2px;">${t('station.settings.satellites.azimuth_elevation')}:</td>
               <td align="right" style="padding: 0 2px;">${sat.azimuth}° / ${sat.elevation}°</td>
             </tr>
@@ -277,15 +277,15 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
             ${
               isVisible
                 ? `
-              <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'rgba(37, 46, 23, 0.8)'}; color: ${isVisible ? '#000' : 'rgba(136, 136, 136, 1)'};">
+              <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'var(--bg-primary)'}; color: ${isVisible ? '#000' : 'var(--text-secondary)'};">
                 <td style="padding: 0 2px;">${t('station.settings.satellites.range')}:</td>
                 <td align="right" style="padding: 0 2px;">${(sat.range * (isMetric ? 1 : km_to_miles_factor)).toFixed(0)} ${distanceUnitsStr}</td>
               </tr>
-              <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'rgba(37, 46, 23, 0.8)'}; color: ${isVisible ? '#000' : 'rgba(136, 136, 136, 1)'};">
+              <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'var(--bg-primary)'}; color: ${isVisible ? '#000' : 'var(--text-secondary)'};">
                 <td style="padding: 0 2px;">${t('station.settings.satellites.rangeRate')}:</td>
                 <td align="right" style="padding: 0 2px;">${(sat.rangeRate * (isMetric ? 1 : km_to_miles_factor)).toFixed(2)} ${rangeRateUnitsStr}</td>
               </tr>
-              <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'rgba(37, 46, 23, 0.8)'}; color: ${isVisible ? '#000' : 'rgba(136, 136, 136, 1)'};">
+              <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'var(--bg-primary)'}; color: ${isVisible ? '#000' : 'var(--text-secondary)'};">
                 <td style="padding: 0 2px;">${t('station.settings.satellites.dopplerFactor')}:</td>
                 <td align="right" style="padding: 0 2px;">${sat.dopplerFactor.toFixed(7)}</td>
               </tr>
@@ -293,21 +293,21 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                 : ``
             }
 
-            <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'rgba(37, 46, 23, 0.8)'}; color: ${isVisible ? '#000' : 'rgba(136, 136, 136, 1)'};">
+            <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'var(--bg-primary)'}; color: ${isVisible ? '#000' : 'var(--text-secondary)'};">
               <td style="padding: 0 2px;">${t('station.settings.satellites.status')}:</td>
               <td align="right" style="padding: 0 2px;">${isVisible ? `${t('station.settings.satellites.visible')}` : `${t('station.settings.satellites.belowHorizon')}`}</td>
             </tr>
 
             <!-- section 3: miscellaneous satellite information -->
-            <tr style="background-color: rgba(35, 59, 70, 0.8); color: rgba(136, 136, 136, 1);">
-              <td style="padding: 0 2px;">${t('station.settings.satellites.mode')}:</td>
-              <td align="right" style="color: rgba(255, 170, 0, 1); padding: 0 2px;">${sat.mode || 'N/A'}</td>
+            <tr style="background-color: var(--bg-secondary); color: var(--text-muted);">
+              <td style="style="padding: 0 2px;">${t('station.settings.satellites.mode')}:</td>
+              <td align="right" style="padding: 0 2px;">${sat.mode || 'N/A'}</td>
             </tr>
-            ${sat.downlink ? `<tr style="background-color: rgba(35, 59, 70, 0.8); color: rgba(136, 136, 136, 1);"><td style="padding: 0 2px;">${t('station.settings.satellites.downlink')}:</td><td align="right" style="color: rgba(0, 255, 204, 1); padding: 0 2px;">${sat.downlink}</td></tr>` : ''}
-            ${sat.uplink ? `<tr style="background-color: rgba(35, 59, 70, 0.8); color: rgba(136, 136, 136, 1);"><td>${t('station.settings.satellites.uplink')}:</td><td align="right" style="color: rgba(255, 204, 0, 1);">${sat.uplink}</td></tr>` : ''}
-            ${sat.tone ? `<tr style="background-color: rgba(35, 59, 70, 0.8); color: rgba(136, 136, 136, 1);"><td>${t('station.settings.satellites.tone')}:</td><td align="right">${sat.tone}</td></tr>` : ''}
+            ${sat.downlink ? `<tr style="background-color: var(--bg-secondary); color: var(--text-muted);"><td style="padding: 0 2px;">${t('station.settings.satellites.downlink')}:</td><td align="right" style="padding: 0 2px;">${sat.downlink}</td></tr>` : ''}
+            ${sat.uplink ? `<tr style="background-color: var(--bg-secondary); color: var(--text-muted);"><td style="padding: 0 2px;">${t('station.settings.satellites.uplink')}:</td><td align="right" style="padding: 0 2px;">${sat.uplink}</td></tr>` : ''}
+            ${sat.tone ? `<tr style="background-color: var(--bg-secondary); color: var(--text-muted);"><td style="padding: 0 2px;">${t('station.settings.satellites.tone')}:</td><td align="right" style="padding: 0 2px;">${sat.tone}</td></tr>` : ''}
 
-            <tr><td colSpan="2" style="padding: 0; line-height: 1;">
+            <tr><td colSpan="2">
               <button
                 class="sat-open-predict"
                 data-action="open-predict"
@@ -317,8 +317,6 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                 style="
                   width: 100%;
                   padding: 2px 0;
-                  line-height: 1;
-                  display: block;
                   min-height: 0;
                   background: var(--bg-primary);
                   border: 1px solid var(--accent-red);
@@ -332,23 +330,8 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
           </table>
 
-            ${sat.notes ? `<div style="font-size:9px; color: rgba(102, 102, 102, 1); margin-top:4px; font-style:italic;">${sat.notes}</div>` : ''}
+            ${sat.notes ? `<div style="font-size:9px; color: var(--text-muted); margin-top:4px; font-style:italic;">${sat.notes}</div>` : ''}
           </div>
-
-          <!--
-          <div style="margin: 10px 12px 8px; display: flex; flex-direction: column; align-items: left; gap: 5px;">
-            <button
-              class="sat-open-predict"
-              data-action="open-predict"
-              data-sat-name="${sat.name}"
-              data-tle1="${sat.tle1}"
-              data-tle2="${sat.tle2}"
-              style="background: --bg-primary; border: 1px solid var(--accent-red); border-radius: 3px; cursor: pointer; 
-                padding: 4px 10px; font-weight:bold; font-size:10px;">
-              PREDICT
-            </button>
-          </div>
-          -->
       `;
         })
         .join('') +
