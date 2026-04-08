@@ -186,7 +186,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         <button
           class="sat-clear-all"
           data-action="clear-all-satellites"
-          style="background: rgba(68, 0, 0, 1); border: 1px solid var(--accent-red); color: var(--accent-red); cursor: pointer;
+          style="background: var(--bg-primary); border: 1px solid var(--accent-red); color: var(--accent-red); cursor: pointer;
                  padding: 4px 10px; font-size: 10px; border-radius: 3px; font-weight: bold; width: 100%;">
           ${t('station.settings.satellites.clearFootprints')}
         </button>
@@ -236,7 +236,8 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
           return `
         <div class="sat-card" style="border-bottom: 1px solid rgba(0, 68, 68, 1); margin-bottom: 10px; padding-bottom: 8px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
             <strong style="color: var(--text-primary); font-size: 14px;">${sat.name}</strong>
             <button
               class="sat-toggle"
@@ -245,28 +246,6 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
               style="background:none; border:none; color: var(--accent-red); cursor:pointer; font-weight:bold; font-size:20px; padding: 0 5px;">
               ✕
             </button>
-          </div>
-          <div>
-            <button
-              class="sat-open-predict"
-              data-action="open-predict"
-              data-sat-name="${sat.name}"
-              data-tle1="${sat.tle1}"
-              data-tle2="${sat.tle2}"
-              style="background: --bg-primary; border: 1px solid rgba(255, 68, 68, 1); padding: 3px 3px; border-radius: 3px; cursor: pointer;">
-              PREDICT
-            </button>
-          </div>
-
-          <div style="margin: 10px 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 5px;">
-            <button
-              class="sat-clear-all"
-              data-action="clear-all-satellites"
-              style="background: rgba(68, 0, 0, 1); border: 1px solid var(--accent-red); color: var(--accent-red); cursor: pointer;
-                    padding: 4px 10px; font-size: 10px; border-radius: 3px; font-weight: bold; width: 100%;">
-              ${t('station.settings.satellites.clearFootprints')}
-            </button>
-            <span style="font-size: 9px; color: var(--text-muted);">${t('station.settings.satellites.dragTitle')}</span>
           </div>
 
           <table style="width:100%; font-size:11px; border-collapse: collapse;">
@@ -328,10 +307,48 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
             ${sat.uplink ? `<tr style="background-color: rgba(35, 59, 70, 0.8); color: rgba(136, 136, 136, 1);"><td>${t('station.settings.satellites.uplink')}:</td><td align="right" style="color: rgba(255, 204, 0, 1);">${sat.uplink}</td></tr>` : ''}
             ${sat.tone ? `<tr style="background-color: rgba(35, 59, 70, 0.8); color: rgba(136, 136, 136, 1);"><td>${t('station.settings.satellites.tone')}:</td><td align="right">${sat.tone}</td></tr>` : ''}
 
-            </table>
+            <tr><td colSpan="2" style="padding: 0; line-height: 1;">
+              <button
+                class="sat-open-predict"
+                data-action="open-predict"
+                data-sat-name="${sat.name}"
+                data-tle1="${sat.tle1}"
+                data-tle2="${sat.tle2}"
+                style="
+                  width: 100%;
+                  padding: 2px 0;
+                  line-height: 1;
+                  display: block;
+                  min-height: 0;
+                  background: var(--bg-primary);
+                  border: 1px solid var(--accent-red);
+                  border-radius: 3px;
+                  color: var(--accent-red);
+                  font-size: 10px;
+                  font-weight: bold;
+                  text-align: center;
+                  cursor: pointer;">PREDICT</button>
+            </td></tr>
+
+          </table>
 
             ${sat.notes ? `<div style="font-size:9px; color: rgba(102, 102, 102, 1); margin-top:4px; font-style:italic;">${sat.notes}</div>` : ''}
-        </div>
+          </div>
+
+          <!--
+          <div style="margin: 10px 12px 8px; display: flex; flex-direction: column; align-items: left; gap: 5px;">
+            <button
+              class="sat-open-predict"
+              data-action="open-predict"
+              data-sat-name="${sat.name}"
+              data-tle1="${sat.tle1}"
+              data-tle2="${sat.tle2}"
+              style="background: --bg-primary; border: 1px solid var(--accent-red); border-radius: 3px; cursor: pointer; 
+                padding: 4px 10px; font-weight:bold; font-size:10px;">
+              PREDICT
+            </button>
+          </div>
+          -->
       `;
         })
         .join('') +
@@ -578,15 +595,15 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                     const endTime = dayjs(pass.end).format('YYYY-MM-DD HH:mm:ss');
                     const secsFromNow = dayjs(pass.start).diff(dayjs(), 'second');
 
-                    const isActive = secsFromNow <= 0 && dayjs().isBefore(dayjs(pass.end));
+                    const isVisibleNow = secsFromNow <= 0 && dayjs().isBefore(dayjs(pass.end));
                     const isPast = secsFromNow <= 0 && dayjs().isAfter(dayjs(pass.end));
 
                     if (isPast) {
                       return ``; // skip past passes
                     }
 
-                    const timeFromNow = isActive
-                      ? 'ACTIVE'
+                    const timeFromNow = isVisibleNow
+                      ? 'VISIBLE'
                       : secsFromNow > 3600
                         ? `${String(Math.floor(secsFromNow / 3600)).padStart(2, '0')}:${String(Math.floor((secsFromNow % 3600) / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
                         : secsFromNow > 60
