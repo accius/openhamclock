@@ -82,14 +82,14 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       Object.assign(win.style, {
         position: 'absolute',
         width: '260px',
-        backgroundColor: 'rgba(0, 15, 15, 0.95)',
+        backgroundColor: 'var(--bg-primary)',
         color: 'rgba(0, 255, 255, 1)',
         borderRadius: '4px',
         border: '1px solid rgba(0, 255, 255, 1)',
         zIndex: '1000',
         fontFamily: 'monospace',
         pointerEvents: 'auto',
-        boxShadow: '0 0 15px rgba(0,0,0,0.7)',
+        boxShadow: '0 0 15px rgba(0, 0, 0, 0.7)',
         cursor: 'default',
         overflow: 'hidden',
       });
@@ -167,14 +167,14 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     const titleBar = `
       <div class="sat-data-window-title" style="display:flex; justify-content:space-between; align-items:center;
                   cursor:grab; user-select:none;
-                  padding: 8px 10px; border-bottom: 1px solid rgba(0, 68, 68, 1); background: rgba(0,40,40,0.6);">
-        <span data-drag-handle="true" style="font-family: 'JetBrains Mono', monospace; font-size:13px; font-weight:700; color: rgba(0, 187, 255, 1); letter-spacing:0.05em;">
+                  padding: 8px 10px; border-bottom: 1px solid rgba(0, 68, 68, 1); background: rgba(0, 40, 40, 0.6);">
+        <span data-drag-handle="true" style="font-family: 'JetBrains Mono', monospace; font-size:13px; font-weight:700; color: var(--accent-blue); letter-spacing:0.05em;">
           🛰 ${activeSats.length} ${activeSats.length !== 1 ? t('station.settings.satellites.name_plural') : t('station.settings.satellites.name')}
         </span>
         <button
           class="sat-data-window-minimize"
           title="${winMinimized ? 'Expand' : 'Minimize'}"
-          style="background:none; border:none; color: rgba(136, 136, 136, 1); cursor:pointer;
+          style="background:none; border:none; color: var(--text-secondary); cursor:pointer;
                  font-size:10px; line-height:1; padding:2px 4px; margin:0;">
           ${winMinimized ? '▶' : '▼'}
         </button>
@@ -186,11 +186,11 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         <button
           class="sat-clear-all"
           data-action="clear-all-satellites"
-          style="background: rgba(68, 0, 0, 1); border: 1px solid rgba(255, 68, 68, 1); color: rgba(255, 68, 68, 1); cursor: pointer;
+          style="background: rgba(68, 0, 0, 1); border: 1px solid var(--accent-red); color: var(--accent-red); cursor: pointer;
                  padding: 4px 10px; font-size: 10px; border-radius: 3px; font-weight: bold; width: 100%;">
           ${t('station.settings.satellites.clearFootprints')}
         </button>
-        <span style="font-size: 9px; color: rgba(136, 136, 136, 1);">${t('station.settings.satellites.dragTitle')}</span>
+        <span style="font-size: 9px; color: var(--text-muted);">${t('station.settings.satellites.dragTitle')}</span>
       </div>
     `;
 
@@ -237,45 +237,60 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           return `
         <div class="sat-card" style="border-bottom: 1px solid rgba(0, 68, 68, 1); margin-bottom: 10px; padding-bottom: 8px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+            <strong style="color: var(--text-primary); font-size: 14px;">${sat.name}</strong>
+            <button
+              class="sat-toggle"
+              data-action="toggle-satellite"
+              data-sat-name="${sat.name}"
+              style="background:none; border:none; color: var(--accent-red); cursor:pointer; font-weight:bold; font-size:20px; padding: 0 5px;">
+              ✕
+            </button>
+          </div>
+          <div>
             <button
               class="sat-open-predict"
               data-action="open-predict"
               data-sat-name="${sat.name}"
               data-tle1="${sat.tle1}"
               data-tle2="${sat.tle2}"
-              style="background: rgba(68, 0, 0, 1); border: 1px solid rgba(255, 68, 68, 1); padding: 3px 3px; border-radius: 3px; cursor: pointer;">
-              <strong style="color: rgba(255, 255, 255, 1); font-size: 14px;">${sat.name}</strong>
-            </button>
-            <button
-              class="sat-toggle"
-              data-action="toggle-satellite"
-              data-sat-name="${sat.name}"
-              style="background:none; border:none; color: rgba(255, 68, 68, 1); cursor:pointer; font-weight:bold; font-size:20px; padding: 0 5px;">
-              ✕
+              style="background: --bg-primary; border: 1px solid rgba(255, 68, 68, 1); padding: 3px 3px; border-radius: 3px; cursor: pointer;">
+              PREDICT
             </button>
           </div>
+
+          <div style="margin: 10px 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 5px;">
+            <button
+              class="sat-clear-all"
+              data-action="clear-all-satellites"
+              style="background: rgba(68, 0, 0, 1); border: 1px solid var(--accent-red); color: var(--accent-red); cursor: pointer;
+                    padding: 4px 10px; font-size: 10px; border-radius: 3px; font-weight: bold; width: 100%;">
+              ${t('station.settings.satellites.clearFootprints')}
+            </button>
+            <span style="font-size: 9px; color: var(--text-muted);">${t('station.settings.satellites.dragTitle')}</span>
+          </div>
+
           <table style="width:100%; font-size:11px; border-collapse: collapse;">
 
             <!-- section 1: satellite position and motion -->
-            <tr style="background-color: rgba(48, 33, 21, .8);">
+            <tr style="background-color: rgba(48, 33, 21, 0.8);">
               <td style="padding: 0 2px;">${t('station.settings.satellites.latitude')}:</td>
               <td align="right" style="padding: 0 2px;">${sat.lat.toFixed(2)}°</td>
             </tr>
-            <tr style="background-color: rgba(48, 33, 21, .8);">
+            <tr style="background-color: rgba(48, 33, 21, 0.8);">
               <td style="padding: 0 2px;">${t('station.settings.satellites.longitude')}:</td>
               <td align="right" style="padding: 0 2px;">${sat.lon.toFixed(2)}°</td>
             </tr>
-            <tr style="background-color: rgba(48, 33, 21, .8);">
+            <tr style="background-color: rgba(48, 33, 21, 0.8);">
               <td style="padding: 0 2px;">${t('station.settings.satellites.altitude')}:</td>
               <td align="right" style="padding: 0 2px;">${altitudeStr}</td>
             </tr>
-            <tr style="background-color: rgba(48, 33, 21, .8);">
+            <tr style="background-color: rgba(48, 33, 21, 0.8);">
               <td style="padding: 0 2px;">${t('station.settings.satellites.speed')}:</td>
               <td align="right" style="padding: 0 2px;">${speedStr}</td>
             </tr>
 
             <!-- section 2: relative location and visibility -->
-            <tr style="background-color: ${isVisible ? 'rgba(0, 248, 0, .5)' : 'rgba(37, 46, 23, .8)'}; color: ${isVisible ? 'rgba(0, 0, 0, 1)' : 'rgba(136, 136, 136, 1)'};">
+            <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'rgba(37, 46, 23, 0.8)'}; color: ${isVisible ? '#000' : 'rgba(136, 136, 136, 1)'};">
               <td style="padding: 0 2px;">${t('station.settings.satellites.azimuth_elevation')}:</td>
               <td align="right" style="padding: 0 2px;">${sat.azimuth}° / ${sat.elevation}°</td>
             </tr>
@@ -283,15 +298,15 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
             ${
               isVisible
                 ? `
-              <tr style="background-color: ${isVisible ? 'rgba(0, 248, 0, .5)' : 'rgba(37, 46, 23, .8)'}; color: ${isVisible ? 'rgba(0, 0, 0, 1)' : 'rgba(136, 136, 136, 1)'};">
+              <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'rgba(37, 46, 23, 0.8)'}; color: ${isVisible ? '#000' : 'rgba(136, 136, 136, 1)'};">
                 <td style="padding: 0 2px;">${t('station.settings.satellites.range')}:</td>
                 <td align="right" style="padding: 0 2px;">${(sat.range * (isMetric ? 1 : km_to_miles_factor)).toFixed(0)} ${distanceUnitsStr}</td>
               </tr>
-              <tr style="background-color: ${isVisible ? 'rgba(0, 248, 0, .5)' : 'rgba(37, 46, 23, .8)'}; color: ${isVisible ? 'rgba(0, 0, 0, 1)' : 'rgba(136, 136, 136, 1)'};">
+              <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'rgba(37, 46, 23, 0.8)'}; color: ${isVisible ? '#000' : 'rgba(136, 136, 136, 1)'};">
                 <td style="padding: 0 2px;">${t('station.settings.satellites.rangeRate')}:</td>
                 <td align="right" style="padding: 0 2px;">${(sat.rangeRate * (isMetric ? 1 : km_to_miles_factor)).toFixed(2)} ${rangeRateUnitsStr}</td>
               </tr>
-              <tr style="background-color: ${isVisible ? 'rgba(0, 248, 0, .5)' : 'rgba(37, 46, 23, .8)'}; color: ${isVisible ? 'rgba(0, 0, 0, 1)' : 'rgba(136, 136, 136, 1)'};">
+              <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'rgba(37, 46, 23, 0.8)'}; color: ${isVisible ? '#000' : 'rgba(136, 136, 136, 1)'};">
                 <td style="padding: 0 2px;">${t('station.settings.satellites.dopplerFactor')}:</td>
                 <td align="right" style="padding: 0 2px;">${sat.dopplerFactor.toFixed(7)}</td>
               </tr>
@@ -299,19 +314,19 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                 : ``
             }
 
-            <tr style="background-color: ${isVisible ? 'rgba(0, 248, 0, .5)' : 'rgba(37, 46, 23, .8)'}; color: ${isVisible ? 'rgba(0, 0, 0, 1)' : 'rgba(136, 136, 136, 1)'};">
+            <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'rgba(37, 46, 23, 0.8)'}; color: ${isVisible ? '#000' : 'rgba(136, 136, 136, 1)'};">
               <td style="padding: 0 2px;">${t('station.settings.satellites.status')}:</td>
               <td align="right" style="padding: 0 2px;">${isVisible ? `${t('station.settings.satellites.visible')}` : `${t('station.settings.satellites.belowHorizon')}`}</td>
             </tr>
 
             <!-- section 3: miscellaneous satellite information -->
-            <tr style="background-color: rgba(35, 59, 70, .8); color: rgba(136, 136, 136, 1);">
+            <tr style="background-color: rgba(35, 59, 70, 0.8); color: rgba(136, 136, 136, 1);">
               <td style="padding: 0 2px;">${t('station.settings.satellites.mode')}:</td>
               <td align="right" style="color: rgba(255, 170, 0, 1); padding: 0 2px;">${sat.mode || 'N/A'}</td>
             </tr>
-            ${sat.downlink ? `<tr style="background-color: rgba(35, 59, 70, .8); color: rgba(136, 136, 136, 1);"><td style="padding: 0 2px;">${t('station.settings.satellites.downlink')}:</td><td align="right" style="color: rgba(0, 255, 204, 1); padding: 0 2px;">${sat.downlink}</td></tr>` : ''}
-            ${sat.uplink ? `<tr style="background-color: rgba(35, 59, 70, .8); color: rgba(136, 136, 136, 1);"><td>${t('station.settings.satellites.uplink')}:</td><td align="right" style="color: rgba(255, 204, 0, 1);">${sat.uplink}</td></tr>` : ''}
-            ${sat.tone ? `<tr style="background-color: rgba(35, 59, 70, .8); color: rgba(136, 136, 136, 1);"><td>${t('station.settings.satellites.tone')}:</td><td align="right">${sat.tone}</td></tr>` : ''}
+            ${sat.downlink ? `<tr style="background-color: rgba(35, 59, 70, 0.8); color: rgba(136, 136, 136, 1);"><td style="padding: 0 2px;">${t('station.settings.satellites.downlink')}:</td><td align="right" style="color: rgba(0, 255, 204, 1); padding: 0 2px;">${sat.downlink}</td></tr>` : ''}
+            ${sat.uplink ? `<tr style="background-color: rgba(35, 59, 70, 0.8); color: rgba(136, 136, 136, 1);"><td>${t('station.settings.satellites.uplink')}:</td><td align="right" style="color: rgba(255, 204, 0, 1);">${sat.uplink}</td></tr>` : ''}
+            ${sat.tone ? `<tr style="background-color: rgba(35, 59, 70, 0.8); color: rgba(136, 136, 136, 1);"><td>${t('station.settings.satellites.tone')}:</td><td align="right">${sat.tone}</td></tr>` : ''}
 
             </table>
 
@@ -525,21 +540,20 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       const generateModalContent = (currentPasses) => {
         return `
           <div style="text-align: center; margin-bottom: 16px; border-bottom: 2px solid var(--accent-red); padding-bottom: 12px;">
-            <h2 style="margin: 0; color: var(--accent-red); font-size: 24px;">🛰 ${satName}</h2>
+            <h2 style="margin: 0; color: var(--accent-cyan); font-size: 24px;">🛰 ${satName}</h2>
             <p style="margin: 8px 0 0 0; color: var(--text-muted); font-size: 12px;">Satellite Prediction Details</p>
           </div>
 
           <div style="margin-top: 16px;">
-            <h3 style="margin: 0 0 8px 0; color: var(--accent-red); font-size: 18px;">Upcoming Passes</h3>
             <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid var(--text-muted);">
               <thead>
-                <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
+                <tr style="background: var(--bg-secondary); padding: 2px; border-bottom: 2px solid var(--text-muted);">
                   <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Start</th>
                   <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Apex</th>
                   <th colspan="2" style="border-right: 3px double var(--text-muted); padding: 4px;">End</th>
                   <th style="padding: 4px;">Duration</th>
                 </tr>
-                <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
+                <tr style="background: var(--bg-secondary); padding: 2px; border-bottom: 2px solid var(--text-muted);">
                   <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
                   <th style="border-right: 1px solid var(--text-muted); padding: 4px;">From Now</th>
                   <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
@@ -579,7 +593,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                           ? `00:${String(Math.floor(secsFromNow / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
                           : `00:00:${String(secsFromNow).padStart(2, '0')}`;
 
-                    return `<tr style="background: rgba(0,0,0,0.1); text-align: center; border-bottom: 1px solid var(--text-muted);">
+                    return `<tr style="background: var(--bg-tertiary); text-align: center; border-bottom: 1px solid var(--text-muted);">
                     <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${startTime}</td>
                     <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${timeFromNow}</td>
                     <td style="border-right: 3px double var(--text-muted); padding: 4px;">${azimuthStart}</td>
@@ -632,7 +646,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0, 0, 0, 0.6);
+        background: var(--bg-primary);
         display: flex;
         align-items: center;
         justify-content: center;
