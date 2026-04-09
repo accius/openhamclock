@@ -123,6 +123,7 @@ pluginBus.on('decode', (msg) => {
     timeMs: msg.timeMs,
     mode: msg.mode,
     message: msg.message,
+    type: msg.message.startsWith('CQ') ? 'CQ' : 'QSO',
     dialFrequency: msg.dialFrequency,
     band: msg.band,
     // Parsed FT8 message fields (from wsjtx-enrich, undefined for raw decodes)

@@ -1623,7 +1623,7 @@ export default function ClassicLayout(props) {
               })}
             </div>
             {/* MUF/LUF */}
-            {propagation.data && (
+            {propagation?.data && (
               <div
                 style={{
                   display: 'flex',
@@ -1978,7 +1978,7 @@ export default function ClassicLayout(props) {
               {bandConditions.extras.geomagField}
             </span>
           )}
-          {propagation.data && (
+          {propagation?.data && (
             <>
               <span>
                 <span style={{ color: 'var(--text-muted)' }}>{t('app.propagation.muf')} </span>

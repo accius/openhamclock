@@ -182,8 +182,10 @@ export function useWSJTX(enabled = true) {
   }, [enabled, fetchFull, pollDecodes]);
 
   // Refresh immediately when tab becomes visible (handles browser throttling)
+  // Don't do this if we are using SSE as fetchFull() flushes our history and
+  // SSE will need to uld it up again from scratch.
   useVisibilityRefresh(() => {
-    if (enabled) fetchFull();
+    if (enabled && !isLocalMode.current) fetchFull();
   }, 5000);
 
   // Receive decode/status/qso events pushed over the rig-bridge SSE /stream
