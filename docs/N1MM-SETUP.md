@@ -6,7 +6,7 @@ OpenHamClock can receive live QSO data from N1MM+ (and DXLog) during contests. E
 
 N1MM+ has a built-in feature that broadcasts UDP packets every time you log a contact. OpenHamClock listens for these broadcasts and plots each QSO on the map with band-colored arcs.
 
-```
+```text
 N1MM+  ──── UDP (port 12060) ────▶  OpenHamClock Server
                                           │
                                           ▼

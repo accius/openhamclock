@@ -43,7 +43,7 @@ chmod +x rig-listener-linux-x64
 
 The wizard asks your radio type first, then walks through serial port setup:
 
-```
+```text
   📻 Radio type:
 
      1) Yaesu     (FT-991A, FT-891, FT-710, FT-DX10, FT-817/818)
@@ -109,7 +109,7 @@ To specify a different host or port:
 
 Run `./rig-listener` (or `--wizard`) and select option **5) SDR (TCI)**. The wizard asks for the TCI host, port, and transceiver/VFO index.
 
-```
+```text
   📻 Radio type:
 
      5) SDR (TCI) (Thetis/HL2, ANAN, SunSDR, ExpertSDR)
@@ -132,7 +132,7 @@ Same as serial radios — **Settings → Rig Control**, enable, `http://localhos
 
 ### TCI output
 
-```
+```text
   ╔══════════════════════════════════════════════════╗
   ║  OpenHamClock Rig Listener v1.1.0               ║
   ╚══════════════════════════════════════════════════╝
@@ -156,7 +156,7 @@ Same as serial radios — **Settings → Rig Control**, enable, `http://localhos
 
 Just run the listener again — it remembers your settings:
 
-```
+```text
   ╔══════════════════════════════════════════════════╗
   ║  OpenHamClock Rig Listener v1.1.0               ║
   ╚══════════════════════════════════════════════════╝
@@ -200,19 +200,19 @@ The baud rate in the wizard **must match** your radio's setting exactly (serial 
 
 **Serial radios** — polls via USB every 500ms:
 
-```
+```text
 ┌─────────┐    USB     ┌───────────────┐   HTTP/SSE    ┌──────────────┐
-│  Radio   │◄─────────►│ Rig Listener  │◄─────────────►│ OpenHamClock │
-│ (FT-991A)│  Serial   │ (port 5555)   │  localhost     │  (browser)   │
+│ Radio   │◄──────────►│ Rig Listener  │◄─────────────►│ OpenHamClock │
+│(FT-991A)│   Serial   │ (port 5555)   │  localhost    │  (browser)   │
 └─────────┘   CAT cmd  └───────────────┘               └──────────────┘
 ```
 
 **TCI/SDR radios** — real-time push via WebSocket:
 
-```
+```text
 ┌─────────┐  WebSocket  ┌───────────────┐   HTTP/SSE    ┌──────────────┐
 │ Thetis  │◄───────────►│ Rig Listener  │◄─────────────►│ OpenHamClock │
-│  (HL2)  │  TCI push   │ (port 5555)   │  localhost     │  (browser)   │
+│  (HL2)  │  TCI push   │ (port 5555)   │  localhost    │  (browser)   │
 └─────────┘  port 40001 └───────────────┘               └──────────────┘
 ```
 
@@ -222,51 +222,51 @@ Both transports feed the same HTTP/SSE bridge — OpenHamClock doesn't know or c
 
 ### Serial radios
 
-**No serial ports detected**
+**`No serial ports detected`**
 
 - Is the USB cable plugged in?
 - Windows: Check Device Manager → Ports. You may need the [Silicon Labs CP210x driver](https://www.silabs.com/developers/usb-to-uart-bridge-vcp-drivers)
 - Linux: `sudo usermod -a -G dialout $USER` then log out/in
 
-**"Port in use"**
+**`Port in use`**
 
 - Close flrig, rigctld, WSJT-X, fldigi, or any other program using the same serial port. Only one program can use a serial port at a time.
 
-**Connected but no frequency updates**
+**`Connected but no frequency updates`**
 
 - Baud rate mismatch — must match your radio's CAT rate setting exactly
 - Wrong brand selected — re-run with `--wizard`
 - Icom: CI-V address must match (re-run wizard to change)
 
-**Mac security warning**
+**`Mac security warning`**
 
 - System Settings → Privacy & Security → scroll down → click "Allow Anyway"
 
 ### TCI/SDR radios
 
-**"Connection refused"**
+**`Connection refused`**
 
 - Is Thetis / ExpertSDR running?
 - Is TCI enabled? (Thetis → Setup → CAT Control → Enable TCI Server)
 - Check the port number (default 40001)
 
-**Connected but no updates**
+**`Connected but no updates`**
 
 - Make sure TCI is the active control method (some SDR apps allow only one CAT interface at a time)
 - Check TRX index if you have a multi-transceiver setup — default is 0
 
-**Connecting to a remote machine**
+**`Connecting to a remote machine`**
 
 - Use `--tci-host 192.168.1.x` (the IP of the machine running Thetis)
 - Make sure the TCI port (40001) is open in the remote machine's firewall
 
-**Reconnecting after Thetis restart**
+**`Reconnecting after Thetis restart`**
 
 - The listener auto-reconnects every 5 seconds when the TCI connection drops. Just restart Thetis and it will reconnect automatically.
 
 ## Command Line Options
 
-```
+```text
 rig-listener                      Normal start (wizard if first run)
 rig-listener --wizard             Re-run setup wizard
 rig-listener --port COM5          Override serial port

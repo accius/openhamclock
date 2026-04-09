@@ -8,7 +8,7 @@ cd openhamclock
 docker compose up -d
 ```
 
-Open **http://localhost:3000** — that's it. OpenHamClock runs with sensible defaults.
+Open **<http://localhost:3000>** — that's it. OpenHamClock runs with sensible defaults.
 
 ## Customize Your Station
 

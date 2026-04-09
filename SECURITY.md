@@ -57,14 +57,14 @@ For vulnerability reports, please use one of the **private channels** below. The
 
 #### Primary: GitHub Private Vulnerability Reporting
 
-- **URL**: https://github.com/accius/openhamclock/security/advisories/new
+- **URL**: <https://github.com/accius/openhamclock/security/advisories/new>
 - **Advantages**: Structured submission, built-in secure communication, CVE assignment support
 - **Expected acknowledgment**: Automated immediate, human review within 7 days
 
 #### Secondary: Encrypted Email
 
-- **Address**: chris@cjhlighting.com
-- **PGP Key**: Available at https://github.com/accius.gpg (or keybase.io/accius)
+- **Address**: <chris@cjhlighting.com>
+- **PGP Key**: Available at <https://github.com/accius.gpg> (or keybase.io/accius)
 - **Fingerprint**: `[Will be added - use PGP key for sensitive communications]`
 - **Use when**: GitHub reporting is unavailable or for highly sensitive disclosures
 
@@ -358,8 +358,8 @@ If you follow this policy, we commit to:
 
 Users and operators can stay informed of security updates via:
 
-- **GitHub Security Advisories**: https://github.com/accius/openhamclock/security/advisories
-- **GitHub Releases**: https://github.com/accius/openhamclock/releases (security fixes tagged)
+- **GitHub Security Advisories**: <https://github.com/accius/openhamclock/security/advisories>
+- **GitHub Releases**: <https://github.com/accius/openhamclock/releases> (security fixes tagged)
 - **CHANGELOG.md**: Maintained in the repository
 - **Watch/Subscribe**: Enable "Security alerts" in your GitHub repository watch settings
 
@@ -370,12 +370,14 @@ When a security update is released:
 1. **Review the advisory**: Understand the impact and affected versions
 2. **Check your version**: `git log -1 --pretty=format:"%H"` or `grep version package.json`
 3. **Update immediately** for Critical/High severity:
+
    ```bash
    git pull
    npm install
    npm audit fix
    docker-compose up -d --build  # if using Docker
    ```
+
 4. **Verify the fix**: Check that your version includes the patch commit
 5. **Monitor for anomalies**: Review logs for signs of prior exploitation
 
@@ -439,7 +441,7 @@ This policy will be reviewed and updated:
 For questions about this policy (not vulnerability reports):
 
 - **General security questions**: Open a public Discussion on GitHub
-- **Policy clarifications**: Email chris@cjhlighting.com (non-confidential)
+- **Policy clarifications**: Email <chris@cjhlighting.com> (non-confidential)
 
 For **vulnerability reports**, see **§4 Reporting a Vulnerability**.
 

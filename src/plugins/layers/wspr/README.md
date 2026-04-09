@@ -395,7 +395,7 @@ The WSPR (Weak Signal Propagation Reporter) Heatmap Plugin provides real-time vi
 
 ### File Structure
 
-```
+```text
 src/plugins/layers/
 ├── useWSPR.js          # Main plugin file
 └── wspr/
@@ -593,4 +593,4 @@ MIT License - Same as OpenHamClock project
 
 ---
 
-_73 de OpenHamClock Contributors! 📡_
+_73 de OpenHamClock Contributors! 📡_ <!-- markdownlint-disable-line MD036 -->

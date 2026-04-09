@@ -37,29 +37,37 @@ This document outlines the test procedures for verifying the new Rig Control int
 The OpenHamClock web app cannot talk directly to your rig; it needs a small bridge (daemon).
 
 1. Navigate to the `rig-control/` directory in the project:
+
    ```bash
    cd rig-control
    ```
+
 2. Install dependencies (first time only):
+
    ```bash
    npm install
    ```
+
 3. Configure the daemon:
    - Edit `rig-config.json`.
    - Set `rigType` to `"flrig"` or `"hamlib"`.
    - Set `host` and `port` to match your CAT software (e.g., `127.0.0.1` and `12345` for flrig).
 4. Start the daemon:
+
    ```bash
    node rig-daemon.js
    ```
-   _Success Indicator: The terminal should show "Connected to flrig/hamlib on..." and "Listening on http://0.0.0.0:5555"._
+
+   _Success Indicator: The terminal should show `Connected to flrig/hamlib on..." and "Listening on http://0.0.0.0:5555`._
 
 ### Step 3.3: Start OpenHamClock (Frontend)
 
 1. In the main project directory, start the development server:
+
    ```bash
    npm run dev
    ```
+
 2. Open the application in your browser (usually `http://localhost:5173`).
 
 ## 4. Configuration
