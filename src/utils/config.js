@@ -20,7 +20,8 @@ export const DEFAULT_CONFIG = {
   callsign: 'N0CALL',
   headerSize: 1.0, // Float multiplies base px size (0.1 to 2.0)
   locator: '',
-  location: { lat: 40.015, lon: -105.2705 }, // Boulder, CO (default)
+  location: { lat: 40.015, lon: -105.2705, stationAlt: 100 }, // Boulder, CO (default), altitude [m]
+  satellite: { minElev: 5 }, // Minimum elevation for satellite visibility (degrees)
   defaultDX: { lat: 35.6762, lon: 139.6503 }, // Tokyo
   units: 'imperial', // 'imperial' or 'metric'
   allUnits: { dist: 'imperial', temp: 'imperial', press: 'imperial' },

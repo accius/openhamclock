@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import * as satellite from 'satellite.js';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { replicatePoint, replicatePath } from '../../utils/geo.js';
+import Orbit from '../../utils/orbit.js';
+import dayjs from 'dayjs';
+import useAppConfig from '../../hooks/app/useAppConfig.js';
 
 export const metadata = {
   id: 'satellites',
@@ -23,6 +25,7 @@ export const metadata = {
 export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, config, allUnits }) => {
   const layerGroupRef = useRef(null);
   const { t } = useTranslation();
+  const { config: globalConfig } = useAppConfig();
 
   // 1. Multi-select state (Wipes on browser close)
   const [selectedSats, setSelectedSats] = useState(() => {
@@ -52,56 +55,12 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       const response = await fetch('/api/satellites/tle');
       const data = await response.json();
 
-      const observerGd = {
-        latitude: satellite.degreesToRadians(config?.lat ?? 43.44),
-        longitude: satellite.degreesToRadians(config?.lon ?? -88.63),
-        height: (config?.alt || 260) / 1000,
-      };
-
       const satArray = Object.keys(data).map((name) => {
         const satData = data[name];
-        let isVisible = false;
-        let az = 0,
-          el = 0,
-          range = 0;
-        const leadTrack = [];
-
-        if (satData.line1 && satData.line2) {
-          const satrec = satellite.twoline2satrec(satData.line1, satData.line2);
-          const now = new Date();
-          const positionAndVelocity = satellite.propagate(satrec, now);
-          const gmst = satellite.gstime(now);
-
-          if (positionAndVelocity.position) {
-            const positionEcf = satellite.eciToEcf(positionAndVelocity.position, gmst);
-            const lookAngles = satellite.ecfToLookAngles(observerGd, positionEcf);
-
-            az = lookAngles.azimuth * (180 / Math.PI);
-            el = lookAngles.elevation * (180 / Math.PI);
-            range = lookAngles.rangeSat;
-            isVisible = el > 0;
-          }
-
-          const minutesToPredict = config?.leadTimeMins || 45;
-          for (let i = 0; i <= minutesToPredict; i += 2) {
-            const futureTime = new Date(now.getTime() + i * 60000);
-            const posVel = satellite.propagate(satrec, futureTime);
-            if (posVel.position) {
-              const fGmst = satellite.gstime(futureTime);
-              const geodetic = satellite.eciToGeodetic(posVel.position, fGmst);
-              leadTrack.push([satellite.degreesLat(geodetic.latitude), satellite.degreesLong(geodetic.longitude)]);
-            }
-          }
-        }
 
         return {
           ...satData,
           name,
-          visible: isVisible,
-          azimuth: az,
-          elevation: el,
-          range: range,
-          leadTrack,
         };
       });
 
@@ -177,6 +136,20 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           });
         }
       };
+
+      // Prevent map from capturing events on the window
+      win.addEventListener('wheel', (e) => {
+        e.stopPropagation();
+      });
+      win.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+      });
+      win.addEventListener('mousemove', (e) => {
+        e.stopPropagation();
+      });
+      win.addEventListener('mouseup', (e) => {
+        e.stopPropagation();
+      });
     }
 
     win.style.top = `${winPos.top}px`;
@@ -197,7 +170,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         <button class="sat-data-window-minimize"
                 onclick="window.__satWinToggleMinimize()"
                 title="${winMinimized ? 'Expand' : 'Minimize'}"
-                style="background:none; border:none; color:#888; cursor:pointer;
+                style="background:none; border:none; color: #888; cursor:pointer;
                        font-size:10px; line-height:1; padding:2px 4px; margin:0;">
           ${winMinimized ? '▶' : '▼'}
         </button>
@@ -258,38 +231,78 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           return `
         <div class="sat-card" style="border-bottom: 1px solid #004444; margin-bottom: 10px; padding-bottom: 8px;">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-            <strong style="color:#ffffff; font-size: 14px;">${sat.name}</strong>
+            <button onclick="openSatellitePredict('${sat.name}', '${sat.tle1}', '${sat.tle2}')"
+                    style="background: #440000; border: 1px solid #ff4444; padding: 3px 3px; border-radius: 3px; cursor: pointer;">
+              <strong style="color:#ffffff; font-size: 14px;">${sat.name}</strong>
+            </button>
             <button onclick="window.toggleSat('${sat.name}')" 
                     style="background:none; border:none; color:#ff4444; cursor:pointer; font-weight:bold; font-size:20px; padding: 0 5px;">✕</button>
           </div>
           <table style="width:100%; font-size:11px; border-collapse: collapse;">
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.latitude')}:</td><td align="right" style="padding:2px 0;">${sat.lat.toFixed(2)}°</td></tr>
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.longitude')}:</td><td align="right" style="padding:2px 0;">${sat.lon.toFixed(2)}°</td></tr>
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.speed')}:</td><td align="right" style="padding:2px 0;">${speedStr}</td></tr>
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.altitude')}:</td><td align="right" style="padding:2px 0;">${altitudeStr}</td></tr>
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.azimuth_elevation')}:</td><td align="right" style="padding:2px 0;">${sat.azimuth}° / ${sat.elevation}°</td></tr>
+
+            <!-- section 1: satellite position and motion -->
+            <table style="background-color: #302115; width:100%; font-size:11px; style="color: #888; padding:2px 0;"">
+            <tr>
+              <td>${t('station.settings.satellites.latitude')}:</td>
+              <td align="right" style="padding:2px 0;">${sat.lat.toFixed(2)}°</td>
+            </tr>
+            <tr>
+              <td>${t('station.settings.satellites.longitude')}:</td>
+              <td align="right" style="padding:2px 0;">${sat.lon.toFixed(2)}°</td>
+            </tr>
+            <tr>
+              <td>${t('station.settings.satellites.altitude')}:</td>
+              <td align="right" style="padding:2px 0;">${altitudeStr}</td>
+            </tr>
+            <tr>
+              <td>${t('station.settings.satellites.speed')}:</td>
+              <td align="right" style="padding:2px 0;">${speedStr}</td>
+            </tr>
+            </table>
+
+            <!-- section 2: relative location and visibility -->
+            <table style="width:100%; background-color: ${isVisible ? '#00f800' : '#252e17'}; font-size:11px; color: ${isVisible ? '#000' : '#888'}; padding:2px 0;">
+            <tr><td>${t('station.settings.satellites.azimuth_elevation')}:</td><td align="right">${sat.azimuth}° / ${sat.elevation}°</td></tr>
 
             ${
               isVisible
                 ? `
-              <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.range')}:</td><td align="right" style="padding:2px 0;">${(sat.range * (isMetric ? 1 : km_to_miles_factor)).toFixed(0)} ${distanceUnitsStr}</td></tr>
-              <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.rangeRate')}:</td><td align="right" style="padding:2px 0;">${(sat.rangeRate * (isMetric ? 1 : km_to_miles_factor)).toFixed(2)} ${rangeRateUnitsStr}</td></tr>
-              <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.dopplerFactor')}:</td><td align="right" style="padding:2px 0;">${sat.dopplerFactor.toFixed(7)}</td></tr>
+              <tr>
+                <td>${t('station.settings.satellites.range')}:</td>
+                <td align="right">${(sat.range * (isMetric ? 1 : km_to_miles_factor)).toFixed(0)} ${distanceUnitsStr}</td>
+              </tr>
+              <tr>
+                <td>${t('station.settings.satellites.rangeRate')}:</td>
+                <td align="right">${(sat.rangeRate * (isMetric ? 1 : km_to_miles_factor)).toFixed(2)} ${rangeRateUnitsStr}</td>
+              </tr>
+              <tr>
+                <td>${t('station.settings.satellites.dopplerFactor')}:</td>
+                <td align="right">${sat.dopplerFactor.toFixed(7)}</td>
+              </tr>
             `
                 : ``
             }
 
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.mode')}:</td><td align="right" style="color:#ffa500; padding:2px 0;">${sat.mode || 'N/A'}</td></tr>
-            ${sat.downlink ? `<tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.downlink')}:</td><td align="right" style="color:#00ffcc; padding:2px 0;">${sat.downlink}</td></tr>` : ''}
-            ${sat.uplink ? `<tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.uplink')}:</td><td align="right" style="color:#ffcc00; padding:2px 0;">${sat.uplink}</td></tr>` : ''}
-            ${sat.tone ? `<tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.tone')}:</td><td align="right" style="padding:2px 0;">${sat.tone}</td></tr>` : ''}
-            <tr><td style="color:#888; padding:2px 0;">${t('station.settings.satellites.status')}:</td>
-                <td align="right" class="${isVisible ? 'sat-visible-blink' : ''}" style="padding:2px 0;">
-                  ${isVisible ? `<span style="color:#00ff88;">${t('station.settings.satellites.visible')}</span>` : `<span style="color:#666;">${t('station.settings.satellites.belowHorizon')}</span>`}
-                </td>
+            <tr>
+              <td>${t('station.settings.satellites.status')}:</td>
+              <td align="right">${isVisible ? `${t('station.settings.satellites.visible')}` : `${t('station.settings.satellites.belowHorizon')}`}</td>
             </tr>
-          </table>
-          ${sat.notes ? `<div style="font-size:9px; color:#666; margin-top:4px; font-style:italic;">${sat.notes}</div>` : ''}
+            </table>
+
+            <!-- section 3: miscellaneous satellite information -->
+            <table style="background-color: #233b46; width:100%; font-size:11px; color: #888; padding:2px 0;">
+            <tr>
+              <td>${t('station.settings.satellites.mode')}:</td>
+              <td align="right" style="color:#ffa500; padding:2px 0;">${sat.mode || 'N/A'}</td>
+            </tr>
+            ${sat.downlink ? `<tr><td>${t('station.settings.satellites.downlink')}:</td><td align="right" style="color:#00ffcc;">${sat.downlink}</td></tr>` : ''}
+            ${sat.uplink ? `<tr><td>${t('station.settings.satellites.uplink')}:</td><td align="right" style="color:#ffcc00;">${sat.uplink}</td></tr>` : ''}
+            ${sat.tone ? `<tr><td>${t('station.settings.satellites.tone')}:</td><td align="right">${sat.tone}</td></tr>` : ''}
+            </table>
+
+            </table>
+
+            ${sat.notes ? `<div style="font-size:9px; color:#666; margin-top:4px; font-style:italic;">${sat.notes}</div>` : ''}
         </div>
       `;
         })
@@ -426,6 +439,210 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
   useEffect(() => {
     if (enabled) renderSatellites();
   }, [satellites, selectedSats, allUnits, opacity, config, winMinimized]);
+
+  /********************************************************************************************/
+  // Expose satellite prediction panel function
+  useEffect(() => {
+    window.openSatellitePredict = (satName, tle1, tle2) => {
+      if (!satName || !satellites) return;
+
+      // Find the satellite data
+      const sat = satellites.find((s) => s.name === satName);
+      if (!sat) {
+        alert(`Satellite ${satName} not found`);
+        return;
+      }
+
+      const orbit = new Orbit(sat.name, `${sat.name}\n${tle1}\n${tle2}`);
+      orbit.error && console.warn('Satellite orbit error:', orbit.error);
+
+      const groundStation = {
+        latitude: globalConfig.location.lat,
+        longitude: globalConfig.location.lon,
+        height: globalConfig.location.stationAlt, // above sea level [m]
+      };
+
+      const startDate = dayjs().toDate(); // from now
+      const endDate = dayjs(startDate).add(7, 'day').toDate(); // until 7 days from now
+      const minElevation = globalConfig.satellite.minElev;
+      const maxPasses = 25;
+      const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
+
+      // Function to generate modal content
+      const generateModalContent = (currentPasses) => {
+        return `
+          <div style="text-align: center; margin-bottom: 16px; border-bottom: 2px solid var(--accent-red); padding-bottom: 12px;">
+            <h2 style="margin: 0; color: var(--accent-red); font-size: 24px;">🛰 ${satName}</h2>
+            <p style="margin: 8px 0 0 0; color: var(--text-muted); font-size: 12px;">Satellite Prediction Details</p>
+          </div>
+
+          <div style="margin-top: 16px;">
+            <h3 style="margin: 0 0 8px 0; color: var(--accent-red); font-size: 18px;">Upcoming Passes</h3>
+            <table style="width: 100%; border-collapse: collapse; font-size: 10px; border: 1px solid var(--text-muted);">
+              <thead>
+                <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
+                  <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Start</th>
+                  <th colspan="3" style="border-right: 3px double var(--text-muted); padding: 4px;">Apex</th>
+                  <th colspan="2" style="border-right: 3px double var(--text-muted); padding: 4px;">End</th>
+                  <th style="padding: 4px;">Duration</th>
+                </tr>
+                <tr style="background: rgba(0,0,0,0.3); padding: 2px; border-bottom: 2px solid var(--text-muted);">
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">From Now</th>
+                  <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Az [°]</th>
+                  <th style="border-right: 3px double var(--text-muted); padding: 4px;">El [°]</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                  <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
+                  <th style="padding: 4px;">[mins]</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${currentPasses
+                  .map((pass) => {
+                    const azimuthStart = pass.azimuthStart.toFixed(0);
+                    const azimuthApex = pass.azimuthApex.toFixed(0);
+                    const azimuthEnd = pass.azimuthEnd.toFixed(0);
+                    const maxElevation = pass.maxElevation.toFixed(0);
+                    const durationMins = (pass.duration / 60000).toFixed(1);
+                    const startTime = dayjs(pass.start).format('YYYY-MM-DD HH:mm:ss');
+                    const apexTime = dayjs(pass.apex).format('YYYY-MM-DD HH:mm:ss');
+                    const endTime = dayjs(pass.end).format('YYYY-MM-DD HH:mm:ss');
+                    const secsFromNow = dayjs(pass.start).diff(dayjs(), 'second');
+
+                    const isActive = secsFromNow <= 0 && dayjs().isBefore(dayjs(pass.end));
+                    const isPast = secsFromNow <= 0 && dayjs().isAfter(dayjs(pass.end));
+
+                    if (isPast) {
+                      return ``; // skip past passes
+                    }
+
+                    const timeFromNow = isActive
+                      ? 'ACTIVE'
+                      : secsFromNow > 3600
+                        ? `+${String(Math.floor(secsFromNow / 3600)).padStart(2, '0')}:${String(Math.floor((secsFromNow % 3600) / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
+                        : secsFromNow > 60
+                          ? `+00:${String(Math.floor(secsFromNow / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
+                          : `+00:00:${String(secsFromNow).padStart(2, '0')}`;
+
+                    return `<tr style="background: rgba(0,0,0,0.1); text-align: center; border-bottom: 1px solid var(--text-muted);">
+                    <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${startTime}</td>
+                    <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${timeFromNow}</td>
+                    <td style="border-right: 3px double var(--text-muted); padding: 4px;">${azimuthStart}</td>
+                    <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${apexTime}</td>
+                    <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${azimuthApex}</td>
+                    <td style="border-right: 3px double var(--text-muted); padding: 4px;">${maxElevation}</td>
+                    <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${endTime}</td>
+                    <td style="border-right: 3px double var(--text-muted); padding: 4px;">${azimuthEnd}</td>
+                    <td style="padding: 4px;">${durationMins}</td>
+                  </tr>`;
+                  })
+                  .join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="text-align: center; margin-top: 16px;">
+            <button onclick="document.getElementById('${modalId}').remove(); clearInterval(window.satellitePredictInterval);" style="
+              background: var(--accent-cyan);
+              border: 1px solid var(--accent-cyan);
+              color: var(--bg-primary);
+              padding: 8px 16px;
+              border-radius: 4px;
+              cursor: pointer;
+              font-weight: bold;
+              font-size: 12px;
+            ">
+              Close
+            </button>
+          </div>
+        `;
+      };
+
+      // Create a modal overlay
+      const modalId = 'satellite-predict-modal';
+      let modal = document.getElementById(modalId);
+
+      if (modal) {
+        modal.remove();
+      }
+
+      // Create modal elements
+      modal = document.createElement('div');
+      modal.id = modalId;
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.6);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+      `;
+
+      const content = document.createElement('div');
+      content.style.cssText = `
+        background: var(--bg-primary);
+        border: 2px solid var(--accent-red);
+        border-radius: 8px;
+        padding: 20px;
+        max-width: 95vw;
+        width: 50vw;
+        max-height: 90vh;
+        overflow-y: auto;
+        overflow-x: auto;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        font-family: 'JetBrains Mono', monospace;
+        color: var(--text-primary);
+      `;
+
+      content.innerHTML = generateModalContent(passes);
+
+      modal.appendChild(content);
+      document.body.appendChild(modal);
+
+      const currentStartDate = dayjs().toDate();
+      const currentEndDate = dayjs(currentStartDate).add(7, 'day').toDate();
+      const currentPasses = orbit.computePassesElevation(
+        groundStation,
+        currentStartDate,
+        currentEndDate,
+        minElevation,
+        maxPasses,
+      );
+
+      // update modal every second, satellite data currentPasses is not updated unless modal is reopened,
+      // or if satellite layer is updated for instance if TLE data changes
+      const updatePasses = () => {
+        content.innerHTML = generateModalContent(currentPasses);
+      };
+
+      window.satellitePredictInterval = setInterval(updatePasses, 1000); // one second
+
+      // Close on backdrop click
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.remove();
+          clearInterval(window.satellitePredictInterval);
+        }
+      });
+
+      // Close on Enter or Escape key
+      const handleKeyDown = (e) => {
+        if (e.key === 'Enter' || e.key === 'Escape') {
+          modal.remove();
+          clearInterval(window.satellitePredictInterval);
+          document.removeEventListener('keydown', handleKeyDown);
+        }
+      };
+      document.addEventListener('keydown', handleKeyDown);
+    };
+  }, [satellites, globalConfig]);
+  /********************************************************************************************/
 
   return null;
 };

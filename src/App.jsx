@@ -320,7 +320,7 @@ const App = () => {
 
   const propagation = usePropagation(config.location, dxLocation, config.propagation);
   const mySpots = useMySpots(config.callsign);
-  const satellites = useSatellites(config.location);
+  const satellites = useSatellites(config.location, config.satellite);
   const localWeather = useWeather(config.location, config.allUnits);
   const dxWeather = useWeather(dxLocation, config.allUnits);
   const localAlerts = useWeatherAlerts(config.location);

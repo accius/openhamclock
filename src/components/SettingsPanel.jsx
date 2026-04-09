@@ -49,6 +49,8 @@ export const SettingsPanel = ({
   const [gridSquare, setGridSquare] = useState(config?.locator || '');
   const [lat, setLat] = useState(config?.location?.lat ?? 0);
   const [lon, setLon] = useState(config?.location?.lon ?? 0);
+  const [stationAlt, setStationAlt] = useState(config?.location?.stationAlt ?? 100);
+  const [minElev, setMinElev] = useState(config?.satellite?.minElev ?? 5.0);
   const [layout, setLayout] = useState(config?.layout || 'modern');
   const [mouseZoom, setMouseZoom] = useState(config?.mouseZoom || 50);
   const [timezone, setTimezone] = useState(config?.timezone || '');
@@ -180,6 +182,8 @@ export const SettingsPanel = ({
       setheaderSize(config.headerSize || 1.0);
       setLat(config.location?.lat ?? 0);
       setLon(config.location?.lon ?? 0);
+      setStationAlt(config.location?.stationAlt ?? 100);
+      setMinElev(config.satellite?.minElev ?? 5.0);
       setLayout(config.layout || 'modern');
       setMouseZoom(config.mouseZoom || 50);
       setTimezone(config.timezone || '');
@@ -420,7 +424,8 @@ export const SettingsPanel = ({
       headerSize: headerSize,
       swapHeaderClocks,
       showMutualReception,
-      location: { lat: parseFloat(lat), lon: parseFloat(lon) },
+      location: { lat: parseFloat(lat) || 0, lon: parseFloat(lon) || 0, stationAlt: parseInt(stationAlt) || 100 },
+      satellite: { minElev: parseFloat(minElev) || 5.0 },
       theme,
       customTheme,
       layout,
@@ -3390,6 +3395,75 @@ export const SettingsPanel = ({
                             Footprints
                           </label>
                         </div>
+
+                        {/* station altitude and minimum elevation inputs */}
+                        <div
+                          style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}
+                        >
+                          <div>
+                            <label
+                              style={{
+                                display: 'block',
+                                marginBottom: '6px',
+                                color: 'var(--text-muted)',
+                                fontSize: '11px',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              Station Altitude [m]
+                            </label>
+                            <input
+                              type="number"
+                              step="1"
+                              value={isNaN(stationAlt) ? '' : stationAlt}
+                              onChange={(e) => setStationAlt(e.target.valueAsNumber ?? 100)}
+                              style={{
+                                width: '100%',
+                                padding: '10px',
+                                background: 'var(--bg-tertiary)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '14px',
+                                fontFamily: 'JetBrains Mono, monospace',
+                                boxSizing: 'border-box',
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <label
+                              style={{
+                                display: 'block',
+                                marginBottom: '6px',
+                                color: 'var(--text-muted)',
+                                fontSize: '11px',
+                                textTransform: 'uppercase',
+                              }}
+                            >
+                              Minimum Elevation [°]
+                            </label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="-89.0"
+                              max="89.0"
+                              value={isNaN(minElev) ? '' : minElev}
+                              onChange={(e) => setMinElev(e.target.valueAsNumber ?? 5.0)}
+                              style={{
+                                width: '100%',
+                                padding: '10px',
+                                background: 'var(--bg-tertiary)',
+                                border: '1px solid var(--border-color)',
+                                borderRadius: '6px',
+                                color: 'var(--text-primary)',
+                                fontSize: '14px',
+                                fontFamily: 'JetBrains Mono, monospace',
+                                boxSizing: 'border-box',
+                              }}
+                            />
+                          </div>
+                        </div>
+
                         {/* Lead Time Slider WIP
 						<div style={{ marginTop: '8px' }}>
 						  <label style={{
