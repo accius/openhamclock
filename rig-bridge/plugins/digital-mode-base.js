@@ -9,9 +9,17 @@
  * Each plugin:
  *   - Listens on a configurable UDP port for incoming messages
  *   - Parses the WSJT-X binary protocol via the shared library
+ *   - Enriches events with band name, grid → lat/lon, and parsed message text
  *   - Tracks the remote app's address/port for bidirectional communication
  *   - Exposes API endpoints for sending commands back to the app
  *   - Does NOT relay to OHC server (that's wsjtx-relay's job)
+ *
+ * Enrichments applied (same subset as wsjtx-relay SSE mode)
+ * ──────────────────────────────────────────────────────────
+ *  decode  — FT8 message text parsed, in-message grid → lat/lon, band name, dedup ID
+ *  status  — band name, band-change detection, DX/DE lat/lon from grids
+ *  qso     — band name, dxGrid → lat/lon
+ *  clear   — forwarded as-is  (new — was not emitted before)
  */
 
 const dgram = require('dgram');
@@ -23,6 +31,7 @@ const {
   buildFreeText,
   buildHighlightCallsign,
 } = require('../lib/wsjtx-protocol');
+const { createGridCache, enrichDecode, enrichStatus, enrichQso } = require('../lib/wsjtx-enrich');
 
 /**
  * Create a digital mode plugin descriptor.
@@ -139,6 +148,15 @@ function createDigitalModePlugin({ id, name, configKey, defaultPort, tag }) {
       let totalDecodes = 0;
       let lastStatus = null;
 
+      // ── Enrichment state ──────────────────────────────────────────────────
+      const gridCache = createGridCache();
+      // Per-client state for decode enrichment (band, freq, mode)
+      const clientStates = Object.create(null);
+      // Content-based deduplication (time + freq + message)
+      const seenDecodeIds = new Set();
+      const SEEN_DECODE_MAX = 2000;
+      let gridPruneInterval = null;
+
       function connect() {
         socket = dgram.createSocket('udp4');
 
@@ -150,26 +168,70 @@ function createDigitalModePlugin({ id, name, configKey, defaultPort, tag }) {
           remotePort = rinfo.port;
           if (msg.id) appId = msg.id;
 
-          if (msg.type === WSJTX_MSG.DECODE && msg.isNew) {
-            totalDecodes++;
-            if (bus) bus.emit('decode', { source: id, ...msg });
-            if (cfg.verbose) {
-              const snr = msg.snr != null ? (msg.snr >= 0 ? `+${msg.snr}` : msg.snr) : '?';
-              console.log(`[${tag}] Decode ${msg.time?.formatted || '??'} ${snr}dB ${msg.deltaFreq}Hz ${msg.message}`);
+          switch (msg.type) {
+            case WSJTX_MSG.HEARTBEAT: {
+              console.log(`[${tag}] Connected: ${msg.version || 'unknown version'} (${appId})`);
+              break;
             }
-          }
 
-          if (msg.type === WSJTX_MSG.STATUS) {
-            lastStatus = msg;
-            if (bus) bus.emit('status', { source: id, ...msg });
-          }
+            case WSJTX_MSG.STATUS: {
+              const prevState = clientStates[msg.id] ?? null;
+              const enriched = enrichStatus(msg, prevState, gridCache);
 
-          if (msg.type === WSJTX_MSG.QSO_LOGGED) {
-            if (bus) bus.emit('qso', { source: id, ...msg });
-          }
+              clientStates[msg.id] = {
+                band: enriched.band,
+                dialFrequency: msg.dialFrequency,
+                mode: msg.mode,
+              };
+              lastStatus = { ...msg, ...enriched };
 
-          if (msg.type === WSJTX_MSG.HEARTBEAT) {
-            console.log(`[${tag}] Connected: ${msg.version || 'unknown version'} (${appId})`);
+              if (bus) bus.emit('status', { source: id, ...msg, ...enriched });
+              break;
+            }
+
+            case WSJTX_MSG.DECODE: {
+              if (!msg.isNew) break;
+              totalDecodes++;
+
+              const clientState = clientStates[msg.id] ?? null;
+              const decode = enrichDecode(msg, clientState, gridCache, cfg.myCall ?? null);
+
+              if (seenDecodeIds.has(decode.id)) break;
+              seenDecodeIds.add(decode.id);
+              if (seenDecodeIds.size > SEEN_DECODE_MAX) {
+                seenDecodeIds.delete(seenDecodeIds.values().next().value);
+              }
+
+              if (bus) bus.emit('decode', { source: id, ...decode });
+
+              if (cfg.verbose) {
+                const snr = decode.snr != null ? (decode.snr >= 0 ? `+${decode.snr}` : decode.snr) : '?';
+                console.log(`[${tag}] Decode ${decode.time} ${snr}dB ${decode.freq}Hz ${decode.message}`);
+              }
+              break;
+            }
+
+            case WSJTX_MSG.CLEAR: {
+              if (bus) bus.emit('clear', { source: id, clientId: msg.id, window: msg.window });
+              // Clear seen IDs for this client so post-clear replays are treated as fresh
+              for (const seenId of seenDecodeIds) {
+                if (seenId.startsWith(`${msg.id}-`)) seenDecodeIds.delete(seenId);
+              }
+              break;
+            }
+
+            case WSJTX_MSG.QSO_LOGGED: {
+              const qso = {
+                ...enrichQso(msg),
+                myCall: msg.myCall || clientStates[msg.id]?.deCall || null,
+                myGrid: msg.myGrid || clientStates[msg.id]?.deGrid || null,
+              };
+              if (bus) bus.emit('qso', { source: id, ...qso });
+              break;
+            }
+
+            default:
+              break;
           }
         });
 
@@ -185,6 +247,7 @@ function createDigitalModePlugin({ id, name, configKey, defaultPort, tag }) {
         socket.on('listening', () => {
           const addr = socket.address();
           console.log(`[${tag}] Listening on UDP ${addr.address}:${addr.port}`);
+          gridPruneInterval = setInterval(() => gridCache.prune(), 5 * 60 * 1000);
         });
 
         const bindAddr = cfg.bindAddress || '127.0.0.1';
@@ -192,6 +255,10 @@ function createDigitalModePlugin({ id, name, configKey, defaultPort, tag }) {
       }
 
       function disconnect() {
+        if (gridPruneInterval) {
+          clearInterval(gridPruneInterval);
+          gridPruneInterval = null;
+        }
         if (socket) {
           try {
             socket.close();
@@ -224,9 +291,11 @@ function createDigitalModePlugin({ id, name, configKey, defaultPort, tag }) {
           appId,
           decodeCount: totalDecodes,
           udpPort,
-          lastFrequency: lastStatus?.dialFrequency || null,
-          lastMode: lastStatus?.mode || null,
-          transmitting: lastStatus?.transmitting || false,
+          gridCacheSize: gridCache.size,
+          lastFrequency: lastStatus?.dialFrequency ?? null,
+          lastBand: lastStatus?.band ?? null,
+          lastMode: lastStatus?.mode ?? null,
+          transmitting: lastStatus?.transmitting ?? false,
         };
       }
 
