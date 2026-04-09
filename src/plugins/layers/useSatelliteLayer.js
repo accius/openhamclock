@@ -588,10 +588,10 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                     const timeFromNow = isVisibleNow
                       ? 'VISIBLE'
                       : secsFromNow > 3600
-                        ? `${String(Math.floor(secsFromNow / 3600)).padStart(2, '0')}:${String(Math.floor((secsFromNow % 3600) / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
+                        ? `+${String(Math.floor(secsFromNow / 3600)).padStart(2, '0')}:${String(Math.floor((secsFromNow % 3600) / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
                         : secsFromNow > 60
-                          ? `00:${String(Math.floor(secsFromNow / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
-                          : `00:00:${String(secsFromNow).padStart(2, '0')}`;
+                          ? `+00:${String(Math.floor(secsFromNow / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
+                          : `+00:00:${String(secsFromNow).padStart(2, '0')}`;
 
                     return `<tr style="background: var(--bg-tertiary); text-align: center; border-bottom: 1px solid var(--text-muted);">
                     <td style="border-right: 1px solid var(--text-muted); padding: 4px;">${startTime}</td>
