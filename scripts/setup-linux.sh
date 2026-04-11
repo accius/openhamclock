@@ -60,11 +60,11 @@
 set -e
 
 # Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
+RED=$(tput setaf 1)
+GREEN=$(tput setaf 2)
+YELLOW=$(tput setaf 3; tput bold)
+BLUE=$(tput setaf 4)
+NC=$(tput sgr0) # No Color
 
 # Configuration
 INSTALL_DIR="$HOME/openhamclock"
