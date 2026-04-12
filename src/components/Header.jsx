@@ -38,6 +38,9 @@ export const Header = ({
   const statsSize = `${(isMobile ? 10 : 13) * scale}px`;
   const labelSize = `${(isMobile ? 10 : 13) * scale}px`;
 
+  const allUnits = config.allUnits || {};
+  const isMetricTemp = allUnits.temp === 'metric';
+
   return (
     <div
       style={{
@@ -180,7 +183,8 @@ export const Header = ({
                 >
                   <span style={{ marginRight: '3px' }}>{localWeather.data.icon}</span>
                   <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
-                    {Math.round((rawC * 9) / 5 + 32)}°F/{Math.round(rawC)}°C
+                    {isMetricTemp ? Math.round(rawC) : Math.round((rawC * 9) / 5 + 32)}
+                    {isMetricTemp ? '°C' : '°F'}
                   </span>
                 </div>
               );
