@@ -64,6 +64,7 @@ export const DockableApp = ({
   deGrid,
   dxGrid,
   dxLocation,
+  dxCallsign,
   deSunTimes,
   dxSunTimes,
   handleDXChange,
@@ -344,12 +345,12 @@ export const DockableApp = ({
       // For DX Cluster spots, we need to find the path data which contains coordinates
       // For POTA/SOTA, the spot object itself has lat/lon
       if (spot.lat != null && spot.lon != null) {
-        handleDXChange({ lat: spot.lat, lon: spot.lon });
+        handleDXChange({ lat: spot.lat, lon: spot.lon, callsign: spot.call ?? null });
       } else if (spot.call) {
         // Try to find in DX Cluster paths
         const path = findDXPathForSpot(dxClusterData.paths || [], spot);
         if (path && path.dxLat != null && path.dxLon != null) {
-          handleDXChange({ lat: path.dxLat, lon: path.dxLon });
+          handleDXChange({ lat: path.dxLat, lon: path.dxLon, callsign: spot.call ?? null });
         }
       }
     },
@@ -532,6 +533,19 @@ export const DockableApp = ({
                   flex: '1 1 auto',
                 }}
               />
+              {dxCallsign && (
+                <span
+                  style={{
+                    fontFamily: 'JetBrains Mono',
+                    fontSize: '22px',
+                    fontWeight: '900',
+                    color: 'var(--accent-amber)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {dxCallsign}
+                </span>
+              )}
               <DXFavorites dxLocation={dxLocation} dxGrid={dxGrid} onDXChange={handleDXChange} dxLocked={dxLocked} />
               <button
                 type="button"
