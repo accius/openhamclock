@@ -266,7 +266,7 @@ export default function ModernLayout(props) {
             <span
               style={{
                 fontFamily: 'JetBrains Mono',
-                fontSize: '14px',
+                fontSize: '22px',
                 fontWeight: '900',
                 color: 'var(--accent-amber)',
                 whiteSpace: 'nowrap',
