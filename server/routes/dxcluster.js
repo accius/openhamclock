@@ -1391,7 +1391,7 @@ module.exports = function (app, ctx) {
         udpSession.lastAccess = now;
         newSpots = (udpSession.spots || []).slice(0, 100).map((s) => ({
           spotter: s.spotter,
-          spotterGrid: s.spotterGrid || null,
+          spotterGrid: s.spotterGrid || CONFIG.gridSquare || null,
           dxCall: s.dxCall,
           dxGrid: s.dxGrid || null,
           freq: s.freq,
