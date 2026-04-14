@@ -26,6 +26,10 @@ LOCATOR=FN20
 TZ=America/New_York
 ```
 
+> **`TZ` is optional** — if omitted, each visitor's browser timezone is used for
+> the local-time display. Setting it is still recommended so that server-side
+> timestamps (logs, cache TTLs, etc.) match your local time.
+
 Restart to apply:
 
 ```bash

@@ -180,9 +180,13 @@ module.exports = function (app, ctx) {
         const tz = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || '';
         if (!tz) return '';
         try {
-          Intl.DateTimeFormat('en-US', { timeZone: tz });
+          new Intl.DateTimeFormat(undefined, { timeZone: tz });
           return tz;
         } catch (e) {
+          console.warn(
+            '[config] Invalid resolved timezone "%s" — falling back to empty (client will use browser TZ). Set TZ env var to silence.',
+            tz,
+          );
           return '';
         }
       })(),

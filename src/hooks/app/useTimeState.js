@@ -61,18 +61,24 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
 
   const utcTime = currentTime.toISOString().substr(11, 8);
   const utcDate = currentTime.toISOString().substr(0, 10);
+  // Validate the timezone once per changed value, not on every render.
+  // new Intl.DateTimeFormat throws a RangeError for invalid values such as
+  // "Etc/Unknown" (returned by Node on minimal Linux containers with no TZ set).
+  const safeTimezone = useMemo(() => {
+    if (!timezone) return '';
+    try {
+      new Intl.DateTimeFormat(undefined, { timeZone: timezone });
+      return timezone;
+    } catch {
+      return '';
+    }
+  }, [timezone]);
+
   const localTimeOpts = { hour12: use12Hour };
   const localDateOpts = { weekday: 'short', month: 'short', day: 'numeric' };
-  if (timezone) {
-    try {
-      // Validate before use — an invalid timezone (e.g. "Etc/Unknown" from a
-      // misconfigured Docker container) would throw a RangeError here.
-      Intl.DateTimeFormat('en-US', { timeZone: timezone });
-      localTimeOpts.timeZone = timezone;
-      localDateOpts.timeZone = timezone;
-    } catch (e) {
-      // Fall back to browser timezone
-    }
+  if (safeTimezone) {
+    localTimeOpts.timeZone = safeTimezone;
+    localDateOpts.timeZone = safeTimezone;
   }
   const localTime = currentTime.toLocaleTimeString('en-US', localTimeOpts);
   const localDate = currentTime.toLocaleDateString('en-US', localDateOpts);
