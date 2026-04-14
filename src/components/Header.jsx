@@ -179,7 +179,7 @@ export const Header = ({
               const rawC = localWeather.data.rawTempC;
               return (
                 <div
-                  title={`${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${localWeather.data.windUnit || 'mph'}`}
+                  title={`${Math.round(rawC)}°C / ${Math.round((rawC * 9) / 5 + 32)}°F • ${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${localWeather.data.windUnit || 'mph'}`}
                 >
                   <span style={{ marginRight: '3px' }}>{localWeather.data.icon}</span>
                   <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
