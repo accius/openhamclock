@@ -8,6 +8,7 @@ import DonateButton from './DonateButton.jsx';
 import { QRZToggle } from './CallsignLink.jsx';
 import { ctyLookup, isCtyLoaded } from '../utils/ctyLookup';
 import { getFlagUrl } from '../utils/countryFlags';
+import { formatTemperature, formatTemperatureBoth } from '../utils/formatWeather.js';
 
 export const Header = ({
   config,
@@ -37,9 +38,6 @@ export const Header = ({
   const clockSize = `${(isMobile ? 16 : 24) * scale}px`;
   const statsSize = `${(isMobile ? 10 : 13) * scale}px`;
   const labelSize = `${(isMobile ? 10 : 13) * scale}px`;
-
-  const allUnits = config.allUnits || {};
-  const isMetricTemp = allUnits.temp === 'metric';
 
   return (
     <div
@@ -179,12 +177,11 @@ export const Header = ({
               const rawC = localWeather.data.rawTempC;
               return (
                 <div
-                  title={`${Math.round(rawC)}°C / ${Math.round((rawC * 9) / 5 + 32)}°F • ${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${localWeather.data.windUnit || 'mph'}`}
+                  title={`${formatTemperatureBoth(rawC)} • ${localWeather.data.description} • Wind: ${localWeather.data.windSpeed} ${localWeather.data.windUnit || 'mph'}`}
                 >
                   <span style={{ marginRight: '3px' }}>{localWeather.data.icon}</span>
                   <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
-                    {isMetricTemp ? Math.round(rawC) : Math.round((rawC * 9) / 5 + 32)}
-                    {isMetricTemp ? '°C' : '°F'}
+                    {formatTemperature(rawC, config?.allUnits)}
                   </span>
                 </div>
               );
