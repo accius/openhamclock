@@ -15,14 +15,17 @@
  *  • In-message grid cache               — remembers callsign → grid from CQ
  *    and exchange messages; entries expire after 2 h
  *  • HamQTH callsign lookup (opt-in)     — resolves unknown callsigns to
- *    country-level lat/lon; results cached 24 h, max 5 concurrent requests
+ *    country-level lat/lon; results cached 24 h, max 5 concurrent requests,
+ *    per-callsign 60 s cooldown, global 2 req/s QPS cap
  *
  * Exported helpers
  * ────────────────
  *  gridToLatLon(grid)                         → { lat, lon } | null
  *  getBandFromHz(freqHz)                      → string  (e.g. '20m')
  *  createGridCache()                          → { get, set, prune, size }
- *  createCallsignCache()                      → { get, set, prune, size }
+ *  createCallsignCache()                      → { get, set, prune, serialize, size }
+ *  loadCallsignCache(filePath, cache)         → void  (populates cache from JSON file)
+ *  saveCallsignCache(filePath, cache)         → void  (writes cache entries to JSON file)
  *  parseDecodeMessage(text, cache, myCall)    → parsed object
  *  enrichDecode(msg, clientState, gridCache,
  *               myCall, callsignCache)        → enriched decode object
@@ -30,9 +33,11 @@
  *  enrichQso(msg)                             → enriched QSO object
  *  enrichWspr(msg)                            → enriched WSPR object
  *  triggerHamqthLookup(callsign,
- *    callsignCache, inflightSet, onResult)    → void  (fire-and-forget)
+ *    callsignCache, inflightSet, onResult,
+ *    lastAttemptedMap)                        → void  (fire-and-forget)
  */
 
+const fs = require('fs');
 const https = require('https');
 const http = require('http');
 const { URL } = require('url');
@@ -208,9 +213,11 @@ const CALLSIGN_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 function createCallsignCache() {
   const _map = new Map();
 
-  function set(callsign, lat, lon) {
+  // timestamp is optional — used when loading persisted entries to preserve
+  // their original expiry time rather than resetting the TTL on every load.
+  function set(callsign, lat, lon, timestamp) {
     if (!callsign || lat == null || lon == null) return;
-    _map.set(callsign.toUpperCase(), { lat, lon, timestamp: Date.now() });
+    _map.set(callsign.toUpperCase(), { lat, lon, timestamp: timestamp ?? Date.now() });
   }
 
   function get(callsign) {
@@ -231,10 +238,21 @@ function createCallsignCache() {
     }
   }
 
+  // Returns an array of { callsign, lat, lon, timestamp } for persistence.
+  function serialize() {
+    return Array.from(_map.entries()).map(([callsign, entry]) => ({
+      callsign,
+      lat: entry.lat,
+      lon: entry.lon,
+      timestamp: entry.timestamp,
+    }));
+  }
+
   return {
     get,
     set,
     prune,
+    serialize,
     get size() {
       return _map.size;
     },
@@ -247,6 +265,67 @@ function createCallsignCache() {
 
 const HAMQTH_MAX_CONCURRENT = 5;
 const HAMQTH_TIMEOUT_MS = 5000;
+// Per-callsign cooldown — don't retry within 60 s of the last attempt
+// (success or failure), preventing rapid hammering on a busy FT8 band.
+const HAMQTH_COOLDOWN_MS = 60_000;
+// Global QPS cap — module-level sliding window shared across all plugin instances.
+const HAMQTH_QPS_MAX = 2;
+const _hamqthQpsWindow = [];
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Callsign cache persistence helpers
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Populate `cache` from a JSON file previously written by saveCallsignCache().
+ * Expired entries (older than CALLSIGN_CACHE_TTL) are silently skipped.
+ * All errors are swallowed — missing or corrupt files result in an empty cache.
+ *
+ * @param {string} filePath  Absolute path to the JSON cache file
+ * @param {object} cache     Cache from createCallsignCache()
+ */
+function loadCallsignCache(filePath, cache) {
+  if (!filePath) return;
+  try {
+    if (!fs.existsSync(filePath)) return;
+    const raw = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (!Array.isArray(raw.entries)) return;
+    const cutoff = Date.now() - CALLSIGN_CACHE_TTL;
+    let loaded = 0;
+    for (const entry of raw.entries) {
+      if (!entry.callsign || entry.lat == null || entry.lon == null) continue;
+      if ((entry.timestamp ?? 0) < cutoff) continue; // expired
+      // Preserve the original timestamp so entries expire at the right time
+      cache.set(entry.callsign, entry.lat, entry.lon, entry.timestamp);
+      loaded++;
+    }
+    if (loaded > 0) {
+      console.log(`[wsjtx-enrich] Loaded ${loaded} HamQTH cache entries from ${filePath}`);
+    }
+  } catch {
+    // Non-critical — start with an empty cache on any read/parse error
+  }
+}
+
+/**
+ * Persist all current (non-expired) entries from `cache` to a JSON file.
+ * Creates or overwrites the file atomically via a temp-file rename.
+ * All errors are swallowed — cache persistence is best-effort.
+ *
+ * @param {string} filePath  Absolute path to the JSON cache file
+ * @param {object} cache     Cache from createCallsignCache()
+ */
+function saveCallsignCache(filePath, cache) {
+  if (!filePath) return;
+  try {
+    const entries = cache.serialize();
+    const tmp = `${filePath}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify({ version: 1, entries }, null, 2), 'utf8');
+    fs.renameSync(tmp, filePath);
+  } catch {
+    // Non-critical
+  }
+}
 
 /**
  * Fire-and-forget background callsign → lat/lon lookup via HamQTH DXCC API.
@@ -256,20 +335,40 @@ const HAMQTH_TIMEOUT_MS = 5000;
  * `{ callsign, lat, lon }` when the lookup succeeds, allowing the caller to
  * emit a `decode-update` event for already-displayed decodes.
  *
- * Concurrency is capped at HAMQTH_MAX_CONCURRENT (5) via `inflightSet`.
+ * Rate limiting:
+ *  • `inflightSet`       — max HAMQTH_MAX_CONCURRENT (5) simultaneous requests
+ *  • `lastAttemptedMap`  — per-callsign 60 s cooldown after any attempt
+ *  • `_hamqthQpsWindow`  — global 2 req/s sliding-window cap across all instances
+ *
  * All errors are silently swallowed — this is purely a best-effort enrichment.
  *
- * @param {string}   callsign      Uppercase base callsign (no portable suffixes)
- * @param {object}   callsignCache Cache from createCallsignCache()
- * @param {Set}      inflightSet   Shared Set of in-flight callsigns
- * @param {function} onResult      Called with { callsign, lat, lon } on success
+ * @param {string}   callsign         Uppercase base callsign (no portable suffixes)
+ * @param {object}   callsignCache    Cache from createCallsignCache()
+ * @param {Set}      inflightSet      Shared Set of in-flight callsigns
+ * @param {function} onResult         Called with { callsign, lat, lon } on success
+ * @param {Map}      [lastAttemptedMap]  Optional per-callsign attempt-timestamp Map
  */
-function triggerHamqthLookup(callsign, callsignCache, inflightSet, onResult) {
+function triggerHamqthLookup(callsign, callsignCache, inflightSet, onResult, lastAttemptedMap) {
   if (!callsign || callsign.length < 3) return;
   if (inflightSet.has(callsign)) return;
   if (inflightSet.size >= HAMQTH_MAX_CONCURRENT) return;
   // Already cached — nothing to do
   if (callsignCache.get(callsign)) return;
+
+  // Per-callsign cooldown — skip if we attempted this callsign recently
+  if (lastAttemptedMap) {
+    const lastAt = lastAttemptedMap.get(callsign);
+    if (lastAt && Date.now() - lastAt < HAMQTH_COOLDOWN_MS) return;
+    lastAttemptedMap.set(callsign, Date.now());
+  }
+
+  // Global QPS cap — reject if we've fired HAMQTH_QPS_MAX requests in the last second
+  const now = Date.now();
+  while (_hamqthQpsWindow.length > 0 && now - _hamqthQpsWindow[0] > 1000) {
+    _hamqthQpsWindow.shift();
+  }
+  if (_hamqthQpsWindow.length >= HAMQTH_QPS_MAX) return;
+  _hamqthQpsWindow.push(now);
 
   inflightSet.add(callsign);
 
@@ -428,7 +527,7 @@ function enrichDecode(msg, clientState, gridCache, myCall, callsignCache) {
     time: msg.time?.formatted ?? '',
     timeMs: msg.time?.ms ?? 0,
     snr: msg.snr,
-    dt: msg.deltaTime != null ? msg.deltaTime.toFixed(1) : '0.0',
+    dt: msg.deltaTime ?? 0,
     freq: msg.deltaFreq,
     mode: msg.mode || state.mode || '',
     message: msg.message,
@@ -595,7 +694,7 @@ function enrichWspr(msg) {
     time: msg.time?.formatted ?? '',
     timeMs: msg.time?.ms ?? 0,
     snr: msg.snr,
-    dt: msg.deltaTime != null ? msg.deltaTime.toFixed(1) : '0.0',
+    dt: msg.deltaTime ?? 0,
     frequency: msg.frequency,
     band: msg.frequency ? getBandFromHz(msg.frequency) : '',
     drift: msg.drift,
@@ -625,6 +724,8 @@ module.exports = {
   getBandFromHz,
   createGridCache,
   createCallsignCache,
+  loadCallsignCache,
+  saveCallsignCache,
   parseDecodeMessage,
   enrichDecode,
   enrichStatus,

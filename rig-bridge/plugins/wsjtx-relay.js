@@ -35,6 +35,7 @@
 const dgram = require('dgram');
 const http = require('http');
 const https = require('https');
+const path = require('path');
 const { URL } = require('url');
 const {
   WSJTX_MSG,
@@ -47,12 +48,15 @@ const {
 const {
   createGridCache,
   createCallsignCache,
+  loadCallsignCache,
+  saveCallsignCache,
   enrichDecode,
   enrichStatus,
   enrichQso,
   enrichWspr,
   triggerHamqthLookup,
 } = require('../lib/wsjtx-enrich');
+const { CONFIG_DIR } = require('../core/config');
 
 const RELAY_VERSION = require('../package.json').version;
 
@@ -189,6 +193,11 @@ const descriptor = {
     // HamQTH callsign lookup cache (only populated when cfg.hamqthLookup is true)
     const callsignCache = createCallsignCache();
     const hamqthInflight = new Set(); // callsigns currently being looked up
+    const hamqthLastAttempted = new Map(); // callsign → timestamp of last attempt (for cooldown)
+    // Persist HamQTH cache to disk so it survives rig-bridge restarts.
+    // Only used when hamqthLookup is enabled; null disables all file I/O.
+    const cacheFilePath = cfg.hamqthLookup ? path.join(CONFIG_DIR, 'hamqth-cache.json') : null;
+    let cacheSaveTimer = null;
     // Per-client state needed for decode enrichment (band, freq, mode)
     const clientStates = Object.create(null); // clientId → { band, dialFrequency, mode }
     // Content-based decode deduplication (time + freq + message text)
@@ -208,6 +217,16 @@ const descriptor = {
       if (consecutiveErrors < 5) return (cfg.batchInterval || 2000) * 2;
       if (consecutiveErrors < 20) return 10000;
       return 30000;
+    }
+
+    // Debounced HamQTH cache save — coalesces rapid resolve bursts into one write.
+    function scheduleCacheSave() {
+      if (!cacheFilePath) return;
+      if (cacheSaveTimer) clearTimeout(cacheSaveTimer);
+      cacheSaveTimer = setTimeout(() => {
+        cacheSaveTimer = null;
+        saveCallsignCache(cacheFilePath, callsignCache);
+      }, 30_000);
     }
 
     function makeRequest(urlStr, method, body, extraHeaders, onDone) {
@@ -394,9 +413,16 @@ const descriptor = {
           if (cfg.hamqthLookup && decode.lat == null) {
             const targetCall = (decode.caller ?? decode.deCall ?? decode.dxCall ?? '').toUpperCase();
             if (targetCall) {
-              triggerHamqthLookup(targetCall, callsignCache, hamqthInflight, ({ callsign, lat, lon }) => {
-                if (bus) bus.emit('decode-update', { source: 'wsjtx-relay', callsign, lat, lon });
-              });
+              triggerHamqthLookup(
+                targetCall,
+                callsignCache,
+                hamqthInflight,
+                ({ callsign, lat, lon }) => {
+                  if (bus) bus.emit('decode-update', { source: 'wsjtx-relay', callsign, lat, lon });
+                  scheduleCacheSave();
+                },
+                hamqthLastAttempted,
+              );
             }
           }
 
@@ -482,6 +508,8 @@ const descriptor = {
           willRelay = false;
         }
       }
+
+      if (cacheFilePath) loadCallsignCache(cacheFilePath, callsignCache);
 
       const udpPort = cfg.udpPort || 2237;
       socket = dgram.createSocket('udp4');
@@ -580,6 +608,13 @@ const descriptor = {
         clearInterval(gridPruneInterval);
         gridPruneInterval = null;
       }
+      // Flush HamQTH cache to disk on clean shutdown (cancel the debounced write
+      // first so we don't fire twice if the save completes quickly).
+      if (cacheSaveTimer) {
+        clearTimeout(cacheSaveTimer);
+        cacheSaveTimer = null;
+      }
+      if (cacheFilePath) saveCallsignCache(cacheFilePath, callsignCache);
       if (socket) {
         if (mcEnabled) {
           try {
