@@ -53,7 +53,7 @@ function isGrid(s) {
   if (!s || s.length < 4) return false;
   const g = s.toUpperCase();
   if (FT8_TOKENS.has(g)) return false;
-  return /^[A-R]{2}\d{2}(?:[A-Xa-x]{2})?$/.test(s);
+  return /^[A-R]{2}\d{2}(?:[A-X]{2})?$/.test(g);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -297,8 +297,8 @@ function triggerHamqthLookup(callsign, callsignCache, inflightSet, onResult) {
       res.on('end', () => {
         inflightSet.delete(callsign);
         if (res.statusCode !== 200) return;
-        const latMatch = body.match(/<lat>([^<]+)<\/lat>/);
-        const lonMatch = body.match(/<lng>([^<]+)<\/lng>/);
+        const latMatch = body.match(/<lat[^>]*>(-?[0-9.]+)<\/lat>/);
+        const lonMatch = body.match(/<lng[^>]*>(-?[0-9.]+)<\/lng>/);
         if (!latMatch || !lonMatch) return;
         const lat = parseFloat(latMatch[1]);
         const lon = parseFloat(lonMatch[1]);

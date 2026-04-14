@@ -182,6 +182,8 @@ function createDigitalModePlugin({ id, name, configKey, defaultPort, tag }) {
                 band: enriched.band,
                 dialFrequency: msg.dialFrequency,
                 mode: msg.mode,
+                deCall: msg.deCall ?? null,
+                deGrid: msg.deGrid ?? null,
               };
               lastStatus = { ...msg, ...enriched };
 

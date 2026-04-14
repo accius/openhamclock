@@ -357,6 +357,8 @@ const descriptor = {
             band: enriched.band,
             dialFrequency: msg.dialFrequency,
             mode: msg.mode,
+            deCall: msg.deCall ?? null,
+            deGrid: msg.deGrid ?? null,
           };
 
           if (bus) bus.emit('status', { source: 'wsjtx-relay', ...msg, ...enriched });

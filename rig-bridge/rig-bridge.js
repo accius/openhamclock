@@ -123,7 +123,6 @@ pluginBus.on('decode', (msg) => {
     timeMs: msg.timeMs,
     mode: msg.mode,
     message: msg.message,
-    type: msg.message.startsWith('CQ') ? 'CQ' : 'QSO',
     dialFrequency: msg.dialFrequency,
     band: msg.band,
     // Parsed FT8 message fields (from wsjtx-enrich, undefined for raw decodes)
@@ -201,7 +200,29 @@ pluginBus.on('clear', (msg) => {
 });
 
 pluginBus.on('wspr', (msg) => {
-  broadcast({ type: 'plugin', event: 'wspr', source: msg.source, data: msg });
+  broadcast({
+    type: 'plugin',
+    event: 'wspr',
+    source: msg.source,
+    data: {
+      clientId: msg.clientId,
+      isNew: msg.isNew,
+      time: msg.time,
+      timeMs: msg.timeMs,
+      snr: msg.snr,
+      dt: msg.dt,
+      frequency: msg.frequency,
+      band: msg.band,
+      drift: msg.drift,
+      callsign: msg.callsign,
+      grid: msg.grid,
+      power: msg.power,
+      offAir: msg.offAir,
+      lat: msg.lat ?? null,
+      lon: msg.lon ?? null,
+      timestamp: msg.timestamp ?? Date.now(),
+    },
+  });
 });
 
 pluginBus.on('decode-update', (msg) => {
