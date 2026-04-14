@@ -26,6 +26,7 @@ import * as MUFMapPlugin from './layers/useMUFMap.js';
 import * as SatellitePlugin from './layers/useSatelliteLayer.js';
 import * as MeshtasticPlugin from './layers/useMeshtastic.js';
 import * as ActiveUsersPlugin from './layers/useActiveUsers.js';
+import * as IBPLayerPlugin from './layers/useIBPLayer.js';
 
 // Auto-discover local/custom plugins (gitignored — survive updates)
 const localPluginModules = import.meta.glob('./local/*.js', { eager: true });
@@ -65,6 +66,7 @@ const layerPlugins = [
   MUFMapPlugin,
   MeshtasticPlugin,
   ActiveUsersPlugin,
+  IBPLayerPlugin,
   ...localPlugins,
 ];
 

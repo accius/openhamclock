@@ -36,6 +36,7 @@ import {
   useWSJTX,
   useAPRS,
   useEmcommData,
+  useIBP,
 } from './hooks';
 
 import useAppConfig from './hooks/app/useAppConfig';
@@ -334,6 +335,7 @@ const App = () => {
   });
   const wsjtx = useWSJTX();
   const aprsData = useAPRS();
+  const ibp = useIBP(config.location?.lat ?? null, config.location?.lon ?? null);
   const emcommData = useEmcommData({
     location: config.location,
     enabled: config.layout === 'emcomm',
@@ -521,6 +523,7 @@ const App = () => {
     pskReporter,
     wsjtx,
     aprsData,
+    ibp,
     emcommData,
     filteredPskSpots,
     wsjtxMapSpots,

@@ -27,3 +27,4 @@ export { useEmcommData } from './useEmcommData.js';
 export { useAmbientWeather } from './useAmbientWeather.js';
 export { useBandHealth } from './useBandHealth.js';
 export { default as useRotator } from './useRotator.js';
+export { useIBP } from './useIBP.js';
