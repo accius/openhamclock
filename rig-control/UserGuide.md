@@ -15,14 +15,14 @@ This feature allows you to:
 
 You need three things installed on the computer connected to your radio (e.g., Raspberry Pi, Mac, or PC):
 
-1.  **Git:** To download the software.
-    - [Download Git](https://git-scm.com/downloads)
-2.  **Node.js:** The engine that runs OpenHamClock.
-    - **Check:** Open a terminal and type `node -v`. (You want version 18 or higher).
-    - **Install:** [Download Node.js LTS](https://nodejs.org/).
-3.  **Radio Software:** One of the following must be running and connected to your radio:
-    - **FLRIG (Recommended):** [Download FLRIG](http://www.w1hkj.com/files/flrig/)
-    - **Hamlib (rigctld):** For advanced users.
+1. **Git:** To download the software.
+   - [Download Git](https://git-scm.com/downloads)
+2. **Node.js:** The engine that runs OpenHamClock.
+   - **Check:** Open a terminal and type `node -v`. (You want version 18 or higher).
+   - **Install:** [Download Node.js LTS](https://nodejs.org/).
+3. **Radio Software:** One of the following must be running and connected to your radio:
+   - **FLRIG (Recommended):** [Download FLRIG](http://www.w1hkj.com/files/flrig/)
+   - **Hamlib (rigctld):** For advanced users.
 
 ---
 
@@ -30,20 +30,25 @@ You need three things installed on the computer connected to your radio (e.g., R
 
 If you haven't installed OpenHamClock yet, follow these steps.
 
-1.  Open your terminal/command prompt.
-2.  Download the code:
-    ```bash
-    git clone https://github.com/HAMDevs/openhamclock.git
-    cd openhamclock
-    ```
-3.  Install dependencies:
-    ```bash
-    npm install
-    ```
-4.  Build the application:
-    ```bash
-    npm run build
-    ```
+1. Open your terminal/command prompt.
+2. Download the code:
+
+   ```bash
+   git clone https://github.com/HAMDevs/openhamclock.git
+   cd openhamclock
+   ```
+
+3. Install dependencies:
+
+   ```bash
+   npm install
+   ```
+
+4. Build the application:
+
+   ```bash
+   npm run build
+   ```
 
 ---
 
@@ -51,15 +56,19 @@ If you haven't installed OpenHamClock yet, follow these steps.
 
 The "Rig Control Bridge" (daemon) is a separate small program that sits between OpenHamClock and your radio software.
 
-1.  Navigate to the `rig-control` folder:
-    ```bash
-    cd rig-control
-    ```
-    _(If you are in the main folder, just type `cd rig-control`)_
-2.  Install the bridge libraries:
-    ```bash
-    npm install
-    ```
+1. Navigate to the `rig-control` folder:
+
+   ```bash
+   cd rig-control
+   ```
+
+   _(If you are in the main folder, just type `cd rig-control`)_
+
+2. Install the bridge libraries:
+
+   ```bash
+   npm install
+   ```
 
 ---
 
@@ -67,8 +76,8 @@ The "Rig Control Bridge" (daemon) is a separate small program that sits between 
 
 Tell the bridge which radio software you use.
 
-1.  Find `rig-config.json` in the `rig-control` folder.
-2.  Edit it with any text editor.
+1. Find `rig-config.json` in the `rig-control` folder.
+2. Edit it with any text editor.
 
 ### If using FLRIG (Easiest)
 
@@ -132,17 +141,17 @@ node rig-daemon.js
 
 ## 🔗 Step 5: Connect Them
 
-1.  Open your browser to **http://localhost:3000**.
-2.  Go to **Settings** (Gear Icon) > **Station Settings**.
-3.  Scroll to **Rig Control**.
-4.  Check **Enable Rig Control**.
-5.  Set **Host URL** to: `http://localhost:5555`
-    - _(This points the Dashboard on port 3000 to the Bridge on port 5555)_.
-6.  **Optional:** Check **"Tune Button Enabled"** if you want to trigger your ATU.
+1. Open your browser to **<http://localhost:3000>**.
+2. Go to **Settings** (Gear Icon) > **Station Settings**.
+3. Scroll to **Rig Control**.
+4. Check **Enable Rig Control**.
+5. Set **Host URL** to: `http://localhost:5555`
+   - _(This points the Dashboard on port 3000 to the Bridge on port 5555)_.
+6. **Optional:** Check **"Tune Button Enabled"** if you want to trigger your ATU.
 
 ---
 
-## ✅ You're Done!
+## ✅ You're Done! <!-- markdownlint-disable-line MD026-->
 
 Navigate to the dashboard. You should see the Rig Control panel (if enabled).
 

@@ -134,10 +134,10 @@ Adopted year-based versioning: X = year, Y = visual/UI, Z = backend. The jump fr
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions. All PRs target the `Staging` branch.
 
-- **Issues**: https://github.com/accius/openhamclock/issues
+- **Issues**: <https://github.com/accius/openhamclock/issues>
 - **Discussions**: GitHub Issues or the Community tab in Settings
 - **Security**: See [SECURITY.md](SECURITY.md) for vulnerability reporting
 
 ---
 
-_Last updated: 2026-03-26_
+_Last updated: 2026-03-26_ <!-- markdownlint-disable-line MD036 -->

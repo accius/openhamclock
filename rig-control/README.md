@@ -14,9 +14,9 @@ This standalone Node.js service acts as a bridge between the OpenHamClock web ap
 
 ## Supported Backends
 
-1.  **rigctld** (HAMlib): Uses the TCP text protocol (Default port 4532).
-2.  **flrig**: Uses XML-RPC (Default port 12345).
-3.  **mock**: Simulation mode (logs to console, no hardware needed).
+1. **rigctld** (HAMlib): Uses the TCP text protocol (Default port 4532).
+2. **flrig**: Uses XML-RPC (Default port 12345).
+3. **mock**: Simulation mode (logs to console, no hardware needed).
 
 ## Installation
 

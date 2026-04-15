@@ -4,7 +4,7 @@ This guide explains how to run unit tests for this project
 
 Note that this document, the initial setup and configuration of testing,
 and the initial set of tests for utils/dxClusterFilters.js was created
-with the help of the AI agent "Claude Code" at https://claude.ai
+with the help of the AI agent "Claude Code" at <https://claude.ai>
 
 - Rich Freedman, N2EHL 2026-02-07
 
@@ -36,7 +36,7 @@ npm run test:coverage
 
 ## Test File Structure
 
-```
+```text
 openhamclock/
 ├── src/
 │   ├── utils/
