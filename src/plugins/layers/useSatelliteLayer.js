@@ -711,9 +711,9 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         }
       });
 
-      // Close on Enter or Escape key
+      // Close on Escape key
       const handleKeyDown = (e) => {
-        if (e.key === 'Enter' || e.key === 'Escape') {
+        if (e.key === 'Escape') {
           closeModal();
         }
       };
