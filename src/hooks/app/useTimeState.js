@@ -51,7 +51,7 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
   const deGrid = useMemo(() => calculateGridSquare(configLocation.lat, configLocation.lon), [configLocation]);
   const dxGrid = useMemo(() => calculateGridSquare(dxLocation.lat, dxLocation.lon), [dxLocation]);
 
-  function convertTimeTz(sunTimes) {
+  function convertTimeUTCtoLocal(sunTimes) {
     // We are only ever going to be doing this for local timezone
 
     const HoursInADay = 24 * 60;
@@ -80,7 +80,7 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
   const deSunTimes = useMemo(() => {
     // Calculate what sunrise and sunset are in local time.
     let sunTimes = calculateSunTimes(configLocation.lat, configLocation.lon, currentTime);
-    sunTimes.local = convertTimeTz(sunTimes);
+    sunTimes.local = convertTimeUTCtoLocal(sunTimes);
     return sunTimes;
   }, [configLocation, currentTime]);
   const dxSunTimes = useMemo(
