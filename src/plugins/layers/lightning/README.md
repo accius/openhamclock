@@ -316,11 +316,11 @@ const fetchLightning = async () => {
 
 ## 🌐 External Links
 
-- **Blitzortung.org**: https://www.blitzortung.org/
-- **LightningMaps.org**: https://www.lightningmaps.org/
-- **NOAA Lightning Data**: https://www.nesdis.noaa.gov/our-satellites/currently-flying/goes-east-west/geostationary-lightning-mapper-glm
-- **Lightning Safety**: https://www.weather.gov/safety/lightning
-- **30/30 Rule**: https://www.weather.gov/safety/lightning-30-30-rule
+- **Blitzortung.org**: <https://www.blitzortung.org/>
+- **LightningMaps.org**: <https://www.lightningmaps.org/>
+- **NOAA Lightning Data**: <https://www.nesdis.noaa.gov/our-satellites/currently-flying/goes-east-west/geostationary-lightning-mapper-glm>
+- **Lightning Safety**: <https://www.weather.gov/safety/lightning>
+- **30/30 Rule**: <https://www.weather.gov/safety/lightning-30-30-rule>
 
 ---
 

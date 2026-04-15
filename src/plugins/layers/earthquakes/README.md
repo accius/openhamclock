@@ -58,7 +58,7 @@ The Earthquakes plugin displays live seismic activity data from the USGS Earthqu
 
 - **Provider**: USGS Earthquake Hazards Program
 - **Feed**: GeoJSON All Earthquakes (Last Hour) **[Updated v1.2.0]**
-- **URL**: https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson
+- **URL**: <https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson>
 - **Update Frequency**: Every 5 minutes
 - **Minimum Magnitude**: 1.0+ (shows all detected quakes)
 - **Time Window**: Last hour (more responsive to new activity)
@@ -226,7 +226,7 @@ if (isNew) {
 
 ### Data Flow
 
-```
+```text
 USGS Seismic Network → GeoJSON API → OpenHamClock → Animated Map Display
       (real-time)        (5 min delay)    (5 min refresh)    (instant)
 ```
@@ -258,10 +258,10 @@ USGS Seismic Network → GeoJSON API → OpenHamClock → Animated Map Display
 
 ## 🌐 External Links
 
-- **USGS Earthquake Catalog**: https://earthquake.usgs.gov/earthquakes/
-- **Real-time Feeds**: https://earthquake.usgs.gov/earthquakes/feed/
-- **Earthquake Glossary**: https://www.usgs.gov/programs/earthquake-hazards/glossary
-- **ShakeMap**: https://earthquake.usgs.gov/data/shakemap/
+- **USGS Earthquake Catalog**: <https://earthquake.usgs.gov/earthquakes/>
+- **Real-time Feeds**: <https://earthquake.usgs.gov/earthquakes/feed/>
+- **Earthquake Glossary**: <https://www.usgs.gov/programs/earthquake-hazards/glossary>
+- **ShakeMap**: <https://earthquake.usgs.gov/data/shakemap/>
 
 ---
 
@@ -340,4 +340,4 @@ USGS Seismic Network → GeoJSON API → OpenHamClock → Animated Map Display
 
 **73 de OpenHamClock** 📡🌋
 
-_Seismic awareness for the radio amateur_
+_Seismic awareness for the radio amateur_ <!-- markdownlint-disable-line MD036-->

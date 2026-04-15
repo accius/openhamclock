@@ -121,14 +121,14 @@ Operators check in to a net by sending an APRS message:
 
 **Check in:**
 
-```
+```text
 TO: EMCOMM
 Body: CQ NETNAME <your status message>
 ```
 
 **Check out:**
 
-```
+```text
 TO: EMCOMM
 Body: U NETNAME
 ```
@@ -139,7 +139,7 @@ Example: Sending `CQ HOTG Deployed to Shelter Alpha` to EMCOMM checks you in to 
 
 For operators without APRS TX capability, the server provides a REST endpoint:
 
-```
+```text
 POST /api/aprs/net/checkin
 Body: { "callsign": "W1ABC", "netName": "HOTG", "status": "At EOC" }
 ```
@@ -179,7 +179,7 @@ Incoming APRS messages addressed to your callsign appear in the message stream. 
 
 ### Message Endpoint
 
-```
+```text
 POST /api/aprs/message
 Body: { "to": "W1ABC", "message": "Need water at Shelter B" }
 ```
@@ -291,7 +291,7 @@ The rig-bridge includes a Winlink gateway plugin (`rig-bridge/plugins/winlink-ga
 
 ## Architecture
 
-```
+```text
 ┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
 │  Radio/TNC  │────▶│  APRS Daemon │────▶│  OpenHamClock   │
 │  (Direwolf) │◀────│  (rig-bridge │◀────│  (Node.js)      │

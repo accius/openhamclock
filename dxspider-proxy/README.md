@@ -180,7 +180,7 @@ CALLSIGN=YOURCALL npm start
 
 Once deployed, update your OpenHamClock configuration to use this proxy as a DX cluster source:
 
-```
+```text
 https://your-proxy-url.railway.app/api/dxcluster/spots
 ```
 

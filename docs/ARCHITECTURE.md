@@ -10,7 +10,7 @@ OpenHamClock is a full-stack JavaScript application:
 - **Backend**: Express.js server that proxies 40+ external APIs, manages SSE/WebSocket connections, and serves static files
 - **Deployment**: Docker on Railway (production), `npm run dev` for local development
 
-```
+```text
 ┌──────────────────────────────────────────────────────┐
 │                    Browser (React)                    │
 │  App.jsx → Layout → Panels + WorldMap + Plugins      │
@@ -30,7 +30,7 @@ OpenHamClock is a full-stack JavaScript application:
 
 ## Directory Structure
 
-```
+```text
 openhamclock-main/
 ├── index.html              # Vite entry point → builds to dist/index.html
 ├── server.js               # Express backend (all API routes, SSE, data aggregation)
@@ -148,7 +148,7 @@ openhamclock-main/
 
 Every data panel follows the same pattern:
 
-```
+```text
 useXxxSpots.js (hook)     →  XxxPanel.jsx (component)  →  Layout.jsx
   ├── fetch /api/xxx         ├── renders data list          ├── arranges panels
   ├── polling interval       ├── handles click events       └── passes props
@@ -165,10 +165,12 @@ useXxxSpots.js (hook)     →  XxxPanel.jsx (component)  →  Layout.jsx
 ### Adding a Map Layer Plugin
 
 1. Create `src/plugins/layers/useMyLayer.js` following the plugin interface:
+
    ```js
    export const meta = { name: 'my-layer', label: 'My Layer', ... };
    export const useLayer = ({ map, enabled, config }) => { ... };
    ```
+
 2. The layer registry auto-discovers it — no manual registration needed
 3. See `src/plugins/OpenHamClock-Plugin-Guide.md` for the full API
 
