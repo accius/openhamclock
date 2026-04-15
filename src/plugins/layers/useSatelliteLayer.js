@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { replicatePoint, replicatePath } from '../../utils/geo.js';
 import Orbit from '../../utils/orbit.js';
-import dayjs from 'dayjs';
 import useAppConfig from '../../hooks/app/useAppConfig.js';
 
 export const metadata = {
@@ -524,8 +523,8 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         height: globalConfig.location.stationAlt, // above sea level [m]
       };
 
-      const startDate = dayjs().toDate(); // from now
-      const endDate = dayjs(startDate).add(7, 'day').toDate(); // until 7 days from now
+      const startDate = new Date(); // from now
+      const endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // until 7 days from now
       const minElevation = globalConfig.satellite.minElev;
       const maxPasses = 25;
       const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
@@ -569,13 +568,13 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                     const azimuthEnd = pass.azimuthEnd.toFixed(0);
                     const maxElevation = pass.maxElevation.toFixed(0);
                     const durationMins = (pass.duration / 60000).toFixed(1);
-                    const startTime = dayjs(pass.start).format('YYYY-MM-DD HH:mm:ss');
-                    const apexTime = dayjs(pass.apex).format('YYYY-MM-DD HH:mm:ss');
-                    const endTime = dayjs(pass.end).format('YYYY-MM-DD HH:mm:ss');
-                    const secsFromNow = dayjs(pass.start).diff(dayjs(), 'second');
+                    const startTime = new Date(pass.start).toISOString().slice(0, 19).replace('T', ' ');
+                    const apexTime = new Date(pass.apex).toISOString().slice(0, 19).replace('T', ' ');
+                    const endTime = new Date(pass.end).toISOString().slice(0, 19).replace('T', ' ');
+                    const secsFromNow = Math.floor((pass.start - new Date()) / 1000);
 
-                    const isVisibleNow = secsFromNow <= 0 && dayjs().isBefore(dayjs(pass.end));
-                    const isPast = secsFromNow <= 0 && dayjs().isAfter(dayjs(pass.end));
+                    const isVisibleNow = secsFromNow <= 0 && new Date() < new Date(pass.end);
+                    const isPast = secsFromNow <= 0 && new Date() > new Date(pass.end);
 
                     if (isPast) {
                       return ``; // skip past passes
@@ -671,8 +670,8 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       modal.appendChild(content);
       document.body.appendChild(modal);
 
-      const currentStartDate = dayjs().toDate();
-      const currentEndDate = dayjs(currentStartDate).add(7, 'day').toDate();
+      const currentStartDate = new Date();
+      const currentEndDate = new Date(currentStartDate.getTime() + 7 * 24 * 60 * 60 * 1000);
       const currentPasses = orbit.computePassesElevation(
         groundStation,
         currentStartDate,

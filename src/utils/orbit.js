@@ -25,7 +25,6 @@ SOFTWARE.
 */
 
 import * as satellitejs from 'satellite.js';
-import dayjs from 'dayjs';
 
 const deg2rad = Math.PI / 180;
 const rad2deg = 180 / Math.PI;
@@ -91,8 +90,8 @@ export default class Orbit {
 
   computePassesElevation(
     groundStationPosition,
-    startDate = dayjs().toDate(),
-    endDate = dayjs(startDate).add(7, 'day').toDate(),
+    startDate = new Date(),
+    endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days later
     minElevation = 5,
     maxPasses = 50,
   ) {
