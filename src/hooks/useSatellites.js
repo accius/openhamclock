@@ -82,7 +82,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
           const elevation = satellite.radiansToDegrees(lookAngles.elevation);
           const rangeSat = lookAngles.rangeSat;
 
-          const isVisible = elevation >= satelliteConfig.minElev; // visible only if above minimum elevation
+          const isVisible = elevation >= (satelliteConfig?.minElev || 5.0); // visible only if above minimum elevation
 
           // Calculate range-rate and doppler factor, only if satellite is visible
           let dopplerFactor = 1;
