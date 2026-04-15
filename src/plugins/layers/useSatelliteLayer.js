@@ -655,8 +655,9 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         border: 2px solid var(--accent-red);
         border-radius: 8px;
         padding: 20px;
+        min-width: 50vw;
         max-width: 95vw;
-        width: 50vw;
+        min-height: 25vh;
         max-height: 90vh;
         overflow-y: auto;
         overflow-x: auto;
