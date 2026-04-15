@@ -536,6 +536,8 @@ export default function ModernLayout(props) {
                 propConfig={config.propagation}
                 dxSpots={dxClusterData.spots}
                 clusterFilters={dxFilters}
+                deSunTimes={deSunTimes}
+                currentTime={currentTime}
               />,
               'prop',
             )}
@@ -597,6 +599,8 @@ export default function ModernLayout(props) {
                   propConfig={config.propagation}
                   dxSpots={dxClusterData.spots}
                   clusterFilters={dxFilters}
+                  deSunTimes={deSunTimes}
+                  currentTime={currentTime}
                 />
               )}
             </div>
@@ -674,6 +678,8 @@ export default function ModernLayout(props) {
               propConfig={config.propagation}
               dxSpots={dxClusterData.spots}
               clusterFilters={dxFilters}
+              deSunTimes={deSunTimes}
+              currentTime={currentTime}
             />
           )}
         </div>

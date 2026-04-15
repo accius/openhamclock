@@ -770,6 +770,8 @@ export const DockableApp = ({
               bandConditions={bandConditions}
               allUnits={config.allUnits}
               propConfig={config.propagation}
+              deSunTimes={deSunTimes}
+              currentTime={currentTime}
             />
           );
           break;
@@ -782,6 +784,8 @@ export const DockableApp = ({
               bandConditions={bandConditions}
               allUnits={config.allUnits}
               propConfig={config.propagation}
+              deSunTimes={deSunTimes}
+              currentTime={currentTime}
               forcedMode="chart"
             />
           );
@@ -795,6 +799,8 @@ export const DockableApp = ({
               bandConditions={bandConditions}
               allUnits={config.allUnits}
               propConfig={config.propagation}
+              deSunTimes={deSunTimes}
+              currentTime={currentTime}
               forcedMode="bars"
             />
           );
@@ -808,6 +814,8 @@ export const DockableApp = ({
               bandConditions={bandConditions}
               allUnits={config.allUnits}
               propConfig={config.propagation}
+              deSunTimes={deSunTimes}
+              currentTime={currentTime}
               forcedMode="bands"
             />
           );
