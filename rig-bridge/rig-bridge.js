@@ -103,21 +103,42 @@ registry.registerBuiltins();
 //    mode receive all plugin data (decodes, status, APRS) over the same
 //    connection used for freq/mode/ptt — no separate HTTP POSTs needed.
 pluginBus.on('decode', (msg) => {
-  // Build a trimmed decode object with the fields the UI needs.
-  // id is a stable content key used for client-side deduplication.
+  // Build the decode object forwarded to SSE consumers.
+  // When the decode comes from wsjtx-relay (or any plugin using wsjtx-enrich),
+  // it already carries an enriched content-based id plus lat/lon/band/grid/type/
+  // caller/modifier fields — pass them all through so the UI can use them.
+  // For raw (un-enriched) decodes, synthesise an id from available fields.
+  const rawTime = typeof msg.time === 'object' ? (msg.time?.formatted ?? '') : (msg.time ?? '');
   const d = {
-    id: `${msg.source}-${msg.time?.formatted ?? Date.now()}-${msg.deltaFreq}-${(msg.message ?? '').replace(/\s/g, '')}`,
+    id:
+      msg.id ?? `${msg.source}-${rawTime}-${msg.deltaFreq ?? msg.freq ?? 0}-${(msg.message ?? '').replace(/\s/g, '')}`,
     source: msg.source,
+    clientId: msg.clientId,
     snr: msg.snr,
     deltaTime: msg.deltaTime,
-    deltaFreq: msg.deltaFreq,
-    freq: msg.deltaFreq, // alias used by useWSJTX dedup key
-    time: msg.time?.formatted ?? '',
+    dt: msg.dt,
+    deltaFreq: msg.deltaFreq ?? msg.freq,
+    freq: msg.freq ?? msg.deltaFreq, // alias used by useWSJTX dedup key
+    time: rawTime,
+    timeMs: msg.timeMs,
     mode: msg.mode,
     message: msg.message,
-    type: msg.message.startsWith('CQ') ? 'CQ' : 'QSO',
     dialFrequency: msg.dialFrequency,
-    timestamp: Date.now(),
+    band: msg.band,
+    // Parsed FT8 message fields (from wsjtx-enrich, undefined for raw decodes)
+    type: msg.type,
+    caller: msg.caller,
+    modifier: msg.modifier,
+    dxCall: msg.dxCall,
+    deCall: msg.deCall,
+    exchange: msg.exchange,
+    grid: msg.grid,
+    gridSource: msg.gridSource,
+    lat: msg.lat,
+    lon: msg.lon,
+    lowConfidence: msg.lowConfidence,
+    offAir: msg.offAir,
+    timestamp: msg.timestamp ?? Date.now(),
   };
   addToDecodeRingBuffer(d);
   broadcast({ type: 'plugin', event: 'decode', source: msg.source, data: d });
@@ -133,6 +154,12 @@ pluginBus.on('status', (msg) => {
       mode: msg.mode,
       dxCall: msg.dxCall,
       dxGrid: msg.dxGrid,
+      dxLat: msg.dxLat ?? null,
+      dxLon: msg.dxLon ?? null,
+      deLat: msg.deLat ?? null,
+      deLon: msg.deLon ?? null,
+      band: msg.band ?? null,
+      bandChanged: msg.bandChanged ?? false,
       transmitting: msg.transmitting,
       decoding: msg.decoding,
       txEnabled: msg.txEnabled,
@@ -146,14 +173,64 @@ pluginBus.on('qso', (msg) => {
     event: 'qso',
     source: msg.source,
     data: {
+      clientId: msg.clientId,
       dxCall: msg.dxCall,
       dxGrid: msg.dxGrid,
+      lat: msg.lat ?? null,
+      lon: msg.lon ?? null,
       mode: msg.mode,
+      band: msg.band ?? null,
+      frequency: msg.frequency,
       reportSent: msg.reportSent,
-      reportReceived: msg.reportReceived,
-      txFrequency: msg.txFrequency,
-      timestamp: Date.now(),
+      reportRecv: msg.reportRecv,
+      myCall: msg.myCall ?? null,
+      myGrid: msg.myGrid ?? null,
+      timestamp: msg.timestamp ?? Date.now(),
     },
+  });
+});
+
+pluginBus.on('clear', (msg) => {
+  broadcast({
+    type: 'plugin',
+    event: 'clear',
+    source: msg.source,
+    data: { clientId: msg.clientId, window: msg.window },
+  });
+});
+
+pluginBus.on('wspr', (msg) => {
+  broadcast({
+    type: 'plugin',
+    event: 'wspr',
+    source: msg.source,
+    data: {
+      clientId: msg.clientId,
+      isNew: msg.isNew,
+      time: msg.time,
+      timeMs: msg.timeMs,
+      snr: msg.snr,
+      dt: msg.dt,
+      frequency: msg.frequency,
+      band: msg.band,
+      drift: msg.drift,
+      callsign: msg.callsign,
+      grid: msg.grid,
+      power: msg.power,
+      offAir: msg.offAir,
+      lat: msg.lat ?? null,
+      lon: msg.lon ?? null,
+      timestamp: msg.timestamp ?? Date.now(),
+    },
+  });
+});
+
+pluginBus.on('decode-update', (msg) => {
+  broadcast({
+    type: 'plugin',
+    event: 'decode-update',
+    source: msg.source,
+    data: { callsign: msg.callsign, lat: msg.lat, lon: msg.lon },
   });
 });
 

@@ -383,6 +383,7 @@ export default function ModernLayout(props) {
       wsjtxDecodes={wsjtx.decodes}
       wsjtxClients={wsjtx.clients}
       wsjtxQsos={wsjtx.qsos}
+      wsjtxWspr={wsjtx.wspr}
       wsjtxStats={wsjtx.stats}
       wsjtxLoading={wsjtx.loading}
       wsjtxEnabled={wsjtx.enabled}
