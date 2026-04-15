@@ -21,6 +21,8 @@ export const PropagationPanel = ({
   propConfig = {},
   dxSpots,
   clusterFilters,
+  deSunTimes,
+  currentTime,
 }) => {
   const { t } = useTranslation();
 
@@ -131,7 +133,10 @@ export const PropagationPanel = ({
 
   const { solarData, distance, currentBands, hourlyPredictions, muf, luf, dataSource } = propagation;
   const currentHour = propagation.currentHour ?? new Date().getUTCHours();
-  const isDaytime = new Date().getUTCHours() >= 6 && new Date().getUTCHours() <= 18;
+  const isDaytime =
+    deSunTimes.sunset > deSunTimes.sunrise
+      ? currentTime.getUTCHours() >= deSunTimes.sunrise && currentTime.getUTCHours() <= deSunTimes.sunset()
+      : !(currentTime.getUTCHours() >= deSunTimes.sunset && currentTime.getUTCHours() <= deSunTimes.sunrise());
 
   // Heat map colors - supports both schemes
   // Stoplight: green=good, red=bad (intuitive)

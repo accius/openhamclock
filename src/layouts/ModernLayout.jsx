@@ -221,9 +221,14 @@ export default function ModernLayout(props) {
         </div>
         <div style={{ marginTop: '8px', fontSize: '13px' }}>
           <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{deSunTimes.sunrise}</span>
+          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>
+            {deSunTimes.local?.sunrise ?? deSunTimes.sunrise}
+          </span>
           <span style={{ color: 'var(--text-secondary)' }}> → </span>
-          <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{deSunTimes.sunset}</span>
+          <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>
+            {deSunTimes.local?.sunset ?? deSunTimes.sunset}
+          </span>
+          <span> {deSunTimes.local ? config.timezone : 'UTC'}</span>
         </div>
       </div>
       <WeatherPanel weatherData={localWeather} allUnits={config.allUnits} alerts={localAlerts} />
@@ -343,6 +348,7 @@ export default function ModernLayout(props) {
           <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{dxSunTimes.sunrise}</span>
           <span style={{ color: 'var(--text-secondary)' }}> → </span>
           <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
+          <span> UTC</span>
         </div>
       </div>
       {showDxWeather && <WeatherPanel weatherData={dxWeather} allUnits={config.allUnits} alerts={dxAlerts} />}
@@ -536,6 +542,8 @@ export default function ModernLayout(props) {
                 propConfig={config.propagation}
                 dxSpots={dxClusterData.spots}
                 clusterFilters={dxFilters}
+                deSunTimes={deSunTimes}
+                currentTime={currentTime}
               />,
               'prop',
             )}
@@ -597,6 +605,8 @@ export default function ModernLayout(props) {
                   propConfig={config.propagation}
                   dxSpots={dxClusterData.spots}
                   clusterFilters={dxFilters}
+                  deSunTimes={deSunTimes}
+                  currentTime={currentTime}
                 />
               )}
             </div>
@@ -674,6 +684,8 @@ export default function ModernLayout(props) {
               propConfig={config.propagation}
               dxSpots={dxClusterData.spots}
               clusterFilters={dxFilters}
+              deSunTimes={deSunTimes}
+              currentTime={currentTime}
             />
           )}
         </div>
