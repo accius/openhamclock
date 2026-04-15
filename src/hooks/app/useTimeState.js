@@ -50,10 +50,39 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
 
   const deGrid = useMemo(() => calculateGridSquare(configLocation.lat, configLocation.lon), [configLocation]);
   const dxGrid = useMemo(() => calculateGridSquare(dxLocation.lat, dxLocation.lon), [dxLocation]);
-  const deSunTimes = useMemo(
-    () => calculateSunTimes(configLocation.lat, configLocation.lon, currentTime),
-    [configLocation, currentTime],
-  );
+
+  function convertTimeTz(sunTimes) {
+    // We are only ever going to be doing this for local timezone
+
+    const HoursInADay = 24 * 60;
+    var rise = {};
+    var set = {};
+    [rise.hr, rise.mn] = sunTimes.sunrise.split(':');
+    [set.hr, set.mn] = sunTimes.sunset.split(':');
+
+    rise.totalmin = parseInt(rise.hr) * 60 + parseInt(rise.mn);
+    set.totalmin = parseInt(set.hr) * 60 + parseInt(set.mn);
+
+    var offset = new Date().getTimezoneOffset();
+
+    rise.totalmin = rise.totalmin - offset;
+    set.totalmin = set.totalmin - offset;
+
+    const fmt = (minutes) => {
+      const totalMin = ((minutes % 1440) + 1440) % 1440;
+      const hr = Math.floor(totalMin / 60);
+      const mn = Math.round(totalMin % 60);
+      return `${hr.toString().padStart(2, '0')}:${mn.toString().padStart(2, '0')}`;
+    };
+
+    return { sunrise: fmt(rise.totalmin), sunset: fmt(set.totalmin) };
+  }
+  const deSunTimes = useMemo(() => {
+    // Calculate what sunrise and sunset are in local time.
+    let sunTimes = calculateSunTimes(configLocation.lat, configLocation.lon, currentTime);
+    sunTimes.local = convertTimeTz(sunTimes);
+    return sunTimes;
+  }, [configLocation, currentTime]);
   const dxSunTimes = useMemo(
     () => calculateSunTimes(dxLocation.lat, dxLocation.lon, currentTime),
     [dxLocation, currentTime],

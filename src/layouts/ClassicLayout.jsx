@@ -861,9 +861,12 @@ export default function ClassicLayout(props) {
                 <div style={{ color: '#00ffff', fontWeight: '700', fontSize: '20px', marginTop: '2px' }}>
                   {deGrid || '--'}
                 </div>
-                <div style={{ marginTop: '4px', color: '#ffcc00', fontSize: '16px' }}>
-                  <span>&#9728;&#8593; {fmtSunTime(deSunTimes?.sunrise)}</span>
-                  <span style={{ marginLeft: '12px' }}>&#9728;&#8595; {fmtSunTime(deSunTimes?.sunset)}</span>
+                <div style={{ marginTop: '4px', color: '#ffcc00', fontSize: '12px' }}>
+                  <span>&#9728;&#8593; {fmtSunTime(deSunTimes.local?.sunrise ?? deSunTimes?.sunrise)}</span>
+                  <span style={{ marginLeft: '12px' }}>
+                    &#9728;&#8595; {fmtSunTime(deSunTimes.local?.sunset ?? deSunTimes?.sunset)}
+                  </span>
+                  <span> {deSunTimes.local !== null ? config.timezone : 'UTC'}</span>
                 </div>
               </div>
             </div>
@@ -883,9 +886,10 @@ export default function ClassicLayout(props) {
                 <div style={{ color: '#00ffff', fontWeight: '700', fontSize: '20px', marginTop: '2px' }}>
                   {dxGrid || '--'}
                 </div>
-                <div style={{ marginTop: '4px', color: '#ffcc00', fontSize: '16px' }}>
+                <div style={{ marginTop: '4px', color: '#ffcc00', fontSize: '12px' }}>
                   <span>&#9728;&#8593; {fmtSunTime(dxSunTimes?.sunrise)}</span>
                   <span style={{ marginLeft: '12px' }}>&#9728;&#8595; {fmtSunTime(dxSunTimes?.sunset)}</span>
+                  <span> UTC</span>
                 </div>
                 <div style={{ marginTop: '6px', color: '#ff8800', fontSize: '18px', fontWeight: '600' }}>
                   <span>{bearing != null ? `${bearing}°` : '--°'}</span>
