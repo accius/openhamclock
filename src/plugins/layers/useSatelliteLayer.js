@@ -474,19 +474,9 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
       const action = actionEl.dataset.action;
 
-      if (action === 'clear-all-satellites') {
-        sessionStorage.removeItem('selected_satellites');
-        window.location.reload();
-        return;
-      }
-
-      if (action === 'toggle-satellite') {
-        const name = actionEl.dataset.satName;
-        if (name) toggleSatellite(name);
-        return;
-      }
-
       if (action === 'open-predict') {
+        e.stopPropagation();
+        e.preventDefault();
         const name = actionEl.dataset.satName;
         const tle1 = actionEl.dataset.tle1;
         const tle2 = actionEl.dataset.tle2;
@@ -495,10 +485,26 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         }
         return;
       }
+
+      if (action === 'clear-all-satellites') {
+        e.stopPropagation();
+        e.preventDefault();
+        sessionStorage.removeItem('selected_satellites');
+        window.location.reload();
+        return;
+      }
+
+      if (action === 'toggle-satellite') {
+        e.stopPropagation();
+        e.preventDefault();
+        const name = actionEl.dataset.satName;
+        if (name) toggleSatellite(name);
+        return;
+      }
     };
 
-    container.addEventListener('click', handleClick);
-    return () => container.removeEventListener('click', handleClick);
+    container.addEventListener('click', handleClick, true); // Use capture phase
+    return () => container.removeEventListener('click', handleClick, true);
   }, [map, toggleSatellite, satellites]);
 
   /********************************************************************************************/
