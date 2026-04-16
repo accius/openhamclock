@@ -555,13 +555,13 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                   <th style="padding: 4px;">Duration</th>
                 </tr>
                 <tr style="background: var(--bg-secondary); padding: 2px; border-bottom: 2px solid var(--text-muted);">
-                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Local Time</th>
                   <th style="border-right: 1px solid var(--text-muted); padding: 4px;">From Now</th>
                   <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
-                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Local Time</th>
                   <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Az [°]</th>
                   <th style="border-right: 3px double var(--text-muted); padding: 4px;">El [°]</th>
-                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Time</th>
+                  <th style="border-right: 1px solid var(--text-muted); padding: 4px;">Local Time</th>
                   <th style="border-right: 3px double var(--text-muted); padding: 4px;">Az [°]</th>
                   <th style="padding: 4px;">[mins]</th>
                 </tr>
@@ -574,9 +574,14 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                     const azimuthEnd = pass.azimuthEnd.toFixed(0);
                     const maxElevation = pass.maxElevation.toFixed(0);
                     const durationMins = (pass.duration / 60000).toFixed(1);
-                    const startTime = new Date(pass.start).toISOString().slice(0, 19).replace('T', ' ');
-                    const apexTime = new Date(pass.apex).toISOString().slice(0, 19).replace('T', ' ');
-                    const endTime = new Date(pass.end).toISOString().slice(0, 19).replace('T', ' ');
+                    const formatLocalTime = (ts) => {
+                      const d = new Date(ts);
+                      const pad = (n) => String(n).padStart(2, '0');
+                      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+                    };
+                    const startTime = formatLocalTime(pass.start);
+                    const apexTime = formatLocalTime(pass.apex);
+                    const endTime = formatLocalTime(pass.end);
                     const secsFromNow = Math.floor((pass.start - new Date()) / 1000);
 
                     const isVisibleNow = secsFromNow <= 0 && new Date() < new Date(pass.end);
