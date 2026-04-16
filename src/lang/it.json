@@ -393,6 +393,7 @@
   "station.settings.satellites.altitude": "Altitude",
   "station.settings.satellites.azimuth_elevation": "Az/El",
   "station.settings.satellites.belowHorizon": "Sotto l'orizzonte",
+  "station.settings.satellites.belowMinElev": "Sotto el. min",
   "station.settings.satellites.clear": "Pulisci",
   "station.settings.satellites.clearFootprints": "CLEAR ALL FOOTPRINTS",
   "station.settings.satellites.dopplerFactor": "Doppler Factor",

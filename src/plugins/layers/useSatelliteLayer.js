@@ -315,7 +315,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                   isVisible
                     ? `${t('station.settings.satellites.visible')}`
                     : isAboveHorizon
-                      ? 'below min elev'
+                      ? `${t('station.settings.satellites.belowMinElev')}`
                       : `${t('station.settings.satellites.belowHorizon')}`
                 }
               </td>

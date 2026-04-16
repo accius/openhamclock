@@ -393,6 +393,7 @@
   "station.settings.satellites.altitude": "ความสูง",
   "station.settings.satellites.azimuth_elevation": "ทิศทาง/มุมเงย",
   "station.settings.satellites.belowHorizon": "ต่ำกว่าขอบฟ้า",
+  "station.settings.satellites.belowMinElev": "ต่ำกว่าอิเลเวชั่นต่ำสุด",
   "station.settings.satellites.clear": "ล้างการเลือก",
   "station.settings.satellites.clearFootprints": "ล้างรอยแผนที่ทั้งหมด",
   "station.settings.satellites.dopplerFactor": "ตัวคูณดอปเปลอร์",

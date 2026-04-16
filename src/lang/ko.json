@@ -393,6 +393,7 @@
   "station.settings.satellites.altitude": "Altitude",
   "station.settings.satellites.azimuth_elevation": "Az/El",
   "station.settings.satellites.belowHorizon": "수평선 아래",
+  "station.settings.satellites.belowMinElev": "최소 고도 이하",
   "station.settings.satellites.clear": "지우기",
   "station.settings.satellites.clearFootprints": "CLEAR ALL FOOTPRINTS",
   "station.settings.satellites.dopplerFactor": "Doppler Factor",

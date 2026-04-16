@@ -393,6 +393,7 @@
   "station.settings.satellites.altitude": "Altitude",
   "station.settings.satellites.azimuth_elevation": "Az/El",
   "station.settings.satellites.belowHorizon": "Di bawah ufuk",
+  "station.settings.satellites.belowMinElev": "Di bawah elev. min",
   "station.settings.satellites.clear": "Kosongkan",
   "station.settings.satellites.clearFootprints": "CLEAR ALL FOOTPRINTS",
   "station.settings.satellites.dopplerFactor": "Doppler Factor",
