@@ -681,6 +681,13 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       modal.appendChild(content);
       document.body.appendChild(modal);
 
+      // Named function so it can be removed later
+      const handleModalClick = (e) => {
+        if (e.target === modal) {
+          closeModal();
+        }
+      };
+
       const currentStartDate = new Date();
       const currentEndDate = new Date(currentStartDate.getTime() + 7 * 24 * 60 * 60 * 1000);
       const currentPasses = orbit.computePassesElevation(
@@ -690,6 +697,9 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         minElevation,
         maxPasses,
       );
+
+      // Get close button reference early so it can be used in closeModal
+      const initialCloseBtn = content.querySelector('[data-action="close-predict-modal"]');
 
       // update modal every second, satellite data currentPasses is not updated unless modal is reopened,
       // or if satellite layer is updated for instance if TLE data changes
@@ -702,11 +712,17 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       };
 
       const closeModal = () => {
+        // Clean up all event listeners before removing modal
+        if (initialCloseBtn) {
+          initialCloseBtn.removeEventListener('click', closeModal);
+        }
+        modal.removeEventListener('click', handleModalClick);
+        document.removeEventListener('keydown', handleKeyDown);
+
         modal.remove();
         if (window.satellitePredictInterval) {
           clearInterval(window.satellitePredictInterval);
         }
-        document.removeEventListener('keydown', handleKeyDown);
       };
 
       if (window.satellitePredictInterval) {
@@ -716,11 +732,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       window.satellitePredictInterval = setInterval(updatePasses, 1000); // one second
 
       // Close on backdrop click
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-          closeModal();
-        }
-      });
+      modal.addEventListener('click', handleModalClick);
 
       // Close on Escape key
       const handleKeyDown = (e) => {
@@ -731,7 +743,6 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       document.addEventListener('keydown', handleKeyDown);
 
       // Wire initial close button
-      const initialCloseBtn = content.querySelector('[data-action="close-predict-modal"]');
       if (initialCloseBtn) {
         initialCloseBtn.addEventListener('click', closeModal);
       }
