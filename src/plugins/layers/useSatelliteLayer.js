@@ -23,6 +23,7 @@ export const metadata = {
 
 export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, config, allUnits }) => {
   const layerGroupRef = useRef(null);
+  const winListenersRef = useRef(null); // Store window event listener references for cleanup
   const { t } = useTranslation();
   const { config: globalConfig } = useAppConfig();
 
@@ -69,7 +70,22 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     let win = container.querySelector(`#${winId}`);
 
     if (!selectedSats || selectedSats.length === 0) {
-      if (win) win.remove();
+      if (win) {
+        // Clean up listeners before removing window
+        if (winListenersRef.current) {
+          const { mouseDownHandler, mouseMoveHandler, mouseUpHandler, wheelHandler, propagationHandler } =
+            winListenersRef.current;
+          win.removeEventListener('mousedown', mouseDownHandler);
+          window.removeEventListener('mousemove', mouseMoveHandler, { capture: true });
+          window.removeEventListener('mouseup', mouseUpHandler, { capture: true });
+          win.removeEventListener('wheel', wheelHandler);
+          win.removeEventListener('mousemove', propagationHandler.mousemove);
+          win.removeEventListener('mousedown', propagationHandler.mousedown);
+          win.removeEventListener('mouseup', propagationHandler.mouseup);
+          winListenersRef.current = null;
+        }
+        win.remove();
+      }
       return;
     }
 
@@ -135,26 +151,38 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       window.addEventListener('mousemove', handleMouseMove, { capture: true });
       window.addEventListener('mouseup', handleMouseUp, { capture: true });
 
-      // Make sure we clean up if the window is ever removed
-      win.addEventListener('remove', () => {
-        win.removeEventListener('mousedown', handleMouseDown);
-        window.removeEventListener('mousemove', handleMouseMove, { capture: true });
-        window.removeEventListener('mouseup', handleMouseUp, { capture: true });
-      });
+      // Named functions for preventing map event capture
+      const handleWheelPropagation = (e) => {
+        e.stopPropagation();
+      };
+      const handleMouseDownPropagation = (e) => {
+        e.stopPropagation();
+      };
+      const handleMouseMovePropagation = (e) => {
+        e.stopPropagation();
+      };
+      const handleMouseUpPropagation = (e) => {
+        e.stopPropagation();
+      };
 
       // Prevent map from capturing events on the window
-      win.addEventListener('wheel', (e) => {
-        e.stopPropagation();
-      });
-      win.addEventListener('mousedown', (e) => {
-        e.stopPropagation();
-      });
-      win.addEventListener('mousemove', (e) => {
-        e.stopPropagation();
-      });
-      win.addEventListener('mouseup', (e) => {
-        e.stopPropagation();
-      });
+      win.addEventListener('wheel', handleWheelPropagation);
+      win.addEventListener('mousedown', handleMouseDownPropagation);
+      win.addEventListener('mousemove', handleMouseMovePropagation);
+      win.addEventListener('mouseup', handleMouseUpPropagation);
+
+      // Store all listener references for cleanup
+      winListenersRef.current = {
+        mouseDownHandler: handleMouseDown,
+        mouseMoveHandler: handleMouseMove,
+        mouseUpHandler: handleMouseUp,
+        wheelHandler: handleWheelPropagation,
+        propagationHandler: {
+          mousedown: handleMouseDownPropagation,
+          mousemove: handleMouseMovePropagation,
+          mouseup: handleMouseUpPropagation,
+        },
+      };
     }
 
     win.style.top = `${winPos.top}px`;
@@ -455,7 +483,22 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     } else {
       layerGroupRef.current.clearLayers();
       const win = document.getElementById('sat-data-window');
-      if (win) win.remove();
+      if (win) {
+        // Clean up listeners before removing window
+        if (winListenersRef.current) {
+          const { mouseDownHandler, mouseMoveHandler, mouseUpHandler, wheelHandler, propagationHandler } =
+            winListenersRef.current;
+          win.removeEventListener('mousedown', mouseDownHandler);
+          window.removeEventListener('mousemove', mouseMoveHandler, { capture: true });
+          window.removeEventListener('mouseup', mouseUpHandler, { capture: true });
+          win.removeEventListener('wheel', wheelHandler);
+          win.removeEventListener('mousemove', propagationHandler.mousemove);
+          win.removeEventListener('mousedown', propagationHandler.mousedown);
+          win.removeEventListener('mouseup', propagationHandler.mouseup);
+          winListenersRef.current = null;
+        }
+        win.remove();
+      }
     }
   }, [enabled, map, config]);
 
