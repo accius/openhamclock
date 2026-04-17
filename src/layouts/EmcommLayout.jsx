@@ -457,6 +457,7 @@ export default function EmcommLayout(props) {
         {/* MAP */}
         <div style={{ position: 'relative', overflow: 'hidden' }}>
           <WorldMap
+            config={config}
             deLocation={config.location}
             dxLocation={dxLocation}
             onDXChange={handleDXChange}
