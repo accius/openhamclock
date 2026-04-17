@@ -501,6 +501,14 @@ function buildSetupHtml(version, firstRunToken = null) {
       <h1>📻 OpenHamClock Rig Bridge</h1>
       <div class="subtitle">Direct USB connection to your radio — no flrig or rigctld needed</div>
       <div id="logoutArea" style="display:none;margin-top:8px;">
+        <div id="headerTokenArea" style="display:none;justify-content:center;margin-bottom:6px;">
+          <div style="display:inline-flex;align-items:center;gap:6px;background:#111620;border:1px solid #1e2530;border-radius:6px;padding:5px 10px;white-space:nowrap;">
+            <span style="font-size:11px;color:#4b5563;">API Token:</span>
+            <input type="password" id="headerToken" readonly style="background:none;border:none;color:#00ffcc;font-family:'Courier New',Courier,monospace;font-size:11px;outline:none;width:260px;letter-spacing:0.5px;">
+            <button class="copy-btn" onclick="copyHeaderToken()" style="font-size:10px;padding:2px 7px;">Copy</button>
+            <button class="copy-btn" id="headerTokenToggle" onclick="toggleHeaderToken()" style="font-size:10px;padding:2px 7px;">Show</button>
+          </div>
+        </div>
         <span class="logout-link" onclick="doLogout()">🔓 Lock setup</span>
       </div>
     </div>
@@ -517,7 +525,7 @@ function buildSetupHtml(version, firstRunToken = null) {
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('radio', this)">📻 Radio</button>
       <button class="tab-btn" onclick="switchTab('plugins', this)">🧩 Plugins</button>
-      <button class="tab-btn" onclick="switchTab('integrations', this)">🔌 WSJT-X</button>
+      <button class="tab-btn" onclick="switchTab('integrations', this)">🔌 WSJT-X <span style="font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;color:#06b6d4;border:1px solid #06b6d4;border-radius:3px;padding:1px 4px;line-height:1.4;opacity:0.85;margin-left:4px;vertical-align:middle;">Beta</span></button>
       <button class="tab-btn" onclick="switchTab('log', this)">🖥️ Log</button>
       <button class="tab-btn" onclick="switchTab('security', this); loadTlsStatus();">🔒 Security</button>
     </div>
@@ -734,11 +742,8 @@ function buildSetupHtml(version, firstRunToken = null) {
 
       <!-- Instructions -->
       <div class="ohc-instructions">
-        <strong>Setup in OpenHamClock:</strong><br>
-        1. Open <strong>Settings</strong> → <strong>Station Settings</strong> → <strong>Rig Control</strong><br>
-        2. Check <strong>Enable Rig Control</strong><br>
-        3. Set Host URL to: <code>http://localhost:5555</code><br>
-        4. Click any DX spot, POTA, or SOTA to tune your radio! 🎉
+        <strong>New to Rig Bridge?</strong><br>
+        Follow <a href="https://github.com/accius/openhamclock/blob/main/rig-bridge/README.md#option-a----installer-from-the-openhamclock-settings-tab-recommended" target="_blank" rel="noopener noreferrer" style="color:#00ffcc;">Quick Start Option A</a> for step-by-step setup instructions.
       </div>
     </div>
 
@@ -953,19 +958,19 @@ function buildSetupHtml(version, firstRunToken = null) {
     // ── Plugin Manager ────────────────────────────────────────────────────
 
     const PLUGIN_DEFS = [
-      { key: 'mshv', name: 'MSHV', desc: 'Multi-stream digital mode software (MSK144, Q65, etc.)', fields: [
+      { key: 'mshv', name: 'MSHV', maturity: 'alpha', desc: 'Multi-stream digital mode software (MSK144, Q65, etc.)', fields: [
         { id: 'udpPort', label: 'UDP Port', type: 'number', default: 2239 },
         { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
       ]},
-      { key: 'jtdx', name: 'JTDX', desc: 'Enhanced JT65/JT9/FT8 decoding (WSJT-X fork)', fields: [
+      { key: 'jtdx', name: 'JTDX', maturity: 'alpha', desc: 'Enhanced JT65/JT9/FT8 decoding (WSJT-X fork)', fields: [
         { id: 'udpPort', label: 'UDP Port', type: 'number', default: 2238 },
         { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
       ]},
-      { key: 'js8call', name: 'JS8Call', desc: 'JS8 messaging protocol for keyboard-to-keyboard QSOs', fields: [
+      { key: 'js8call', name: 'JS8Call', maturity: 'alpha', desc: 'JS8 messaging protocol for keyboard-to-keyboard QSOs', fields: [
         { id: 'udpPort', label: 'UDP Port', type: 'number', default: 2242 },
         { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
       ]},
-      { key: 'aprs', name: 'APRS TNC', desc: 'Local APRS via Direwolf or hardware TNC (KISS protocol)', fields: [
+      { key: 'aprs', name: 'APRS TNC', maturity: 'beta', desc: 'Local APRS via Direwolf or hardware TNC (KISS protocol)', fields: [
         { id: 'protocol', label: 'Protocol', type: 'select', options: ['kiss-tcp', 'kiss-serial'], default: 'kiss-tcp' },
         { id: 'host', label: 'TNC Host', type: 'text', default: '127.0.0.1' },
         { id: 'port', label: 'TNC Port', type: 'number', default: 8001 },
@@ -974,18 +979,18 @@ function buildSetupHtml(version, firstRunToken = null) {
         { id: 'beaconInterval', label: 'Beacon Interval (sec)', type: 'number', default: 600 },
         { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
       ]},
-      { key: 'rotator', name: 'Rotator (rotctld)', desc: 'Antenna rotator control via Hamlib rotctld', fields: [
+      { key: 'rotator', name: 'Rotator (rotctld)', maturity: 'alpha', desc: 'Antenna rotator control via Hamlib rotctld', fields: [
         { id: 'host', label: 'rotctld Host', type: 'text', default: '127.0.0.1' },
         { id: 'port', label: 'rotctld Port', type: 'number', default: 4533 },
         { id: 'pollInterval', label: 'Poll Interval (ms)', type: 'number', default: 1000 },
       ]},
-      { key: 'winlink', name: 'Winlink', desc: 'Gateway discovery + Pat client for Winlink messaging', fields: [
+      { key: 'winlink', name: 'Winlink', maturity: 'alpha', desc: 'Gateway discovery + Pat client for Winlink messaging', fields: [
         { id: 'apiKey', label: 'Winlink API Key', type: 'text', default: '' },
         { id: 'pat.enabled', label: 'Enable Pat Client', type: 'checkbox', default: false },
         { id: 'pat.host', label: 'Pat Host', type: 'text', default: '127.0.0.1' },
         { id: 'pat.port', label: 'Pat Port', type: 'number', default: 8080 },
       ]},
-      { key: 'cloudRelay', name: 'Cloud Relay', desc: 'Proxy rig features to cloud-hosted OpenHamClock', fields: [
+      { key: 'cloudRelay', name: 'Cloud Relay', maturity: 'alpha', desc: 'Proxy rig features to cloud-hosted OpenHamClock', fields: [
         { id: 'url', label: 'OHC Server URL', type: 'text', default: '' },
         { id: 'apiKey', label: 'Relay API Key', type: 'text', default: '' },
         { id: 'session', label: 'Session ID', type: 'text', default: '' },
@@ -993,6 +998,16 @@ function buildSetupHtml(version, firstRunToken = null) {
         { id: 'pollInterval', label: 'Poll Interval (ms)', type: 'number', default: 1000 },
       ]},
     ];
+
+    function maturityBadge(level) {
+      if (!level) return '';
+      const color = level === 'alpha' ? '#f59e0b' : '#06b6d4';
+      const label = level === 'alpha' ? 'Alpha' : 'Beta';
+      return '<span style="font-size:9px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;' +
+             'color:' + color + ';border:1px solid ' + color + ';border-radius:3px;' +
+             'padding:1px 4px;line-height:1.4;opacity:0.85;margin-left:6px;vertical-align:middle;">' +
+             label + '</span>';
+    }
 
     function renderPlugins(cfg) {
       const container = document.getElementById('pluginList');
@@ -1007,7 +1022,7 @@ function buildSetupHtml(version, firstRunToken = null) {
         card.innerHTML =
           '<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">' +
             '<div>' +
-              '<strong style="color:#c4c9d4; font-size:13px;">' + plugin.name + '</strong>' +
+              '<strong style="color:#c4c9d4; font-size:13px;">' + plugin.name + maturityBadge(plugin.maturity) + '</strong>' +
               '<div style="font-size:11px; color:#6b7280; margin-top:2px;">' + plugin.desc + '</div>' +
             '</div>' +
             '<label style="position:relative; display:inline-block; width:44px; height:24px; margin:0;">' +
@@ -1248,8 +1263,17 @@ function buildSetupHtml(version, firstRunToken = null) {
       }
       const overlay = document.getElementById('loginOverlay');
       const logoutArea = document.getElementById('logoutArea');
+      const headerTokenArea = document.getElementById('headerTokenArea');
+      const headerToken = document.getElementById('headerToken');
       if (overlay) overlay.style.display = 'none';
       if (logoutArea) logoutArea.style.display = 'block';
+      if (token && headerToken) {
+        headerToken.value = token;
+        headerToken.type = 'password';
+        const toggle = document.getElementById('headerTokenToggle');
+        if (toggle) toggle.textContent = 'Show';
+      }
+      if (headerTokenArea) headerTokenArea.style.display = token ? 'flex' : 'none';
       loadApp();
     }
 
@@ -1334,6 +1358,26 @@ function buildSetupHtml(version, firstRunToken = null) {
       inp.select();
       try { document.execCommand('copy'); } catch (e) {}
       showToast('✅ Token copied!', 'success');
+    }
+
+    function copyHeaderToken() {
+      const inp = document.getElementById('headerToken');
+      if (!inp) return;
+      const prev = inp.type;
+      inp.type = 'text';
+      inp.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      inp.type = prev;
+      showToast('✅ Token copied!', 'success');
+    }
+
+    function toggleHeaderToken() {
+      const inp = document.getElementById('headerToken');
+      const btn = document.getElementById('headerTokenToggle');
+      if (!inp) return;
+      const showing = inp.type === 'text';
+      inp.type = showing ? 'password' : 'text';
+      if (btn) btn.textContent = showing ? 'Show' : 'Hide';
     }
 
     async function dismissBanner() {

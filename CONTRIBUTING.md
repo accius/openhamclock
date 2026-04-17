@@ -33,7 +33,7 @@ docker compose up
 
 ## Project Structure
 
-```
+```text
 src/
 ├── components/     # React UI panels (DXClusterPanel, SolarPanel, etc.)
 ├── hooks/          # Data fetching hooks (useDXCluster, usePOTASpots, etc.)
@@ -71,9 +71,11 @@ See an issue you want to fix? Claim it so others know it's being worked on:
 
 1. Find an issue you'd like to work on
 2. Leave a comment containing exactly:
-   ```
+
+   ```text
    /assign
    ```
+
 3. The bot will assign the issue to you and react with 👍
 
 No write access required — any GitHub user can self-assign. Once assigned, feel free to ask questions in the issue thread before diving in. If you claimed something and it's no longer on your radar, just leave a comment so someone else can pick it up.
@@ -83,9 +85,11 @@ No write access required — any GitHub user can self-assign. Once assigned, fee
 Fixed the bug or confirmed a resolution? Close the issue directly:
 
 1. Leave a comment containing exactly:
-   ```
+
+   ```text
    /close
    ```
+
 2. The bot will close the issue and react with 🚀
 
 ### Submitting Code
@@ -101,7 +105,7 @@ Fixed the bug or confirmed a resolution? Close the issue directly:
 
 Branch off `Staging` and use a descriptive prefix:
 
-```
+```text
 feature/my-new-panel
 fix/pota-frequency-display
 docs/update-readme

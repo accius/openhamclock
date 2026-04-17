@@ -89,6 +89,8 @@ import { mapDefs as SOTADefs } from './SOTAPanel.jsx';
 import { mapDefs as WWBOTADefs } from './WWBOTAPanel.jsx';
 import { mapDefs as WWFFDefs } from './WWFFPanel.jsx';
 
+const POPUP_AUTO_CLOSE_MS = 20_000;
+
 export const WorldMap = ({
   config,
   deLocation,
@@ -162,6 +164,12 @@ export const WorldMap = ({
   const aprsMarkersRef = useRef([]);
   const countriesLayerRef = useRef([]);
   const dxLockedRef = useRef(dxLocked);
+  const pinnedPopupRef = useRef({ marker: null, timer: null });
+  const isTouchDeviceRef = useRef(
+    typeof window !== 'undefined' && (window.matchMedia?.('(pointer: coarse)').matches || navigator.maxTouchPoints > 0),
+  );
+  // Tracks which marker is waiting for a second tap on touch devices
+  const touchPendingRef = useRef(null);
   const rotatorLineRef = useRef(null);
   const rotatorGlowRef = useRef(null);
   const rotatorTurnRef = useRef(onRotatorTurnRequest);
@@ -171,6 +179,167 @@ export const WorldMap = ({
   // Azimuthal overlay Leaflet map (from AzimuthalMap component)
   const azimuthalMapRef = useRef(null);
   const [azimuthalMapReady, setAzimuthalMapReady] = useState(false);
+
+  // Unified spot-click handler — pointer devices pin popup + tune immediately;
+  // touch devices require a second tap to tune (first tap pins the popup only).
+  const bindSpotClick = useCallback((marker, onTune) => {
+    marker.on('click', (e) => {
+      L.DomEvent.stopPropagation(e);
+      const pinned = pinnedPopupRef.current;
+
+      if (isTouchDeviceRef.current) {
+        if (touchPendingRef.current === marker) {
+          // Second tap — tune rig and close popup
+          if (pinned.marker) {
+            pinned.marker.closePopup();
+            clearTimeout(pinned.timer);
+            pinned.marker = null;
+            pinned.timer = null;
+          }
+          touchPendingRef.current = null;
+          onTune();
+        } else {
+          // First tap — pin popup, wait for second tap
+          if (pinned.marker) {
+            pinned.marker.closePopup();
+            clearTimeout(pinned.timer);
+          }
+          touchPendingRef.current = marker;
+          pinned.marker = marker;
+          marker.openPopup();
+          pinned.timer = setTimeout(() => {
+            marker.closePopup();
+            pinned.marker = null;
+            pinned.timer = null;
+            if (touchPendingRef.current === marker) touchPendingRef.current = null;
+          }, POPUP_AUTO_CLOSE_MS);
+        }
+      } else {
+        // Pointer device — pin popup and tune immediately
+        if (pinned.marker) {
+          pinned.marker.closePopup();
+          clearTimeout(pinned.timer);
+        }
+        pinned.marker = marker;
+        marker.openPopup();
+        pinned.timer = setTimeout(() => {
+          marker.closePopup();
+          pinned.marker = null;
+          pinned.timer = null;
+        }, POPUP_AUTO_CLOSE_MS);
+        onTune();
+      }
+    });
+  }, []);
+
+  // On touch devices, visual spot markers are non-interactive; ghost markers with an
+  // expanded hit area overlay them and handle all tap events.
+  // realMarker + glowColor are optional — when supplied the ghost applies a glow to
+  // the visual marker on popupopen and removes it on popupclose.
+  const addTouchGhost = useCallback(
+    (type, latlng, popupHtml, onTune, markersRef, realMarker, glowColor) => {
+      if (!isTouchDeviceRef.current) return;
+      const map = mapInstanceRef.current;
+      if (!map) return;
+
+      let ghost;
+      if (type === 'circle') {
+        ghost = L.circleMarker(latlng, {
+          radius: 22,
+          fillOpacity: 0,
+          opacity: 0,
+          interactive: true,
+        });
+      } else {
+        ghost = L.marker(latlng, {
+          icon: L.divIcon({
+            className: '',
+            html: '<div style="width:44px;height:44px;background:transparent;"></div>',
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+          }),
+          interactive: true,
+          zIndexOffset: 1000,
+        });
+      }
+
+      // Apply glow to the real visual marker when the ghost's popup opens/closes
+      if (realMarker && glowColor) {
+        let glowRing = null;
+        ghost.on('popupopen', () => {
+          if (realMarker._path) {
+            // SVG circleMarker — use a Leaflet glow ring
+            glowRing = L.circleMarker(latlng, {
+              radius: 16,
+              fillColor: glowColor,
+              color: glowColor,
+              weight: 12,
+              opacity: 0.3,
+              fillOpacity: 0.2,
+              interactive: false,
+            }).addTo(map);
+            markersRef.current.push(glowRing);
+          } else if (realMarker._icon) {
+            // divIcon — CSS drop-shadow filter
+            realMarker._icon.style.filter = `drop-shadow(0 0 4px ${glowColor}) drop-shadow(0 0 10px ${glowColor}) drop-shadow(0 0 20px ${glowColor})`;
+          }
+        });
+        ghost.on('popupclose', () => {
+          if (glowRing) {
+            try {
+              map.removeLayer(glowRing);
+            } catch (_) {}
+            const idx = markersRef.current.indexOf(glowRing);
+            if (idx !== -1) markersRef.current.splice(idx, 1);
+            glowRing = null;
+          }
+          if (realMarker._icon) realMarker._icon.style.filter = '';
+        });
+      }
+
+      ghost.bindPopup(popupHtml).addTo(map);
+      if (onTune) bindSpotClick(ghost, onTune);
+      markersRef.current.push(ghost);
+    },
+    [bindSpotClick],
+  );
+
+  // Attaches mouseover/mouseout popup + glow behaviour to any spot marker.
+  // For SVG circleMarkers (this._path) a Leaflet glow ring is used; for divIcon
+  // markers (this._icon) a CSS drop-shadow filter is applied instead.
+  const bindHoverGlow = useCallback((marker, latlng, color, markersRef) => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    let glowRing = null;
+    marker
+      .on('mouseover', function () {
+        if (pinnedPopupRef.current.marker !== this) this.openPopup();
+        if (this._path) {
+          glowRing = L.circleMarker(latlng, {
+            radius: 16,
+            fillColor: color,
+            color,
+            weight: 12,
+            opacity: 0.3,
+            fillOpacity: 0.2,
+            interactive: false,
+          }).addTo(map);
+          markersRef.current.push(glowRing);
+        } else if (this._icon) {
+          this._icon.style.filter = `drop-shadow(0 0 4px ${color}) drop-shadow(0 0 10px ${color}) drop-shadow(0 0 20px ${color})`;
+        }
+      })
+      .on('mouseout', function () {
+        if (pinnedPopupRef.current.marker !== this) this.closePopup();
+        if (glowRing) {
+          map.removeLayer(glowRing);
+          const idx = markersRef.current.indexOf(glowRing);
+          if (idx !== -1) markersRef.current.splice(idx, 1);
+          glowRing = null;
+        }
+        if (this._icon) this._icon.style.filter = '';
+      });
+  }, []);
 
   const handleAzimuthalMapReady = useCallback((map) => {
     azimuthalMapRef.current = map;
@@ -745,6 +914,24 @@ export const WorldMap = ({
     };
   }, [leafletReady]); // leafletReady flips to true once window.L is confirmed available
 
+  // Unpin a pinned spot popup when the user clicks anywhere on the map
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const handleMapClick = () => {
+      touchPendingRef.current = null;
+      const pinned = pinnedPopupRef.current;
+      if (pinned.marker) {
+        pinned.marker.closePopup();
+        clearTimeout(pinned.timer);
+        pinned.marker = null;
+        pinned.timer = null;
+      }
+    };
+    map.on('click', handleMapClick);
+    return () => map.off('click', handleMapClick);
+  }, [leafletReady]);
+
   // Update the value for how many scroll pixels count as a zoom level
   useEffect(() => {
     if (!mapInstanceRef.current) return;
@@ -1225,6 +1412,7 @@ export const WorldMap = ({
           });
 
           // Render circleMarker on all 3 world copies
+          const dxPopupHtml = `<b data-qrz-call="${esc(dxCall)}" style="color: ${color}; cursor:pointer">${esc(dxCall)}</b><br>${esc(path.freq)} MHz<br>by <span data-qrz-call="${esc(path.spotter)}" style="cursor:pointer">${esc(path.spotter)}</span>`;
           replicatePoint(path.dxLat, path.dxLon).forEach(([lat, lon]) => {
             const dxCircle = L.circleMarker([lat, lon], {
               radius: isHovered ? 12 : 6,
@@ -1233,15 +1421,27 @@ export const WorldMap = ({
               weight: isHovered ? 3 : 1.5,
               opacity: 1,
               fillOpacity: isHovered ? 1 : 0.9,
-              interactive: !!onSpotClick,
+              interactive: !isTouchDeviceRef.current,
             })
-              .bindPopup(
-                `<b data-qrz-call="${esc(dxCall)}" style="color: ${color}; cursor:pointer">${esc(dxCall)}</b><br>${esc(path.freq)} MHz<br>by <span data-qrz-call="${esc(path.spotter)}" style="cursor:pointer">${esc(path.spotter)}</span>`,
-              )
+              .bindPopup(dxPopupHtml)
               .addTo(map);
 
+            bindHoverGlow(dxCircle, [lat, lon], color, dxPathsMarkersRef);
+
             if (onSpotClick) {
-              dxCircle.on('click', () => onSpotClick(path));
+              if (!isTouchDeviceRef.current) {
+                bindSpotClick(dxCircle, () => onSpotClick(path));
+              } else {
+                addTouchGhost(
+                  'circle',
+                  [lat, lon],
+                  dxPopupHtml,
+                  () => onSpotClick(path),
+                  dxPathsMarkersRef,
+                  dxCircle,
+                  color,
+                );
+              }
             }
 
             if (isHovered) dxCircle.bringToFront();
@@ -1259,12 +1459,28 @@ export const WorldMap = ({
             replicatePoint(path.dxLat, path.dxLon).forEach(([lat, lon]) => {
               const label = L.marker([lat, lon], {
                 icon: labelIcon,
-                interactive: !!onSpotClick,
+                interactive: !isTouchDeviceRef.current,
                 zIndexOffset: isHovered ? 10000 : 0,
-              }).addTo(map);
+              })
+                .bindPopup(dxPopupHtml)
+                .addTo(map);
+
+              bindHoverGlow(label, [lat, lon], color, dxPathsMarkersRef);
 
               if (onSpotClick) {
-                label.on('click', () => onSpotClick(path));
+                if (!isTouchDeviceRef.current) {
+                  bindSpotClick(label, () => onSpotClick(path));
+                } else {
+                  addTouchGhost(
+                    'icon',
+                    [lat, lon],
+                    dxPopupHtml,
+                    () => onSpotClick(path),
+                    dxPathsMarkersRef,
+                    label,
+                    color,
+                  );
+                }
               }
 
               dxPathsMarkersRef.current.push(label);
@@ -1367,22 +1583,36 @@ export const WorldMap = ({
           const band = normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freq);
           if (!bandPassesMapFilter(band)) return;
 
-          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
-            const grid = spot.grid6 ? spot.grid6 : spot.grid ? spot.grid : null;
-            const marker = L.marker([lat, lon], { icon: mapDefaults.icon })
-              .bindPopup(
-                `<span style="color:${mapDefaults.color};background:#000">
+          const grid = spot.grid6 ? spot.grid6 : spot.grid ? spot.grid : null;
+          const spotPopupHtml = `<span style="color:${mapDefaults.color};background:#000">
                     ${mapDefaults.shape} ${mapDefaults.name} - </span>
                   <b data-qrz-call="${esc(spot.call)}" style="color:${mapDefaults.color}; cursor:pointer">${esc(spot.call)}</b><br/>
                   ${grid ? `${esc(grid)}<br/>` : ''}
                   <span style="color:#888">${esc(spot.ref)}</span> ${esc(spot.locationDesc || '')}<br/>
                   ${spot.name ? `<i>${esc(spot.name)}</i><br/>` : ''}${esc(spot.freq)} ${esc(spot.mode || '')} <span style="color:#888">${esc(spot.time || '')}</span>
-                  ${spot.comments?.length > 0 ? `<br/><i>(${esc(spot.comments)})</i>` : ''}`,
-              )
+                  ${spot.comments?.length > 0 ? `<br/><i>(${esc(spot.comments)})</i>` : ''}`;
+
+          replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
+            const marker = L.marker([lat, lon], { icon: mapDefaults.icon, interactive: !isTouchDeviceRef.current })
+              .bindPopup(spotPopupHtml)
               .addTo(map);
 
+            bindHoverGlow(marker, [lat, lon], mapDefaults.color, markersRef);
+
             if (onSpotClick) {
-              marker.on('click', () => onSpotClick(spot));
+              if (!isTouchDeviceRef.current) {
+                bindSpotClick(marker, () => onSpotClick(spot));
+              } else {
+                addTouchGhost(
+                  'icon',
+                  [lat, lon],
+                  spotPopupHtml,
+                  () => onSpotClick(spot),
+                  markersRef,
+                  marker,
+                  mapDefaults.color,
+                );
+              }
             }
 
             markersRef.current.push(marker);
@@ -1398,8 +1628,29 @@ export const WorldMap = ({
             replicatePoint(spot.lat, spot.lon).forEach(([lat, lon]) => {
               const label = L.marker([lat, lon], {
                 icon: labelIcon,
-                interactive: false,
-              }).addTo(map);
+                interactive: !isTouchDeviceRef.current,
+              })
+                .bindPopup(spotPopupHtml)
+                .addTo(map);
+
+              bindHoverGlow(label, [lat, lon], mapDefaults.color, markersRef);
+
+              if (onSpotClick) {
+                if (!isTouchDeviceRef.current) {
+                  bindSpotClick(label, () => onSpotClick(spot));
+                } else {
+                  addTouchGhost(
+                    'icon',
+                    [lat, lon],
+                    spotPopupHtml,
+                    () => onSpotClick(spot),
+                    markersRef,
+                    label,
+                    mapDefaults.color,
+                  );
+                }
+              }
+
               markersRef.current.push(label);
             });
           }
@@ -1592,8 +1843,14 @@ export const WorldMap = ({
 
             // TX = circle marker, RX = diamond marker (colorblind-friendly shape distinction)
             // Mutual reception spots get a gold border ring
+            const pskPopupHtml = `
+                <b data-qrz-call="${esc(displayCall)}" style="cursor:pointer">${esc(displayCall)}</b> <span style="color:#888;font-size:10px">${dirLabel}</span>${mutual ? ' <span style="color:#fbbf24" title="Mutual reception — QSO possible">★</span>' : ''}<br>
+                ${esc(spot.mode)} @ ${esc(freqMHz)} MHz<br>
+                ${spot.snr !== null ? `SNR: ${spot.snr > 0 ? '+' : ''}${spot.snr} dB` : ''}
+              `;
             replicatePoint(spotLat, spotLon).forEach(([rLat, rLon]) => {
               let marker;
+
               if (isRx) {
                 // Diamond marker for RX
                 marker = L.marker([rLat, rLon], {
@@ -1609,6 +1866,7 @@ export const WorldMap = ({
                     iconSize: [mutual ? 10 : 8, mutual ? 10 : 8],
                     iconAnchor: [mutual ? 5 : 4, mutual ? 5 : 4],
                   }),
+                  interactive: !isTouchDeviceRef.current,
                 });
               } else {
                 // Circle marker for TX
@@ -1619,21 +1877,29 @@ export const WorldMap = ({
                   weight: mutual ? 2 : 1,
                   opacity: 0.9,
                   fillOpacity: 0.8,
+                  interactive: !isTouchDeviceRef.current,
                 });
               }
 
-              marker
-                .bindPopup(
-                  `
-                <b data-qrz-call="${esc(displayCall)}" style="cursor:pointer">${esc(displayCall)}</b> <span style="color:#888;font-size:10px">${dirLabel}</span>${mutual ? ' <span style="color:#fbbf24" title="Mutual reception — QSO possible">★</span>' : ''}<br>
-                ${esc(spot.mode)} @ ${esc(freqMHz)} MHz<br>
-                ${spot.snr !== null ? `SNR: ${spot.snr > 0 ? '+' : ''}${spot.snr} dB` : ''}
-              `,
-                )
-                .addTo(map);
+              marker.bindPopup(pskPopupHtml).addTo(map);
+
+              bindHoverGlow(marker, [rLat, rLon], bandColor, pskMarkersRef);
 
               if (onSpotClick) {
-                marker.on('click', () => onSpotClick(spot));
+                if (!isTouchDeviceRef.current) {
+                  bindSpotClick(marker, () => onSpotClick(spot));
+                } else {
+                  const ghostType = isRx ? 'icon' : 'circle';
+                  addTouchGhost(
+                    ghostType,
+                    [rLat, rLon],
+                    pskPopupHtml,
+                    () => onSpotClick(spot),
+                    pskMarkersRef,
+                    marker,
+                    bandColor,
+                  );
+                }
               }
 
               pskMarkersRef.current.push(marker);
@@ -1717,6 +1983,11 @@ export const WorldMap = ({
             }
 
             // Diamond-shaped marker — replicate across world copies
+            const wsjtxPopupHtml = `
+                <b data-qrz-call="${esc(call)}" style="cursor:pointer">${esc(call)}</b> ${spot.type === 'CQ' ? 'CQ' : ''}<br>
+                ${esc(spot.grid || '')} ${esc(spot.band || '')}${spot.gridSource === 'prefix' ? ' <i>(est)</i>' : spot.gridSource === 'cache' ? ' <i>(prev)</i>' : ''}<br>
+                ${esc(spot.mode || '')} SNR: ${spot.snr != null ? (spot.snr >= 0 ? '+' : '') + spot.snr : '?'} dB
+              `;
             replicatePoint(spotLat, spotLon).forEach(([rLat, rLon]) => {
               const diamond = L.marker([rLat, rLon], {
                 icon: L.divIcon({
@@ -1731,18 +2002,27 @@ export const WorldMap = ({
                   iconSize: [8, 8],
                   iconAnchor: [4, 4],
                 }),
+                interactive: !isTouchDeviceRef.current,
               })
-                .bindPopup(
-                  `
-                <b data-qrz-call="${esc(call)}" style="cursor:pointer">${esc(call)}</b> ${spot.type === 'CQ' ? 'CQ' : ''}<br>
-                ${esc(spot.grid || '')} ${esc(spot.band || '')}${spot.gridSource === 'prefix' ? ' <i>(est)</i>' : spot.gridSource === 'cache' ? ' <i>(prev)</i>' : ''}<br>
-                ${esc(spot.mode || '')} SNR: ${spot.snr != null ? (spot.snr >= 0 ? '+' : '') + spot.snr : '?'} dB
-              `,
-                )
+                .bindPopup(wsjtxPopupHtml)
                 .addTo(map);
 
+              bindHoverGlow(diamond, [rLat, rLon], bandColor, wsjtxMarkersRef);
+
               if (onSpotClick) {
-                diamond.on('click', () => onSpotClick(spot));
+                if (!isTouchDeviceRef.current) {
+                  bindSpotClick(diamond, () => onSpotClick(spot));
+                } else {
+                  addTouchGhost(
+                    'icon',
+                    [rLat, rLon],
+                    wsjtxPopupHtml,
+                    () => onSpotClick(spot),
+                    wsjtxMarkersRef,
+                    diamond,
+                    bandColor,
+                  );
+                }
               }
 
               wsjtxMarkersRef.current.push(diamond);

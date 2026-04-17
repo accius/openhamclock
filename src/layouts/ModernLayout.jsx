@@ -60,6 +60,7 @@ export default function ModernLayout(props) {
     deGrid,
     dxGrid,
     dxLocation,
+    dxCallsign,
     dxLocked,
     handleDXChange,
     handleToggleDxLock,
@@ -128,12 +129,17 @@ export default function ModernLayout(props) {
   const isMobile = breakpoint === 'mobile';
   const isTablet = breakpoint === 'tablet';
 
-  const handleParkSpotClick = (spot) => tuneTo(spot);
+  const handleParkSpotClick = (spot) => {
+    tuneTo(spot);
+    if (spot.lat != null && spot.lon != null) {
+      handleDXChange({ lat: spot.lat, lon: spot.lon, callsign: spot.call ?? null });
+    }
+  };
   const handleDXSpotClick = (spot) => {
     tuneTo(spot);
     const path = findDXPathForSpot(dxClusterData.paths || [], spot);
     if (path && path.dxLat != null && path.dxLon != null) {
-      handleDXChange({ lat: path.dxLat, lon: path.dxLon });
+      handleDXChange({ lat: path.dxLat, lon: path.dxLon, callsign: spot.call ?? spot.dxCall ?? null });
     }
   };
 
@@ -262,6 +268,19 @@ export default function ModernLayout(props) {
               flex: '1 1 auto',
             }}
           />
+          {dxCallsign && (
+            <span
+              style={{
+                fontFamily: 'JetBrains Mono',
+                fontSize: '22px',
+                fontWeight: '900',
+                color: 'var(--accent-amber)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {dxCallsign}
+            </span>
+          )}
           <DXFavorites dxLocation={dxLocation} dxGrid={dxGrid} onDXChange={handleDXChange} dxLocked={dxLocked} />
           <button
             type="button"

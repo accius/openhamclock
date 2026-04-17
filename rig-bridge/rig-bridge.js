@@ -115,6 +115,7 @@ pluginBus.on('decode', (msg) => {
     time: msg.time?.formatted ?? '',
     mode: msg.mode,
     message: msg.message,
+    type: msg.message.startsWith('CQ') ? 'CQ' : 'QSO',
     dialFrequency: msg.dialFrequency,
     timestamp: Date.now(),
   };

@@ -79,21 +79,21 @@ The gray line is the transition zone between day and night. During this period:
 
 ### Best Times for Gray Line DX
 
-**1. Sunrise Enhancement (Local)**
+#### 1. Sunrise Enhancement (Local)
 
 - **When**: 30 minutes before to 30 minutes after local sunrise
 - **Direction**: West to East paths
 - **Bands**: 80m, 40m, 30m excellent; 20m-10m good
 - **Why**: Your D-layer weakening, F-layer still strong
 
-**2. Sunset Enhancement (Local)**
+#### 2. Sunset Enhancement (Local)
 
 - **When**: 30 minutes before to 30 minutes after local sunset
 - **Direction**: East to West paths
 - **Bands**: 80m, 40m, 30m excellent; 20m-10m good
 - **Why**: Your D-layer weakening, F-layer still strong
 
-**3. Cross-Terminator Paths**
+#### 3. Cross-Terminator Paths
 
 - **When**: Your location and DX location both on gray line
 - **Direction**: Any direction along terminator
@@ -284,7 +284,7 @@ Uses Newton-Raphson iteration to solve:
 
 ### Data Flow
 
-```
+```text
 System Clock → UTC Time → Solar Position → Terminator Calculation → Map Rendering
    (1 sec)      (instant)    (<5ms)          (<5ms)                  (<10ms)
 ```
@@ -322,10 +322,10 @@ System Clock → UTC Time → Solar Position → Terminator Calculation → Map 
 
 ## 🌐 External Links
 
-- **Gray Line Propagation**: https://en.wikipedia.org/wiki/Greyline
-- **Solar Terminator**: https://en.wikipedia.org/wiki/Terminator_(solar)
-- **HF Propagation**: https://www.arrl.org/hf-propagation
-- **Sunrise/Sunset Calculator**: https://www.timeanddate.com/sun/
+- **Gray Line Propagation**: <https://en.wikipedia.org/wiki/Greyline>
+- **Solar Terminator**: <https://en.wikipedia.org/wiki/Terminator_(solar)>
+- **HF Propagation**: <https://www.arrl.org/hf-propagation>
+- **Sunrise/Sunset Calculator**: <https://www.timeanddate.com/sun/>
 
 ---
 

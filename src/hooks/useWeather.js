@@ -182,9 +182,11 @@ async function fetchOpenMeteoDirect(lat, lon) {
     apiKey = localStorage.getItem('ohc_openmeteo_apikey') || '';
   } catch {}
 
+  // Round to 1 decimal (~11km) — weather doesn't change within that range,
+  // and identical URLs share browser cache hits across nearby DX spots
   const params = [
-    `latitude=${lat}`,
-    `longitude=${lon}`,
+    `latitude=${parseFloat(lat).toFixed(1)}`,
+    `longitude=${parseFloat(lon).toFixed(1)}`,
     'current=temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,cloud_cover,pressure_msl,wind_speed_10m,wind_direction_10m,wind_gusts_10m,precipitation,uv_index,visibility,dew_point_2m,is_day',
     'daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weather_code,uv_index_max,wind_speed_10m_max',
     'hourly=temperature_2m,precipitation_probability,weather_code',
@@ -198,7 +200,7 @@ async function fetchOpenMeteoDirect(lat, lon) {
   if (apiKey) params.push(`apikey=${apiKey}`);
 
   const base = apiKey ? 'https://customer-api.open-meteo.com/v1/forecast' : 'https://api.open-meteo.com/v1/forecast';
-  const response = await fetch(`${base}?${params.join('&')}`, { cache: 'no-store' });
+  const response = await fetch(`${base}?${params.join('&')}`);
 
   if (response.status === 429) throw new Error('Rate limited');
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
@@ -247,7 +249,7 @@ export const useWeather = (location, allUnits = { dist: 'imperial', temp: 'imper
       }
     };
 
-    // Debounce: wait 10 seconds after last location change before fetching.
+    // Debounce: wait 30 seconds after last location change before fetching.
     // Absorbs rapid DX tuning so we only fetch for the final target.
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (retryRef.current) clearTimeout(retryRef.current);
@@ -256,7 +258,7 @@ export const useWeather = (location, allUnits = { dist: 'imperial', temp: 'imper
     debounceRef.current = setTimeout(() => {
       setLoading(true);
       fetchWeather();
-    }, 10000);
+    }, 30000);
 
     const interval = setInterval(fetchWeather, POLL_INTERVAL);
     return () => {

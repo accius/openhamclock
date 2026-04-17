@@ -68,6 +68,7 @@ export const SettingsPanel = ({
   const [distUnits, setDistUnits] = useState(config?.allUnits?.dist || config?.units || 'imperial');
   const [tempUnits, setTempUnits] = useState(config?.allUnits?.temp || config?.units || 'imperial');
   const [pressUnits, setPressUnits] = useState(config?.allUnits?.press || config?.units || 'imperial');
+  const [showWhatsNew, setShowWhatsNew] = useState(config.showWhatsNew); // set in config.js
   const [propMode, setPropMode] = useState(config?.propagation?.mode || 'SSB');
   const [propPower, setPropPower] = useState(config?.propagation?.power || 100);
   const [rigEnabled, setRigEnabled] = useState(config?.rigControl?.enabled || false);
@@ -751,7 +752,7 @@ export const SettingsPanel = ({
               fontFamily: 'JetBrains Mono, monospace',
             }}
           >
-            📻 Rig Bridge
+            📻 {t('station.settings.tab.title.rig-bridge')}
           </button>
         </div>
 
@@ -2889,6 +2890,35 @@ export const SettingsPanel = ({
               </div>
             </div>
 
+            {/* Display Whats New on Startup */}
+            <div style={{ marginBottom: '24px' }}>
+              <label
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  color: 'var(--text-primary)',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={showWhatsNew}
+                  onChange={(e) => {
+                    config.showWhatsNew = e.target.checked;
+                    setShowWhatsNew(e.target.checked);
+                  }}
+                  style={{ accentColor: 'var(--accent-amber)' }}
+                />
+                Show What's New on Startup
+              </label>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                By default (when checked), What's New is displayed. Unchecking this means it will only be displayed when
+                the version is clicked.
+              </div>
+            </div>
+
             {/* Mutual Reception Indicator */}
             <div style={{ marginBottom: '24px' }}>
               <label
@@ -4697,6 +4727,33 @@ export const SettingsPanel = ({
         {/* Rig Bridge Tab */}
         {activeTab === 'rig-bridge' && (
           <div>
+            {/* README Banner */}
+            <div
+              style={{
+                background: 'rgba(255, 193, 7, 0.15)',
+                border: '1px solid var(--accent-amber)',
+                borderRadius: '8px',
+                padding: '12px 16px',
+                marginBottom: '20px',
+                fontSize: '13px',
+              }}
+            >
+              <div style={{ color: 'var(--accent-amber)', fontWeight: '700', marginBottom: '6px' }}>
+                {t('station.settings.rigBridge.readme.heading')}
+              </div>
+              <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+                {t('station.settings.rigBridge.readme.body')}{' '}
+                <a
+                  href="https://github.com/accius/openhamclock/blob/main/rig-bridge/README.md"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ color: 'var(--accent-amber)', textDecoration: 'underline' }}
+                >
+                  {t('station.settings.rigBridge.readme.link')}
+                </a>
+              </div>
+            </div>
+
             <div
               style={{
                 background: 'var(--bg-tertiary)',
@@ -4924,7 +4981,11 @@ export const SettingsPanel = ({
                       Linux
                     </a>
                     <a
-                      href={`${rigHost.replace(/\/$/, '')}:${rigPort}`}
+                      href={
+                        /^https?:\/\//i.test(rigHost)
+                          ? `${rigHost.replace(/\/$/, '')}:${rigPort}`
+                          : `http://localhost:${rigPort}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       style={{
@@ -5004,9 +5065,28 @@ export const SettingsPanel = ({
                       textTransform: 'uppercase',
                       letterSpacing: '1px',
                       marginBottom: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
                     }}
                   >
-                    Cloud Relay
+                    {t('station.settings.rigBridge.cloudRelay.title')}
+                    <span
+                      style={{
+                        fontSize: '9px',
+                        fontWeight: '700',
+                        letterSpacing: '0.5px',
+                        textTransform: 'uppercase',
+                        color: 'var(--accent-amber)',
+                        border: '1px solid var(--accent-amber)',
+                        borderRadius: '3px',
+                        padding: '1px 4px',
+                        lineHeight: 1.4,
+                        opacity: 0.85,
+                      }}
+                    >
+                      {t('station.settings.rigBridge.alpha')}
+                    </span>
                   </div>
                   {cloudRelaySession ? (
                     <>

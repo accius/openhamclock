@@ -129,7 +129,8 @@ export const PropagationPanel = ({
     );
   }
 
-  const { solarData, distance, currentBands, currentHour, hourlyPredictions, muf, luf, dataSource } = propagation;
+  const { solarData, distance, currentBands, hourlyPredictions, muf, luf, dataSource } = propagation;
+  const currentHour = propagation.currentHour ?? new Date().getUTCHours();
   const isDaytime = new Date().getUTCHours() >= 6 && new Date().getUTCHours() <= 18;
 
   // Heat map colors - supports both schemes

@@ -35,4 +35,4 @@ The tool also displays the **Sensitivity** (kHz/cm) for each band, helping you u
 
 ---
 
-_Developed by DO3EET_
+_Developed by DO3EET_ <!-- markdownlint-disable-line MD036-->

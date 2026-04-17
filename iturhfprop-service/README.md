@@ -17,7 +17,7 @@ This microservice provides HF propagation predictions as a REST API, suitable fo
 
 ### Health Check
 
-```
+```http
 GET /api/health
 ```
 
@@ -33,23 +33,24 @@ Response:
 
 ### Single Point Prediction
 
-```
+```http
 GET /api/predict?txLat=40.1&txLon=-74.8&rxLat=51.5&rxLon=-0.1&month=1&hour=12&ssn=100
 ```
 
 Parameters:
-| Param | Required | Description |
-|-------|----------|-------------|
-| txLat | Yes | Transmitter latitude |
-| txLon | Yes | Transmitter longitude |
-| rxLat | Yes | Receiver latitude |
-| rxLon | Yes | Receiver longitude |
-| month | No | Month (1-12), default: current |
-| hour | No | UTC hour (0-23), default: current |
-| ssn | No | Smoothed Sunspot Number, default: 100 |
-| year | No | Year, default: current |
-| txPower | No | TX power in watts, default: 100 |
-| frequencies | No | Comma-separated MHz values |
+
+| Param       | Required | Description                           |
+| ----------- | -------- | ------------------------------------- |
+| txLat       | Yes      | Transmitter latitude                  |
+| txLon       | Yes      | Transmitter longitude                 |
+| rxLat       | Yes      | Receiver latitude                     |
+| rxLon       | Yes      | Receiver longitude                    |
+| month       | No       | Month (1-12), default: current        |
+| hour        | No       | UTC hour (0-23), default: current     |
+| ssn         | No       | Smoothed Sunspot Number, default: 100 |
+| year        | No       | Year, default: current                |
+| txPower     | No       | TX power in watts, default: 100       |
+| frequencies | No       | Comma-separated MHz values            |
 
 Response:
 
@@ -68,7 +69,7 @@ Response:
 
 ### 24-Hour Prediction
 
-```
+```http
 GET /api/predict/hourly?txLat=40.1&txLon=-74.8&rxLat=51.5&rxLon=-0.1&month=1&ssn=100
 ```
 
@@ -76,7 +77,7 @@ Returns predictions for each hour (0-23 UTC).
 
 ### Band Conditions (Simplified)
 
-```
+```http
 GET /api/bands?txLat=40.1&txLon=-74.8&rxLat=51.5&rxLon=-0.1
 ```
 
@@ -215,4 +216,4 @@ ITURHFProp is provided by ITU-R Study Group 3 - see [ITU-R-Study-Group-3/ITU-R-H
 
 ---
 
-_73 de OpenHamClock contributors_
+_73 de OpenHamClock contributors_ <!-- markdownlint-disable-line MD036 -->

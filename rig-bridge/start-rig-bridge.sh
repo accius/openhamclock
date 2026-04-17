@@ -4,9 +4,17 @@
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Read version from package.json
+VERSION=$(node -e "try{console.log(require('./package.json').version)}catch(e){console.log('?')}" 2>/dev/null || echo "?")
+
+# Read port and TLS setting from config
+RB_CFG="$HOME/.config/openhamclock/rig-bridge-config.json"
+[ ! -f "$RB_CFG" ] && RB_CFG="$HOME/openhamclock-rig-bridge/rig-bridge-config.json"
+SETUP_URL=$(RB_CFG="$RB_CFG" node -e 'try{const c=require(process.env.RB_CFG);const p=c.port||5555;const s=c.tls&&c.tls.enabled;console.log((s?"https":"http")+"://localhost:"+p)}catch(e){console.log("http://localhost:5555")}' 2>/dev/null || echo "http://localhost:5555")
+
 echo ""
-echo "  Starting OpenHamClock Rig Bridge..."
-echo "  Setup UI: http://localhost:5555"
+echo "  OpenHamClock Rig Bridge v$VERSION"
+echo "  Setup UI: $SETUP_URL"
 echo ""
 echo "  Press Ctrl+C to stop."
 echo ""
@@ -23,11 +31,11 @@ if [ ! -d "node_modules" ]; then
     echo ""
 fi
 
-# Try to open browser
+# Open browser at the correct URL
 if command -v xdg-open &> /dev/null; then
-    xdg-open http://localhost:5555 2>/dev/null &
+    xdg-open "$SETUP_URL" 2>/dev/null &
 elif command -v open &> /dev/null; then
-    open http://localhost:5555 &
+    open "$SETUP_URL" &
 fi
 
 node rig-bridge.js
