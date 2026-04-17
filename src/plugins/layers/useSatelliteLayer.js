@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { replicatePoint, replicatePath } from '../../utils/geo.js';
 import Orbit from '../../utils/orbit.js';
-import useAppConfig from '../../hooks/app/useAppConfig.js';
 
 export const metadata = {
   id: 'satellites',
@@ -18,6 +17,14 @@ export const metadata = {
     tailTimeMins: 15,
     showTracks: true,
     showFootprints: true,
+    location: {
+      lat: 0.0,
+      lon: 0.0,
+      stationAlt: 100,
+    },
+    satellite: {
+      minElev: 0,
+    },
   },
 };
 
@@ -25,7 +32,6 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
   const layerGroupRef = useRef(null);
   const winListenersRef = useRef(null); // Store window event listener references for cleanup
   const { t } = useTranslation();
-  const { config: globalConfig } = useAppConfig();
 
   // 1. Multi-select state (Wipes on browser close)
   const [selectedSats, setSelectedSats] = useState(() => {
@@ -567,14 +573,14 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       orbit.error && console.warn('Satellite orbit error:', orbit.error);
 
       const groundStation = {
-        latitude: globalConfig.location.lat,
-        longitude: globalConfig.location.lon,
-        height: globalConfig.location.stationAlt, // above sea level [m]
+        latitude: config?.location?.lat || 0.0,
+        longitude: config?.location?.lon || 0.0,
+        height: config?.location?.stationAlt || 100, // above sea level [m]
       };
 
       const startDate = new Date(); // from now
       const endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // until 7 days from now
-      const minElevation = globalConfig.satellite.minElev;
+      const minElevation = config?.satellite?.minElev || 0;
       const maxPasses = 25;
       const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
 
@@ -794,7 +800,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     return () => {
       delete window.openSatellitePredict;
     };
-  }, [satellites, globalConfig]);
+  }, [satellites, config]);
   /********************************************************************************************/
 
   return null;
