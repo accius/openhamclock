@@ -23,7 +23,7 @@ export const metadata = {
       stationAlt: 100,
     },
     satellite: {
-      minElev: 0,
+      minElev: 5,
     },
   },
 };
@@ -580,7 +580,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
       const startDate = new Date(); // from now
       const endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // until 7 days from now
-      const minElevation = config?.satellite?.minElev || 0;
+      const minElevation = config?.satellite?.minElev || 5;
       const maxPasses = 25;
       const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
 
