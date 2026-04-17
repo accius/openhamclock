@@ -789,6 +789,11 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
     // expose for other callers if needed
     window.openSatellitePredict = openSatellitePredict;
+
+    // Cleanup: remove the global reference when effect re-runs or component unmounts
+    return () => {
+      delete window.openSatellitePredict;
+    };
   }, [satellites, globalConfig]);
   /********************************************************************************************/
 
