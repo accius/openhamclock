@@ -698,30 +698,28 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         maxPasses,
       );
 
-      // Get close button reference early so it can be used in closeModal
-      const initialCloseBtn = content.querySelector('[data-action="close-predict-modal"]');
-
       // update modal every second, satellite data currentPasses is not updated unless modal is reopened,
       // or if satellite layer is updated for instance if TLE data changes
       const updatePasses = () => {
         content.innerHTML = generateModalContent(currentPasses);
-        const closeBtn = content.querySelector('[data-action="close-predict-modal"]');
-        if (closeBtn) {
-          closeBtn.addEventListener('click', closeModal);
-        }
       };
 
       const closeModal = () => {
         // Clean up all event listeners before removing modal
-        if (initialCloseBtn) {
-          initialCloseBtn.removeEventListener('click', closeModal);
-        }
+        content.removeEventListener('click', handleContentClick);
         modal.removeEventListener('click', handleModalClick);
         document.removeEventListener('keydown', handleKeyDown);
 
         modal.remove();
         if (window.satellitePredictInterval) {
           clearInterval(window.satellitePredictInterval);
+        }
+      };
+
+      // Use event delegation for close button so it works after HTML regeneration
+      const handleContentClick = (e) => {
+        if (e.target.matches('[data-action="close-predict-modal"]')) {
+          closeModal();
         }
       };
 
@@ -742,10 +740,8 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       };
       document.addEventListener('keydown', handleKeyDown);
 
-      // Wire initial close button
-      if (initialCloseBtn) {
-        initialCloseBtn.addEventListener('click', closeModal);
-      }
+      // Wire close button using event delegation (one listener for all updates)
+      content.addEventListener('click', handleContentClick);
     };
 
     // expose for other callers if needed
