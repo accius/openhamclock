@@ -141,6 +141,7 @@ export default function ModernLayout(props) {
   const mapComponent = (style) => (
     <div style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', ...style }}>
       <WorldMap
+        config={config}
         deLocation={config.location}
         dxLocation={dxLocation}
         onDXChange={handleDXChange}

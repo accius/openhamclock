@@ -895,6 +895,7 @@ export default function ClassicLayout(props) {
         {/* CENTER: World Map */}
         <div style={{ position: 'relative', overflow: 'hidden' }}>
           <WorldMap
+            config={config}
             deLocation={config.location}
             dxLocation={dxLocation}
             onDXChange={handleDXChange}
@@ -1411,6 +1412,7 @@ export default function ClassicLayout(props) {
         {/* MAP */}
         <div style={{ flex: 1, position: 'relative' }}>
           <WorldMap
+            config={config}
             deLocation={config.location}
             dxLocation={dxLocation}
             onDXChange={handleDXChange}
@@ -2084,6 +2086,7 @@ export default function ClassicLayout(props) {
         {/* Map */}
         <div style={{ flex: 1, position: 'relative' }}>
           <WorldMap
+            config={config}
             deLocation={config.location}
             dxLocation={dxLocation}
             onDXChange={handleDXChange}

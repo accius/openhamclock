@@ -90,6 +90,7 @@ import { mapDefs as WWBOTADefs } from './WWBOTAPanel.jsx';
 import { mapDefs as WWFFDefs } from './WWFFPanel.jsx';
 
 export const WorldMap = ({
+  config,
   deLocation,
   dxLocation,
   onDXChange,
@@ -1943,7 +1944,9 @@ export const WorldMap = ({
                   lon: deLocation.lon,
                   stationAlt: deLocation.stationAlt || 0,
                 },
-                satellite: layerConfig?.satellite || { minElev: 0 },
+                satellite: {
+                  minElev: config?.satellite?.minElev ?? layerConfig?.satellite?.minElev ?? 0,
+                },
               }
             : layerConfig;
 
