@@ -36,6 +36,7 @@ import {
   useWSJTX,
   useAPRS,
   useEmcommData,
+  useIBP,
 } from './hooks';
 
 import useAppConfig from './hooks/app/useAppConfig';
@@ -234,7 +235,7 @@ const App = () => {
   usePresence({ callsign: config.callsign, locator: config.locator, sharePresence: config.sharePresence !== false });
 
   // Location & map state
-  const { dxLocation, dxLocked, handleToggleDxLock, handleDXChange } = useDXLocation(config.defaultDX);
+  const { dxLocation, dxCallsign, dxLocked, handleToggleDxLock, handleDXChange } = useDXLocation(config.defaultDX);
 
   const {
     mapLayers,
@@ -334,6 +335,7 @@ const App = () => {
   });
   const wsjtx = useWSJTX();
   const aprsData = useAPRS();
+  const ibp = useIBP(config.location?.lat ?? null, config.location?.lon ?? null);
   const emcommData = useEmcommData({
     location: config.location,
     enabled: config.layout === 'emcomm',
@@ -491,6 +493,7 @@ const App = () => {
     deGrid,
     dxGrid,
     dxLocation,
+    dxCallsign,
     dxLocked,
     handleDXChange,
     handleToggleDxLock,
@@ -520,6 +523,7 @@ const App = () => {
     pskReporter,
     wsjtx,
     aprsData,
+    ibp,
     emcommData,
     filteredPskSpots,
     wsjtxMapSpots,

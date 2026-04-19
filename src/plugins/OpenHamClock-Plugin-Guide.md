@@ -1,6 +1,6 @@
 # OpenHamClock Map Layer Plugin System
 
-**Complete Developer Guide**
+## Complete Developer Guide
 
 Version 1.0.0 | February 2, 2026
 
@@ -42,7 +42,7 @@ The OpenHamClock plugin system allows developers to easily add custom map layers
 
 ### System Components
 
-```
+```text
 src/plugins/
 ├── layerRegistry.js          # Central plugin registration
 ├── layers/                   # Built-in plugin implementations
@@ -65,7 +65,7 @@ src/components/
 
 ### Data Flow
 
-```
+```text
 User toggles layer in Settings
          ↓
 Settings updates localStorage
@@ -589,20 +589,20 @@ window.hamclockLayerControls.layers.find((l) => l.id === 'mylayer');
 
 ### Common Test Scenarios
 
-**Test 1: Fresh Install**
+#### Test 1: Fresh Install
 
 1. Clear localStorage: `localStorage.clear()`
 2. Refresh page
 3. Plugin should be at defaultEnabled state
 4. Toggle on/off should work
 
-**Test 2: State Persistence**
+#### Test 2: State Persistence
 
 1. Enable plugin, set opacity to 50%
 2. Refresh page (F5)
 3. Plugin should still be enabled at 50% opacity
 
-**Test 3: Multiple Plugins**
+#### Test 3: Multiple Plugins
 
 1. Enable weather radar
 2. Enable earthquakes
@@ -1104,52 +1104,52 @@ marker.bindPopup(`
 
 ### Data Sources
 
-**Weather:**
+#### Weather
 
-- NOAA NEXRAD Radar: https://mesonet.agron.iastate.edu/
-- OpenWeatherMap: https://openweathermap.org/api
-- Weather.gov API: https://www.weather.gov/documentation/services-web-api
+- NOAA NEXRAD Radar: <https://mesonet.agron.iastate.edu/>
+- OpenWeatherMap: <https://openweathermap.org/api>
+- Weather.gov API: <https://www.weather.gov/documentation/services-web-api>
 
-**Geology:**
+#### Geology
 
-- USGS Earthquakes: https://earthquake.usgs.gov/fdsnws/event/1/
-- USGS Volcanoes: https://volcanoes.usgs.gov/vhp/data_api.html
+- USGS Earthquakes: <https://earthquake.usgs.gov/fdsnws/event/1/>
+- USGS Volcanoes: <https://volcanoes.usgs.gov/vhp/data_api.html>
 
-**Astronomy:**
+#### Astronomy
 
-- NASA APIs: https://api.nasa.gov/
-- Space Weather: https://services.swpc.noaa.gov/
+- NASA APIs: <https://api.nasa.gov/>
+- Space Weather: <https://services.swpc.noaa.gov/>
 
-**Amateur Radio:**
+#### Amateur Radio
 
-- Reverse Beacon Network: https://www.reversebeacon.net/
-- PSK Reporter: https://pskreporter.info/
-- APRS-IS: http://www.aprs-is.net/
+- Reverse Beacon Network: <https://www.reversebeacon.net/>
+- PSK Reporter: <https://pskreporter.info/>
+- APRS-IS: <http://www.aprs-is.net/>
 
-**General:**
+#### General
 
-- OpenStreetMap: https://wiki.openstreetmap.org/wiki/API
-- Natural Earth Data: https://www.naturalearthdata.com/
+- OpenStreetMap: <https://wiki.openstreetmap.org/wiki/API>
+- Natural Earth Data: <https://www.naturalearthdata.com/>
 
 ### Libraries
 
-**Leaflet Plugins:**
+#### Leaflet Plugins
 
-- Marker Clustering: https://github.com/Leaflet/Leaflet.markercluster
-- Heatmaps: https://github.com/Leaflet/Leaflet.heat
-- Animated Markers: https://github.com/openplans/Leaflet.AnimatedMarker
-- Draw Tools: https://github.com/Leaflet/Leaflet.draw
+- Marker Clustering: <https://github.com/Leaflet/Leaflet.markercluster>
+- Heatmaps: <https://github.com/Leaflet/Leaflet.heat>
+- Animated Markers: <https://github.com/openplans/Leaflet.AnimatedMarker>
+- Draw Tools: <https://github.com/Leaflet/Leaflet.draw>
 
-**React Resources:**
+#### React Resources
 
-- React Hooks Docs: https://react.dev/reference/react
-- useEffect Guide: https://react.dev/reference/react/useEffect
+- React Hooks Docs: <https://react.dev/reference/react>
+- useEffect Guide: <https://react.dev/reference/react/useEffect>
 
 ### Documentation
 
-- **Leaflet Docs:** https://leafletjs.com/reference.html
-- **React Docs:** https://react.dev/
-- **MDN Web Docs:** https://developer.mozilla.org/
+- **Leaflet Docs:** <https://leafletjs.com/reference.html>
+- **React Docs:** <https://react.dev/>
+- **MDN Web Docs:** <https://developer.mozilla.org/>
 
 ---
 
@@ -1192,13 +1192,13 @@ Before submitting:
 
 ## Support
 
-**Questions? Issues? Ideas?**
+### Questions? Issues? Ideas?
 
-- **GitHub Issues:** https://github.com/yourusername/openhamclock/issues
-- **Documentation:** https://github.com/yourusername/openhamclock/wiki
+- **GitHub Issues:** <https://github.com/yourusername/openhamclock/issues>
+- **Documentation:** <https://github.com/yourusername/openhamclock/wiki>
 - **Example Plugins:** `src/plugins/layers/`
 
-**Community:**
+#### Community
 
 - Share your plugins in GitHub Discussions
 - Help other developers in Issues
@@ -1219,10 +1219,10 @@ Before submitting:
 
 ---
 
-**Happy Plugin Development! 🚀**
+Happy Plugin Development! 🚀
 
 Questions? Found a bug? Have an idea? Open an issue on GitHub!
 
 ---
 
-_Last Updated: February 2, 2026_
+_Last Updated: February 2, 2026_ <!-- markdownlint-disable-line MD036 -->

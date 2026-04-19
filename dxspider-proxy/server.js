@@ -21,7 +21,6 @@ const CONFIG = {
   nodes: [
     { host: 'dxc.nc7j.com', port: 7373, name: 'NC7J' },
     { host: 'dxc.ai9t.com', port: 7373, name: 'AI9T' },
-    { host: 'dxc.w6cua.org', port: 7300, name: 'W6CUA' },
     { host: 'dxspider.co.uk', port: 7300, name: 'DX Spider UK (G6NHU)' },
   ],
   // Callsign with SSID - use env var as-is, or default to OPENHAMCLOCK-56
@@ -314,9 +313,15 @@ const connect = () => {
         if (spot) {
           addSpot(spot);
           resetActivityWatchdog(); // Got a spot, connection is healthy
-          // Connection proved healthy — reset the failover counter
-          if (reconnectAttempts > 0) {
-            log('CONNECT', `Connection healthy (spots flowing), resetting failover counter`);
+          // Only reset failover counter if connection has been stable for 60s+
+          // A few spots before a timeout isn't truly healthy — it traps us
+          // on a flaky node that connects briefly then drops
+          const uptime = connectionStartTime ? Date.now() - connectionStartTime.getTime() : 0;
+          if (reconnectAttempts > 0 && uptime > 60000) {
+            log(
+              'CONNECT',
+              `Connection stable (${Math.round(uptime / 1000)}s uptime, spots flowing), resetting failover counter`,
+            );
             reconnectAttempts = 0;
           }
         }

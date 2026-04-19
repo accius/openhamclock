@@ -2,9 +2,9 @@
 
 ## Overview
 
-Logging is controlled via a querystring parameter:
+Logging is controlled via a querystring parameter ater the url in your browser
 
-```
+```text
 ?log=<level>
 ```
 
@@ -12,7 +12,7 @@ This system works by overriding `console.*` methods at app startup.
 
 ---
 
-# Supported Log Levels
+## Supported Log Levels
 
 | Level | Behavior                    |
 | ----- | --------------------------- |
@@ -25,28 +25,28 @@ This system works by overriding `console.*` methods at app startup.
 
 ---
 
-# Notes
+## Notes
 
-## Default Behavior
+### Default Behavior
 
 - Defaults to `warn`
 - Ensures important issues are always visible
 
 ---
 
-## Page Reload Required
+### Page Reload Required
 
 Changing the querystring requires a manual refresh.
 
 ---
 
-## Global Impact
+### Global Impact
 
 This override affects **all console calls globally**, including third-party libraries.
 
 ---
 
-# `console.*` considerations
+## `console.*` considerations
 
 - Use `console.error` for real failures
 - Use `console.warn` for unexpected but non-breaking issues

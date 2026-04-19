@@ -43,4 +43,4 @@ Avoid using `*://*/*` as a match pattern. This would allow the script to run on 
 
 ---
 
-_73 de DO3EET_
+_73 de DO3EET_ <!-- markdownlint-disable-line MD036-->

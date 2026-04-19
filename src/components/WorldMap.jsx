@@ -2225,6 +2225,8 @@ export const WorldMap = ({
           allUnits={allUnits}
           callsign={callsign}
           locator={deLocator}
+          deLat={deLocation?.lat ?? null}
+          deLon={deLocation?.lon ?? null}
           lowMemoryMode={lowMemoryMode}
         />
       ))}

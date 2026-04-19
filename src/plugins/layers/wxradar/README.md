@@ -41,7 +41,7 @@ The Weather Radar plugin provides real-time NEXRAD (Next Generation Radar) weath
 
 - **Provider**: Iowa State University Mesonet
 - **Service**: NEXRAD WMS (n0r product)
-- **URL**: https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi
+- **URL**: <https://mesonet.agron.iastate.edu/cgi-bin/wms/nexrad/n0r.cgi>
 - **Update Frequency**: Every 2 minutes (automatic)
 - **Data Latency**: ~5-10 minutes from radar scan
 
@@ -156,7 +156,7 @@ Monitor severe weather before outdoor activities or antenna work.
 
 ### Data Flow
 
-```
+```text
 NEXRAD Radars → IEM Processing → WMS Server → OpenHamClock → Map Display
     (~5 min)        (real-time)      (on-demand)     (2 min refresh)
 ```
@@ -176,7 +176,7 @@ NEXRAD Radars → IEM Processing → WMS Server → OpenHamClock → Map Display
 
 - **Auto-refresh**: Plugin refreshes every 2 minutes automatically
 - **Manual refresh**: Toggle plugin off/on to force refresh
-- **IEM Service**: Check https://mesonet.agron.iastate.edu for service status
+- **IEM Service**: Check <https://mesonet.agron.iastate.edu> for service status
 
 ### Performance Issues
 
@@ -188,9 +188,9 @@ NEXRAD Radars → IEM Processing → WMS Server → OpenHamClock → Map Display
 
 ## 🌐 External Links
 
-- **IEM NEXRAD WMS**: https://mesonet.agron.iastate.edu/ogc/
-- **NEXRAD Network**: https://www.ncei.noaa.gov/products/radar/next-generation-weather-radar
-- **Weather Radar Info**: https://www.weather.gov/radar
+- **IEM NEXRAD WMS**: <https://mesonet.agron.iastate.edu/ogc/>
+- **NEXRAD Network**: <https://www.ncei.noaa.gov/products/radar/next-generation-weather-radar>
+- **Weather Radar Info**: <https://www.weather.gov/radar>
 
 ---
 
@@ -251,4 +251,4 @@ NEXRAD Radars → IEM Processing → WMS Server → OpenHamClock → Map Display
 
 **73 de OpenHamClock** 📡☁️
 
-_Real-time weather awareness for radio operators_
+_Real-time weather awareness for radio operators_ <!-- markdownlint-disable-line MD036 -->

@@ -306,7 +306,7 @@ Higher SNR = stronger signal = better propagation!
 
 ### File Structure
 
-```
+```text
 src/plugins/layers/
 ├── useRBN.js           # Main plugin file
 └── rbn/
@@ -501,6 +501,6 @@ MIT License - Same as OpenHamClock project
 
 ---
 
-_73 de OpenHamClock Contributors! 📡_
+_73 de OpenHamClock Contributors! 📡_ <!-- markdownlint-disable-line MD036 -->
 
 _"See your signal around the world!"_ 🌍

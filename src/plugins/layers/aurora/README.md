@@ -45,7 +45,7 @@ The Aurora Forecast plugin visualizes real-time aurora probability forecasts fro
 
 - **Model**: NOAA OVATION Aurora Forecast
 - **Provider**: NOAA Space Weather Prediction Center (SWPC)
-- **API Endpoint**: https://services.swpc.noaa.gov/json/ovation_aurora_latest.json
+- **API Endpoint**: <https://services.swpc.noaa.gov/json/ovation_aurora_latest.json>
 - **Update Frequency**: Every 10 minutes
 - **Forecast Horizon**: 30 minutes ahead
 - **Resolution**: 1° latitude × 1° longitude
@@ -216,7 +216,7 @@ function auroraCmap(probability) {
 
 ### Data Flow
 
-```
+```text
 NOAA OVATION Model → SWPC JSON API → OpenHamClock Proxy → Canvas Rendering → Map Overlay
    (real-time)         (10 min cache)    (fetch on demand)    (<200ms)       (instant)
 ```
@@ -255,7 +255,7 @@ y = 90 - lat;
 
 - **Auto-refresh**: Plugin refreshes every 10 minutes automatically
 - **Manual refresh**: Toggle plugin off/on to force refresh
-- **NOAA SWPC**: Check https://www.swpc.noaa.gov for service status
+- **NOAA SWPC**: Check <https://www.swpc.noaa.gov> for service status
 
 ### Color Too Dim/Bright
 
@@ -267,11 +267,11 @@ y = 90 - lat;
 
 ## 🌐 External Links
 
-- **NOAA SWPC**: https://www.swpc.noaa.gov
-- **OVATION Model**: https://www.swpc.noaa.gov/products/aurora-30-minute-forecast
-- **Aurora Tutorial**: https://www.swpc.noaa.gov/content/tips-viewing-aurora
-- **Current Conditions**: https://www.swpc.noaa.gov/communities/radio-communications
-- **Kp Index**: https://www.swpc.noaa.gov/products/planetary-k-index
+- **NOAA SWPC**: <https://www.swpc.noaa.gov>
+- **OVATION Model**: <https://www.swpc.noaa.gov/products/aurora-30-minute-forecast>
+- **Aurora Tutorial**: <https://www.swpc.noaa.gov/content/tips-viewing-aurora>
+- **Current Conditions**: <https://www.swpc.noaa.gov/communities/radio-communications>
+- **Kp Index**: <https://www.swpc.noaa.gov/products/planetary-k-index>
 
 ---
 
@@ -354,4 +354,4 @@ y = 90 - lat;
 
 **73 de OpenHamClock** 📡🌌
 
-_Auroral awareness for the prepared operator_
+_Auroral awareness for the prepared operator_ <!-- markdownlint-disable-line MD036 -->

@@ -29,4 +29,4 @@ The script polls the `aprs.fi` API at the configured interval. If a new position
 
 ---
 
-_Developed by DO3EET_
+_Developed by DO3EET_ <!-- markdownlint-disable-line MD036 -->

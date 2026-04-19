@@ -425,8 +425,11 @@ module.exports = function (app, ctx) {
       }
 
       // ===== FALLBACK: Built-in calculations =====
-      // Used when ITURHFProp is unavailable (self-hosted without the service)
-      if (!predictions['160m'] || predictions['160m'].length === 0) {
+      // Used when ITURHFProp is unavailable (self-hosted without the service).
+      // Also fills in the remaining 23 hours when only a single-hour ITURHFProp
+      // result was used — without this the sparse array holes become JSON nulls
+      // and crash the client (.find callback receives null instead of an object).
+      if (!usedITURHFProp) {
         logDebug(
           `[Propagation] Using FALLBACK mode (built-in calculations)${useITURHFProp ? ' — ITURHFProp unavailable' : ''}`,
         );

@@ -8,7 +8,7 @@ cd openhamclock
 docker compose up -d
 ```
 
-Open **http://localhost:3000** — that's it. OpenHamClock runs with sensible defaults.
+Open **<http://localhost:3000>** — that's it. OpenHamClock runs with sensible defaults.
 
 ## Customize Your Station
 
@@ -25,6 +25,10 @@ CALLSIGN=K0CJH
 LOCATOR=FN20
 TZ=America/New_York
 ```
+
+> **`TZ` is optional** — if omitted, each visitor's browser timezone is used for
+> the local-time display. Setting it is still recommended so that server-side
+> timestamps (logs, cache TTLs, etc.) match your local time.
 
 Restart to apply:
 

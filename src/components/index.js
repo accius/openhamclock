@@ -39,3 +39,4 @@ export { default as RotatorMapOverlay } from './RotatorMapOverlay.jsx';
 export { DXLocalTime } from './DXLocalTime.jsx';
 export { default as DigitalModesPanel } from './DigitalModesPanel.jsx';
 export { default as WinlinkPanel } from './WinlinkPanel.jsx';
+export { default as IBPPanel } from './IBPPanel.jsx';

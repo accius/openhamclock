@@ -10,6 +10,7 @@ module.exports = function (app, ctx) {
   const {
     fetch,
     CONFIG,
+    PORT,
     logDebug,
     logInfo,
     logWarn,
@@ -447,11 +448,58 @@ module.exports = function (app, ctx) {
   const RBN_API_CACHE_TTL = 10000; // 10 seconds — short so new spots appear quickly
 
   // Primary endpoint: get RBN spots
-  // GET /api/rbn/spots?callsign=WB3IZU&minutes=5           — who is hearing WB3IZU? (mode=dx, default)
+  // GET /api/rbn/spots?callsign=WB3IZU&minutes=5            — who is hearing WB3IZU? (mode=dx, default)
   // GET /api/rbn/spots?callsign=W3LPL&minutes=5&mode=spotter — what is skimmer W3LPL hearing?
+  // GET /api/rbn/spots?callsigns=4U1UN,VE8AT,...&minutes=5  — bulk dx lookup (IBP cross-reference)
   app.get('/api/rbn/spots', async (req, res) => {
-    const callsign = (req.query.callsign || '').toUpperCase().trim();
     const minutes = Math.min(parseInt(req.query.minutes) || 15, 30);
+
+    // ── Multi-callsign bulk path (IBP beacon cross-reference) ──────────────
+    if (req.query.callsigns) {
+      const callsigns = req.query.callsigns
+        .split(',')
+        .map((s) => s.trim().toUpperCase())
+        .filter((s) => s.length > 0 && s !== 'N0CALL')
+        .slice(0, 30); // cap to prevent abuse
+
+      const now = Date.now();
+      const cutoff = now - minutes * 60 * 1000;
+      const results = {};
+
+      // Process callsigns sequentially to avoid concurrent location-lookup races
+      for (const cs of callsigns) {
+        const cacheKey = `dx:${cs}`;
+        const cached = rbnApiCaches.get(cacheKey);
+        if (cached && now - cached.timestamp < RBN_API_CACHE_TTL) {
+          results[cs] = { count: cached.data.count, spots: cached.data.spots };
+          continue;
+        }
+
+        const rawSpots = rbnSpotsByDX.get(cs) || [];
+        const recentSpots = rawSpots.filter((spot) => spot.timestampMs > cutoff);
+        const enrichedSpots = [];
+        for (const spot of recentSpots) {
+          enrichedSpots.push(await enrichSpotWithLocation(spot));
+        }
+
+        const entry = {
+          count: enrichedSpots.length,
+          spots: enrichedSpots,
+          mode: 'dx',
+          minutes,
+          timestamp: new Date().toISOString(),
+          source: 'rbn-telnet-stream',
+        };
+        rbnApiCaches.set(cacheKey, { data: entry, timestamp: now });
+        results[cs] = { count: entry.count, spots: entry.spots };
+      }
+
+      logDebug(`[RBN] Bulk: returning spots for ${callsigns.length} callsigns`);
+      return res.json({ minutes, timestamp: new Date().toISOString(), results });
+    }
+
+    // ── Single-callsign path (existing behaviour) ──────────────────────────
+    const callsign = (req.query.callsign || '').toUpperCase().trim();
     const mode = (req.query.mode || 'dx').toLowerCase() === 'spotter' ? 'spotter' : 'dx';
 
     if (!callsign || callsign === 'N0CALL') {

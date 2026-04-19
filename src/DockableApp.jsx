@@ -32,6 +32,7 @@ import {
   DXLocalTime,
   DigitalModesPanel,
   WinlinkPanel,
+  IBPPanel,
 } from './components';
 import MeshtasticPanel from './components/MeshtasticPanel.jsx';
 
@@ -64,6 +65,7 @@ export const DockableApp = ({
   deGrid,
   dxGrid,
   dxLocation,
+  dxCallsign,
   deSunTimes,
   dxSunTimes,
   handleDXChange,
@@ -101,6 +103,7 @@ export const DockableApp = ({
   pskReporter,
   wsjtx,
   aprsData,
+  ibp,
   filteredPskSpots,
   wsjtxMapSpots,
 
@@ -344,12 +347,12 @@ export const DockableApp = ({
       // For DX Cluster spots, we need to find the path data which contains coordinates
       // For POTA/SOTA, the spot object itself has lat/lon
       if (spot.lat != null && spot.lon != null) {
-        handleDXChange({ lat: spot.lat, lon: spot.lon });
+        handleDXChange({ lat: spot.lat, lon: spot.lon, callsign: spot.call ?? null });
       } else if (spot.call) {
         // Try to find in DX Cluster paths
         const path = findDXPathForSpot(dxClusterData.paths || [], spot);
         if (path && path.dxLat != null && path.dxLon != null) {
-          handleDXChange({ lat: path.dxLat, lon: path.dxLon });
+          handleDXChange({ lat: path.dxLat, lon: path.dxLon, callsign: spot.call ?? null });
         }
       }
     },
@@ -422,6 +425,7 @@ export const DockableApp = ({
       'propagation-bars': { name: 'VOACAP Bars', icon: '📊', group: 'Propagation' },
       'band-conditions': { name: 'Band Conditions', icon: '📶', group: 'Propagation' },
       'band-health': { name: 'Band Health', icon: '📶' },
+      ibp: { name: 'IBP Beacons', icon: '📡', group: 'Propagation' },
       'dx-cluster': { name: 'DX Cluster', icon: '📻' },
       'psk-reporter': { name: 'PSK Reporter', icon: '📡' },
       dxpeditions: { name: 'DXpeditions', icon: '🏝️' },
@@ -520,37 +524,56 @@ export const DockableApp = ({
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           <div style={{ fontFamily: 'JetBrains Mono', fontSize: '14px', flex: '1 1 auto', minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <DXGridInput
-                dxGrid={dxGrid}
-                onDXChange={handleDXChange}
-                dxLocked={dxLocked}
-                style={{
-                  color: 'var(--accent-amber)',
-                  fontSize: '22px',
-                  fontWeight: '700',
-                  flex: '1 1 auto',
-                }}
-              />
-              <DXFavorites dxLocation={dxLocation} dxGrid={dxGrid} onDXChange={handleDXChange} dxLocked={dxLocked} />
-              <button
-                type="button"
-                onClick={() => setShowDxccSelect((prev) => !prev)}
-                title={t('app.dxLocation.dxccToggleTitle')}
-                style={{
-                  background: showDxccSelect ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
-                  color: showDxccSelect ? '#000' : 'var(--text-secondary)',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '4px',
-                  padding: '4px 8px',
-                  fontSize: '12px',
-                  fontFamily: 'JetBrains Mono, monospace',
-                  cursor: 'pointer',
-                  flex: '0 0 auto',
-                }}
-              >
-                DXCC
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
+                <DXGridInput
+                  dxGrid={dxGrid}
+                  onDXChange={handleDXChange}
+                  dxLocked={dxLocked}
+                  style={{
+                    color: 'var(--accent-amber)',
+                    fontSize: '22px',
+                    fontWeight: '700',
+                    flex: '0 0 auto',
+                  }}
+                />
+                {dxCallsign && (
+                  <span
+                    style={{
+                      fontFamily: 'JetBrains Mono',
+                      fontSize: '22px',
+                      fontWeight: '900',
+                      color: 'var(--accent-amber)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {dxCallsign}
+                  </span>
+                )}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <DXFavorites dxLocation={dxLocation} dxGrid={dxGrid} onDXChange={handleDXChange} dxLocked={dxLocked} />
+                <button
+                  type="button"
+                  onClick={() => setShowDxccSelect((prev) => !prev)}
+                  title={t('app.dxLocation.dxccToggleTitle')}
+                  style={{
+                    background: showDxccSelect ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+                    color: showDxccSelect ? '#000' : 'var(--text-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '4px',
+                    padding: '4px 8px',
+                    fontSize: '12px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    cursor: 'pointer',
+                    flex: '0 0 auto',
+                  }}
+                >
+                  DXCC
+                </button>
+              </div>
             </div>
             {showDxccSelect && (
               <DXCCSelect dxLocked={dxLocked} onDXChange={handleDXChange} style={{ margin: '5px 0 10px 0' }} />
@@ -747,6 +770,8 @@ export const DockableApp = ({
               bandConditions={bandConditions}
               allUnits={config.allUnits}
               propConfig={config.propagation}
+              dxSpots={dxClusterData.spots}
+              clusterFilters={dxFilters}
             />
           );
           break;
@@ -986,6 +1011,16 @@ export const DockableApp = ({
 
         case 'winlink':
           content = <WinlinkPanel />;
+          break;
+
+        case 'ibp':
+          content = (
+            <IBPPanel
+              deLat={config.location?.lat ?? null}
+              deLon={config.location?.lon ?? null}
+              units={config.allUnits?.dist ?? 'metric'}
+            />
+          );
           break;
 
         default:

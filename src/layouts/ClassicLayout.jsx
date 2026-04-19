@@ -96,6 +96,7 @@ export default function ClassicLayout(props) {
     hoveredSpot,
     setHoveredSpot,
     dxLocation,
+    dxCallsign,
     dxLocked,
     handleDXChange,
     handleToggleDxLock,
@@ -158,7 +159,7 @@ export default function ClassicLayout(props) {
       tuneTo(spot);
       const path = findDXPathForSpot(dxClusterData.paths || [], spot);
       if (path && path.dxLat != null && path.dxLon != null) {
-        handleDXChange({ lat: path.dxLat, lon: path.dxLon });
+        handleDXChange({ lat: path.dxLat, lon: path.dxLon, callsign: spot.call ?? spot.dxCall ?? null });
       }
     },
     [tuneTo, dxClusterData.paths, handleDXChange],
@@ -167,6 +168,9 @@ export default function ClassicLayout(props) {
   // Handler for POTA/WWFF/SOTA spot clicks
   const handleParkSpotClick = (spot) => {
     tuneTo(spot);
+    if (spot.lat != null && spot.lon != null) {
+      handleDXChange({ lat: spot.lat, lon: spot.lon, callsign: spot.call ?? null });
+    }
   };
 
   // Kp color coding
@@ -1623,7 +1627,7 @@ export default function ClassicLayout(props) {
               })}
             </div>
             {/* MUF/LUF */}
-            {propagation.data && (
+            {propagation?.data && (
               <div
                 style={{
                   display: 'flex',
@@ -1699,7 +1703,7 @@ export default function ClassicLayout(props) {
                     tuneTo(spot);
                     const path = findDXPathForSpot(dxClusterData.paths || [], spot);
                     if (path && path.dxLat != null && path.dxLon != null) {
-                      handleDXChange({ lat: path.dxLat, lon: path.dxLon });
+                      handleDXChange({ lat: path.dxLat, lon: path.dxLon, callsign: spot.call ?? spot.dxCall ?? null });
                     }
                   }}
                 >
@@ -1978,7 +1982,7 @@ export default function ClassicLayout(props) {
               {bandConditions.extras.geomagField}
             </span>
           )}
-          {propagation.data && (
+          {propagation?.data && (
             <>
               <span>
                 <span style={{ color: 'var(--text-muted)' }}>{t('app.propagation.muf')} </span>
@@ -2145,6 +2149,19 @@ export default function ClassicLayout(props) {
                 dxLocked={dxLocked}
                 style={{ color: 'var(--text-muted)', fontSize: '14px' }}
               />
+              {dxCallsign && (
+                <span
+                  style={{
+                    color: 'var(--accent-amber)',
+                    fontSize: '14px',
+                    fontFamily: 'JetBrains Mono',
+                    fontWeight: '900',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {dxCallsign}
+                </span>
+              )}
               <DXFavorites dxLocation={dxLocation} dxGrid={dxGrid} onDXChange={handleDXChange} dxLocked={dxLocked} /> •{' '}
               {dxLocked ? t('app.dxLock.lockedShort') : t('app.dxLock.clickToSet')}
             </span>
@@ -2254,7 +2271,7 @@ export default function ClassicLayout(props) {
                   tuneTo(spot);
                   const path = findDXPathForSpot(dxClusterData.paths || [], spot);
                   if (path && path.dxLat != null && path.dxLon != null) {
-                    handleDXChange({ lat: path.dxLat, lon: path.dxLon });
+                    handleDXChange({ lat: path.dxLat, lon: path.dxLon, callsign: spot.call ?? spot.dxCall ?? null });
                   }
                 }}
               >

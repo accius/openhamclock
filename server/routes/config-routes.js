@@ -173,8 +173,23 @@ module.exports = function (app, ctx) {
       // Whether config is incomplete (show setup wizard)
       configIncomplete: CONFIG.callsign === 'N0CALL' || !CONFIG.gridSquare,
 
-      // Server timezone (from TZ env var or system)
-      timezone: process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || '',
+      // Server timezone (from TZ env var or system), validated.
+      // On minimal Linux containers without TZ set, Intl can return "Etc/Unknown"
+      // which browsers reject with RangeError. Validate before sending.
+      timezone: (() => {
+        const tz = process.env.TZ || Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        if (!tz) return '';
+        try {
+          new Intl.DateTimeFormat(undefined, { timeZone: tz });
+          return tz;
+        } catch (e) {
+          console.warn(
+            '[config] Invalid resolved timezone "%s" — falling back to empty (client will use browser TZ). Set TZ env var to silence.',
+            tz,
+          );
+          return '';
+        }
+      })(),
 
       // Feature availability
       features: {
