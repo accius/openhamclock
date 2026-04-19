@@ -1011,7 +1011,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onCl
               onClick={onClearSpots}
               style={{
                 padding: '8px 16px',
-                background: 'var(--accent-amber-dim)',
+                background: 'color-mix(in srgb, var(--accent-amber) 20%, transparent)',
                 border: '1px solid var(--accent-amber)',
                 borderRadius: '6px',
                 color: 'var(--accent-amber)',
