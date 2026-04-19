@@ -770,6 +770,8 @@ export const DockableApp = ({
               bandConditions={bandConditions}
               allUnits={config.allUnits}
               propConfig={config.propagation}
+              dxSpots={dxClusterData.spots}
+              clusterFilters={dxFilters}
             />
           );
           break;
