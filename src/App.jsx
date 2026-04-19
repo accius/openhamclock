@@ -707,6 +707,7 @@ const App = () => {
         onFilterChange={setDxFilters}
         isOpen={showDXFilters}
         onClose={() => setShowDXFilters(false)}
+        onClearSpots={dxClusterData.clearSpots}
       />
       <PSKFilterManager
         filters={pskFilters}

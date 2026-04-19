@@ -1391,7 +1391,7 @@ module.exports = function (app, ctx) {
         udpSession.lastAccess = now;
         newSpots = (udpSession.spots || []).slice(0, 100).map((s) => ({
           spotter: s.spotter,
-          spotterGrid: s.spotterGrid || null,
+          spotterGrid: CONFIG.gridSquare || null, // UDP spots are local — always use station grid, not callsign-derived location
           dxCall: s.dxCall,
           dxGrid: s.dxGrid || null,
           freq: s.freq,

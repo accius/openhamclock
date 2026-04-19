@@ -160,11 +160,16 @@ export const useDXClusterData = (filters = {}, config = {}) => {
     setPaths(pathList);
   }, [allData, filters, applyFilters, config.lowMemoryMode, source]);
 
+  const clearSpots = useCallback(() => {
+    setAllData([]);
+  }, []);
+
   return {
     spots, // For DXClusterPanel list
     paths, // For WorldMap
     loading,
     totalSpots: allData.length,
+    clearSpots,
   };
 };
 
