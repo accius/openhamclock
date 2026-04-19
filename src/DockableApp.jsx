@@ -781,6 +781,8 @@ export const DockableApp = ({
               propConfig={config.propagation}
               deSunTimes={deSunTimes}
               currentTime={currentTime}
+              dxSpots={dxClusterData.spots}
+              clusterFilters={dxFilters}
             />
           );
           break;
