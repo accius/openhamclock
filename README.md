@@ -202,28 +202,20 @@ The filter manager has six tabs, each with its own set of filters. Filters are A
 - **Exclude** — Enter callsigns to always hide (e.g., pirate stations or stations you've already worked).
 - **Settings** — Configure the DX cluster data source and spot retention time.
 
-The filter dialog also has two action buttons in the header:
-
-- **Clear All** — Removes all active filters, returning to unfiltered spot display.
-- **Clear Spots** — Immediately clears all spots currently displayed in the DX Cluster panel. Useful for wiping the slate clean after a band change or when you want to see only new activity from this point forward. Spots resume accumulating normally on the next poll cycle.
-
 All filter settings are saved to your browser's localStorage and persist across sessions.
 
 **DX cluster source options (configurable in Settings → DX Cluster tab or in .env):**
 
-| Source                        | Description                                                                                                                                                                  |
-| ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **DX Spider Proxy** (default) | Persistent telnet connection to the DX Spider network via a proxy microservice. Most reliable, best spot volume.                                                             |
-| **HamQTH**                    | Spots from HamQTH's DX cluster HTTP feed. No telnet required.                                                                                                                |
-| **DXWatch**                   | Spots from the DXWatch cluster.                                                                                                                                              |
-| **UDP (local)**               | Receives spots from a local DX cluster node or skimmer via UDP. All spots are treated as originating from your station's configured grid square (`LOCATOR`). See note below. |
-| **Auto**                      | Tries all sources in order and uses the first one that responds.                                                                                                             |
+| Source                        | Description                                                                                                      |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **DX Spider Proxy** (default) | Persistent telnet connection to the DX Spider network via a proxy microservice. Most reliable, best spot volume. |
+| **HamQTH**                    | Spots from HamQTH's DX cluster HTTP feed. No telnet required.                                                    |
+| **DXWatch**                   | Spots from the DXWatch cluster.                                                                                  |
+| **Auto**                      | Tries all sources in order and uses the first one that responds.                                                 |
 
 **Spot retention:** Spots remain in the list for 30 minutes by default. Change this via the `SPOT_RETENTION_MINUTES` variable in `.env` (range: 5–30 minutes) or in the DX Filter Manager settings tab.
 
-> **UDP (local) mode — spotter location:** When using the UDP source, all incoming spots are assumed to originate from your local station. The spotter's grid square is always set to your configured `LOCATOR` (from `.env` or Station Settings), regardless of the spotter callsign. This is intentional: callsigns are unreliable for geolocation — vanity callsigns and relocated operators would otherwise be plotted in the wrong location on the map. Using your actual grid square ensures accurate signal-path display.
-
-**How it works under the hood:** The backend (`server.js`) connects to the DX Spider cluster network through the DX Spider Proxy microservice (a separate Node.js process that maintains a persistent telnet connection). The proxy parses incoming spot lines, and the main server resolves station locations through a built-in DXCC prefix table (340+ prefixes covering all DXCC entities). The frontend polls `/api/dxcluster/spots` every 5 seconds. Coordinates are resolved in priority order: station grid square (UDP mode) → direct callsign database → DXCC prefix → Maidenhead grid square extracted from the spot comment field.
+**How it works under the hood:** The backend (`server.js`) connects to the DX Spider cluster network through the DX Spider Proxy microservice (a separate Node.js process that maintains a persistent telnet connection). The proxy parses incoming spot lines, and the main server resolves station locations through a built-in DXCC prefix table (340+ prefixes covering all DXCC entities). The frontend polls `/api/dxcluster/spots` every 5 seconds. Coordinates are resolved in priority order: direct callsign database → DXCC prefix → Maidenhead grid square extracted from the spot comment field.
 
 ---
 
