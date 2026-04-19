@@ -3,8 +3,10 @@
  * Filter modal with tabs for Zones, Bands, Modes, Watchlist, Exclude, Settings
  */
 import React, { useState } from 'react';
+import { useTheme } from '../theme/useTheme';
 
 export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onClearSpots }) => {
+  const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState('zones');
   const [newWatchlistCall, setNewWatchlistCall] = useState('');
   const [newDXExcludeCall, setNewDXExcludeCall] = useState('');
@@ -1011,10 +1013,10 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onCl
               onClick={onClearSpots}
               style={{
                 padding: '8px 16px',
-                background: 'rgba(255, 220, 0, 0.15)',
-                border: '1px solid #ffdc00',
+                background: theme === 'light' ? 'rgba(180, 90, 0, 0.1)' : 'rgba(255, 220, 0, 0.15)',
+                border: `1px solid ${theme === 'light' ? '#b45a00' : '#ffdc00'}`,
                 borderRadius: '6px',
-                color: '#ffdc00',
+                color: theme === 'light' ? '#b45a00' : '#ffdc00',
                 fontSize: '13px',
                 cursor: 'pointer',
               }}
