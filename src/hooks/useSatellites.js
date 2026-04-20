@@ -42,6 +42,8 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
       return;
     }
 
+    const accentCyan = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan');
+
     try {
       const now = new Date();
       const gmst = satellite.gstime(now);
@@ -51,7 +53,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
       const observerGd = {
         longitude: satellite.degreesToRadians(observerLocation.lon),
         latitude: satellite.degreesToRadians(observerLocation.lat),
-        height: (observerLocation.stationAlt || 100) / 1000, // above sea level [km], stationAlt is [m]), defaults to 100m
+        height: (observerLocation.stationAlt ?? 100) / 1000, // above sea level [km], stationAlt is [m]), defaults to 100m
       };
 
       Object.entries(tleData).forEach(([name, tle]) => {
@@ -82,7 +84,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
           const elevation = satellite.radiansToDegrees(lookAngles.elevation);
           const rangeSat = lookAngles.rangeSat;
 
-          const isVisible = elevation >= (satelliteConfig?.minElev || 5.0); // visible only if above minimum elevation
+          const isVisible = elevation >= (satelliteConfig?.minElev ?? 5.0); // visible only if above minimum elevation
 
           // Calculate range-rate and doppler factor, only if satellite is visible
           let dopplerFactor = 1;
@@ -142,7 +144,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
             track,
             footprintRadius: Math.round(footprintRadius),
             mode: tle.mode || 'Unknown',
-            color: tle.color || '#00ffff',
+            color: tle.color || accentCyan,
             // Radio metadata from satellites.json
             downlink: tle.downlink || '',
             uplink: tle.uplink || '',
