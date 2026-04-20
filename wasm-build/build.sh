@@ -148,26 +148,20 @@ ituhf_static_p372 = (
 
 ituhfp_c = src_dir / "ITURHFProp/Src/ITURHFProp/ITURHFProp.c"
 text = read(ituhfp_c)
-# Block 1: P533 loader. Anchor on the unique "libp533.so" dlopen call; the
-# enclosing `#elif __linux__ || __APPLE__\n\thLib = dlopen("libp533.so", …`
-# uniquely identifies the block.
-anchor1 = '#elif __linux__ || __APPLE__\n\t#include <dlfcn.h>\n\tvoid * hLib;\n\thLib = dlopen("libp533.so"'
-# Fallback - the v14.3 source has no `#include <dlfcn.h>` inside the .c block
-# (it's in the .h instead), so anchor on the simpler form.
-anchor1_simple = '#elif __linux__ || __APPLE__\n\thLib = dlopen("libp533.so"'
-if anchor1 in text:
-    text = text.replace(anchor1, ituhf_static_p533 + anchor1, 1)
-elif anchor1_simple in text:
-    text = text.replace(anchor1_simple, ituhf_static_p533 + anchor1_simple, 1)
-else:
+# Both dlopen blocks share the shape
+#   #elif __linux__ || __APPLE__
+#       void * hLib;
+#       hLib = dlopen("libpXXX.so", RTLD_NOW);
+# Anchor on that full 3-line header so each call site is unambiguous.
+anchor_p533 = '#elif __linux__ || __APPLE__\n\tvoid * hLib;\n\thLib = dlopen("libp533.so"'
+anchor_p372 = '#elif __linux__ || __APPLE__\n\tvoid * hLib;\n\thLib = dlopen("libp372.so"'
+if anchor_p533 not in text:
     sys.exit("build.sh: libp533.so dlopen block not found in ITURHFProp.c")
-print("[build] Patched ITURHFProp.c - static P533 linkage on Emscripten.")
-
-# Block 2: P372 loader (ReadFamDud). Same approach.
-anchor2 = '#elif __linux__ || __APPLE__\n\tvoid * hLib;\n\thLib = dlopen("libp372.so"'
-if anchor2 not in text:
+if anchor_p372 not in text:
     sys.exit("build.sh: libp372.so dlopen block not found in ITURHFProp.c")
-text = text.replace(anchor2, ituhf_static_p372 + anchor2, 1)
+text = text.replace(anchor_p533, ituhf_static_p533 + anchor_p533, 1)
+print("[build] Patched ITURHFProp.c - static P533 linkage on Emscripten.")
+text = text.replace(anchor_p372, ituhf_static_p372 + anchor_p372, 1)
 print("[build] Patched ITURHFProp.c - static P372 linkage on Emscripten.")
 
 write(ituhfp_c, text)
