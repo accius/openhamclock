@@ -251,6 +251,10 @@ export function useWSJTX(enabled = true) {
               mode: s.mode,
               dxCall: s.dxCall,
               dxGrid: s.dxGrid,
+              dxLat: s.dxLat ?? null,
+              dxLon: s.dxLon ?? null,
+              band: s.band ?? null,
+              bandChanged: s.bandChanged ?? false,
               transmitting: s.transmitting,
               decoding: s.decoding,
               lastSeen: Date.now(),
@@ -262,6 +266,29 @@ export function useWSJTX(enabled = true) {
           const updated = [msg.data, ...prev.qsos].slice(-200);
           return { ...prev, qsos: updated, stats: { ...prev.stats, totalQsos: updated.length } };
         });
+      } else if (msg.event === 'clear') {
+        // WSJT-X cleared its band activity — remove decodes from that client
+        const clientId = msg.data?.clientId;
+        if (clientId) {
+          setData((prev) => ({ ...prev, decodes: prev.decodes.filter((d) => d.clientId !== clientId) }));
+        }
+      } else if (msg.event === 'wspr') {
+        setData((prev) => {
+          const updated = [msg.data, ...prev.wspr].slice(-100);
+          return { ...prev, wspr: updated, stats: { ...prev.stats, totalWspr: updated.length } };
+        });
+      } else if (msg.event === 'decode-update') {
+        // Async HamQTH result arrived — patch any existing decodes from this callsign
+        const { callsign, lat, lon } = msg.data ?? {};
+        if (callsign && lat != null && lon != null) {
+          setData((prev) => ({
+            ...prev,
+            decodes: prev.decodes.map((d) => {
+              const match = d.caller === callsign || d.dxCall === callsign || d.deCall === callsign;
+              return match && d.lat == null ? { ...d, lat, lon, gridSource: 'hamqth' } : d;
+            }),
+          }));
+        }
       }
     };
     window.addEventListener('rig-plugin-data', handler);
@@ -294,12 +321,16 @@ export function useWSJTX(enabled = true) {
     prevDxCallRef.current = call || null;
 
     // ── Band change detection ──
-    // When the active client's band changes, clear stale decodes from the old band.
-    const currentBand = active.band || null;
-    if (currentBand && prevBandRef.current && currentBand !== prevBandRef.current) {
+    // Use the bandChanged flag emitted by the rig-bridge enrichment layer, which
+    // sets it for exactly one STATUS cycle when a transition is detected.
+    // Fall back to manual tracking for the server/relay path which may not set it.
+    const currentBand = active.band ?? null;
+    const bandJustChanged =
+      active.bandChanged || (currentBand && prevBandRef.current && currentBand !== prevBandRef.current);
+    if (bandJustChanged) {
       setData((prev) => ({
         ...prev,
-        decodes: [], // Clear all decodes on band change — server will fill with new-band decodes
+        decodes: [], // Clear all decodes on band change — new-band decodes will fill in
       }));
     }
     prevBandRef.current = currentBand;
