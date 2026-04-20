@@ -1,0 +1,67 @@
+name: Build P.533 WASM
+
+# Builds the ITU-R P.533 WebAssembly artifact. Outputs are uploaded as a
+# workflow artifact — we intentionally do not commit the binaries. Changes to
+# the build script, upstream pin, or workflow file retrigger.
+
+on:
+  push:
+    branches: [main, Staging]
+    paths:
+      - 'wasm-build/**'
+      - '.github/workflows/build-wasm.yml'
+  pull_request:
+    branches: [main, Staging]
+    paths:
+      - 'wasm-build/**'
+      - '.github/workflows/build-wasm.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    if: github.repository == 'accius/openhamclock'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: 3.1.64
+          actions-cache-folder: emsdk-cache
+
+      - name: Verify emcc
+        run: emcc --version
+
+      - name: Build P.533 WASM
+        working-directory: wasm-build
+        run: ./build.sh
+
+      - name: Set up Node for smoke test
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Smoke test
+        working-directory: wasm-build
+        run: node smoke-test.mjs
+
+      - name: Report artifact sizes
+        working-directory: wasm-build
+        run: |
+          ls -lh dist/
+          cat dist/p533.sha256 || true
+
+      - name: Upload WASM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: p533-wasm
+          path: |
+            wasm-build/dist/p533.mjs
+            wasm-build/dist/p533.wasm
+            wasm-build/dist/p533.sha256
+          retention-days: 30
