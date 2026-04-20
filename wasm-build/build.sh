@@ -261,6 +261,11 @@ LDFLAGS=(
   # ITURHFProp's main() parses argc/argv; expose it for callMain(...).
   -sEXPORTED_FUNCTIONS=_main,_malloc,_free
   -sSTACK_SIZE=1048576
+  # Noise.h and ITURHFProp.h declare dll* pointers as bare (non-extern)
+  # globals, so every translation unit that includes them emits its own
+  # definition. The native Linux Makefile handles this with `-z muldefs`;
+  # the wasm-ld equivalent is --allow-multiple-definition.
+  -Wl,--allow-multiple-definition
   -lm
 )
 
