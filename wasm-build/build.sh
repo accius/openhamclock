@@ -263,7 +263,14 @@ externify(
     src_dir / "ITURHFProp/Src/ITURHFProp/ITURHFProp.h",
     "#elif __linux__ || __APPLE__",
 )
-print("[build] Extern-ified dll* declarations in Noise.h (x2) + ITURHFProp.h.")
+# ITURHFProp.c also has a duplicate file-scope block that re-declares some of
+# the same globals (near line 22, "Local globals"). Those tentative definitions
+# conflict with wasm_globals.c. Widen to extern there too.
+externify(
+    src_dir / "ITURHFProp/Src/ITURHFProp/ITURHFProp.c",
+    "#elif __linux__ || __APPLE__",
+)
+print("[build] Extern-ified dll* declarations in Noise.h (x2) + ITURHFProp.h + ITURHFProp.c.")
 
 # Emit canonical definitions in a fresh TU.
 wasm_globals = src_dir / "wasm_globals.c"
