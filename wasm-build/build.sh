@@ -50,15 +50,28 @@ from pathlib import Path
 
 src_dir = Path(sys.argv[1])
 
+# Upstream C files have embedded Windows-1252 characters in comments
+# (smart quotes, em dashes). Read/write as latin-1 which is byte-preserving —
+# we only care about matching anchor strings, not interpreting the content.
+ENC = "latin-1"
+
+
+def read(path):
+    return path.read_text(encoding=ENC)
+
+
+def write(path, text):
+    path.write_text(text, encoding=ENC)
+
 
 def patch_file(path, edits):
-    text = path.read_text()
+    text = read(path)
     for anchor, replacement, desc in edits:
         if anchor not in text:
             sys.exit(f"build.sh: anchor not found in {path.name}: {desc}")
         text = text.replace(anchor, replacement, 1)
         print(f"[build] Patched {path.relative_to(src_dir)} — {desc}.")
-    path.write_text(text)
+    write(path, text)
 
 
 # ── Noise.h / ITURHFProp.h: widen pointer-declaration guards ──────────────────
@@ -66,7 +79,7 @@ for hdr, desc in [
     (src_dir / "P533/Src/P533/Noise.h", "Noise.h guard widened to __EMSCRIPTEN__"),
     (src_dir / "ITURHFProp/Src/ITURHFProp/ITURHFProp.h", "ITURHFProp.h guard widened"),
 ]:
-    text = hdr.read_text()
+    text = read(hdr)
     if "#elif defined(__linux__) || defined(__APPLE__)" in text:
         text = text.replace(
             "#elif defined(__linux__) || defined(__APPLE__)",
@@ -81,7 +94,7 @@ for hdr, desc in [
         )
     else:
         sys.exit(f"build.sh: __linux__/__APPLE__ guard not found in {hdr.name}")
-    hdr.write_text(text)
+    write(hdr, text)
     print(f"[build] {desc}")
 
 # ── P533.c: insert __EMSCRIPTEN__ branch ahead of the libp372 dlopen block ────
@@ -134,7 +147,7 @@ ituhf_static_p372 = (
 )
 
 ituhfp_c = src_dir / "ITURHFProp/Src/ITURHFProp/ITURHFProp.c"
-text = ituhfp_c.read_text()
+text = read(ituhfp_c)
 # Block 1: P533 loader. Anchor on the unique "libp533.so" dlopen call; the
 # enclosing `#elif __linux__ || __APPLE__\n\thLib = dlopen("libp533.so", …`
 # uniquely identifies the block.
@@ -157,7 +170,7 @@ if anchor2 not in text:
 text = text.replace(anchor2, ituhf_static_p372 + anchor2, 1)
 print("[build] Patched ITURHFProp.c — static P372 linkage on Emscripten.")
 
-ituhfp_c.write_text(text)
+write(ituhfp_c, text)
 PYEOF
 fi
 
