@@ -121,6 +121,8 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       return;
     }
 
+    const accentCyan = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan');
+
     if (!win) {
       win = document.createElement('div');
       win.id = winId;
@@ -129,9 +131,9 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         position: 'absolute',
         width: '260px',
         backgroundColor: 'var(--bg-primary)',
-        color: 'rgba(0, 255, 255, 1)',
+        color: accentCyan,
         borderRadius: '4px',
-        border: '1px solid rgba(0, 255, 255, 1)',
+        border: '1px solid ' + accentCyan,
         zIndex: '1000',
         fontFamily: 'monospace',
         pointerEvents: 'auto',
@@ -346,6 +348,9 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     if (!satellites || satellites.length === 0) return;
 
     const globalOpacity = opacity !== undefined ? opacity : 1.0;
+    const accentCyan = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan');
+    const accentGreen = getComputedStyle(document.documentElement).getPropertyValue('--accent-green');
+    const accentLeadTrack = getComputedStyle(document.documentElement).getPropertyValue('--accent-amber');
 
     satellites.forEach((sat) => {
       const isSelected = selectedSats.includes(sat.name);
@@ -354,7 +359,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         const EARTH_RADIUS = 6371;
         const centralAngle = Math.acos(EARTH_RADIUS / (EARTH_RADIUS + sat.alt));
         const footprintRadiusMeters = centralAngle * EARTH_RADIUS * 1000;
-        const footColor = sat.isVisible === true ? 'rgba(0, 255, 0, 1)' : 'rgba(0, 255, 255, 1)';
+        const footColor = sat.isVisible === true ? accentGreen : accentCyan;
 
         replicatePoint(sat.lat, sat.lon).forEach((pos) => {
           window.L.circle(pos, {
@@ -376,7 +381,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
             for (let i = 0; i < coords.length - 1; i++) {
               const fade = i / coords.length;
               window.L.polyline([coords[i], coords[i + 1]], {
-                color: 'rgba(0, 255, 255, 1)',
+                color: accentCyan,
                 weight: 6,
                 opacity: fade * 0.3 * globalOpacity,
                 lineCap: 'round',
@@ -392,7 +397,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
             }
           } else {
             window.L.polyline(coords, {
-              color: 'rgba(0, 255, 255, 1)',
+              color: accentCyan,
               weight: 1,
               opacity: 0.15 * globalOpacity,
               dashArray: '5, 10',
@@ -405,7 +410,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           const leadCoords = sat.leadTrack.map((p) => [p[0], p[1]]);
           replicatePath(leadCoords).forEach((lCoords) => {
             window.L.polyline(lCoords, {
-              color: 'rgba(255, 255, 0, 1)',
+              color: accentLeadTrack,
               weight: 3,
               opacity: 0.8 * globalOpacity,
               dashArray: '8, 12',
