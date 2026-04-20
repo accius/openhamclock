@@ -55,7 +55,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       const observerGd = {
         latitude: satellite.degreesToRadians(config?.lat ?? 0.0),
         longitude: satellite.degreesToRadians(config?.lon ?? 0.0),
-        height: (config?.stationAlt || 100) / 1000, // above sea level [km], stationAlt is [m], defaults to 100m
+        height: (config?.stationAlt ?? 100) / 1000, // above sea level [km], stationAlt is [m], defaults to 100m
       };
 
       const satArray = Object.keys(data).map((name) => {
@@ -79,7 +79,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
             az = lookAngles.azimuth * (180 / Math.PI);
             el = lookAngles.elevation * (180 / Math.PI);
             range = lookAngles.rangeSat;
-            isVisible = el >= (config?.satellite?.minElev || 5.0); // visible only if above minimum elevation
+            isVisible = el >= (config?.satellite?.minElev ?? 5.0); // visible only if above minimum elevation
           }
 
           const minutesToPredict = config?.leadTimeMins || 45;
