@@ -3,6 +3,45 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { calculateGridSquare, calculateSunTimes } from '../../utils';
 
+function convertTimeUTCtoLocal(sunTimes, tz) {
+  // We are only ever going to be doing this for local timezone
+
+  if (sunTimes.sunset === '')
+    // SunTimes.rise will be 'Midnight sun' or 'Polar night'
+    return sunTimes;
+
+  let rise = {};
+  let set = {};
+  let local = {};
+  [rise.hr, rise.mn] = sunTimes.sunrise.split(':');
+  [set.hr, set.mn] = sunTimes.sunset.split(':');
+
+  rise.date = new Date(Date.UTC(0, 0, 0, rise.hr, rise.mn));
+  set.date = new Date(Date.UTC(0, 0, 0, set.hr, set.mn));
+
+  local.sunrise = rise.date.toLocaleString('en-US', {
+    timeZone: tz,
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  local.sunset = set.date.toLocaleString('en-US', {
+    timeZone: tz,
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+
+  // Add an element for the minutes since midnight for sunrise/sunset for comparisons
+  [rise.hr, rise.mn] = local.sunrise.split(':').map(Number);
+  [set.hr, set.mn] = local.sunset.split(':').map(Number);
+
+  local.sunriseMin = (rise.hr % 24) * 60 + rise.mn;
+  local.sunsetMin = (set.hr % 24) * 60 + set.mn;
+
+  return local;
+}
+
 export default function useTimeState(configLocation, dxLocation, timezone) {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [startTime] = useState(Date.now());
@@ -63,44 +102,7 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
       return '';
     }
   }, [timezone]);
-  function convertTimeUTCtoLocal(sunTimes, tz) {
-    // We are only ever going to be doing this for local timezone
 
-    if (sunTimes.sunset === '')
-      // SunTimes.rise will be 'Midnight sun' or 'Polar night'
-      return sunTimes;
-
-    let rise = {};
-    let set = {};
-    let local = {};
-    [rise.hr, rise.mn] = sunTimes.sunrise.split(':');
-    [set.hr, set.mn] = sunTimes.sunset.split(':');
-
-    rise.date = new Date(Date.UTC(0, 0, 0, rise.hr, rise.mn));
-    set.date = new Date(Date.UTC(0, 0, 0, set.hr, set.mn));
-
-    local.sunrise = rise.date.toLocaleString('en-US', {
-      timeZone: tz,
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-    local.sunset = set.date.toLocaleString('en-US', {
-      timeZone: tz,
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-
-    // Add an element for the minutes since midnight for sunrise/sunset for comparisons
-    [rise.hr, rise.mn] = local.sunrise.split(':').map(Number);
-    [set.hr, set.mn] = local.sunset.split(':').map(Number);
-
-    local.sunriseMin = (rise.hr % 24) * 60 + rise.mn;
-    local.sunsetMin = (set.hr % 24) * 60 + set.mn;
-
-    return local;
-  }
   const deSunTimes = useMemo(() => {
     // Calculate what sunrise and sunset are in local time.
     let sunTimes = calculateSunTimes(configLocation.lat, configLocation.lon, currentTime);
