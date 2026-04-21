@@ -13,8 +13,8 @@ function convertTimeUTCtoLocal(sunTimes, tz) {
   let rise = {};
   let set = {};
   let local = {};
-  [rise.hr, rise.mn] = sunTimes.sunrise.split(':');
-  [set.hr, set.mn] = sunTimes.sunset.split(':');
+  [rise.hr, rise.mn] = sunTimes.sunrise.split(':').map(Number);
+  [set.hr, set.mn] = sunTimes.sunset.split(':').map(Number);
 
   rise.date = new Date(Date.UTC(0, 0, 0, rise.hr, rise.mn));
   set.date = new Date(Date.UTC(0, 0, 0, set.hr, set.mn));
