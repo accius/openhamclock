@@ -478,17 +478,16 @@ export const DockableApp = ({
         </div>
         <div style={{ marginTop: '8px', fontSize: '13px' }}>
           <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>
-            {deSunTimes.local?.sunrise ?? deSunTimes.sunrise}
-          </span>
-          <span style={{ color: 'var(--text-secondary)' }}> → </span>
-          <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>
-            {deSunTimes.local?.sunset ?? deSunTimes.sunset}
-          </span>
-          <span style={{ color: 'var(--text-secondary) ' }}>
-            {' '}
-            {deSunTimes.local !== null ? config.timezone : 'UTC'}
-          </span>
+          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{deSunTimes.local.sunrise}</span>
+          {deSunTimes.local.sunset !== '' && (
+            <>
+              <span style={{ color: 'var(--text-secondary)' }}> → </span>
+              <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>
+                {deSunTimes.local?.sunset ?? deSunTimes.sunset}
+              </span>
+              <span style={{ color: 'var(--text-secondary) ' }}> {config.timezone}</span>
+            </>
+          )}
         </div>
       </div>
 

@@ -221,14 +221,16 @@ export default function ModernLayout(props) {
         </div>
         <div style={{ marginTop: '8px', fontSize: '13px' }}>
           <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>
-            {deSunTimes.local?.sunrise ?? deSunTimes.sunrise}
-          </span>
-          <span style={{ color: 'var(--text-secondary)' }}> → </span>
-          <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>
-            {deSunTimes.local?.sunset ?? deSunTimes.sunset}
-          </span>
-          <span> {deSunTimes.local ? config.timezone : 'UTC'}</span>
+          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{deSunTimes.local.sunrise}</span>
+          {deSunTimes.local.sunset !== '' && (
+            <>
+              <span style={{ color: 'var(--text-secondary)' }}> → </span>
+              <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>
+                {deSunTimes.local?.sunset ?? deSunTimes.sunset}
+              </span>
+              <span> {config.timezone}</span>
+            </>
+          )}
         </div>
       </div>
       <WeatherPanel weatherData={localWeather} allUnits={config.allUnits} alerts={localAlerts} />
