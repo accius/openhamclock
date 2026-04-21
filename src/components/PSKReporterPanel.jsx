@@ -757,7 +757,7 @@ const PSKReporterPanel = ({
                       <span
                         style={{ color: 'var(--text-muted)', minWidth: '24px', textAlign: 'right', fontSize: '10px' }}
                       >
-                        {d.dt}
+                        {d.dt != null ? `${Number(d.dt) >= 0 ? '+' : ''}${Number(d.dt).toFixed(1)}` : ''}
                       </span>
                       <span
                         style={{
@@ -828,7 +828,9 @@ const PSKReporterPanel = ({
                       >
                         {d.snr != null ? `${d.snr > 0 ? '+' : ''}${d.snr}` : ''}
                       </span>
-                      <span style={{ color: 'var(--text-muted)', minWidth: '28px', fontSize: '10px' }}>{d.dt}</span>
+                      <span style={{ color: 'var(--text-muted)', minWidth: '28px', fontSize: '10px' }}>
+                        {d.dt != null ? `${Number(d.dt) >= 0 ? '+' : ''}${Number(d.dt).toFixed(1)}` : ''}
+                      </span>
                       <span style={{ color: '#22d3ee', fontWeight: '600', minWidth: '65px' }}>
                         <CallsignLink call={d.callsign} color="#22d3ee" fontWeight="600" />
                       </span>

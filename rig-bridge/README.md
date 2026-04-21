@@ -439,6 +439,17 @@ By default, WSJT-X sends its decoded packets only to one listener. If you want b
 2. In Rig Bridge → Plugins → WSJT-X Relay → tick **Enable Multicast**, group address `224.0.0.1`
 3. Click **Save**
 
+### HamQTH callsign lookup (optional)
+
+When **HamQTH callsign lookup** is enabled in the WSJT-X Relay settings, Rig Bridge resolves unknown callsigns to country-level coordinates via the public [HamQTH DXCC API](https://www.hamqth.com/dxcc.php). This places map pins for stations whose FT8 message did not include a grid square.
+
+**What to know before enabling it:**
+
+- Lookups use the unauthenticated `dxcc.php` endpoint, which is intended for lookup tools. Rig Bridge caps requests at 2 per second globally and waits at least 60 seconds before retrying any individual callsign, so the traffic volume is modest even on a busy 20m FT8 band.
+- Results are cached for 24 hours in `hamqth-cache.json` (stored alongside `rig-bridge-config.json`) and survive restarts, so each callsign is typically looked up only once per day.
+- Lookups require outbound internet access (port 443) from the machine running Rig Bridge.
+- If HamQTH is unreachable, decodes simply show no lat/lon for unresolved callsigns — no errors are shown and operation is otherwise unaffected.
+
 ---
 
 ## APRS via Local TNC _(Beta)_

@@ -662,7 +662,6 @@ const App = () => {
         layoutLocked={layoutLocked}
         onToggleLayoutLock={toggleLayoutLock}
         onResetLayout={handleResetLayout}
-        version={config.version}
       />
 
       <RigProvider rigConfig={config.rigControl || { enabled: false, host: 'http://localhost', port: 5555 }}>
@@ -707,6 +706,7 @@ const App = () => {
         onFilterChange={setDxFilters}
         isOpen={showDXFilters}
         onClose={() => setShowDXFilters(false)}
+        onClearSpots={dxClusterData.clearSpots}
       />
       <PSKFilterManager
         filters={pskFilters}

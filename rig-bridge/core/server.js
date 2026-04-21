@@ -820,6 +820,16 @@ function buildSetupHtml(version, firstRunToken = null) {
             </div>
           </div>
 
+          <!-- HamQTH callsign lookup (always visible when enabled) -->
+          <div class="checkbox-row" style="margin-top:10px;">
+            <input type="checkbox" id="wsjtxHamqth">
+            <span>HamQTH callsign lookup</span>
+          </div>
+          <div class="help-text" style="margin-top:-8px; margin-bottom:10px;">
+            Resolve unknown callsigns to country-level coordinates via the HamQTH DXCC database.
+            Results are cached for 24 h. Requires outbound internet access from this machine.
+          </div>
+
           <!-- Server relay fields — only shown in relay mode -->
           <div id="wsjtxServerOpts" style="display:none; margin-top:4px; padding:10px 12px; background:#1a1f2e; border:1px solid #2d3548; border-radius:6px;">
             <label>OpenHamClock Server URL</label>
@@ -1130,6 +1140,7 @@ function buildSetupHtml(version, firstRunToken = null) {
       document.getElementById('wsjtxMulticast').checked = !!w.multicast;
       document.getElementById('wsjtxMulticastGroup').value = w.multicastGroup || '224.0.0.1';
       document.getElementById('wsjtxMulticastInterface').value = w.multicastInterface || '';
+      document.getElementById('wsjtxHamqth').checked = !!w.hamqthLookup;
       // Set delivery mode radio
       const relayMode = !!w.relayToServer;
       document.getElementById('wsjtxModeSSE').checked = !relayMode;
@@ -1200,6 +1211,7 @@ function buildSetupHtml(version, firstRunToken = null) {
         multicast: document.getElementById('wsjtxMulticast').checked,
         multicastGroup: document.getElementById('wsjtxMulticastGroup').value.trim() || '224.0.0.1',
         multicastInterface: document.getElementById('wsjtxMulticastInterface').value.trim(),
+        hamqthLookup: document.getElementById('wsjtxHamqth').checked,
       };
       try {
         const res = await fetch('/api/config', {
@@ -1231,11 +1243,14 @@ function buildSetupHtml(version, firstRunToken = null) {
           if (!data.running) {
             el.textContent = 'Not running';
             el.style.color = '#6b7280';
-          } else if (!data.serverReachable) {
+          } else if (data.relayToServer && !data.serverReachable) {
             el.textContent = 'Running — connecting to server...';
             el.style.color = '#f59e0b';
           } else {
-            el.textContent = 'Running — ' + data.decodeCount + ' decodes, ' + data.relayCount + ' relayed';
+            let status = 'Running — ' + data.decodeCount + ' decodes';
+            if (data.relayToServer) status += ', ' + data.relayCount + ' relayed';
+            if (data.hamqthLookup) status += ', ' + data.callsignCacheSize + ' callsigns cached';
+            el.textContent = status;
             el.style.color = '#22c55e';
           }
         } catch (e) {}

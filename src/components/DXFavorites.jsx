@@ -3,7 +3,7 @@
  * Star button that opens a dropdown of saved DX grid square locations.
  * Stores favorites in localStorage as openhamclock_dxFavorites.
  */
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useLayoutEffect, useRef, useCallback } from 'react';
 import { parseGridSquare, calculateGridSquare } from '../utils/geo.js';
 import { syncAllSettingsToServer } from '../utils';
 
@@ -28,13 +28,26 @@ function saveFavorites(favs) {
   } catch (e) {}
 }
 
+const DROPDOWN_MIN_WIDTH = 220;
+const VIEWPORT_EDGE_PADDING = 8;
+
 export function DXFavorites({ dxLocation, dxGrid, onDXChange, dxLocked }) {
   const [favorites, setFavorites] = useState(loadFavorites);
   const [isOpen, setIsOpen] = useState(false);
   const [editingName, setEditingName] = useState(null); // index being renamed
   const [nameValue, setNameValue] = useState('');
+  // When the button sits too close to the left edge of the viewport, a
+  // right-edge-anchored dropdown overflows off-screen. Flip to left-anchored
+  // in that case so the list stays visible and clickable on narrow layouts.
+  const [alignRight, setAlignRight] = useState(true);
   const dropdownRef = useRef(null);
   const buttonRef = useRef(null);
+
+  useLayoutEffect(() => {
+    if (!isOpen || !buttonRef.current) return;
+    const btnRect = buttonRef.current.getBoundingClientRect();
+    setAlignRight(btnRect.right - VIEWPORT_EDGE_PADDING >= DROPDOWN_MIN_WIDTH);
+  }, [isOpen]);
 
   // Close on outside click
   useEffect(() => {
@@ -132,13 +145,15 @@ export function DXFavorites({ dxLocation, dxGrid, onDXChange, dxLocked }) {
           style={{
             position: 'absolute',
             top: '100%',
-            right: 0,
+            right: alignRight ? 0 : 'auto',
+            left: alignRight ? 'auto' : 0,
             marginTop: '4px',
             background: 'var(--bg-secondary)',
             border: '1px solid var(--border-color)',
             borderRadius: '8px',
             padding: '8px 0',
-            minWidth: '220px',
+            minWidth: `${DROPDOWN_MIN_WIDTH}px`,
+            maxWidth: `calc(100vw - ${VIEWPORT_EDGE_PADDING * 2}px)`,
             maxHeight: '320px',
             overflowY: 'auto',
             zIndex: 9999,

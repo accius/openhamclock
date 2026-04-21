@@ -1,0 +1,3 @@
+# Downloaded upstream source and compiled outputs — rebuilt in CI, never committed.
+src/
+dist/

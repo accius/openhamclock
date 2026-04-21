@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 
-export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) => {
+export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onClearSpots }) => {
   const [activeTab, setActiveTab] = useState('zones');
   const [newWatchlistCall, setNewWatchlistCall] = useState('');
   const [newDXExcludeCall, setNewDXExcludeCall] = useState('');
@@ -1006,6 +1006,20 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose }) =>
               }}
             >
               Clear All
+            </button>
+            <button
+              onClick={onClearSpots}
+              style={{
+                padding: '8px 16px',
+                background: 'color-mix(in srgb, var(--accent-amber) 20%, transparent)',
+                border: '1px solid var(--accent-amber)',
+                borderRadius: '6px',
+                color: 'var(--accent-amber)',
+                fontSize: '13px',
+                cursor: 'pointer',
+              }}
+            >
+              Clear Spots
             </button>
             <button
               onClick={onClose}

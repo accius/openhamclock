@@ -1,4 +1,4 @@
-# Claude Code local config
+# Claude Code local config — AI assistant instructions, not part of the project source
 .claude/
 CLAUDE.md
 
@@ -10,6 +10,10 @@ dist/
 dist-electron/
 build/
 out/
+
+# WASM build (P.533) — source and compiled outputs rebuilt in CI, never committed
+wasm-build/src/
+wasm-build/dist/
 
 # Electron
 *.asar

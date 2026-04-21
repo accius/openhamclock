@@ -2,6 +2,8 @@
  * Propagation routes — ITU-R P.533-14 predictions, built-in fallback, heatmap.
  */
 
+const physics = require('../utils/propagationPhysics');
+
 module.exports = function (app, ctx) {
   const {
     fetch,
@@ -15,6 +17,17 @@ module.exports = function (app, ctx) {
     maidenheadToLatLon,
     n0nbhCache,
   } = ctx;
+
+  const {
+    MODE_ADVANTAGE_DB,
+    calculateMUF,
+    calculateLUF,
+    calculateSignalMargin,
+    adjustReliability,
+    calculateEnhancedReliability,
+    calculateSNR,
+    getStatus,
+  } = physics;
 
   // Calculate distance between two points in km
   function haversineDistance(lat1, lon1, lat2, lon2) {
@@ -457,6 +470,7 @@ module.exports = function (app, ctx) {
               dx,
               currentHour,
               signalMarginDb,
+              currentMonth,
             );
             predictions[band].push({
               hour,
@@ -621,7 +635,9 @@ module.exports = function (app, ctx) {
       // each trigger a slow NOAA round-trip
       const { sfi, ssn, kIndex } = await getSolarData();
 
-      const currentHour = new Date().getUTCHours();
+      const now2 = new Date();
+      const currentHour = now2.getUTCHours();
+      const currentMonth = now2.getUTCMonth() + 1;
       const de = { lat: deLat, lon: deLon };
       const halfGrid = gridSize / 2;
       const cells = [];
@@ -655,6 +671,7 @@ module.exports = function (app, ctx) {
             dx,
             currentHour,
             signalMarginDb,
+            currentMonth,
           );
 
           cells.push({
@@ -768,294 +785,6 @@ module.exports = function (app, ctx) {
       res.status(500).json({ error: 'Failed to compute MUF map' });
     }
   });
-
-  // Estimate MUF from solar indices and path geometry (fallback when ITURHFProp unavailable)
-  function calculateMUF(distance, midLat, midLon, hour, sfi, ssn) {
-    // Local solar time at the path midpoint (not UTC)
-    const localHour = (hour + midLon / 15 + 24) % 24;
-
-    // Estimate foF2 (critical frequency of F2 layer) from solar flux.
-    // Empirical fit to ionosonde data:
-    //   foF2_day ≈ 4 + 0.04·SFI (8-12 MHz at SFI 100-200, mid-lat noon)
-    //   foF2_night ≈ 2 + 0.01·SFI (3-4 MHz, drops further at high lat)
-    // Blended by smooth day/night curve peaking at 14:00 local solar time.
-    const absLat = Math.abs(midLat);
-    const latFactor = absLat < 15 ? 1.15 : absLat < 45 ? 1.05 - (absLat - 15) / 120 : 0.8 - (absLat - 45) / 250;
-    const clampedLat = Math.max(0.45, latFactor);
-
-    const foF2_day = (4 + 0.04 * sfi) * clampedLat;
-    const foF2_night = (2 + 0.01 * sfi) * clampedLat;
-
-    // Smooth day/night blend: 1.0 at 14:00 local (F2 peak), ~0 at 02:00
-    const dayBlend = Math.max(0, Math.min(1, 0.5 + 0.5 * Math.cos(((localHour - 14) * Math.PI) / 12)));
-    const foF2_est = foF2_night + (foF2_day - foF2_night) * dayBlend;
-
-    // M-factor (MUF/foF2 ratio) — depends on elevation angle / distance.
-    // Short paths: high elevation angle → lower M (~2.5)
-    // Long paths (3000km): grazing incidence → M ≈ 3.0-3.3
-    // Very short: M approaches sec(zenith) ≈ 2.0
-    const M = distance < 500 ? 2.5 : distance < 3500 ? 2.5 + 0.7 * (distance / 3500) : 3.2;
-    const muf3000 = foF2_est * M;
-
-    if (distance <= 3500) {
-      return muf3000;
-    } else {
-      // Multi-hop: each additional hop reduces effective MUF by ~5%
-      const hops = Math.ceil(distance / 3500);
-      return muf3000 * Math.pow(0.95, hops - 1);
-    }
-  }
-
-  // Calculate LUF (Lowest Usable Frequency) based on D-layer absorption
-  function calculateLUF(distance, midLat, midLon, hour, sfi, kIndex) {
-    // LUF increases with:
-    // - Higher solar flux (more D-layer ionization)
-    // - Daytime (D-layer forms during day, dissipates at night)
-    // - More hops (each hop passes through D-layer again)
-    // - Geomagnetic activity
-
-    // Local solar time at the path midpoint
-    const localHour = (hour + midLon / 15 + 24) % 24;
-
-    // Day/night factor: D-layer absorption is dramatically higher during daytime
-    // D-layer essentially disappears at night, making low bands usable.
-    // Smooth cosine curve avoids hard vertical seams on the heatmap.
-    const solarAngle = ((localHour - 12) * Math.PI) / 12;
-    const dayFraction = Math.max(0, Math.min(1, 0.5 + 0.5 * Math.cos(solarAngle)));
-    // Blend from 0.15 (night) to 1.0 (noon peak)
-    const dayFactor = 0.15 + 0.85 * dayFraction;
-
-    // Solar flux factor: higher SFI = stronger D-layer = more absorption
-    const sfiFactor = 1 + (sfi - 70) / 150;
-
-    // Multi-hop penalty: each hop traverses the D-layer, compounding absorption
-    // This is the key factor that makes 160m/80m much harder on long daytime paths
-    const hops = Math.ceil(distance / 3500);
-    const hopFactor = 1 + (hops - 1) * 0.5; // 50% increase per additional hop
-
-    // Latitude factor: polar/auroral paths have increased absorption
-    const latFactor = 1 + (Math.abs(midLat) / 90) * 0.4;
-
-    // K-index: geomagnetic storms increase D-layer absorption
-    const kFactor = 1 + kIndex * 0.15;
-
-    // Base LUF: ~2 MHz for a single-hop night path with low solar flux
-    const baseLuf = 2.0;
-
-    return baseLuf * dayFactor * sfiFactor * hopFactor * latFactor * kFactor;
-  }
-
-  // Mode decode advantage in dB relative to SSB (higher = can decode weaker signals)
-  // Based on typical required SNR thresholds for each mode
-  const MODE_ADVANTAGE_DB = {
-    SSB: 0, // Baseline: requires ~13dB SNR
-    AM: -6, // Worse than SSB: requires ~19dB SNR
-    CW: 10, // Narrow bandwidth: requires ~3dB SNR
-    RTTY: 8, // Digital FSK: requires ~5dB SNR
-    PSK31: 10, // Phase-shift keying: requires ~3dB SNR
-    FT8: 34, // Deep decode: requires ~-21dB SNR
-    FT4: 30, // Slightly less sensitive: requires ~-17dB SNR
-    WSPR: 41, // Ultra-weak signal: requires ~-28dB SNR
-    JS8: 37, // Conversational weak-signal: requires ~-24dB SNR
-    OLIVIA: 20, // Error-correcting: requires ~-7dB SNR
-    JT65: 38, // Deep decode: requires ~-25dB SNR
-  };
-
-  /**
-   * Calculate signal margin in dB from mode, power, and antenna gain
-   * @param {string} mode - Operating mode (SSB, CW, FT8, etc.)
-   * @param {number} powerWatts - TX power in watts
-   * @param {number} antGain - Antenna gain in dBi (0 = isotropic)
-   * @returns {number} Signal margin in dB relative to SSB at 100W isotropic
-   */
-  function calculateSignalMargin(mode, powerWatts, antGain = 0) {
-    const modeAdv = MODE_ADVANTAGE_DB[mode] || 0;
-    const power = Math.max(0.01, powerWatts || 100);
-    const powerOffset = 10 * Math.log10(power / 100); // dB relative to 100W
-    return modeAdv + powerOffset + (antGain || 0);
-  }
-
-  /**
-   * Apply signal margin to a base reliability value.
-   * P.533 computes BCR assuming SSB at a fixed power/antenna. This adjusts
-   * the reliability for the user's actual mode (FT8 decodes 34dB weaker than
-   * SSB), power (1kW = +10dB over 100W), and antenna gain.
-   * Uses logistic scaling to stay within 0-99 bounds.
-   */
-  function adjustReliability(baseRel, signalMarginDb) {
-    if (signalMarginDb === 0 || baseRel <= 0) return baseRel;
-    let rel = baseRel;
-    const factor = signalMarginDb / 15; // normalized: ±1 at ±15dB
-    if (factor > 0) {
-      // Boost: push toward 99. Marginal paths benefit most.
-      const headroom = 99 - rel;
-      rel += headroom * (1 - Math.exp(-factor * 1.2));
-    } else {
-      // Penalty: push toward 0.
-      rel -= rel * (1 - Math.exp(factor * 1.2));
-    }
-    return Math.max(0, Math.min(99, Math.round(rel)));
-  }
-
-  // Built-in reliability calculation (fallback when ITURHFProp unavailable)
-  function calculateEnhancedReliability(
-    freq,
-    distance,
-    midLat,
-    midLon,
-    hour,
-    sfi,
-    ssn,
-    kIndex,
-    de,
-    dx,
-    currentHour,
-    signalMarginDb = 0,
-  ) {
-    const muf = calculateMUF(distance, midLat, midLon, hour, sfi, ssn);
-    const luf = calculateLUF(distance, midLat, midLon, hour, sfi, kIndex);
-
-    // Apply signal margin from mode + power to MUF/LUF boundaries.
-    // Positive margin (e.g. FT8 or high power) widens the usable window:
-    //   - Extends effective MUF (more power/sensitivity can use marginal propagation)
-    //   - Reduces effective LUF (more power overcomes D-layer absorption)
-    // Scale: ~2% per dB for MUF, ~1.5% per dB for LUF
-    const effectiveMuf = muf * (1 + signalMarginDb * 0.02);
-    const effectiveLuf = luf * Math.max(0.1, 1 - signalMarginDb * 0.015);
-
-    // Calculate BASE reliability from frequency position relative to effective MUF/LUF
-    let reliability = 0;
-
-    if (freq > effectiveMuf * 1.15) {
-      // Well above MUF - very poor (sporadic-E or scatter only)
-      reliability = Math.max(0, 25 - (freq - effectiveMuf) * 3);
-    } else if (freq > effectiveMuf) {
-      // Slightly above MUF - marginal (often works via scatter, sporadic-E)
-      const frac = (freq - effectiveMuf) / (effectiveMuf * 0.15);
-      reliability = 55 - frac * 30;
-    } else if (freq < effectiveLuf * 0.7) {
-      // Well below LUF - absorbed
-      reliability = Math.max(0, 15 - (effectiveLuf - freq) * 5);
-    } else if (freq < effectiveLuf) {
-      // Near LUF - marginal
-      reliability = 15 + ((freq - effectiveLuf * 0.7) / (effectiveLuf * 0.3)) * 40;
-    } else {
-      // In usable range — this is where most contacts happen
-      const range = effectiveMuf - effectiveLuf;
-
-      if (range <= 0) {
-        reliability = 50; // Narrow window but still usable
-      } else {
-        // OWF (Optimum Working Frequency) is ~85% of MUF
-        const position = (freq - effectiveLuf) / range; // 0 at LUF, 1 at MUF
-        const optimalPosition = 0.8; // 80% up from LUF = OWF
-
-        if (position < optimalPosition) {
-          reliability = 60 + (position / optimalPosition) * 39;
-        } else {
-          reliability = 99 - ((position - optimalPosition) / (1 - optimalPosition)) * 39;
-        }
-      }
-    }
-
-    // ── Power/mode signal margin: direct effect on reliability ──
-    // In real propagation, more power = higher received SNR = better probability
-    // of maintaining a link. A marginal path (30% reliability) at 100W SSB becomes
-    // much more reliable at 1000W, and much worse at 5W.
-    //
-    // signalMarginDb: 0 at SSB/100W, +10 at SSB/1000W, -13 at SSB/5W, +34 at FT8/100W
-    //
-    // Apply as a sigmoid-shaped boost/penalty centered on the baseline reliability.
-    // Positive margin pushes reliability toward 99, negative pushes toward 0.
-    if (signalMarginDb !== 0 && reliability > 0 && reliability < 99) {
-      // Convert dB margin to a reliability shift.
-      // Each 10 dB roughly doubles (or halves) the chance of a usable link.
-      // Use logistic scaling so we don't exceed 0-99 bounds.
-      const marginFactor = signalMarginDb / 15; // normalized: ±1 at ±15dB
-
-      if (marginFactor > 0) {
-        // Boost: push toward 99. Marginal paths benefit most.
-        const headroom = 99 - reliability;
-        reliability += headroom * (1 - Math.exp(-marginFactor * 1.2));
-      } else {
-        // Penalty: push toward 0. Good paths degrade.
-        const room = reliability;
-        reliability -= room * (1 - Math.exp(marginFactor * 1.2));
-      }
-    }
-
-    // K-index degradation — only significant storms matter
-    // K=0-3: quiet/unsettled (normal), K=4: active, K=5+: storm
-    if (kIndex >= 7) reliability *= 0.15;
-    else if (kIndex >= 6) reliability *= 0.3;
-    else if (kIndex >= 5) reliability *= 0.5;
-    else if (kIndex >= 4) reliability *= 0.75;
-    // K=0-3: no penalty (this is normal conditions)
-
-    // Multi-hop: slight reduction per additional hop
-    const hops = Math.ceil(distance / 3500);
-    if (hops > 1) {
-      reliability *= Math.pow(0.95, hops - 1); // ~5% per hop (was 8%)
-    }
-
-    // Polar path penalty (auroral absorption) — only during disturbed conditions
-    if (Math.abs(midLat) > 65) {
-      reliability *= 0.8;
-      if (kIndex >= 4) reliability *= 0.7; // storms + polar = bad
-    }
-
-    // High bands need sufficient solar activity (but less aggressively)
-    if (freq >= 21 && sfi < 90) reliability *= 0.5 + 0.5 * (sfi / 90);
-    if (freq >= 28 && sfi < 110) reliability *= 0.5 + 0.5 * (sfi / 110);
-
-    // Low bands work better at night due to D-layer dissipation
-    const localHour = (hour + midLon / 15 + 24) % 24;
-
-    // Smooth day/night factor: 1.0 = full day, 0.0 = full night
-    // Uses cosine curve centered on noon (12:00) with smooth sunrise/sunset
-    // transitions instead of hard cutoffs at fixed hours.
-    // Sunrise ~5-7, sunset ~17-19, with smooth interpolation between.
-    const solarAngle = ((localHour - 12) * Math.PI) / 12; // -π at midnight, 0 at noon
-    const dayFraction = Math.max(0, Math.min(1, 0.5 + 0.5 * Math.cos(solarAngle)));
-    // dayFraction ≈ 1.0 at noon, ≈ 0.0 at midnight, smooth transition
-
-    if (freq <= 2) {
-      // 160m: almost exclusively a nighttime DX band
-      // Blends smoothly from 1.15× at night to 0.08× at day
-      const nightBoost = 1.15;
-      const dayPenalty = 0.08;
-      reliability *= dayPenalty * dayFraction + nightBoost * (1 - dayFraction);
-    } else if (freq <= 4) {
-      // 80m: primarily nighttime, some gray-line, limited daytime DX
-      const nightBoost = 1.1;
-      const dayPenalty = 0.25;
-      reliability *= dayPenalty * dayFraction + nightBoost * (1 - dayFraction);
-    } else if (freq <= 7.5) {
-      // 40m: usable day and night, but better at night for DX
-      const nightBoost = 1.1;
-      reliability *= 1.0 * dayFraction + nightBoost * (1 - dayFraction);
-    }
-
-    return Math.min(99, Math.max(0, reliability));
-  }
-
-  // Convert reliability to estimated SNR
-  function calculateSNR(reliability) {
-    if (reliability >= 80) return '+20dB';
-    if (reliability >= 60) return '+10dB';
-    if (reliability >= 40) return '0dB';
-    if (reliability >= 20) return '-10dB';
-    return '-20dB';
-  }
-
-  // Get status label from reliability
-  function getStatus(reliability) {
-    if (reliability >= 70) return 'EXCELLENT';
-    if (reliability >= 50) return 'GOOD';
-    if (reliability >= 30) return 'FAIR';
-    if (reliability >= 15) return 'POOR';
-    return 'CLOSED';
-  }
 
   // ── Pre-warm cache for DX spots ──────────────────────────────────
   // Called from dxcluster.js when new DX callsigns appear.

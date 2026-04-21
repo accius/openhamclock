@@ -533,6 +533,9 @@ export const SettingsPanel = ({
     return t == 'imperial' ? 'US Customary' : 'Metric';
   };
 
+  // Set a sane default if we are not a local installation and we have 'udp' set as the dxClusterSource.
+  if (!isLocalInstall && dxClusterSource === 'udp') setDxClusterSource('auto');
+
   return (
     <div
       onClick={onClose}
@@ -2050,9 +2053,11 @@ export const SettingsPanel = ({
                 <option value="dxwatch">{t('station.settings.dx.option3')}</option>
                 <option value="auto">{t('station.settings.dx.option4')}</option>
                 <option value="custom">{t('station.settings.dx.custom.option')}</option>
-                <option value="udp">
-                  {t('station.settings.dx.udp.option', { defaultValue: 'UDP Spots (Local Network)' })}
-                </option>
+                {isLocalInstall && (
+                  <option value="udp">
+                    {t('station.settings.dx.udp.option', { defaultValue: 'UDP Spots (Local Network)' })}
+                  </option>
+                )}
               </select>
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
                 {t('station.settings.dx.describe')}
