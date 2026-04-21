@@ -838,7 +838,6 @@ export default function ClassicLayout(props) {
                 }}
               >
                 {utcTime}
-                <span style={{ fontSize: '26px', color: '#00cc00' }}>:{seconds}</span>
               </div>
               <div style={{ fontSize: '18px', color: '#00aa00', marginTop: '4px' }}>
                 {utcDate} <span style={{ color: '#888' }}>UTC</span>
