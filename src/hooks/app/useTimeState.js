@@ -70,9 +70,9 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
       // SunTimes.rise will be 'Midnight sun' or 'Polar night'
       return sunTimes;
 
-    var rise = {};
-    var set = {};
-    var local = {};
+    let rise = {};
+    let set = {};
+    let local = {};
     [rise.hr, rise.mn] = sunTimes.sunrise.split(':');
     [set.hr, set.mn] = sunTimes.sunset.split(':');
 
