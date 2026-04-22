@@ -3,12 +3,24 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { calculateGridSquare, calculateSunTimes } from '../../utils';
 
-function convertTimeUTCtoLocal(sunTimes, tz) {
+function convertTimeUTCtoLocal(sunTimes, tz, currentTime) {
   // We are only ever going to be doing this for local timezone
 
   if (sunTimes.sunset === '')
     // SunTimes.rise will be 'Midnight sun' or 'Polar night'
     return sunTimes;
+
+  // First we need to get today's date from the current time.
+  let [month, day, year] = currentTime
+    .toLocaleDateString('en-US', {
+      timeZone: 'UTC',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    })
+    .split('/')
+    .map(Number);
+  month--; // We need the month Index
 
   let rise = {};
   let set = {};
@@ -16,8 +28,8 @@ function convertTimeUTCtoLocal(sunTimes, tz) {
   [rise.hr, rise.mn] = sunTimes.sunrise.split(':').map(Number);
   [set.hr, set.mn] = sunTimes.sunset.split(':').map(Number);
 
-  rise.date = new Date(Date.UTC(0, 0, 0, rise.hr, rise.mn));
-  set.date = new Date(Date.UTC(0, 0, 0, set.hr, set.mn));
+  rise.date = new Date(Date.UTC(year, month, day, rise.hr, rise.mn));
+  set.date = new Date(Date.UTC(year, month, day, set.hr, set.mn));
 
   local.sunrise = rise.date.toLocaleString('en-US', {
     timeZone: tz,
@@ -106,12 +118,12 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
   const deSunTimes = useMemo(() => {
     // Calculate what sunrise and sunset are in local time.
     let sunTimes = calculateSunTimes(configLocation.lat, configLocation.lon, currentTime);
-    sunTimes.local = convertTimeUTCtoLocal(sunTimes, safeTimezone);
+    sunTimes.local = convertTimeUTCtoLocal(sunTimes, safeTimezone, currentTime);
     return sunTimes;
   }, [configLocation, currentTime]);
   const dxSunTimes = useMemo(
     () => calculateSunTimes(dxLocation.lat, dxLocation.lon, currentTime),
-    [dxLocation, currentTime],
+    [dxLocation, currentTime, safeTimezone],
   );
 
   const utcTime = currentTime.toISOString().substr(11, 8);
