@@ -782,6 +782,7 @@ export const DockableApp = ({
               currentTime={currentTime}
               dxSpots={dxClusterData.spots}
               clusterFilters={dxFilters}
+              timeZone={config.timezone}
             />
           );
           break;

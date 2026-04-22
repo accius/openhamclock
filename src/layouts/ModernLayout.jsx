@@ -547,6 +547,7 @@ export default function ModernLayout(props) {
                 clusterFilters={dxFilters}
                 deSunTimes={deSunTimes}
                 currentTime={currentTime}
+                timeZone={config.timezone}
               />,
               'prop',
             )}
@@ -610,6 +611,7 @@ export default function ModernLayout(props) {
                   clusterFilters={dxFilters}
                   deSunTimes={deSunTimes}
                   currentTime={currentTime}
+                  timeZone={config.timezone}
                 />
               )}
             </div>
@@ -689,6 +691,7 @@ export default function ModernLayout(props) {
               clusterFilters={dxFilters}
               deSunTimes={deSunTimes}
               currentTime={currentTime}
+              timeZone={config.timezone}
             />
           )}
         </div>
