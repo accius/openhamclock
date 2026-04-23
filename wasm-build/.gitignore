@@ -1,3 +1,6 @@
 # Downloaded upstream source and compiled outputs — rebuilt in CI, never committed.
 src/
 dist/
+# Local-only data bundle staged for e2e smoke testing (see smoke-test-e2e.mjs).
+# Never committed — files fetched from upstream for local iteration only.
+data-local/

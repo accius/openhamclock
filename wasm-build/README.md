@@ -9,12 +9,14 @@ artifact; contributors can also build locally.
 
 ## What's here
 
-| File              | Purpose                                                         |
-| ----------------- | --------------------------------------------------------------- |
-| `build.sh`        | Downloads upstream source, compiles with `emcc`, emits `dist/`. |
-| `smoke-test.mjs`  | Loads the built `p533.mjs` in Node to confirm it runs.          |
-| `src/` (ignored)  | Upstream source tree, pinned to tag `v14.3`.                    |
-| `dist/` (ignored) | Build output: `p533.mjs`, `p533.wasm`, `p533.sha256`.           |
+| File                    | Purpose                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| `build.sh`              | Downloads upstream source, compiles with `emcc`, emits `dist/`.                            |
+| `smoke-test.mjs`        | Loads the built `p533.mjs` in Node to confirm the runtime initializes.                     |
+| `smoke-test-e2e.mjs`    | Runs a real prediction by mounting coefficient files into MEMFS — needs `data-local/`.     |
+| `src/` (ignored)        | Upstream source tree, pinned to tag `v14.3`.                                               |
+| `dist/` (ignored)       | Build output: `p533.mjs`, `p533.wasm`, `p533.sha256`.                                      |
+| `data-local/` (ignored) | A handful of upstream coefficient files staged for `smoke-test-e2e.mjs` — never committed. |
 
 ## Building locally
 
@@ -35,18 +37,15 @@ cd wasm-build
 node smoke-test.mjs
 ```
 
-Expected smoke-test output:
+Expected output — the runtime loads and `FS` / `callMain` are exported.
 
-```
-smoke-test: WASM module loaded
-  HEAP8 size:       16.00 MB
-  exported methods: callMain, FS, ccall, cwrap
-smoke-test: ITURHFProp main() returned <non-zero, ok for B1>
-smoke-test: OK
-```
+### End-to-end smoke test (optional)
 
-A non-zero exit is **expected** at this stage — ITURHFProp requires an input
-file, and the coefficient data bundling happens in B3.
+To prove the WASM runs an actual P.533 prediction, stage a few upstream
+coefficient files into `data-local/` and run `smoke-test-e2e.mjs`. The script
+header lists the exact files needed (~11 MB for one month). See
+`smoke-test-e2e.mjs` for the scenario and expected physical behavior
+(80m/40m midday CLOSED, 15m/20m OPEN at SSN 120).
 
 ## CI
 
@@ -66,9 +65,9 @@ added alongside the shipped artifact in Phase B5.
 
 ## Roadmap
 
-- **B1** (this): scaffolding, build compiles, smoke test runs. ← here
-- **B2**: refactor file I/O from `fopen()` to in-memory buffers.
-- **B3**: package coefficient data, IndexedDB cache, lazy per-month fetch.
+- **B1**: scaffolding, build compiles, smoke test runs.
+- **B2** (this): coefficient files served via MEMFS, end-to-end prediction works. ← here
+- **B3**: package coefficient data for the browser, IndexedDB cache, lazy per-month fetch.
 - **B4**: JS wrapper API that mirrors `iturhfprop-service/`'s REST shape.
 - **B5**: wire into `usePropagation` with WASM → REST → heuristic fallback.
 - **B6**: parity validation against native reference.
