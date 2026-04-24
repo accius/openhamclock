@@ -403,6 +403,7 @@
   "station.settings.satellites.altitude": "Altitude",
   "station.settings.satellites.azimuth_elevation": "Az/El",
   "station.settings.satellites.belowHorizon": "地平线下",
+  "station.settings.satellites.belowMinElev": "低于最小仰角",
   "station.settings.satellites.clear": "清空",
   "station.settings.satellites.clearFootprints": "CLEAR ALL FOOTPRINTS",
   "station.settings.satellites.dopplerFactor": "Doppler Factor",

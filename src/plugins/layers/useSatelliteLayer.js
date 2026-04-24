@@ -250,6 +250,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       activeSats
         .map((sat) => {
           const isVisible = sat.isVisible === true;
+          const isAboveHorizon = sat.elevation >= 0;
 
           const isMetric = allUnits.dist === 'metric';
           const distanceUnitsStr = isMetric ? 'km' : 'miles';
@@ -329,7 +330,15 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
             <tr style="background-color: ${isVisible ? 'var(--accent-green)' : 'var(--bg-primary)'}; color: ${isVisible ? '#000' : 'var(--text-secondary)'};">
               <td style="padding: 0 2px;">${t('station.settings.satellites.status')}:</td>
-              <td align="right" style="padding: 0 2px;">${isVisible ? `${t('station.settings.satellites.visible')}` : `${t('station.settings.satellites.belowHorizon')}`}</td>
+              <td align="right" style="padding: 0 2px;">
+                ${
+                  isVisible
+                    ? `${t('station.settings.satellites.visible')}`
+                    : isAboveHorizon
+                      ? `${t('station.settings.satellites.belowMinElev')}`
+                      : `${t('station.settings.satellites.belowHorizon')}`
+                }
+              </td>
             </tr>
 
             <!-- section 3: miscellaneous satellite information -->
