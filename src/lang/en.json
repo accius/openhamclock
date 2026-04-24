@@ -533,6 +533,8 @@
   "weather.dewPoint": "🌡️ Dew Pt",
   "weather.error.busy": "Weather service busy",
   "weather.error.loading": "Weather loading...",
+  "weather.error.rateLimitedHint": "Get higher limits ↗",
+  "weather.error.rateLimitedTooltip": "Get a free API key at open-meteo.com, then in your browser console (F12) run: localStorage.setItem('ohc_openmeteo_apikey', 'YOUR_KEY')",
   "weather.error.retry": " · retrying in {{seconds}}s",
   "weather.error.unavailable": "Weather unavailable",
   "weather.feelsLike": "Feels like {{temp}}",

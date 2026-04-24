@@ -170,8 +170,12 @@ export function convertWeatherData(rawData, allUnits) {
   };
 }
 
-// Retry delays: 15s, 30s, 60s, 120s, 300s (cap)
-const RETRY_DELAYS = [15000, 30000, 60000, 120000, 300000];
+// Retry delays after a fetch error. Tight cap because each browser is its own
+// per-IP rate-limit bucket — a single 429 should never wedge the panel.
+const RETRY_DELAYS = [5000, 15000, 30000];
+// Settle window after a location change. Absorbs rapid DX tuning while keeping
+// time-to-first-weather under the 1-3s target.
+const DEBOUNCE_MS = 1500;
 const POLL_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours — matches server cache TTL
 
 // Fetch weather directly from Open-Meteo
@@ -213,10 +217,12 @@ async function fetchOpenMeteoDirect(lat, lon) {
 export const useWeather = (location, allUnits = { dist: 'imperial', temp: 'imperial', press: 'imperial' }) => {
   const [rawData, setRawData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null); // { message, retryIn }
+  const [error, setError] = useState(null); // { message, retryIn, rateLimited, persistent }
   const debounceRef = useRef(null);
   const retryRef = useRef(null);
   const retryCountRef = useRef(0);
+  const consecutive429sRef = useRef(0);
+  const firstFireRef = useRef(true);
 
   useEffect(() => {
     if (location?.lat == null || location?.lon == null) return;
@@ -234,14 +240,21 @@ export const useWeather = (location, allUnits = { dist: 'imperial', temp: 'imper
         setRawData(data);
         setError(null);
         retryCountRef.current = 0;
+        consecutive429sRef.current = 0;
       } catch (err) {
         console.error('[Weather] Fetch error:', err.message);
+        const isRateLimit = err.message === 'Rate limited';
+        if (isRateLimit) consecutive429sRef.current++;
+        else consecutive429sRef.current = 0;
+
         const retryIdx = Math.min(retryCountRef.current, RETRY_DELAYS.length - 1);
         const delay = RETRY_DELAYS[retryIdx];
         retryCountRef.current++;
         setError({
-          message: err.message === 'Rate limited' ? 'Weather service busy' : 'Weather unavailable',
+          message: isRateLimit ? 'Weather service busy' : 'Weather unavailable',
           retryIn: Math.round(delay / 1000),
+          rateLimited: isRateLimit,
+          persistent: consecutive429sRef.current >= 2,
         });
         retryRef.current = setTimeout(fetchWeather, delay);
       } finally {
@@ -249,16 +262,17 @@ export const useWeather = (location, allUnits = { dist: 'imperial', temp: 'imper
       }
     };
 
-    // Debounce: wait 30 seconds after last location change before fetching.
-    // Absorbs rapid DX tuning so we only fetch for the final target.
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (retryRef.current) clearTimeout(retryRef.current);
     retryCountRef.current = 0;
+    setLoading(true);
 
-    debounceRef.current = setTimeout(() => {
-      setLoading(true);
-      fetchWeather();
-    }, 30000);
+    // Fire immediately on the first run of this hook (initial app mount or first
+    // valid location). Subsequent location changes wait DEBOUNCE_MS to absorb
+    // rapid DX tuning.
+    const isFirstFire = firstFireRef.current;
+    firstFireRef.current = false;
+    debounceRef.current = setTimeout(fetchWeather, isFirstFire ? 0 : DEBOUNCE_MS);
 
     const interval = setInterval(fetchWeather, POLL_INTERVAL);
     return () => {

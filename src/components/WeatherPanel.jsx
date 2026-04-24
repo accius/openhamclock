@@ -107,6 +107,15 @@ export const WeatherPanel = ({
     }
   };
 
+  // Tooltip explains the localStorage workflow for setting an Open-Meteo API key.
+  // Shown when 429s persist (2+ in a row) — points users at the paid-tier escape hatch.
+  const apiKeyTooltip = t('weather.error.rateLimitedTooltip', {
+    defaultValue:
+      "Get a free API key at open-meteo.com, then in your browser console (F12) run: localStorage.setItem('ohc_openmeteo_apikey', 'YOUR_KEY')",
+  });
+  const apiKeyHintText = t('weather.error.rateLimitedHint', { defaultValue: 'Get higher limits ↗' });
+  const showApiKeyHint = error?.persistent && error?.rateLimited;
+
   // --- Error state (no data at all) ---
   if (!w && error) {
     return (
@@ -121,6 +130,24 @@ export const WeatherPanel = ({
             {error.retryIn ? t('weather.error.retry', { seconds: error.retryIn }) : ''}
           </span>
         </div>
+        {showApiKeyHint && (
+          <div style={{ marginTop: '6px', paddingLeft: '24px' }}>
+            <a
+              href="https://open-meteo.com/en/pricing"
+              target="_blank"
+              rel="noopener noreferrer"
+              title={apiKeyTooltip}
+              style={{
+                fontSize: '10px',
+                color: 'var(--accent-amber)',
+                fontFamily: 'JetBrains Mono, monospace',
+                textDecoration: 'underline',
+              }}
+            >
+              {apiKeyHintText}
+            </a>
+          </div>
+        )}
       </div>
     );
   }
@@ -207,6 +234,20 @@ export const WeatherPanel = ({
         >
           ⚠ {getErrorMessage(error.message)}
           {error.retryIn ? t('weather.error.retry', { seconds: error.retryIn }) : ''}
+          {showApiKeyHint && (
+            <>
+              {' · '}
+              <a
+                href="https://open-meteo.com/en/pricing"
+                target="_blank"
+                rel="noopener noreferrer"
+                title={apiKeyTooltip}
+                style={{ color: 'var(--accent-amber)', textDecoration: 'underline' }}
+              >
+                {apiKeyHintText}
+              </a>
+            </>
+          )}
         </div>
       )}
 
