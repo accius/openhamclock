@@ -45,6 +45,15 @@ function normaliseBaseUrl(url) {
   return url.endsWith('/') ? url : url + '/';
 }
 
+// Version-pinned cache buster. The proxy at /api/p533-data/ is idempotent per
+// data version, so appending ?v=<version> is safe to cache forever AND gives
+// us a fresh URL path when we need to blow past an edge-cached error response
+// (Cloudflare has been known to cache 502s despite the origin saying no-store).
+function urlFor(path) {
+  const sep = path.includes('?') ? '&' : '?';
+  return `${BASE_URL}${path}${sep}v=${encodeURIComponent(VERSION)}`;
+}
+
 function padMonth(month) {
   const m = Number(month);
   if (!Number.isInteger(m) || m < 1 || m > 12) {
@@ -121,7 +130,7 @@ async function sha256Hex(bytes) {
 async function fetchManifest() {
   if (!manifestPromise) {
     manifestPromise = (async () => {
-      const res = await fetch(BASE_URL + 'manifest.json', { cache: 'no-cache' });
+      const res = await fetch(urlFor('manifest.json'), { cache: 'no-cache' });
       if (!res.ok) {
         manifestPromise = null; // don't cache failure — next call retries
         throw new Error(`p533 manifest fetch failed: ${res.status}`);
@@ -152,7 +161,7 @@ async function gunzip(bytes) {
 }
 
 async function fetchAndDecompress(asset) {
-  const url = BASE_URL + asset;
+  const url = urlFor(asset);
   const res = await fetch(url);
   if (!res.ok) {
     throw new Error(`p533 fetch ${asset} failed: ${res.status} ${res.statusText}`);

@@ -32,10 +32,21 @@ module.exports = function (app, ctx) {
   // Matches the asset names emitted by publish-p533-data.yml.
   const ALLOW = /^(ionos\d{2}\.bin\.gz|COEFF\d{2}W\.txt\.gz|P1239-3-Decile-Factors\.txt\.gz|manifest\.json)$/;
 
+  // Cloudflare will cache upstream-error responses by default even when the
+  // origin says Cache-Control: no-store, which turned a transient 502 into a
+  // stuck 502 for 15+ minutes in practice. Explicitly pin error responses to
+  // "do not cache at any layer" so a later retry actually hits the proxy.
+  function sendNoCacheError(res, status, body) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.setHeader('CDN-Cache-Control', 'no-store');
+    res.setHeader('Cloudflare-CDN-Cache-Control', 'no-store');
+    return res.status(status).json(body);
+  }
+
   app.get('/api/p533-data/:file', async (req, res) => {
     const file = req.params.file;
     if (!ALLOW.test(file)) {
-      return res.status(404).json({ error: 'unknown p533 data file' });
+      return sendNoCacheError(res, 404, { error: 'unknown p533 data file' });
     }
 
     let upstreamRes;
@@ -43,12 +54,12 @@ module.exports = function (app, ctx) {
       upstreamRes = await fetch(`${UPSTREAM_BASE}/${file}`, { redirect: 'follow' });
     } catch (err) {
       logErrorOnce('p533-data-proxy', err.message);
-      return res.status(502).json({ error: 'upstream error' });
+      return sendNoCacheError(res, 502, { error: 'upstream error' });
     }
 
     if (!upstreamRes.ok) {
       logWarn('[p533-data]', file, 'upstream returned', upstreamRes.status);
-      return res.status(upstreamRes.status).json({ error: 'upstream fetch failed' });
+      return sendNoCacheError(res, upstreamRes.status, { error: 'upstream fetch failed' });
     }
 
     // Release assets are version-tagged — content is immutable for a given

@@ -93,11 +93,11 @@ describe('getMonthFiles', () => {
     const ionos = new TextEncoder().encode('fake-ionos-payload');
     const coeff = new TextEncoder().encode('fake-coeff-payload');
     stubFetch(async (url) => {
-      if (url.endsWith('/manifest.json')) {
+      if (url.includes('/manifest.json')) {
         return new Response(makeManifest([]));
       }
-      if (url.endsWith('/ionos01.bin.gz')) return new Response(gz(ionos));
-      if (url.endsWith('/COEFF01W.txt.gz')) return new Response(gz(coeff));
+      if (url.includes('/ionos01.bin.gz')) return new Response(gz(ionos));
+      if (url.includes('/COEFF01W.txt.gz')) return new Response(gz(coeff));
       return null;
     });
 
@@ -115,7 +115,7 @@ describe('getMonthFiles', () => {
     const realSha = await __internal.sha256Hex(gz(real));
 
     stubFetch(async (url) => {
-      if (url.endsWith('/manifest.json')) {
+      if (url.includes('/manifest.json')) {
         return new Response(
           makeManifest([
             { name: 'ionos02.bin.gz', size: 0, sha256: realSha },
@@ -123,8 +123,8 @@ describe('getMonthFiles', () => {
           ]),
         );
       }
-      if (url.endsWith('/ionos02.bin.gz')) return new Response(gz(tampered));
-      if (url.endsWith('/COEFF02W.txt.gz')) return new Response(gz(real));
+      if (url.includes('/ionos02.bin.gz')) return new Response(gz(tampered));
+      if (url.includes('/COEFF02W.txt.gz')) return new Response(gz(real));
       return null;
     });
 
@@ -133,7 +133,7 @@ describe('getMonthFiles', () => {
 
   it('propagates network failures', async () => {
     stubFetch(async (url) => {
-      if (url.endsWith('/manifest.json')) return new Response(makeManifest([]));
+      if (url.includes('/manifest.json')) return new Response(makeManifest([]));
       return null; // every month asset 404s
     });
     await expect(getMonthFiles(5)).rejects.toThrow(/fetch.*failed: 404/);
@@ -149,8 +149,8 @@ describe('getDecileFactors', () => {
   it('returns bytes keyed by the canonical space-separated WASM filename', async () => {
     const payload = new TextEncoder().encode('decile-factors');
     stubFetch(async (url) => {
-      if (url.endsWith('/manifest.json')) return new Response(makeManifest([]));
-      if (url.endsWith('/P1239-3-Decile-Factors.txt.gz')) return new Response(gz(payload));
+      if (url.includes('/manifest.json')) return new Response(makeManifest([]));
+      if (url.includes('/P1239-3-Decile-Factors.txt.gz')) return new Response(gz(payload));
       return null;
     });
 
@@ -167,12 +167,12 @@ describe('concurrent callers', () => {
     const payload = new TextEncoder().encode('x');
 
     stubFetch(async (url) => {
-      if (url.endsWith('/manifest.json')) return new Response(makeManifest([]));
-      if (url.endsWith('/ionos06.bin.gz')) {
+      if (url.includes('/manifest.json')) return new Response(makeManifest([]));
+      if (url.includes('/ionos06.bin.gz')) {
         ionosHits++;
         return new Response(gz(payload));
       }
-      if (url.endsWith('/COEFF06W.txt.gz')) {
+      if (url.includes('/COEFF06W.txt.gz')) {
         coeffHits++;
         return new Response(gz(payload));
       }
