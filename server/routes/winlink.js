@@ -40,26 +40,44 @@ module.exports = function (app, ctx) {
   async function fetchFromWinlink(path) {
     const url = `${WINLINK_API_BASE}${path}${path.includes('?') ? '&' : '?'}key=${encodeURIComponent(WINLINK_API_KEY)}`;
     const res = await fetch(url, { headers: { accept: 'application/json' } });
+    const body = await res.json().catch(() => ({}));
+    // The API always returns JSON even on 400 — surface its error message rather
+    // than a generic HTTP code so operators can tell "bad key" from "bad path".
     if (!res.ok) {
-      throw new Error(`winlink.org HTTP ${res.status}`);
+      const apiErr = body?.ResponseStatus?.Message || `HTTP ${res.status}`;
+      throw new Error(`winlink.org ${path}: ${apiErr}`);
     }
-    return res.json();
+    return body;
   }
 
-  function normalizeGateways(json) {
-    // The API returns either a bare array or an envelope with Gateways/ChannelList.
-    if (Array.isArray(json)) return json;
-    return json.Gateways || json.ChannelList || [];
+  // Normalize both endpoint shapes to a single {gateways:[...]} with the
+  // union of useful fields — callers don't need to know which underlying
+  // endpoint served the data.
+  //
+  //   /gateway/channel/report    → {Channels:[{…Hours,…}]}         (global list)
+  //   /gateway/proximity.json    → {GatewayList:[{…Distance,…}]}   (near a grid)
+  function normalizeRow(r) {
+    return {
+      callsign: r.Callsign,
+      gridsquare: r.Gridsquare,
+      frequency: r.Frequency, // Hz
+      mode: r.Mode, // integer code — map to label in the client
+      serviceCode: r.ServiceCode,
+      hours: r.Hours ?? null,
+      baud: r.Baud ?? null,
+      distance: r.Distance ?? null, // km, proximity only
+      heading: r.Heading ?? null, // deg, proximity only
+    };
   }
 
   async function getFullGatewayList() {
     if (fullListCache.data && Date.now() - fullListCache.ts < CACHE_TTL_MS) {
       return fullListCache.data;
     }
-    const json = await fetchFromWinlink('/channel/list.json');
-    const list = normalizeGateways(json);
+    const json = await fetchFromWinlink('/gateway/channel/report');
+    const list = (json.Channels || []).map(normalizeRow);
     fullListCache = { data: list, ts: Date.now() };
-    logInfo('[Winlink]', 'cached', list.length, 'gateways (full list)');
+    logInfo('[Winlink]', 'cached', list.length, 'gateways (global list)');
     return list;
   }
 
@@ -68,9 +86,9 @@ module.exports = function (app, ctx) {
     const hit = proximityCache.get(key);
     if (hit && Date.now() - hit.ts < PROXIMITY_CACHE_TTL_MS) return hit.data;
     const json = await fetchFromWinlink(
-      `/gateway/proximity?GridSquare=${encodeURIComponent(grid)}&MaxDistance=${Number(range) || 500}`,
+      `/gateway/proximity.json?GridSquare=${encodeURIComponent(grid)}&MaxDistance=${Number(range) || 500}`,
     );
-    const list = normalizeGateways(json);
+    const list = (json.GatewayList || []).map(normalizeRow);
     proximityCache.set(key, { data: list, ts: Date.now() });
     // Keep the proximity cache bounded — arbitrary 50 distinct queries is
     // plenty for a shared deployment and prevents slow memory growth.
@@ -104,7 +122,15 @@ module.exports = function (app, ctx) {
     const { grid, range, mode } = req.query;
     try {
       const list = grid ? await getProximity(String(grid), range) : await getFullGatewayList();
-      const filtered = mode ? list.filter((g) => String(g.Mode || g.ServiceCode || '').includes(String(mode))) : list;
+      // Mode filter matches numeric mode code OR ServiceCode string (e.g. "PUBLIC", "EMCOMM").
+      const filtered = mode
+        ? list.filter((g) => {
+            const needle = String(mode).toLowerCase();
+            return (
+              String(g.mode).toLowerCase().includes(needle) || String(g.serviceCode).toLowerCase().includes(needle)
+            );
+          })
+        : list;
       // Short browser cache — fresh enough for map rendering without pounding
       // us every poll. The server-side cache is the real efficiency win.
       res.setHeader('Cache-Control', 'public, max-age=300');
@@ -124,7 +150,7 @@ module.exports = function (app, ctx) {
     try {
       const list = await getFullGatewayList();
       const cs = String(req.params.callsign).toUpperCase();
-      const found = list.find((g) => String(g.Callsign || g.callsign || '').toUpperCase() === cs);
+      const found = list.find((g) => String(g.callsign).toUpperCase() === cs);
       if (!found) return res.status(404).json({ error: 'gateway not found' });
       res.setHeader('Cache-Control', 'public, max-age=300');
       res.json(found);
