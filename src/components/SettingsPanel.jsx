@@ -423,7 +423,11 @@ export const SettingsPanel = ({
       headerSize: headerSize,
       swapHeaderClocks,
       showMutualReception,
-      location: { lat: parseFloat(lat) || 0, lon: parseFloat(lon) || 0, stationAlt: parseInt(stationAlt) || 100 },
+      location: {
+        lat: parseFloat(lat) || 0,
+        lon: parseFloat(lon) || 0,
+        stationAlt: isNaN(parseInt(stationAlt)) ? 100 : parseInt(stationAlt),
+      },
       satellite: { minElev: isNaN(parseFloat(minElev)) ? 5.0 : parseFloat(minElev) },
       theme,
       customTheme,
