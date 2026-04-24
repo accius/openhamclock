@@ -20,17 +20,14 @@ COPY . .
 # Ensure public/ exists (may not be tracked in git)
 RUN mkdir -p /app/public
 
-# Download vendor assets for self-hosting (fonts, Leaflet — no external CDN at runtime)
-# curl/jq/unzip are also used by fetch-wasm.sh below.
-RUN apk add --no-cache curl jq unzip && bash scripts/vendor-download.sh || true
+# Download vendor assets for self-hosting (fonts, Leaflet — no external CDN at runtime).
+# curl is also used by fetch-wasm.sh below.
+RUN apk add --no-cache curl && bash scripts/vendor-download.sh || true
 
-# Fetch latest P.533 WASM artifact from CI so Vite bundles it into dist/.
-# Build-time secret: pass with `--secret id=GITHUB_TOKEN,env=GITHUB_TOKEN`.
-# Missing token / expired artifact: script exits 0, runtime falls back
-# to /api/bands (proppy) then the built-in heuristic.
-RUN --mount=type=secret,id=GITHUB_TOKEN,required=false \
-    GITHUB_TOKEN="$(cat /run/secrets/GITHUB_TOKEN 2>/dev/null || true)" \
-    bash scripts/fetch-wasm.sh
+# Fetch P.533 WASM from the wasm-latest GitHub Release (public, no auth).
+# On failure (e.g. release doesn't exist yet), script exits 0 and runtime
+# falls back to /api/bands (proppy) then the built-in heuristic.
+RUN bash scripts/fetch-wasm.sh
 
 # Build the React app with Vite
 RUN npm run build
