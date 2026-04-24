@@ -45,17 +45,21 @@ RUN mkdir -p /data
 COPY package*.json ./
 RUN npm install --omit=dev
 
-# Copy server files
-COPY server.js ./
-COPY server/ ./server/
-COPY config.js ./
-COPY src/server ./src/server
+# Copy server files.
+# --link is used throughout this stage so BuildKit builds each layer
+# independently of prior-layer state — avoids stuck-cache errors we've
+# hit on Railway when the BuildKit context ref goes stale across deploys
+# ("failed to calculate checksum of ref ... <path>: not found").
+COPY --link server.js ./
+COPY --link server/ ./server/
+COPY --link config.js ./
+COPY --link src/server ./src/server
 
 # Copy WSJT-X relay agent (served as download to users)
-COPY wsjtx-relay ./wsjtx-relay
+COPY --link wsjtx-relay ./wsjtx-relay
 
 # Copy Rig Listener agent (served as download to users)
-COPY rig-listener/ ./rig-listener/
+COPY --link rig-listener ./rig-listener
 
 # Copy built frontend from builder stage
 COPY --from=builder /app/dist ./dist
