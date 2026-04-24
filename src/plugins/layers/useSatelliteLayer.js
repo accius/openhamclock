@@ -95,7 +95,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       return;
     }
 
-    const accentCyan = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan');
+    const accentCyan = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim();
 
     if (!win) {
       win = document.createElement('div');
@@ -389,9 +389,9 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     if (!satellites || satellites.length === 0) return;
 
     const globalOpacity = opacity !== undefined ? opacity : 1.0;
-    const accentCyan = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan');
-    const accentGreen = getComputedStyle(document.documentElement).getPropertyValue('--accent-green');
-    const accentLeadTrack = getComputedStyle(document.documentElement).getPropertyValue('--accent-amber');
+    const accentCyan = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim();
+    const accentGreen = getComputedStyle(document.documentElement).getPropertyValue('--accent-green').trim();
+    const accentLeadTrack = getComputedStyle(document.documentElement).getPropertyValue('--accent-amber').trim();
 
     satellites.forEach((sat) => {
       const isSelected = selectedSats.includes(sat.name);
