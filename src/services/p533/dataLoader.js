@@ -15,7 +15,12 @@
 // returning so callers never have to know the transport detail.
 
 const DEFAULT_VERSION = 'v14.3';
-const DEFAULT_BASE_URL = `https://github.com/accius/openhamclock/releases/download/p533-data-${DEFAULT_VERSION}/`;
+// Default to the same-origin /api/p533-data/ proxy (server/routes/p533-data.js)
+// because GitHub's release-asset 302 redirect lands on a host that doesn't
+// set Access-Control-Allow-Origin, so cross-origin fetches from the browser
+// fail. Self-hosters can still override with VITE_P533_DATA_URL if they've
+// pre-populated a same-origin asset bundle.
+const DEFAULT_BASE_URL = '/api/p533-data/';
 
 const BASE_URL = normaliseBaseUrl(import.meta.env?.VITE_P533_DATA_URL || DEFAULT_BASE_URL);
 const VERSION = import.meta.env?.VITE_P533_DATA_VERSION || DEFAULT_VERSION;

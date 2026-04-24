@@ -249,6 +249,8 @@ require('./server/routes/satellites')(app, ctx);
 const propagationExports = require('./server/routes/propagation')(app, ctx);
 Object.assign(ctx, propagationExports);
 
+require('./server/routes/p533-data')(app, ctx);
+
 require('./server/routes/contests')(app, ctx);
 require('./server/routes/aprs')(app, ctx);
 require('./server/routes/wsjtx')(app, ctx);
