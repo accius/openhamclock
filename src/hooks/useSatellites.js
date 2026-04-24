@@ -128,6 +128,8 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
 
           positions.push({
             name: tle.name || name,
+            tle1: line1,
+            tle2: line2,
             lat,
             lon,
             alt: round(alt, 1),
