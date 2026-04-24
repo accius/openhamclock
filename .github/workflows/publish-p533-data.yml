@@ -29,7 +29,7 @@ on:
         type: boolean
 
 permissions:
-  contents: write  # needed to create/update releases
+  contents: write # needed to create/update releases
 
 jobs:
   publish:
