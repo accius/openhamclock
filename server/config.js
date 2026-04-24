@@ -234,6 +234,12 @@ const RIG_BRIDGE_RELAY_KEY = process.env.RIG_BRIDGE_RELAY_KEY || process.env.WSJ
 // DX Spider Proxy URL
 const DXSPIDER_PROXY_URL = process.env.DXSPIDER_PROXY_URL || 'https://spider-production-1ec7.up.railway.app';
 
+// Winlink API key — used by server/routes/winlink.js to proxy gateway lookups
+// to api.winlink.org without exposing the key to the browser. Acquired from
+// the Winlink team per issue #297. When unset, /api/winlink/gateways returns
+// 503 and the browser hook falls back to the rig-bridge plugin at /winlink/*.
+const WINLINK_API_KEY = process.env.WINLINK_API_KEY || '';
+
 // CORS origins
 const CORS_ORIGINS = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',').map((s) => s.trim()) : null;
 
@@ -269,6 +275,7 @@ module.exports = {
   DXSPIDER_PROXY_URL,
   CORS_ORIGINS,
   SETTINGS_SYNC,
+  WINLINK_API_KEY,
   configJsonPath,
   jsonConfig,
 };
