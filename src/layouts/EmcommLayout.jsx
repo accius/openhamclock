@@ -5,8 +5,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { WorldMap } from '../components';
-import { calculateDistance, formatDistance } from '../utils/geo.js';
+import { calculateDistance, formatDistance, parseGridSquare } from '../utils/geo.js';
 import { esc } from '../utils/escapeHtml.js';
+import { apiFetch } from '../utils/apiFetch.js';
+import { winlinkModeLabel, winlinkModeColor } from '../utils/winlinkModes.js';
 
 // APRS symbol codes for emergency-related stations
 const EMCOMM_SYMBOLS = new Set([
@@ -147,6 +149,9 @@ export default function EmcommLayout(props) {
   const [netRoster, setNetRoster] = useState([]);
   const [messageTarget, setMessageTarget] = useState(null); // callsign to message
   const [messageText, setMessageText] = useState('');
+  // Nearby Winlink gateways
+  const [winlinkRows, setWinlinkRows] = useState([]);
+  const [winlinkServerHasKey, setWinlinkServerHasKey] = useState(true);
   const mapInstanceRef = useRef(null);
   const overlayLayersRef = useRef([]);
 
@@ -156,6 +161,33 @@ export default function EmcommLayout(props) {
       setSeconds(String(new Date().getUTCSeconds()).padStart(2, '0'));
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  // Fetch the Winlink gateway list once on mount and refresh hourly. The
+  // server proxy already caches for 1h so this is essentially free; we use
+  // the global list (not /proximity) because the proxy's MaxDistance unit
+  // is unreliable — distance filtering happens client-side below.
+  useEffect(() => {
+    let alive = true;
+    const fetchGateways = async () => {
+      try {
+        const res = await apiFetch('/api/winlink/gateways');
+        if (!alive || !res) return;
+        if (res.status === 503) {
+          setWinlinkServerHasKey(false);
+          return;
+        }
+        if (!res.ok) return;
+        const data = await res.json();
+        if (alive) setWinlinkRows(Array.isArray(data.gateways) ? data.gateways : []);
+      } catch {}
+    };
+    fetchGateways();
+    const id = setInterval(fetchGateways, 60 * 60 * 1000);
+    return () => {
+      alive = false;
+      clearInterval(id);
+    };
   }, []);
 
   // Poll net roster
@@ -210,6 +242,42 @@ export default function EmcommLayout(props) {
       }))
       .sort((a, b) => (a.distance || Infinity) - (b.distance || Infinity));
   }, [emcommStations, config.location]);
+
+  // Aggregate Winlink rows by callsign, decode location from gridsquare,
+  // compute distance from operator's QTH, sort nearest-first. ~4800 rows
+  // collapse to ~1200 unique gateways — cheap to recompute per change.
+  const nearbyWinlinkGateways = useMemo(() => {
+    if (!winlinkRows.length) return [];
+    if (config.location?.lat == null || config.location?.lon == null) return [];
+    const byCall = new Map();
+    for (const r of winlinkRows) {
+      if (!r.callsign || !r.gridsquare) continue;
+      let entry = byCall.get(r.callsign);
+      if (!entry) {
+        const pos = parseGridSquare(r.gridsquare);
+        if (!pos) continue;
+        entry = {
+          callsign: r.callsign,
+          gridsquare: r.gridsquare,
+          lat: pos.lat,
+          lon: pos.lon,
+          distance: calculateDistance(config.location.lat, config.location.lon, pos.lat, pos.lon),
+          channels: [],
+          hasEmcomm: false,
+        };
+        byCall.set(r.callsign, entry);
+      }
+      entry.channels.push({
+        frequency: r.frequency,
+        mode: r.mode,
+        modeLabel: winlinkModeLabel(r.mode),
+        serviceCode: r.serviceCode || 'PUBLIC',
+        hours: r.hours,
+      });
+      if ((r.serviceCode || '').toUpperCase().includes('EMCOMM')) entry.hasEmcomm = true;
+    }
+    return [...byCall.values()].sort((a, b) => a.distance - b.distance).slice(0, 50);
+  }, [winlinkRows, config.location]);
 
   // Sort alerts by severity
   const sortedAlerts = useMemo(() => {
@@ -711,6 +779,74 @@ export default function EmcommLayout(props) {
                     {hasTokens && s.cleanComment && (
                       <div style={{ color: '#888', fontSize: '10px', marginTop: '3px' }}>{s.cleanComment}</div>
                     )}
+                  </div>
+                );
+              })
+            )}
+          </PanelSection>
+
+          {/* Winlink Gateways Panel */}
+          <PanelSection title="Nearby Winlink Gateways" count={nearbyWinlinkGateways.length} color="#3b82f6">
+            {!winlinkServerHasKey ? (
+              <EmptyState text="Winlink API not configured on server" />
+            ) : nearbyWinlinkGateways.length === 0 ? (
+              <EmptyState text={winlinkRows.length ? 'No gateways within range' : 'Loading gateways…'} />
+            ) : (
+              nearbyWinlinkGateways.slice(0, 25).map((gw) => {
+                // Show up to 3 channels closest to the operator (sorted by freq);
+                // the rest are summarized as "+N more". Avoids tall rows when a
+                // single gateway publishes 9+ channels.
+                const sorted = gw.channels.slice().sort((a, b) => a.frequency - b.frequency);
+                const top = sorted.slice(0, 3);
+                const more = sorted.length - top.length;
+                return (
+                  <div
+                    key={gw.callsign}
+                    style={{
+                      padding: '5px 8px',
+                      fontSize: '11px',
+                      marginBottom: '3px',
+                      borderLeft: gw.hasEmcomm ? '2px solid #ef4444' : '2px solid #3b82f6',
+                      background: '#0d1117',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span style={{ color: '#3b82f6', fontWeight: 600, fontFamily: 'JetBrains Mono, monospace' }}>
+                          {gw.callsign}
+                        </span>
+                        {gw.hasEmcomm && (
+                          <span style={{ color: '#ef4444', marginLeft: '6px', fontSize: '9px', fontWeight: 700 }}>
+                            EMCOMM
+                          </span>
+                        )}
+                        <span style={{ color: '#888', marginLeft: '6px', fontSize: '10px' }}>{gw.gridsquare}</span>
+                      </div>
+                      <span style={{ color: '#888', fontSize: '10px' }}>
+                        {formatDistance(gw.distance, config.allUnits?.dist || 'imperial')}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '3px' }}>
+                      {top.map((c, i) => (
+                        <span
+                          key={i}
+                          style={{
+                            fontSize: '9px',
+                            padding: '1px 5px',
+                            borderRadius: '2px',
+                            background: '#1a1f2e',
+                            color: winlinkModeColor(c.mode),
+                            fontFamily: 'JetBrains Mono, monospace',
+                          }}
+                        >
+                          {(c.frequency / 1e6).toFixed(3)} {c.modeLabel}
+                        </span>
+                      ))}
+                      {more > 0 && (
+                        <span style={{ fontSize: '9px', color: '#666', alignSelf: 'center' }}>+{more} more</span>
+                      )}
+                    </div>
                   </div>
                 );
               })

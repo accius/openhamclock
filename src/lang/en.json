@@ -157,6 +157,8 @@
   "plugins.layers.aurora.name": "Aurora Forecast",
   "plugins.layers.ibp.name": "IBP Beacons",
   "plugins.layers.ibp.description": "NCDXF/IARU International Beacon Project — live deterministic schedule",
+  "plugins.layers.winlinkGateways.name": "Winlink Gateways",
+  "plugins.layers.winlinkGateways.description": "RMS gateways worldwide — Pactor, VARA, ARDOP, Packet — colored by mode",
   "plugins.layers.earthquakes.description": "Live USGS earthquake data (M2.5+ from last 24 hours)",
   "plugins.layers.earthquakes.name": "Earthquakes",
   "plugins.layers.earthquakes.viewDetails": "View Details →",
