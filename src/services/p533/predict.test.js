@@ -256,41 +256,56 @@ describe.skipIf(!INTEGRATION_READY)('predict (integration)', () => {
     }
   }, 30000);
 
-  it("Doug's Fiji case: US → 3D2JK multi-hop 40m is not a slam-dunk", async () => {
+  it("Doug's Fiji case: US → 3D2JK 30m opens ~06-15Z, closed rest of day", async () => {
+    // On a US East → Yasawa Is. Fiji path (~12,500 km) the 30m band has a
+    // distinct open window — US-night hours when the mid-Pacific path sees
+    // minimal D-layer absorption. Outside that window 30m is effectively
+    // dead. Doug flagged "30 red" on his HamClock, which was consistent
+    // with checking during his daytime (18Z-03Z); the WASM engine agrees.
+    // This test pins both halves of the pattern so a future coefficient or
+    // build change that flattens one or the other doesn't slip through.
     const { default: factory } = await import(/* @vite-ignore */ DIST);
     const dataFiles = await Promise.all(
       INTEGRATION_FILES.map(async (name) => ({ name, bytes: new Uint8Array(await readFile(resolve(DATA_DIR, name))) })),
     );
     const wasmBinary = new Uint8Array(await readFile(resolve(HERE, '../../../wasm-build/dist/p533.wasm')));
 
-    const result = await predict({
-      createModule: factory,
-      dataFiles,
-      moduleOptions: { wasmBinary },
-      params: {
-        // US East → Yasawa Is. Fiji — ~12,500 km, 3-hop territory.
-        txLat: 33.749,
-        txLon: -84.388,
-        rxLat: -16.77,
-        rxLon: 177.03,
-        year: 2025,
-        month: 1,
-        hour: 6, // Grayline-ish: dawn over US East, afternoon Fiji
-        ssn: 120,
-        txPower: 100,
-        frequencies: [7.1, 14.1, 21.1],
-      },
-    });
-
-    // The heuristic over-promised every band green. We don't assert a tight
-    // number because P.533 multi-hop is sensitive to exact timing, but 40m
-    // especially should not come back as a near-certainty.
-    const by = Object.fromEntries(result.frequencies.map((r) => [r.freq, r]));
-    expect(by[7.1].reliability).toBeLessThan(85);
-    // All reliabilities should be finite 0-99.
-    for (const r of result.frequencies) {
-      expect(r.reliability).toBeGreaterThanOrEqual(0);
-      expect(r.reliability).toBeLessThanOrEqual(99);
+    async function reliabilityAt(hour, freq) {
+      const r = await predict({
+        createModule: factory,
+        dataFiles,
+        moduleOptions: { wasmBinary },
+        params: {
+          txLat: 33.749,
+          txLon: -84.388,
+          rxLat: -16.77,
+          rxLon: 177.03,
+          year: 2025,
+          month: 1,
+          hour,
+          ssn: 120,
+          txPower: 100,
+          frequencies: [freq],
+        },
+      });
+      return r.frequencies[0].reliability;
     }
-  }, 30000);
+
+    // Closed hours (US evening/pre-dawn): 30m is absorbed hard.
+    for (const hour of [0, 21]) {
+      const rel = await reliabilityAt(hour, 10.1);
+      expect(rel).toBeLessThan(15);
+    }
+    // Open hours (US night / Fiji dusk-to-dawn): 30m is the money band.
+    for (const hour of [9, 12]) {
+      const rel = await reliabilityAt(hour, 10.1);
+      expect(rel).toBeGreaterThan(40);
+    }
+
+    // And the heuristic's original over-promise on 40m at 06Z: should not
+    // come back as a near-certainty (this was the other half of Doug's flag).
+    const fortyAt6 = await reliabilityAt(6, 7.1);
+    expect(fortyAt6).toBeLessThan(85);
+    expect(fortyAt6).toBeGreaterThanOrEqual(0);
+  }, 60000); // 6 sequential predict calls — up the cap.
 });
