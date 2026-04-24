@@ -390,7 +390,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     const globalOpacity = opacity !== undefined ? opacity : 1.0;
     const accentCyan = getComputedStyle(document.documentElement).getPropertyValue('--accent-cyan').trim();
     const accentGreen = getComputedStyle(document.documentElement).getPropertyValue('--accent-green').trim();
-    const accentLeadTrack = getComputedStyle(document.documentElement).getPropertyValue('--accent-amber').trim();
+    const accentAmber = getComputedStyle(document.documentElement).getPropertyValue('--accent-amber').trim();
 
     satellites.forEach((sat) => {
       const isSelected = selectedSats.includes(sat.name);
@@ -450,7 +450,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
           const leadCoords = sat.leadTrack.map((p) => [p[0], p[1]]);
           replicatePath(leadCoords).forEach((lCoords) => {
             window.L.polyline(lCoords, {
-              color: accentLeadTrack,
+              color: accentAmber,
               weight: 3,
               opacity: 0.8 * globalOpacity,
               dashArray: '8, 12',
