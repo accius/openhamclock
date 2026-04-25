@@ -8,7 +8,7 @@ function convertTimeUTCtoLocal(sunTimes, tz, currentTime) {
 
   if (sunTimes.sunset === '')
     // SunTimes.rise will be 'Midnight sun' or 'Polar night'
-    return sunTimes;
+    return { sunrise: sunTimes.sunrise, sunset: sunTimes.sunset };
 
   // First we need to get today's date from the current time.
   let [month, day, year] = currentTime
@@ -31,18 +31,17 @@ function convertTimeUTCtoLocal(sunTimes, tz, currentTime) {
   rise.date = new Date(Date.UTC(year, month, day, rise.hr, rise.mn));
   set.date = new Date(Date.UTC(year, month, day, set.hr, set.mn));
 
-  local.sunrise = rise.date.toLocaleString('en-US', {
-    timeZone: tz,
+  const fmtOps = {
     hour12: false,
     hour: '2-digit',
     minute: '2-digit',
-  });
-  local.sunset = set.date.toLocaleString('en-US', {
-    timeZone: tz,
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+  };
+
+  // In the case we have an invalid timezoen passed in for tz, use system timezone
+  if (tz) fmtOps.timeZone = tz;
+
+  local.sunrise = rise.date.toLocaleString('en-US', fmtOps);
+  local.sunset = set.date.toLocaleString('en-US', fmtOps);
 
   // Add an element for the minutes since midnight for sunrise/sunset for comparisons
   [rise.hr, rise.mn] = local.sunrise.split(':').map(Number);
@@ -120,10 +119,10 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
     let sunTimes = calculateSunTimes(configLocation.lat, configLocation.lon, currentTime);
     sunTimes.local = convertTimeUTCtoLocal(sunTimes, safeTimezone, currentTime);
     return sunTimes;
-  }, [configLocation, currentTime]);
+  }, [configLocation, currentTime, safeTimezone]);
   const dxSunTimes = useMemo(
     () => calculateSunTimes(dxLocation.lat, dxLocation.lon, currentTime),
-    [dxLocation, currentTime, safeTimezone],
+    [dxLocation, currentTime],
   );
 
   const utcTime = currentTime.toISOString().substr(11, 8);
