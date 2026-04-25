@@ -6,11 +6,11 @@
   "bin": "rig-bridge.js",
   "scripts": {
     "start": "node rig-bridge.js",
-    "build:win": "pkg . --targets node18-win-x64 --output dist/ohc-rig-bridge-win.exe",
-    "build:mac": "pkg . --targets node18-macos-x64 --output dist/ohc-rig-bridge-macos",
-    "build:mac-arm": "pkg . --targets node18-macos-arm64 --output dist/ohc-rig-bridge-macos-arm",
-    "build:linux": "pkg . --targets node18-linux-x64 --output dist/ohc-rig-bridge-linux",
-    "build:linux-arm": "pkg . --targets node18-linux-arm64 --output dist/ohc-rig-bridge-linux-arm64",
+    "build:win": "pkg . --targets node20-win-x64 --output dist/ohc-rig-bridge-win.exe",
+    "build:mac": "pkg . --targets node20-macos-x64 --output dist/ohc-rig-bridge-macos",
+    "build:mac-arm": "pkg . --targets node20-macos-arm64 --output dist/ohc-rig-bridge-macos-arm",
+    "build:linux": "pkg . --targets node20-linux-x64 --output dist/ohc-rig-bridge-linux",
+    "build:linux-arm": "pkg . --targets node20-linux-arm64 --output dist/ohc-rig-bridge-linux-arm64",
     "build:all": "npm run build:win && npm run build:mac && npm run build:mac-arm && npm run build:linux && npm run build:linux-arm"
   },
   "pkg": {
@@ -29,6 +29,6 @@
     "xmlrpc": "^1.3.2"
   },
   "devDependencies": {
-    "pkg": "^5.8.1"
+    "@yao-pkg/pkg": "^5.12.0"
   }
 }

@@ -40,25 +40,25 @@ function build(target, output) {
 }
 
 if (buildAll) {
-  build('node18-win-x64', 'ohc-rig-bridge-win.exe');
-  build('node18-macos-x64', 'ohc-rig-bridge-macos-x64');
-  build('node18-macos-arm64', 'ohc-rig-bridge-macos-arm');
-  build('node18-linux-x64', 'ohc-rig-bridge-linux-x64');
-  build('node18-linux-arm64', 'ohc-rig-bridge-linux-arm64');
+  build('node20-win-x64', 'ohc-rig-bridge-win.exe');
+  build('node20-macos-x64', 'ohc-rig-bridge-macos-x64');
+  build('node20-macos-arm64', 'ohc-rig-bridge-macos-arm');
+  build('node20-linux-x64', 'ohc-rig-bridge-linux-x64');
+  build('node20-linux-arm64', 'ohc-rig-bridge-linux-arm64');
 } else {
   const platform = os.platform();
   const arch = os.arch();
 
   if (platform === 'win32') {
-    build('node18-win-x64', 'ohc-rig-bridge-win.exe');
+    build('node20-win-x64', 'ohc-rig-bridge-win.exe');
   } else if (platform === 'darwin' && arch === 'arm64') {
-    build('node18-macos-arm64', 'ohc-rig-bridge-macos-arm');
+    build('node20-macos-arm64', 'ohc-rig-bridge-macos-arm');
   } else if (platform === 'darwin') {
-    build('node18-macos-x64', 'ohc-rig-bridge-macos-x64');
+    build('node20-macos-x64', 'ohc-rig-bridge-macos-x64');
   } else if (arch === 'arm64' || arch === 'aarch64') {
-    build('node18-linux-arm64', 'ohc-rig-bridge-linux-arm64');
+    build('node20-linux-arm64', 'ohc-rig-bridge-linux-arm64');
   } else {
-    build('node18-linux-x64', 'ohc-rig-bridge-linux-x64');
+    build('node20-linux-x64', 'ohc-rig-bridge-linux-x64');
   }
 }
 
