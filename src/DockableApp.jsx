@@ -478,9 +478,16 @@ export const DockableApp = ({
         </div>
         <div style={{ marginTop: '8px', fontSize: '13px' }}>
           <span style={{ color: 'var(--text-secondary)' }}>☀ </span>
-          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{deSunTimes.sunrise}</span>
-          <span style={{ color: 'var(--text-secondary)' }}> → </span>
-          <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{deSunTimes.sunset}</span>
+          <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{deSunTimes.local.sunrise}</span>
+          {deSunTimes.local.sunset !== '' && (
+            <>
+              <span style={{ color: 'var(--text-secondary)' }}> → </span>
+              <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>
+                {deSunTimes.local?.sunset ?? deSunTimes.sunset}
+              </span>
+              <span style={{ color: 'var(--text-secondary) ' }}> {config.timezone}</span>
+            </>
+          )}
         </div>
       </div>
 
@@ -593,6 +600,7 @@ export const DockableApp = ({
               <span style={{ color: 'var(--accent-amber)', fontWeight: '600' }}>{dxSunTimes.sunrise}</span>
               <span style={{ color: 'var(--text-secondary)' }}> → </span>
               <span style={{ color: 'var(--accent-purple)', fontWeight: '600' }}>{dxSunTimes.sunset}</span>
+              <span style={{ color: 'var(--text-secondary)' }}> UTC </span>
             </div>
           </div>
 
@@ -771,8 +779,11 @@ export const DockableApp = ({
               bandConditions={bandConditions}
               allUnits={config.allUnits}
               propConfig={config.propagation}
+              deSunTimes={deSunTimes}
+              currentTime={currentTime}
               dxSpots={dxClusterData.spots}
               clusterFilters={dxFilters}
+              timeZone={config.timezone}
             />
           );
           break;
@@ -785,6 +796,9 @@ export const DockableApp = ({
               bandConditions={bandConditions}
               allUnits={config.allUnits}
               propConfig={config.propagation}
+              deSunTimes={deSunTimes}
+              currentTime={currentTime}
+              timeZone={config.timezone}
               forcedMode="chart"
             />
           );
@@ -798,6 +812,9 @@ export const DockableApp = ({
               bandConditions={bandConditions}
               allUnits={config.allUnits}
               propConfig={config.propagation}
+              deSunTimes={deSunTimes}
+              currentTime={currentTime}
+              timeZone={config.timezone}
               forcedMode="bars"
             />
           );
@@ -811,6 +828,9 @@ export const DockableApp = ({
               bandConditions={bandConditions}
               allUnits={config.allUnits}
               propConfig={config.propagation}
+              deSunTimes={deSunTimes}
+              currentTime={currentTime}
+              timeZone={config.timezone}
               forcedMode="bands"
             />
           );

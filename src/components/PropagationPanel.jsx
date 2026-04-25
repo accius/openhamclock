@@ -21,6 +21,9 @@ export const PropagationPanel = ({
   propConfig = {},
   dxSpots,
   clusterFilters,
+  deSunTimes,
+  currentTime,
+  timeZone,
 }) => {
   const { t } = useTranslation();
 
@@ -131,7 +134,24 @@ export const PropagationPanel = ({
 
   const { solarData, distance, currentBands, hourlyPredictions, muf, luf, dataSource } = propagation;
   const currentHour = propagation.currentHour ?? new Date().getUTCHours();
-  const isDaytime = new Date().getUTCHours() >= 6 && new Date().getUTCHours() <= 18;
+  const currentLocalMin = function () {
+    let [hr, mn] = currentTime
+      .toLocaleString('en-US', {
+        timeZone: timeZone,
+        hour12: false,
+        hour: 'numeric',
+        minute: 'numeric',
+      })
+      .split(':')
+      .map(Number);
+    return (hr % 24) * 60 + mn;
+  };
+  const isDaytime =
+    deSunTimes.sunset === ''
+      ? deSunTimes.sunrise === 'Midnight sun'
+      : deSunTimes.local.sunsetMin > deSunTimes.local.sunriseMin
+        ? currentLocalMin() >= deSunTimes.local.sunriseMin && currentLocalMin() < deSunTimes.local.sunsetMin
+        : !(currentLocalMin() >= deSunTimes.local.sunsetMin && currentLocalMin() < deSunTimes.local.sunriseMin);
 
   // Heat map colors - supports both schemes
   // Stoplight: green=good, red=bad (intuitive)

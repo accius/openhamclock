@@ -837,7 +837,7 @@ export default function ClassicLayout(props) {
                   lineHeight: 1,
                 }}
               >
-                {utcTime}
+                {utcTime.substring(0, 5)}
                 <span style={{ fontSize: '26px', color: '#00cc00' }}>:{seconds}</span>
               </div>
               <div style={{ fontSize: '18px', color: '#00aa00', marginTop: '4px' }}>
@@ -861,9 +861,16 @@ export default function ClassicLayout(props) {
                 <div style={{ color: '#00ffff', fontWeight: '700', fontSize: '20px', marginTop: '2px' }}>
                   {deGrid || '--'}
                 </div>
-                <div style={{ marginTop: '4px', color: '#ffcc00', fontSize: '16px' }}>
-                  <span>&#9728;&#8593; {fmtSunTime(deSunTimes?.sunrise)}</span>
-                  <span style={{ marginLeft: '12px' }}>&#9728;&#8595; {fmtSunTime(deSunTimes?.sunset)}</span>
+                <div style={{ marginTop: '4px', color: '#ffcc00', fontSize: '12px' }}>
+                  <span>&#9728;&#8593; {fmtSunTime(deSunTimes.local.sunrise)}</span>
+                  {deSunTimes.local.sunset !== '' && (
+                    <>
+                      <span style={{ marginLeft: '12px' }}>
+                        &#9728;&#8595; {fmtSunTime(deSunTimes.local?.sunset ?? deSunTimes?.sunset)}
+                      </span>
+                      <span> {config.timezone}</span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -883,9 +890,14 @@ export default function ClassicLayout(props) {
                 <div style={{ color: '#00ffff', fontWeight: '700', fontSize: '20px', marginTop: '2px' }}>
                   {dxGrid || '--'}
                 </div>
-                <div style={{ marginTop: '4px', color: '#ffcc00', fontSize: '16px' }}>
+                <div style={{ marginTop: '4px', color: '#ffcc00', fontSize: '12px' }}>
                   <span>&#9728;&#8593; {fmtSunTime(dxSunTimes?.sunrise)}</span>
-                  <span style={{ marginLeft: '12px' }}>&#9728;&#8595; {fmtSunTime(dxSunTimes?.sunset)}</span>
+                  {dxSunTimes.sunset !== '' && (
+                    <>
+                      <span style={{ marginLeft: '12px' }}>&#9728;&#8595; {fmtSunTime(dxSunTimes?.sunset)}</span>
+                      <span> UTC</span>
+                    </>
+                  )}
                 </div>
                 <div style={{ marginTop: '6px', color: '#ff8800', fontSize: '18px', fontWeight: '600' }}>
                   <span>{bearing != null ? `${bearing}°` : '--°'}</span>
