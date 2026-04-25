@@ -20,6 +20,31 @@
 const { SOURCE_URLS } = require('../../utils/dxNewsMerge.js');
 
 /**
+ * Trim a dxpedition `dates` string down to its leading date portion only.
+ *
+ * The upstream parser in dxpeditions.js is regex-based against NG3K's
+ * plain-text page, and historically captured trailing noise like
+ * "(...) Check here for pericontest activity too." or stray "Info: ..."
+ * blocks. Even after the parser is tightened (see dxpeditions.js dateMatch),
+ * keeping this defense in the consumer protects the news ticker against
+ * future parser regressions.
+ *
+ * Recognized shapes:
+ *   "Jan 5, 2026"
+ *   "Jan 5-15, 2026"
+ *   "Jan 5-Feb 16, 2026"
+ *   "Apr 20 - May 4, 2026"
+ *
+ * @param {string|null|undefined} raw
+ * @returns {string} the cleaned leading date, or '' if input was empty
+ */
+function cleanDateString(raw) {
+  if (!raw) return '';
+  const m = String(raw).match(/^([A-Za-z]{3}\s+\d{1,2}(?:\s*[-–]\s*(?:[A-Za-z]{3}\s+)?\d{1,2})?(?:,\s*\d{4})?)/);
+  return m ? m[1].trim() : String(raw).trim();
+}
+
+/**
  * Reshape the dxpeditionCache data into normalized merged-feed items.
  * Pure function — no HTTP, no side effects.
  *
@@ -38,7 +63,7 @@ function reshapeDxpeditionCache(cacheData) {
     if (!(d.isActive || d.isUpcoming)) continue;
 
     // Build description: dates · bands · modes (filter out empty/falsy fields)
-    const desc = [d.dates, d.bands, d.modes].filter(Boolean).join(' · ');
+    const desc = [cleanDateString(d.dates), d.bands, d.modes].filter(Boolean).join(' · ');
 
     items.push({
       id: `ng3k:${d.callsign}`,
@@ -68,4 +93,4 @@ async function fetchNg3k(ctx) {
   return { items: reshapeDxpeditionCache(cacheData) };
 }
 
-module.exports = { fetchNg3k, reshapeDxpeditionCache };
+module.exports = { fetchNg3k, reshapeDxpeditionCache, cleanDateString };

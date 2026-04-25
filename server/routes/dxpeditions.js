@@ -164,8 +164,13 @@ module.exports = function (app, ctx) {
         // Extract other fields
         const qslMatch = entry.match(/QSL:\s*([A-Za-z0-9]+)/i);
         const infoMatch = entry.match(/Info:\s*(.+)/i);
-        // Date is at the start of entry: "Jan 1-Feb 16, 2026"
-        const dateMatch = entry.match(/^([A-Za-z]{3}\s+\d{1,2}[^D]*?)(?=DXCC:)/i);
+        // Date is at the start of entry: "Jan 1-Feb 16, 2026". Capture ONLY the
+        // leading date — NG3K interleaves parenthetical reminders ("Check here
+        // for pericontest activity too") between entries that the old greedy
+        // `[^D]*?(?=DXCC:)` would sweep into the dates field.
+        const dateMatch = entry.match(
+          /^([A-Za-z]{3}\s+\d{1,2}(?:\s*[-–]\s*(?:[A-Za-z]{3}\s+)?\d{1,2})?(?:,\s*\d{4})?)/i,
+        );
 
         qsl = qslMatch ? qslMatch[1].trim() : '';
         info = infoMatch ? infoMatch[1].trim() : '';
