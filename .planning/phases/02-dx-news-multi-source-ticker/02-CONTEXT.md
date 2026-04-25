@@ -21,19 +21,18 @@ Server-proxied stays — HTML scraping plus mixed-format feeds rule out client-s
 
 ### Source list
 
-- **D-01:** Aggregate **4 sources**:
+- **D-01:** Aggregate **3 sources** (revised 2026-04-24 after research):
   - **dxnews.com** (existing) — keep current HTML scrape in `server/routes/dxpeditions.js:288-339`. Single-item daily news.
-  - **DX-World** (`dx-world.net`) — RSS feed preferred (cleaner than scraping). Daily DX/DXpedition coverage.
-  - **OPDX Bulletin** (`papays.com/opdx.html` or canonical source TBD by researcher) — weekly text bulletin. Items are parsed _individually_ out of each bulletin (D-03), not shown as one bundle.
-  - **NG3K DX/Contest Calendar** (`ng3k.com`) — HTML, structured. Treats activity end-date as the freshness anchor (D-02).
-- **D-02:** **NG3K freshness model is activity-window based**, not publish-date. An NG3K item is shown if today's date ≤ activity-end-date. This means future-dated DXpedition announcements ("3D2JK Yasawa Is. May 5-15, 2026") appear before the activity starts and disappear when it ends.
-- **D-03:** **OPDX bulletins are exploded into individual items** before merging. The bulletin's weekly text format contains 30-50 mini-items (one per DXpedition); each becomes its own ticker entry. Per-item dates come from the bulletin text where extractable; fall back to bulletin publish date.
+  - **DX-World** (`dx-world.net`) — RSS feed at `https://dx-world.net/feed/` (verified live, RSS 2.0, hourly cadence, callsigns at start of every title). Use `rss-parser@3.13.0`.
+  - **NG3K DX/Contest Calendar** — **reuse the existing parsed cache** at `ctx.dxpeditionCache` populated by `/api/dxpeditions` (already in production at `server/routes/dxpeditions.js:14`). Do NOT scrape NG3K independently; consume the parsed `{ callsign, entity, startDate, endDate, isActive, isUpcoming, ... }` shape already exposed.
+- **D-02:** **NG3K freshness model is activity-window based**, not publish-date. An NG3K item is shown if today's date ≤ activity-end-date. This means future-dated DXpedition announcements ("3D2JK Yasawa Is. May 5-15, 2026") appear before the activity starts and disappear when it ends. Implementation reads `isActive || isUpcoming` from the parsed cache.
+- **D-03:** ~~OPDX bulletins~~ — **REMOVED.** OPDX retired in 2022 (final edition #1586, 2022-10-31). User chose to ship with 3 sources rather than substitute another weekly bulletin. See Deferred Ideas.
 
 ### Freshness filter
 
-- **D-04:** **24-hour cutoff for standard publish-date sources** (dxnews.com, DX-World, OPDX-derived items where per-item date is the bulletin publish date). Items with publish date older than 24h are filtered out before reaching the ticker.
+- **D-04:** **24-hour cutoff for standard publish-date sources** (dxnews.com, DX-World). Items with publish date older than 24h are filtered out before reaching the ticker.
 - **D-05:** **NG3K uses its own activity-window rule (D-02), not the 24h cutoff.**
-- **D-06:** **OPDX-parsed items use their extracted per-item dates against the 24h rule when extractable**; fall back to bulletin publish date when not.
+- **D-06:** ~~OPDX-parsed items~~ — **REMOVED** (OPDX dropped per D-03).
 - **D-07:** **Hide the ticker entirely when no fresh items remain** across all sources. The component returns null and reclaims the screen space — no "no recent news" placeholder.
 
 ### De-duplication
@@ -47,7 +46,7 @@ Server-proxied stays — HTML scraping plus mixed-format feeds rule out client-s
 
 ### Source attribution
 
-- **D-11:** **Dynamic section-header label.** Replace the static "📰 DX NEWS" label in `DXNewsTicker.jsx:188` with one that reflects the current source (e.g., "📰 DX-WORLD", "📰 OPDX", "📰 NG3K", "📰 DXNEWS"). Header updates as ticker scrolls past each source's item. With recency-sorted ordering (D-09), this means the label changes frequently — Claude's discretion to add a small dwell/hold period if flickering becomes a problem.
+- **D-11:** **Dynamic section-header label.** Replace the static "📰 DX NEWS" label in `DXNewsTicker.jsx:188` with one that reflects the current source (e.g., "📰 DX-WORLD", "📰 NG3K", "📰 DXNEWS"). Header updates as ticker scrolls past each source's item. With recency-sorted ordering (D-09), this means the label changes frequently — Claude's discretion to add a small dwell/hold period if flickering becomes a problem.
 - **D-12:** **Header link follows current source.** Clicking the section-header label opens that source's homepage in a new tab. Each source needs a canonical homepage URL stored alongside the item data.
 - **D-13:** **Hover pauses the scroll; click on a ticker item opens that item's URL in a new tab.** Replaces the current `onClick={() => setPaused(!paused)}` behavior at `DXNewsTicker.jsx:218`. Pausing on hover gives users time to read; click is now a navigation action, not a pause toggle.
 
@@ -125,6 +124,7 @@ External documentation researcher should consult during implementation:
 <deferred>
 ## Deferred Ideas
 
+- **A weekly-bulletin-style 4th source** (originally OPDX, candidates incl. 425 DX News via swarl.org mirror, ARRL DX bulletin) — user opted to ship with 3 first-party sources after research surfaced OPDX's 2022 retirement. Revisit if information density feels low after the 3-source ticker is in production.
 - **Settings UI to toggle individual sources on/off** — out of scope for this phase. Would belong in a future "DX news settings panel" phase. Per-source defaults are baked in for now.
 - **Real-time RBN-style spot/announcement feed** — qualitatively different from "news"; rejected during source list (Q1.1).
 - **Section header dwell/hold period** — left to Claude's discretion within D-11; if flickering becomes a problem in execution, add it.
