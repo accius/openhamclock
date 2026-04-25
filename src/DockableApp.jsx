@@ -797,6 +797,7 @@ export const DockableApp = ({
               propConfig={config.propagation}
               deSunTimes={deSunTimes}
               currentTime={currentTime}
+              timeZone={config.timezone}
               forcedMode="chart"
             />
           );
@@ -812,6 +813,7 @@ export const DockableApp = ({
               propConfig={config.propagation}
               deSunTimes={deSunTimes}
               currentTime={currentTime}
+              timeZone={config.timezone}
               forcedMode="bars"
             />
           );
@@ -827,6 +829,7 @@ export const DockableApp = ({
               propConfig={config.propagation}
               deSunTimes={deSunTimes}
               currentTime={currentTime}
+              timeZone={config.timezone}
               forcedMode="bands"
             />
           );
