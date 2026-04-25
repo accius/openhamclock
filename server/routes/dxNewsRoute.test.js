@@ -13,7 +13,7 @@
  * inject mock fetchers without needing vi.mock to intercept CJS require() chains.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const route = require('./dxpeditions.js');
 
@@ -92,6 +92,17 @@ function makeItem(overrides = {}) {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe('/api/dxnews integration', () => {
+  // Pin time to BASE_DATE: mergeNews's freshness filter (24h cutoff vs `new Date()`)
+  // would otherwise discard the fixture items once wall-clock drifts past the fixture
+  // by > 24h, making the suite spuriously fail with the passage of time.
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(BASE_DATE);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('returns items merged from all 3 sources when all succeed', async () => {
     const ctx = makeCtx({
       fetchDxnewsImpl: () => Promise.resolve({ items: [makeItem({ id: 'd1', source: 'DXNEWS' })] }),
