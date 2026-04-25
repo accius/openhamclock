@@ -78,6 +78,26 @@ module.exports = function (app, ctx) {
   let iturhfpropInFlight = 0; // track concurrent requests
   const ITURHFPROP_MAX_INFLIGHT = 3; // cap concurrent outbound fetches
 
+  // Sticky disable: when the proppy endpoint serves HTML (e.g. Staging deploys
+  // OHC's own SPA at the proppy URL because rootDirectory was flipped empty),
+  // retire it for the process lifetime. The browser-side WASM engine + local
+  // heuristic cover the prediction path, so this is a noise-suppression
+  // measure, not a feature loss.
+  let iturhfpropRetired = false;
+  function detectProppyRetired(response) {
+    const ct = (response.headers.get('content-type') || '').toLowerCase();
+    if (ct.startsWith('text/html')) {
+      if (!iturhfpropRetired) {
+        iturhfpropRetired = true;
+        logInfo(
+          `[ITURHFProp] Disabled — endpoint at ${ITURHFPROP_URL} returned HTML, not JSON. Falling back to browser WASM + heuristic.`,
+        );
+      }
+      return true;
+    }
+    return false;
+  }
+
   function iturhfpropBackoff() {
     if (iturhfpropFailCount < ITURHFPROP_FAIL_THRESHOLD) return 0;
     // Exponential: 30s, 60s, 120s, 240s, ... capped at 10min
@@ -110,7 +130,7 @@ module.exports = function (app, ctx) {
    * Fetch base prediction from ITURHFProp service
    */
   async function fetchITURHFPropPrediction(txLat, txLon, rxLat, rxLon, ssn, month, hour, txPower, txGain) {
-    if (!ITURHFPROP_URL) return null;
+    if (!ITURHFPROP_URL || iturhfpropRetired) return null;
     if (iturhfpropIsDown()) return null;
     if (iturhfpropInFlight >= ITURHFPROP_MAX_INFLIGHT) return null;
 
@@ -135,6 +155,7 @@ module.exports = function (app, ctx) {
         logErrorOnce('Hybrid', `ITURHFProp returned ${response.status}`);
         return null;
       }
+      if (detectProppyRetired(response)) return null;
 
       const data = await response.json();
       ituCacheSet(iturhfpropSingleCache, cacheKey, data);
@@ -163,7 +184,7 @@ module.exports = function (app, ctx) {
   }
 
   async function fetchITURHFPropHourly(txLat, txLon, rxLat, rxLon, ssn, month, txPower, txGain) {
-    if (!ITURHFPROP_URL) return null;
+    if (!ITURHFPROP_URL || iturhfpropRetired) return null;
     if (iturhfpropIsDown()) return null;
     if (iturhfpropInFlight >= ITURHFPROP_MAX_INFLIGHT) return null;
 
@@ -185,6 +206,7 @@ module.exports = function (app, ctx) {
       clearTimeout(timeoutId);
 
       if (!response.ok) return null;
+      if (detectProppyRetired(response)) return null;
 
       const data = await response.json();
 
