@@ -21,11 +21,11 @@ Plans:
 **Goal:** Expand the DX news ticker from a single source (`dxnews.com`, scraped server-side in `server/routes/dxpeditions.js:282-349`) to 3 sources (dxnews.com + DX-World RSS + NG3K calendar reuse), filter out stale content, dedup by callsign, and rewire the ticker UI for dynamic per-source labels, hover-pause, and click-to-open. Per CONTEXT.md decisions D-01 through D-13.
 **Requirements:** D-01, D-02, D-04, D-05, D-07, D-08, D-09, D-10, D-11, D-12, D-13 (CONTEXT.md decision IDs — this project has no REQ-XX taxonomy)
 **Depends on:** —
-**Plans:** 4 plans
+**Plans:** 1/4 plans executed
 
 Plans:
 
-- [ ] 02-01-PLAN.md — Foundation: install rss-parser, build pure-function dxNewsMerge module + tests, lift dxnews.com scrape into its own source module + test
+- [x] 02-01-PLAN.md — Foundation: install rss-parser, build pure-function dxNewsMerge module + tests, lift dxnews.com scrape into its own source module + test
 - [ ] 02-02-PLAN.md — Two new source fetchers (parallel): DX-World RSS via rss-parser, NG3K via ctx.dxpeditionCache reuse
 - [ ] 02-03-PLAN.md — Refactor /api/dxnews route to multi-source aggregator with per-source caches + integration test; remove inline scrape from dxpeditions.js
 - [ ] 02-04-PLAN.md — Frontend: rewire DXNewsTicker.jsx for D-07/D-11/D-12/D-13 + component tests + i18n keys
