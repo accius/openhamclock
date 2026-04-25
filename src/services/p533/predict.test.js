@@ -52,6 +52,10 @@ describe('buildInputConfig', () => {
     expect(buildInputConfig({ ...base, hour: 5 })).toMatch(/Path\.hour 5/);
   });
 
+  it('requests RPT_BMUF in RptFileFormat so MUF lands in the output', () => {
+    expect(buildInputConfig(base)).toMatch(/RptFileFormat\s+"[^"]*\bRPT_BMUF\b[^"]*"/);
+  });
+
   it('defaults frequencies to the nine HF amateur bands', () => {
     const cfg = buildInputConfig(base);
     // Spot-check a couple: 7.1 MHz and 28.1 MHz should both appear
@@ -72,26 +76,53 @@ describe('buildInputConfig', () => {
 // ── parseReport ─────────────────────────────────────────────────────────────
 
 describe('parseReport', () => {
-  it('parses the "Calculated Parameters" block into {freq, sdbw, snr, reliability}', () => {
+  it('parses the "Calculated Parameters" block via Column-name lookup', () => {
+    // Realistic ITURHFProp output shape (header=TRUE default):
+    // each requested RPT_* flag emits a "Column NN: NAME ..." line,
+    // then comma-separated data rows under the Calculated Parameters block.
     const report = `
 ***********************
 * HF Propagation Report
 ***********************
 
+Column 01: Month
+Column 02: Hour
+Column 03: Frequency (MHz)
+Column 04: BMUF - Path basic MUF (MHz)
+Column 05: Pr - Median receiver power (dB)
+Column 06: SNR - Signal-to-noise ratio (dB)
+Column 07: BCR - Basic Circuit Reliability (%)
+
 Calculated Parameters
- Month,  Hour,  Freq,      Pr,    SNR,    BCR
-   01,    17,   3.500, -150.21,  -45.04,   0.00
-   01,    17,   7.100, -140.29,  -16.04,  42.30
-   01,    17,  14.100, -125.10,   22.15,  95.70
+   01,    17,   3.500,    18.40, -150.21,  -45.04,   0.00
+   01,    17,   7.100,    18.40, -140.29,  -16.04,  42.30
+   01,    17,  14.100,    18.40, -125.10,   22.15,  95.70
 End Calculated Parameters
 `;
     const parsed = parseReport(report);
     expect(parsed.frequencies).toHaveLength(3);
     expect(parsed.frequencies[0]).toEqual({ freq: 3.5, sdbw: -150.21, snr: -45.04, reliability: 0 });
     expect(parsed.frequencies[2].reliability).toBeCloseTo(95.7);
+    expect(parsed.muf).toBeCloseTo(18.4);
   });
 
-  it('picks up a MUF value from the header when present', () => {
+  it('picks up BMUF from the per-row data column when RPT_BMUF is requested', () => {
+    const report = `
+Column 01: Month
+Column 02: Hour
+Column 03: Frequency (MHz)
+Column 04: BMUF - Path basic MUF (MHz)
+Column 05: Pr - Median receiver power (dB)
+Column 06: SNR - Signal-to-noise ratio (dB)
+Column 07: BCR - Basic Circuit Reliability (%)
+Calculated Parameters
+   01,    12,  14.100,    21.30, -120.00,   10.00,  80.00
+End Calculated Parameters
+`;
+    expect(parseReport(report).muf).toBeCloseTo(21.3);
+  });
+
+  it('falls back to a header-line MUF value when no Column header is present', () => {
     const report = `
 Operational MUF: 18.4 MHz
 Calculated Parameters
@@ -212,6 +243,12 @@ describe.skipIf(!INTEGRATION_READY)('predict (integration)', () => {
       expect(Number.isFinite(r.sdbw)).toBe(true);
       expect(r.sdbw).toBeLessThan(0);
     }
+
+    // BMUF should be a sensible HF MUF value (a few MHz to ~50 MHz).
+    // Anchors the column-name parser against a real ITURHFProp run.
+    expect(Number.isFinite(result.muf)).toBe(true);
+    expect(result.muf).toBeGreaterThan(3);
+    expect(result.muf).toBeLessThan(60);
   }, 30000); // callMain over 5 bands takes ~30 ms locally; 30 s cap just in case
 
   // Doug n4hnhradio-ai's problem paths (issue #887, reopened 2026-04-24).

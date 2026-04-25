@@ -68,10 +68,13 @@ export const usePropagation = (deLocation, dxLocation, propagationConfig = {}) =
         if (!alive) return;
         // Preserve REST-derived fields the WASM engine doesn't own (solar data,
         // path distance, LUF) so downstream panels don't lose them on swap.
+        // MUF: prefer WASM's BMUF (real ITURHFProp output) but fall back to the
+        // REST value if a single-hour parse misses it, so the UI never blanks.
         setData({
           ...wasm,
           solarData: rest?.solarData,
           luf: rest?.luf,
+          muf: wasm.muf ?? rest?.muf,
           distance: rest?.distance,
         });
         // Single-line benchmark dump for Doug / field validators — searchable

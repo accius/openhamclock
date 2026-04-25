@@ -91,25 +91,40 @@ UR.lat ${rxLat.toFixed(4)}
 UR.lng ${rxLon.toFixed(4)}
 DataFilePath "/data/"
 RptFilePath "/tmp/"
-RptFileFormat "RPT_PR | RPT_SNR | RPT_BCR"
+RptFileFormat "RPT_BMUF | RPT_PR | RPT_SNR | RPT_BCR"
 `;
 }
 
 /**
- * Parse the ITURHFProp text report into the same shape the REST wrapper
- * emits. Ignores lines outside the "Calculated Parameters" block.
+ * Parse the ITURHFProp text report into the same shape the REST wrapper emits.
  *
- * Data row shape: "Month, Hour, Freq, Pr, SNR, BCR"
- *   freq        MHz
- *   sdbw (Pr)   received power in dBW
- *   snr         dB
- *   reliability percent (BCR)
+ * ITURHFProp prints a `Column NN: NAME ...` line per requested RPT_* flag, so
+ * we discover positions by name instead of hard-coding indices — that way the
+ * parser keeps working if RptFileFormat in buildInputConfig is changed.
+ *
+ * Data fields we need from each per-frequency row:
+ *   Frequency (MHz), Pr (dBW), SNR (dB), BCR (% reliability)
+ * Plus path-level BMUF (MHz) — same value on every row of one hour's run.
  */
 export function parseReport(text) {
   const out = { frequencies: [] };
   if (!text) return out;
-
   const lines = text.split('\n');
+
+  // Build column-name → 0-based index map from "Column NN: NAME ..." lines.
+  const cols = {};
+  for (const raw of lines) {
+    const m = raw.match(/^Column\s+(\d+):\s*(\S+)/);
+    if (m) cols[m[2]] = parseInt(m[1], 10) - 1;
+  }
+  const idx = {
+    freq: cols.Frequency ?? 2,
+    pr: cols.Pr ?? 3,
+    snr: cols.SNR ?? 4,
+    bcr: cols.BCR ?? 5,
+    bmuf: cols.BMUF, // undefined if RPT_BMUF wasn't requested
+  };
+
   let inData = false;
   for (const raw of lines) {
     const line = raw.trim();
@@ -121,25 +136,32 @@ export function parseReport(text) {
     if (inData && (line.includes('End Calculated') || line.startsWith('*****'))) {
       if (out.frequencies.length > 0) break;
     }
-    if (inData && line && !line.startsWith('*') && !line.startsWith('-')) {
+    if (inData && line && !line.startsWith('*') && !line.startsWith('-') && !line.startsWith('Column')) {
       const parts = line.split(',').map((p) => p.trim());
       if (parts.length >= 6) {
-        const freq = parseFloat(parts[2]);
-        const sdbw = parseFloat(parts[3]);
-        const snr = parseFloat(parts[4]);
-        const reliability = parseFloat(parts[5]);
+        const freq = parseFloat(parts[idx.freq]);
+        const sdbw = parseFloat(parts[idx.pr]);
+        const snr = parseFloat(parts[idx.snr]);
+        const reliability = parseFloat(parts[idx.bcr]);
         if (Number.isFinite(freq) && freq > 0) {
           out.frequencies.push({ freq, sdbw, snr, reliability });
+        }
+        if (idx.bmuf != null && out.muf == null) {
+          const muf = parseFloat(parts[idx.bmuf]);
+          if (Number.isFinite(muf)) out.muf = muf;
         }
       }
     }
   }
 
-  // Header may carry a MUF/BMUF value; best-effort grab.
-  const mufMatch = text.match(/(?:BMUF|Operational MUF|MUF)\s*[:=]?\s*([\d.]+)/i);
-  if (mufMatch) {
-    const muf = parseFloat(mufMatch[1]);
-    if (Number.isFinite(muf)) out.muf = muf;
+  // Fallback for older reports / fixtures that put MUF in a header line
+  // instead of a per-row column.
+  if (out.muf == null) {
+    const mufMatch = text.match(/(?:Operational MUF|BMUF|MUF)\s*[:=]\s*([\d.]+)/i);
+    if (mufMatch) {
+      const muf = parseFloat(mufMatch[1]);
+      if (Number.isFinite(muf)) out.muf = muf;
+    }
   }
 
   return out;
