@@ -27,7 +27,7 @@ Plans:
 
 - [x] 02-01-PLAN.md — Foundation: install rss-parser, build pure-function dxNewsMerge module + tests, lift dxnews.com scrape into its own source module + test
 - [x] 02-02-PLAN.md — Two new source fetchers (parallel): DX-World RSS via rss-parser, NG3K via ctx.dxpeditionCache reuse
-- [ ] 02-03-PLAN.md — Refactor /api/dxnews route to multi-source aggregator with per-source caches + integration test; remove inline scrape from dxpeditions.js
+- [x] 02-03-PLAN.md — Refactor /api/dxnews route to multi-source aggregator with per-source caches + integration test; remove inline scrape from dxpeditions.js
 - [ ] 02-04-PLAN.md — Frontend: rewire DXNewsTicker.jsx for D-07/D-11/D-12/D-13 + component tests + i18n keys
 
 ## Backlog
