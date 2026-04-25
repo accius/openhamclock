@@ -144,7 +144,6 @@ export const PropagationPanel = ({
       })
       .split(':')
       .map(Number);
-    console.debug(`[currentLocalMin] ${hr}:${mn} `, (hr % 24) * 60 + mn);
     return (hr % 24) * 60 + mn;
   };
   const isDaytime =
