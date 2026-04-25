@@ -18,7 +18,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # push builds upload p533.{mjs,wasm} to the wasm-latest release
 
 jobs:
   build:
@@ -64,4 +64,26 @@ jobs:
             wasm-build/dist/p533.mjs
             wasm-build/dist/p533.wasm
             wasm-build/dist/p533.sha256
-          retention-days: 30
+          retention-days: 90
+
+      # Publish to a stable release tag so Docker / local builds can curl
+      # the WASM without GitHub auth. Runs only on push/dispatch to avoid
+      # PRs from forks clobbering prod assets.
+      - name: Publish WASM to wasm-latest release
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: wasm-build/dist
+        run: |
+          set -euo pipefail
+          TAG="wasm-latest"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "P.533 WASM (latest build)" \
+              --notes "Auto-updated by .github/workflows/build-wasm.yml on every push to main/Staging. Asset URLs are stable: /releases/download/wasm-latest/p533.{mjs,wasm,sha256}. Do not hand-edit."
+          fi
+          gh release upload "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            p533.mjs p533.wasm p533.sha256

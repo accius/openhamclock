@@ -408,6 +408,7 @@
   "station.settings.satellites.altitude": "Altitude",
   "station.settings.satellites.azimuth_elevation": "Az/El",
   "station.settings.satellites.belowHorizon": "ჰორიზონტის ქვემოთ",
+  "station.settings.satellites.belowMinElev": "მინ. სიმაღლის ქვემოთ",
   "station.settings.satellites.clear": "გასუფთავება",
   "station.settings.satellites.clearFootprints": "CLEAR ALL FOOTPRINTS",
   "station.settings.satellites.dopplerFactor": "Doppler Factor",

@@ -11,7 +11,7 @@ function round(value, decimals) {
   return Math.round(value * factor) / factor;
 }
 
-export const useSatellites = (observerLocation) => {
+export const useSatellites = (observerLocation, satelliteConfig) => {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [tleData, setTleData] = useState({});
@@ -51,7 +51,7 @@ export const useSatellites = (observerLocation) => {
       const observerGd = {
         longitude: satellite.degreesToRadians(observerLocation.lon),
         latitude: satellite.degreesToRadians(observerLocation.lat),
-        height: 0.1, // km above sea level
+        height: (observerLocation.stationAlt ?? 100) / 1000, // above sea level [km], stationAlt is [m]), defaults to 100m
       };
 
       Object.entries(tleData).forEach(([name, tle]) => {
@@ -82,10 +82,13 @@ export const useSatellites = (observerLocation) => {
           const elevation = satellite.radiansToDegrees(lookAngles.elevation);
           const rangeSat = lookAngles.rangeSat;
 
-          // Calculate range-rate and doppler factor, only if satellite is above horizon
+          const isVisible = elevation >= (satelliteConfig?.minElev ?? 5.0); // visible only if above minimum elevation
+
+          // Calculate range-rate and doppler factor, only if satellite is visible
           let dopplerFactor = 1;
           let rangeRate = 0;
-          if (elevation > 0) {
+
+          if (isVisible) {
             const observerEcf = satellite.geodeticToEcf(observerGd);
             const velocityEcf = satellite.eciToEcf(velocityEci, gmst);
             dopplerFactor = satellite.dopplerFactor(observerEcf, positionEcf, velocityEcf);
@@ -125,6 +128,8 @@ export const useSatellites = (observerLocation) => {
 
           positions.push({
             name: tle.name || name,
+            tle1: line1,
+            tle2: line2,
             lat,
             lon,
             alt: round(alt, 1),
@@ -134,7 +139,7 @@ export const useSatellites = (observerLocation) => {
             range: round(rangeSat, 1),
             rangeRate: round(rangeRate, 3),
             dopplerFactor: round(dopplerFactor, 9),
-            isVisible: elevation > 0,
+            isVisible, // visible if above minimum elevation
             isPopular: tle.priority <= 2,
             track,
             footprintRadius: Math.round(footprintRadius),

@@ -669,6 +669,7 @@ export const DockableApp = ({
   const renderWorldMap = () => (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <WorldMap
+        config={config}
         deLocation={config.location}
         dxLocation={dxLocation}
         onDXChange={handleDXChange}

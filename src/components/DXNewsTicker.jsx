@@ -1,13 +1,18 @@
 /**
  * DXNewsTicker Component
- * Scrolling news banner showing latest DX news headlines from dxnews.com
+ * Scrolling news banner showing latest DX news headlines from the multi-source aggregator.
  * Respects showDXNews setting from mapLayers (reads from localStorage directly as fallback)
+ *
+ * D-07: Returns null when merged items array is empty
+ * D-11: Dynamic per-source label that rotates as items scroll (min 5s dwell)
+ * D-12: Source label opens current source's homepage in a new tab
+ * D-13: Hover pauses scroll (CSS-driven); click on item opens article in new tab
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
 // Base font sizes (px) — all sizes are derived by multiplying with textScale
-const BASE_LABEL_SIZE = 10; // "📰 DX NEWS" label, separator ◆
+const BASE_LABEL_SIZE = 10; // source label, separator ◆
 const BASE_TEXT_SIZE = 11; // news titles and descriptions
 const BASE_HEIGHT = 28; // container height in map overlay mode (px)
 
@@ -30,7 +35,10 @@ export const DXNewsTicker = ({ sidebar = false }) => {
   const tickerRef = useRef(null);
   const contentRef = useRef(null);
   const [animDuration, setAnimDuration] = useState(120);
-  const [paused, setPaused] = useState(false);
+  // D-11: current source index for dynamic label rotation
+  const [currentSourceIndex, setCurrentSourceIndex] = useState(0);
+  // D-13: hovered state mirrored in React for testability (CSS drives actual animation pause)
+  const [hovered, setHovered] = useState(false);
   const { t } = useTranslation();
 
   // Text scale persisted in localStorage (0.7 – 2.0, default 1.0)
@@ -70,6 +78,8 @@ export const DXNewsTicker = ({ sidebar = false }) => {
           const data = await res.json();
           if (data.items && data.items.length > 0) {
             setNews(data.items);
+          } else {
+            setNews([]);
           }
         }
       } catch (err) {
@@ -98,21 +108,49 @@ export const DXNewsTicker = ({ sidebar = false }) => {
     }
   }, [news, textScale]);
 
-  // Inject keyframes animation style once
+  // Inject keyframes animation style once, including CSS-only hover-pause (D-13)
   useEffect(() => {
     if (document.getElementById('dxnews-scroll-keyframes')) return;
     const style = document.createElement('style');
     style.id = 'dxnews-scroll-keyframes';
-    style.textContent = `@keyframes dxnews-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }`;
+    style.textContent = `
+      @keyframes dxnews-scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+      .dxnews-scroll-content:hover { animation-play-state: paused !important; }
+    `;
     document.head.appendChild(style);
   }, []);
 
+  // D-11: Rotate currentSourceIndex through items at min 5-second dwell
+  // so the label doesn't flicker when adjacent items are from different sources.
+  useEffect(() => {
+    if (news.length === 0) return;
+    const dwellMs = Math.max(5000, (animDuration * 1000) / news.length);
+    const id = setInterval(() => {
+      setCurrentSourceIndex((i) => (i + 1) % news.length);
+    }, dwellMs);
+    return () => clearInterval(id);
+  }, [news, animDuration]);
+
+  // Defensive: clamp index if news array shrinks after a refresh
+  useEffect(() => {
+    if (currentSourceIndex >= news.length && news.length > 0) {
+      setCurrentSourceIndex(0);
+    }
+  }, [news, currentSourceIndex]);
+
+  // D-07: Hide entirely when no fresh items remain
   if (!visible || loading || news.length === 0) return null;
 
-  // Build ticker text: "TITLE — description  ★  TITLE — description  ★  ..."
+  // D-11/D-12: current source info for the dynamic label
+  const current = news[currentSourceIndex] || news[0];
+  const currentSource = current?.source || 'DX NEWS';
+  const currentSourceUrl = current?.sourceUrl || 'https://dxnews.com/';
+
+  // Build ticker items including url for D-13 click-navigate
   const tickerItems = news.map((item) => ({
     title: item.title,
     desc: item.description,
+    url: item.url,
   }));
 
   const atMin = textScale <= 0.7;
@@ -164,11 +202,13 @@ export const DXNewsTicker = ({ sidebar = false }) => {
             }
       }
     >
-      {/* DX NEWS label */}
+      {/* D-11 / D-12: Dynamic source label — rotates through sources, links to current source homepage */}
       <a
-        href="https://dxnews.com"
+        href={currentSourceUrl}
         target="_blank"
         rel="noopener noreferrer"
+        data-testid="dxnews-source-label"
+        data-source={currentSource}
         style={{
           background: 'rgba(255, 136, 0, 0.9)',
           color: '#000',
@@ -185,7 +225,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
           textDecoration: 'none',
         }}
       >
-        📰 DX NEWS
+        📰 {currentSource}
       </a>
 
       {/* Scrolling content */}
@@ -199,27 +239,48 @@ export const DXNewsTicker = ({ sidebar = false }) => {
           WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)',
         }}
       >
+        {/* D-13: Hover-pause via CSS (.dxnews-scroll-content:hover rule injected above).
+            React state mirrors hover for testability (data-hovered attribute).
+            onClick removed — click is now per-item navigation, not pause-toggle. */}
         <div
           ref={contentRef}
+          className="dxnews-scroll-content"
+          data-testid="dxnews-scroll"
+          data-hovered={hovered}
+          onMouseEnter={() => setHovered(true)}
+          onMouseLeave={() => setHovered(false)}
           style={{
             display: 'inline-flex',
             alignItems: 'center',
             height: '100%',
             whiteSpace: 'nowrap',
-            cursor: 'pointer',
             animationName: 'dxnews-scroll',
             animationDuration: `${animDuration}s`,
             animationTimingFunction: 'linear',
             animationIterationCount: 'infinite',
-            animationPlayState: paused ? 'paused' : 'running',
+            animationPlayState: 'running',
             paddingLeft: '100%',
             willChange: 'transform',
           }}
-          onClick={() => setPaused(!paused)}
-          title={paused ? t('app.dxNews.resumeTooltip') : t('app.dxNews.pauseTooltip')}
         >
+          {/* D-13: Each item is an anchor — click opens article in new tab */}
           {tickerItems.map((item, i) => (
-            <span key={i} style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <a
+              key={i}
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="dxnews-item"
+              data-item-index={i}
+              data-item-url={item.url}
+              title={t('app.dxNews.openInNewTab', { defaultValue: 'Open article in new tab' })}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                textDecoration: 'none',
+                color: 'inherit',
+              }}
+            >
               <span
                 style={{
                   color: '#ff8800',
@@ -250,11 +311,26 @@ export const DXNewsTicker = ({ sidebar = false }) => {
               >
                 ◆
               </span>
-            </span>
+            </a>
           ))}
-          {/* Duplicate for seamless loop */}
+          {/* Duplicate for seamless infinite-scroll loop */}
           {tickerItems.map((item, i) => (
-            <span key={`dup-${i}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
+            <a
+              key={`dup-${i}`}
+              href={item.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid="dxnews-item"
+              data-item-index={i}
+              data-item-url={item.url}
+              title={t('app.dxNews.openInNewTab', { defaultValue: 'Open article in new tab' })}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                textDecoration: 'none',
+                color: 'inherit',
+              }}
+            >
               <span
                 style={{
                   color: '#ff8800',
@@ -285,7 +361,7 @@ export const DXNewsTicker = ({ sidebar = false }) => {
               >
                 ◆
               </span>
-            </span>
+            </a>
           ))}
         </div>
       </div>

@@ -53,6 +53,7 @@ const {
   ROTATOR_PROVIDER,
   ROTATOR_HOST,
   ROTATOR_PORT,
+  WINLINK_API_KEY,
   configJsonPath,
 } = config;
 
@@ -128,6 +129,7 @@ const ctx = {
   ROTATOR_PROVIDER,
   ROTATOR_HOST,
   ROTATOR_PORT,
+  WINLINK_API_KEY,
   configJsonPath,
 
   // Logging
@@ -248,6 +250,9 @@ require('./server/routes/satellites')(app, ctx);
 
 const propagationExports = require('./server/routes/propagation')(app, ctx);
 Object.assign(ctx, propagationExports);
+
+require('./server/routes/p533-data')(app, ctx);
+require('./server/routes/winlink')(app, ctx);
 
 require('./server/routes/contests')(app, ctx);
 require('./server/routes/aprs')(app, ctx);

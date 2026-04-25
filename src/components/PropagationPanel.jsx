@@ -255,6 +255,50 @@ export const PropagationPanel = ({
                 </span>
               );
             })()}
+          {viewMode !== 'bands' &&
+            viewMode !== 'health' &&
+            (() => {
+              // Engine badge — tells users (and us, during B5 rollout) which
+              // prediction engine served the numbers currently on screen.
+              const engine = propagation?.engine;
+              if (!engine) return null;
+              const badge =
+                engine === 'wasm'
+                  ? {
+                      label: 'WASM',
+                      color: 'var(--accent-cyan)',
+                      title: 'ITU-R P.533-14 — VOACAP-grade, computed in your browser',
+                    }
+                  : engine === 'rest'
+                    ? {
+                        label: 'REST',
+                        color: 'var(--accent-green)',
+                        title: 'ITU-R P.533-14 — computed by our propagation service',
+                      }
+                    : {
+                        label: 'EST',
+                        color: 'var(--accent-amber)',
+                        title: 'Solar-indices estimation — fallback when P.533 is unavailable',
+                      };
+              return (
+                <span
+                  title={badge.title}
+                  style={{
+                    fontSize: '9px',
+                    fontWeight: '600',
+                    color: badge.color,
+                    background: 'transparent',
+                    border: `1px solid ${badge.color}`,
+                    borderRadius: '4px',
+                    padding: '1px 5px',
+                    letterSpacing: '0.5px',
+                    cursor: 'help',
+                  }}
+                >
+                  {badge.label}
+                </span>
+              );
+            })()}
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           {!forcedMode && (

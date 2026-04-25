@@ -117,3 +117,6 @@ src/plugins/local/*.jsx
 
 # Self-hosted vendor assets (downloaded by scripts/vendor-download.sh)
 public/vendor/
+
+# P.533 WASM fetched from CI artifact by scripts/fetch-wasm.sh
+public/wasm/

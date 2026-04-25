@@ -1,0 +1,37 @@
+{
+  "dxpeditions": [
+    {
+      "callsign": "3D2JK",
+      "entity": "Yasawa Is.",
+      "dates": "May 5-15, 2026",
+      "startDate": "2026-05-05T00:00:00.000Z",
+      "endDate": "2026-05-15T00:00:00.000Z",
+      "isActive": false,
+      "isUpcoming": true,
+      "bands": "160-10m",
+      "modes": "CW SSB FT8"
+    },
+    {
+      "callsign": "TX9W",
+      "entity": "Marquesas Is.",
+      "dates": "Apr 20 - May 4, 2026",
+      "startDate": "2026-04-20T00:00:00.000Z",
+      "endDate": "2026-05-04T00:00:00.000Z",
+      "isActive": true,
+      "isUpcoming": false,
+      "bands": "80-10m",
+      "modes": "CW SSB"
+    },
+    {
+      "callsign": "K4OLD",
+      "entity": "Past DXpedition",
+      "dates": "Jan 1-10, 2026",
+      "startDate": "2026-01-01T00:00:00.000Z",
+      "endDate": "2026-01-10T00:00:00.000Z",
+      "isActive": false,
+      "isUpcoming": false,
+      "bands": "20m",
+      "modes": "FT8"
+    }
+  ]
+}

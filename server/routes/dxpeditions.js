@@ -3,8 +3,33 @@
  * Lines ~2297-2655 of original server.js
  */
 
+const { fetchDxnews } = require('./dxNewsSources/dxnews.js');
+const { fetchDxWorld } = require('./dxNewsSources/dxWorld.js');
+const { fetchNg3k } = require('./dxNewsSources/ng3k.js');
+const { mergeNews } = require('../utils/dxNewsMerge.js');
+
 module.exports = function (app, ctx) {
   const { fetch, logDebug, logErrorOnce } = ctx;
+
+  // DX News - per-source caches with 30-min TTL and stale-fallback so one upstream
+  // outage doesn't break the ticker. See .planning/phases/02-... for the full
+  // design rationale (D-01 through D-10). Kept inside the factory so tests that
+  // call route(app, ctx) get a fresh cache per invocation.
+  const SOURCE_TTL = 30 * 60 * 1000;
+  const sourceCaches = new Map();
+
+  async function cachedFetch(name, fetcher) {
+    const entry = sourceCaches.get(name) || { data: null, ts: 0 };
+    if (entry.data && Date.now() - entry.ts < SOURCE_TTL) return entry.data;
+    try {
+      const fresh = await fetcher();
+      sourceCaches.set(name, { data: fresh, ts: Date.now() });
+      return fresh;
+    } catch (e) {
+      logErrorOnce(`dxnews:${name}`, e?.message || 'fetch failed');
+      return entry.data || { items: [] };
+    }
+  }
 
   // DXpedition Calendar - fetches from NG3K ADXO plain text version
   const dxpeditionCache = { data: null, timestamp: 0, maxAge: 30 * 60 * 1000 }; // 30 min cache
@@ -275,75 +300,30 @@ module.exports = function (app, ctx) {
     }
   });
 
-  // DX News from dxnews.com
-  let dxNewsCache = { data: null, timestamp: 0 };
-  const DXNEWS_CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+  // DX News - multi-source aggregator (dxnews.com + DX-World RSS + NG3K).
+  // ctx._dxNewsFetchers allows tests to inject mock fetchers without module mocking.
+  const _fetchers = ctx._dxNewsFetchers || {};
+  const _fetchDxnews = _fetchers.fetchDxnews || fetchDxnews;
+  const _fetchDxWorld = _fetchers.fetchDxWorld || fetchDxWorld;
+  const _fetchNg3k = _fetchers.fetchNg3k || fetchNg3k;
 
   app.get('/api/dxnews', async (req, res) => {
     try {
-      if (dxNewsCache.data && Date.now() - dxNewsCache.timestamp < DXNEWS_CACHE_TTL) {
-        return res.json(dxNewsCache.data);
-      }
+      const [dxnews, dxWorld, ng3k] = await Promise.all([
+        cachedFetch('dxnews', () => _fetchDxnews(ctx)),
+        cachedFetch('dxWorld', () => _fetchDxWorld(ctx)),
+        cachedFetch('ng3k', () => _fetchNg3k(ctx)),
+      ]);
 
-      const response = await fetch('https://dxnews.com/', {
-        headers: {
-          'User-Agent': 'OpenHamClock/3.13.1 (amateur radio dashboard)',
-        },
+      const items = mergeNews({
+        dxnews: dxnews.items || [],
+        dxWorld: dxWorld.items || [],
+        ng3k: ng3k.items || [],
       });
-      const html = await response.text();
 
-      // Parse news items from HTML
-      const items = [];
-      // Match pattern: <h3><a href="URL" title="TITLE">TITLE</a></h3> followed by date and description
-      const articleRegex =
-        /<h3[^>]*>\s*<a\s+href="([^"]+)"\s+title="([^"]+)"[^>]*>[^<]*<\/a>\s*<\/h3>\s*[\s\S]*?(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})\s*[\s\S]*?<\/li>\s*<\/ul>\s*([\s\S]*?)(?:<ul|<div\s+class="more"|<\/div>)/g;
-
-      // Simpler approach: split by article blocks
-      const blocks = html.split(/<h3[^>]*>\s*<a\s+href="/);
-      for (let i = 1; i < blocks.length && items.length < 20; i++) {
-        try {
-          const block = blocks[i];
-          // Extract URL
-          const urlMatch = block.match(/^([^"]+)"/);
-          // Extract title
-          const titleMatch = block.match(/title="([^"]+)"/);
-          // Extract date
-          const dateMatch = block.match(/(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2})/);
-          // Extract description - text after the date, before stats
-          const descParts = block.split(/\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}/);
-          let desc = '';
-          if (descParts[1]) {
-            // Get text content, strip HTML tags, then remove stats/junk
-            desc = descParts[1]
-              .replace(/<[^>]+>/g, ' ')
-              .replace(/\s+/g, ' ')
-              .replace(/Views\s*\d+.*/i, '')
-              .replace(/Comments\s*\d+.*/i, '')
-              .replace(/\d+%/, '')
-              .replace(/More\.\.\..*/i, '')
-              .trim()
-              .substring(0, 200);
-          }
-
-          if (titleMatch && urlMatch) {
-            items.push({
-              title: titleMatch[1],
-              url: 'https://dxnews.com/' + urlMatch[1],
-              date: dateMatch ? dateMatch[1] : null,
-              description: desc || titleMatch[1],
-            });
-          }
-        } catch (e) {
-          // Skip malformed entries
-        }
-      }
-
-      const result = { items, fetched: new Date().toISOString() };
-      dxNewsCache = { data: result, timestamp: Date.now() };
-      res.json(result);
+      res.json({ items, fetched: new Date().toISOString() });
     } catch (error) {
-      logErrorOnce('DX News', error.message);
-      if (dxNewsCache.data) return res.json(dxNewsCache.data);
+      logErrorOnce('DX News merge', error.message);
       res.status(500).json({ error: 'Failed to fetch DX news', items: [] });
     }
   });

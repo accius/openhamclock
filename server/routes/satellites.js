@@ -620,6 +620,15 @@ module.exports = function (app, ctx) {
   }
 
   app.get('/api/satellites/tle', async (req, res) => {
+    // Don't let Fastly/CDN pin an empty payload — when all sources fail we want
+    // the next request after backoff to hit the origin, not the edge cache.
+    const sendTle = (payload) => {
+      if (!payload || Object.keys(payload).length === 0) {
+        res.set('Cache-Control', 'no-store');
+      }
+      return res.json(payload);
+    };
+
     try {
       const now = Date.now();
 
@@ -634,7 +643,7 @@ module.exports = function (app, ctx) {
           res.set('X-TLE-Stale', 'true');
           return res.json(tleCache.data);
         }
-        return res.json(tleCache.data || {});
+        return sendTle(tleCache.data || {});
       }
 
       const controller = new AbortController();
@@ -668,7 +677,10 @@ module.exports = function (app, ctx) {
       // Tries CelesTrak CATNR first, then SatNOGS API as fallback.
       const foundNorads = new Set(Object.values(tleData).map((s) => s.norad));
       const missingSats = Object.entries(HAM_SATELLITES).filter(([, s]) => !foundNorads.has(s.norad));
-      if (missingSats.length > 0 && missingSats.length <= 30) {
+      // Run the per-NORAD fallback when group fetches returned nothing (banned IP / rate-limited)
+      // OR when only a handful are missing. The <= 30 cap protects against hammering when most
+      // satellites are already resolved; when group fetches gave us zero, hammering is the goal.
+      if (missingSats.length > 0 && (Object.keys(tleData).length === 0 || missingSats.length <= 30)) {
         logDebug(
           `[Satellites] ${missingSats.length} sats missing from group files: ${missingSats.map(([k]) => k).join(', ')}`,
         );
@@ -770,10 +782,10 @@ module.exports = function (app, ctx) {
         }
       }
 
-      res.json(tleData);
+      sendTle(tleData);
     } catch (error) {
       // Return stale cache or empty if everything fails
-      res.json(tleCache.data || {});
+      sendTle(tleCache.data || {});
     }
   });
 

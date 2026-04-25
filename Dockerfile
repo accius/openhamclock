@@ -20,8 +20,15 @@ COPY . .
 # Ensure public/ exists (may not be tracked in git)
 RUN mkdir -p /app/public
 
-# Download vendor assets for self-hosting (fonts, Leaflet — no external CDN at runtime)
-RUN apk add --no-cache curl && bash scripts/vendor-download.sh || true
+# Download vendor assets for self-hosting (fonts, Leaflet — no external CDN at runtime).
+# bash + curl are also used by fetch-wasm.sh below. node:22-alpine does NOT ship
+# bash — without this apk add, RUN bash ... fails with "bash: not found".
+RUN apk add --no-cache bash curl && bash scripts/vendor-download.sh || true
+
+# Fetch P.533 WASM from the wasm-latest GitHub Release (public, no auth).
+# On failure (e.g. release doesn't exist yet), script exits 0 and runtime
+# falls back to /api/bands (proppy) then the built-in heuristic.
+RUN bash scripts/fetch-wasm.sh
 
 # Build the React app with Vite
 RUN npm run build
@@ -45,17 +52,21 @@ RUN mkdir -p /data
 COPY package*.json ./
 RUN npm install --omit=dev
 
-# Copy server files
-COPY server.js ./
-COPY server/ ./server/
-COPY config.js ./
-COPY src/server ./src/server
+# Copy server files.
+# --link is used throughout this stage so BuildKit builds each layer
+# independently of prior-layer state — avoids stuck-cache errors we've
+# hit on Railway when the BuildKit context ref goes stale across deploys
+# ("failed to calculate checksum of ref ... <path>: not found").
+COPY --link server.js ./
+COPY --link server/ ./server/
+COPY --link config.js ./
+COPY --link src/server ./src/server
 
 # Copy WSJT-X relay agent (served as download to users)
-COPY wsjtx-relay ./wsjtx-relay
+COPY --link wsjtx-relay ./wsjtx-relay
 
 # Copy Rig Listener agent (served as download to users)
-COPY rig-listener/ ./rig-listener/
+COPY --link rig-listener ./rig-listener
 
 # Copy built frontend from builder stage
 COPY --from=builder /app/dist ./dist

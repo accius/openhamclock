@@ -50,20 +50,34 @@ export function useWinlink() {
   }, []);
 
   const searchGateways = useCallback(async (grid, range, mode) => {
-    try {
-      const params = new URLSearchParams();
-      if (grid) params.set('grid', grid);
-      if (range) params.set('range', range);
-      if (mode) params.set('mode', mode);
-      const res = await apiFetch(`/winlink/gateways?${params}`);
-      if (!res?.ok) return [];
-      const data = await res.json();
-      const list = data.gateways || [];
-      if (mountedRef.current) setGateways(list);
-      return list;
-    } catch {
-      return [];
+    const params = new URLSearchParams();
+    if (grid) params.set('grid', grid);
+    if (range) params.set('range', range);
+    if (mode) params.set('mode', mode);
+    const qs = params.toString();
+
+    // Prefer the server-side proxy (openhamclock.com with WINLINK_API_KEY set)
+    // so every user benefits from the shared 1h cache. Fall back to the local
+    // rig-bridge plugin when the server returns 503 (no key configured) —
+    // self-hosters running rig-bridge get coverage that way.
+    async function tryUrl(url) {
+      try {
+        const res = await apiFetch(url);
+        if (!res) return null;
+        if (res.status === 503) return null;
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data.gateways || [];
+      } catch {
+        return null;
+      }
     }
+
+    let list = await tryUrl(`/api/winlink/gateways${qs ? `?${qs}` : ''}`);
+    if (list == null) list = await tryUrl(`/winlink/gateways${qs ? `?${qs}` : ''}`);
+    list = list || [];
+    if (mountedRef.current) setGateways(list);
+    return list;
   }, []);
 
   const compose = useCallback(

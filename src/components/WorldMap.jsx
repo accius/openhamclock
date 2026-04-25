@@ -92,6 +92,7 @@ import { mapDefs as WWFFDefs } from './WWFFPanel.jsx';
 const POPUP_AUTO_CLOSE_MS = 20_000;
 
 export const WorldMap = ({
+  config,
   deLocation,
   dxLocation,
   onDXChange,
@@ -2211,25 +2212,44 @@ export const WorldMap = ({
       {/* Key includes projection so hooks fully remount when map instance changes.
           This resets internal refs (layerGroupRef, controlRef) that are bound to a
           specific Leaflet map — without this, layers stay on the hidden old map. */}
-      {getAllLayers().map((layerDef) => (
-        <PluginLayer
-          key={`${layerDef.id}-${isAzimuthal ? 'az' : 'merc'}`}
-          plugin={layerDef}
-          enabled={pluginLayerStates[layerDef.id]?.enabled ?? layerDef.defaultEnabled}
-          opacity={pluginLayerStates[layerDef.id]?.opacity ?? layerDef.defaultOpacity}
-          onDXChange={onDXChange}
-          mapBandFilter={mapBandFilter}
-          config={pluginLayerStates[layerDef.id]?.config ?? layerDef.config}
-          map={isAzimuthal ? azimuthalMapRef.current : mapInstanceRef.current}
-          satellites={satellites}
-          allUnits={allUnits}
-          callsign={callsign}
-          locator={deLocator}
-          deLat={deLocation?.lat ?? null}
-          deLon={deLocation?.lon ?? null}
-          lowMemoryMode={lowMemoryMode}
-        />
-      ))}
+      {getAllLayers().map((layerDef) => {
+        // Merge location config into satellite layer to keep config access consistent
+        const layerConfig = pluginLayerStates[layerDef.id]?.config ?? layerDef.config;
+        const finalConfig =
+          layerDef.id === 'satellites' && deLocation
+            ? {
+                ...layerConfig,
+                location: {
+                  lat: deLocation.lat,
+                  lon: deLocation.lon,
+                  stationAlt: parseInt(deLocation.stationAlt) || 100,
+                },
+                satellite: {
+                  minElev: config?.satellite?.minElev ?? layerConfig?.satellite?.minElev ?? 5,
+                },
+              }
+            : layerConfig;
+
+        return (
+          <PluginLayer
+            key={`${layerDef.id}-${isAzimuthal ? 'az' : 'merc'}`}
+            plugin={layerDef}
+            enabled={pluginLayerStates[layerDef.id]?.enabled ?? layerDef.defaultEnabled}
+            opacity={pluginLayerStates[layerDef.id]?.opacity ?? layerDef.defaultOpacity}
+            onDXChange={onDXChange}
+            mapBandFilter={mapBandFilter}
+            config={finalConfig}
+            map={isAzimuthal ? azimuthalMapRef.current : mapInstanceRef.current}
+            satellites={satellites}
+            allUnits={allUnits}
+            callsign={callsign}
+            locator={deLocator}
+            deLat={deLocation?.lat ?? null}
+            deLon={deLocation?.lon ?? null}
+            lowMemoryMode={lowMemoryMode}
+          />
+        );
+      })}
 
       {/* Unified map control dock */}
       {!isAzimuthal && (
