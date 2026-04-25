@@ -134,7 +134,7 @@ export const PropagationPanel = ({
 
   const { solarData, distance, currentBands, hourlyPredictions, muf, luf, dataSource } = propagation;
   const currentHour = propagation.currentHour ?? new Date().getUTCHours();
-  const currentLocalToMin = () => {
+  const currentLocalMin = function () {
     let [hr, mn] = currentTime
       .toLocaleString('en-US', {
         timeZone: timeZone,
@@ -144,15 +144,15 @@ export const PropagationPanel = ({
       })
       .split(':')
       .map(Number);
+    console.debug(`[currentLocalMin] ${hr}:${mn} `, (hr % 24) * 60 + mn);
     return (hr % 24) * 60 + mn;
   };
-  const currentLocalMin = currentLocalToMin();
   const isDaytime =
     deSunTimes.sunset === ''
       ? deSunTimes.sunrise === 'Midnight sun'
       : deSunTimes.local.sunsetMin > deSunTimes.local.sunriseMin
-        ? currentLocalMin >= deSunTimes.local.sunriseMin && currentLocalMin < deSunTimes.local.sunsetMin
-        : !(currentLocalMin >= deSunTimes.local.sunsetMin && currentLocalMin < deSunTimes.local.sunriseMin);
+        ? currentLocalMin() >= deSunTimes.local.sunriseMin && currentLocalMin() < deSunTimes.local.sunsetMin
+        : !(currentLocalMin() >= deSunTimes.local.sunsetMin && currentLocalMin() < deSunTimes.local.sunriseMin);
 
   // Heat map colors - supports both schemes
   // Stoplight: green=good, red=bad (intuitive)
