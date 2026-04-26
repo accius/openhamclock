@@ -21,7 +21,6 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
 
   const enableLogging = false; // Set to true to enable detailed logging for debugging
 
-  /********************************************************************************************/
   // Fetch TLE data
   useEffect(() => {
     const fetchTLE = async () => {
@@ -40,9 +39,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     const interval = setInterval(fetchTLE, 6 * 60 * 60 * 1000); // 6 hours
     return () => clearInterval(interval);
   }, []);
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   // Calculate satellite positions and orbits
   const calculatePositions = useCallback(() => {
     if (!observerLocation || Object.keys(tleData).length === 0) {
@@ -182,9 +179,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
       setLoading(false);
     }
   }, [observerLocation, tleData, nextPassData]);
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   // Calculate satellite next passes, finds the start/end times of the next 2 passes for each satellite that are above the minimum elevation
   // Loops every hour since passes don't change often
   // When consumed check that the first pass hasn't already ended
@@ -266,25 +261,20 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     setNextPassData(nextPasses);
     setLoadingNextPass(false);
   }, [observerLocation, tleData, satelliteConfig]);
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   // Update positions every 5 seconds
   useEffect(() => {
     calculatePositions();
     const interval = setInterval(calculatePositions, 5000);
     return () => clearInterval(interval);
   }, [calculatePositions]);
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   // Update next passes every hour
   useEffect(() => {
     calculateNextPasses();
     const interval = setInterval(calculateNextPasses, 3600000); // 1 hour
     return () => clearInterval(interval);
   }, [calculateNextPasses]);
-  /********************************************************************************************/
 
   return { data, loading, loadingNextPass, nextPassData };
 };

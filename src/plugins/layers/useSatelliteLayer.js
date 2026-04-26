@@ -28,7 +28,6 @@ export const metadata = {
   },
 };
 
-/********************************************************************************************/
 export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, config, allUnits }) => {
   const layerGroupRef = useRef(null);
   const winListenersRef = useRef(null); // Store window event listener references for cleanup
@@ -42,21 +41,16 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
   const [winPos, setWinPos] = useState({ top: 50, right: 10 });
   const [winMinimized, setWinMinimized] = useState(false);
 
-  /********************************************************************************************/
   // Sync to session storage
   useEffect(() => {
     sessionStorage.setItem('selected_satellites', JSON.stringify(selectedSats));
   }, [selectedSats]);
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   // Helper to add/remove satellites from the active view
   const toggleSatellite = (name) => {
     setSelectedSats((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
   };
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   // Helper to format seconds from now into a string representation e.g. "+00:12:34"
   const formatSecsFromNow = (secsFromNow) => {
     return secsFromNow > 3600
@@ -65,9 +59,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         ? `+00:${String(Math.floor(secsFromNow / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
         : `+00:00:${String(secsFromNow).padStart(2, '0')}`;
   };
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   const fetchSatellites = async () => {
     try {
       const response = await fetch('/api/satellites/tle');
@@ -87,7 +79,6 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     }
   };
 
-  /********************************************************************************************/
   const updateInfoWindow = () => {
     const winId = 'sat-data-window';
     const container = map.getContainer();
@@ -442,9 +433,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       manageButtonEvents: true,
     });
   };
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   const renderSatellites = () => {
     if (!layerGroupRef.current || !map) return;
     layerGroupRef.current.clearLayers();
@@ -549,9 +538,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
     updateInfoWindow();
   };
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   useEffect(() => {
     if (!map) return;
     if (!layerGroupRef.current) layerGroupRef.current = window.L.layerGroup().addTo(map);
@@ -581,15 +568,11 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       }
     }
   }, [enabled, map, config]);
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   useEffect(() => {
     if (enabled) renderSatellites();
   }, [satellites, selectedSats, allUnits, opacity, config, winMinimized]);
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   // Delegated click handling for window buttons
   useEffect(() => {
     if (!map) return;
@@ -633,9 +616,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     container.addEventListener('click', handleClick, true); // Use capture phase
     return () => container.removeEventListener('click', handleClick, true);
   }, [map, toggleSatellite, satellites]);
-  /********************************************************************************************/
 
-  /********************************************************************************************/
   // Expose satellite prediction panel function
   useEffect(() => {
     const openSatellitePredict = (satName, tle1, tle2) => {
@@ -871,7 +852,6 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       // Wire close button using event delegation (one listener for all updates)
       content.addEventListener('click', handleContentClick);
     };
-    /********************************************************************************************/
 
     // expose for other callers if needed
     window.openSatellitePredict = openSatellitePredict;
@@ -881,7 +861,6 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       delete window.openSatellitePredict;
     };
   }, [satellites, config]);
-  /********************************************************************************************/
 
   return null;
 };
