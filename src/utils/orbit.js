@@ -147,7 +147,7 @@ export default class Orbit {
         pass.azimuthApex /= deg2rad;
         pass.azimuthEnd /= deg2rad;
         passes.push(pass);
-        if (passes.length > maxPasses) {
+        if (passes.length >= maxPasses) {
           break;
         }
         ongoingPass = false;

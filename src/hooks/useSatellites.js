@@ -5,6 +5,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import * as satellite from 'satellite.js';
+import Orbit from '../utils/orbit.js';
 
 function round(value, decimals) {
   const factor = Math.pow(10, decimals);
@@ -13,9 +14,14 @@ function round(value, decimals) {
 
 export const useSatellites = (observerLocation, satelliteConfig) => {
   const [data, setData] = useState([]);
+  const [nextPassData, setNextPassData] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadingNextPass, setLoadingNextPass] = useState(true);
   const [tleData, setTleData] = useState({});
 
+  const enableLogging = false; // Set to true to enable detailed logging for debugging
+
+  /********************************************************************************************/
   // Fetch TLE data
   useEffect(() => {
     const fetchTLE = async () => {
@@ -34,7 +40,9 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     const interval = setInterval(fetchTLE, 6 * 60 * 60 * 1000); // 6 hours
     return () => clearInterval(interval);
   }, []);
+  /********************************************************************************************/
 
+  /********************************************************************************************/
   // Calculate satellite positions and orbits
   const calculatePositions = useCallback(() => {
     if (!observerLocation || Object.keys(tleData).length === 0) {
@@ -59,6 +67,11 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
         const line1 = tle.line1 || tle.tle1;
         const line2 = tle.line2 || tle.tle2;
         if (!line1 || !line2) return;
+
+        // Find corresponding next pass data for this satellite
+        const nextPass = nextPassData.find((pass) => pass.name === (tle.name || name));
+        const startTimes = nextPass?.startTimes || [];
+        const endTimes = nextPass?.endTimes || [];
 
         try {
           const satrec = satellite.twoline2satrec(line1, line2);
@@ -140,6 +153,8 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
             rangeRate: round(rangeRate, 3),
             dopplerFactor: round(dopplerFactor, 9),
             isVisible, // visible if above minimum elevation
+            nextPassStartTimes: startTimes,
+            nextPassEndTimes: endTimes,
             isPopular: tle.priority <= 2,
             track,
             footprintRadius: Math.round(footprintRadius),
@@ -166,16 +181,112 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
       console.error('Satellite calculation error:', err);
       setLoading(false);
     }
-  }, [observerLocation, tleData]);
+  }, [observerLocation, tleData, nextPassData]);
+  /********************************************************************************************/
 
+  /********************************************************************************************/
+  // Calculate satellite next passes, finds the start/end times of the next 2 passes for each satellite that are above the minimum elevation
+  // Loops every hour since passes don't change often
+  // When consumed check that the first pass hasn't already ended
+  const calculateNextPasses = useCallback(() => {
+    if (!observerLocation || Object.keys(tleData).length === 0) {
+      setLoadingNextPass(false);
+      return;
+    }
+
+    const groundStation = {
+      latitude: observerLocation.lat,
+      longitude: observerLocation.lon,
+      height: observerLocation.stationAlt || 100, // above sea level [m], defaults to 100m
+    };
+    const startDate = new Date(); // from now
+    const endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // until 7 days from now
+    const minElevation = satelliteConfig?.minElev || 5.0;
+    const maxPasses = 2;
+
+    if (typeof enableLogging !== 'undefined' && enableLogging) {
+      const formatDate = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
+      let logStr = `[Satellite] calculating next passes,`;
+      logStr += `\n observer lat=${groundStation.latitude}, lon=${groundStation.longitude}, alt=${groundStation.height}m,`;
+      logStr += `\n time range=${formatDate(startDate)} to ${formatDate(endDate)},`;
+      logStr += `\n minElevation=${minElevation}°`;
+      logStr += `\n maxPasses=${maxPasses}`;
+      console.log(logStr);
+    }
+
+    const nextPasses = [];
+    try {
+      Object.entries(tleData).forEach(([name, tle]) => {
+        // Handle both line1/line2 and tle1/tle2 formats
+        const line1 = tle.line1 || tle.tle1;
+        const line2 = tle.line2 || tle.tle2;
+        if (!line1 || !line2) return;
+
+        const orbit = new Orbit(name, `${name}\n${line1}\n${line2}`);
+        orbit.error && console.warn('Satellite orbit error:', orbit.error);
+        const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
+
+        const startTimes = [];
+        const endTimes = [];
+        passes.forEach((pass) => {
+          pass.start && pass.end && (startTimes.push(pass.start), endTimes.push(pass.end));
+        });
+
+        nextPasses.push({
+          name: tle.name || name,
+          startTimes,
+          endTimes,
+        });
+      });
+    } catch (e) {
+      // Skip satellites with invalid TLE
+    }
+
+    // Sort alphabetically by name for a consistent, static list
+    nextPasses.sort((a, b) => a.name.localeCompare(b.name));
+
+    // log passes for debugging
+    if (typeof enableLogging !== 'undefined' && enableLogging) {
+      const formatDate = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
+      nextPasses.forEach(({ name, startTimes, endTimes }) => {
+        let logStr = `[Satellite] Next passes for ${name}: `;
+        if (startTimes.length === 0) {
+          logStr += '\n  None.';
+        } else {
+          startTimes.forEach((start, i) => {
+            const end = endTimes[i];
+            logStr += `\n  Pass ${i + 1}: ${formatDate(start)} to ${formatDate(end)}`;
+          });
+        }
+
+        console.log(logStr);
+      });
+    }
+
+    setNextPassData(nextPasses);
+    setLoadingNextPass(false);
+  }, [observerLocation, tleData, satelliteConfig]);
+  /********************************************************************************************/
+
+  /********************************************************************************************/
   // Update positions every 5 seconds
   useEffect(() => {
     calculatePositions();
     const interval = setInterval(calculatePositions, 5000);
     return () => clearInterval(interval);
   }, [calculatePositions]);
+  /********************************************************************************************/
 
-  return { data, loading };
+  /********************************************************************************************/
+  // Update next passes every hour
+  useEffect(() => {
+    calculateNextPasses();
+    const interval = setInterval(calculateNextPasses, 3600000); // 1 hour
+    return () => clearInterval(interval);
+  }, [calculateNextPasses]);
+  /********************************************************************************************/
+
+  return { data, loading, loadingNextPass, nextPassData };
 };
 
 export default useSatellites;
