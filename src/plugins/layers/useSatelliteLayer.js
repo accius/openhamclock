@@ -51,13 +51,13 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     setSelectedSats((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
   };
 
-  // Helper to format seconds from now into a string representation e.g. "+00:12:34"
+  // Helper to format seconds from now into a string representation e.g. "00:12:34"
   const formatSecsFromNow = (secsFromNow) => {
     return secsFromNow > 3600
-      ? `+${String(Math.floor(secsFromNow / 3600)).padStart(2, '0')}:${String(Math.floor((secsFromNow % 3600) / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
+      ? `${String(Math.floor(secsFromNow / 3600)).padStart(2, '0')}:${String(Math.floor((secsFromNow % 3600) / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
       : secsFromNow > 60
-        ? `+00:${String(Math.floor(secsFromNow / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
-        : `+00:00:${String(secsFromNow).padStart(2, '0')}`;
+        ? `00:${String(Math.floor(secsFromNow / 60)).padStart(2, '0')}:${String(secsFromNow % 60).padStart(2, '0')}`
+        : `00:00:${String(secsFromNow).padStart(2, '0')}`;
   };
 
   const fetchSatellites = async () => {
