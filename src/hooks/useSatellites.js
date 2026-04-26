@@ -215,8 +215,8 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     }
 
     const nextPasses = [];
-    try {
-      Object.entries(tleData).forEach(([name, tle]) => {
+    Object.entries(tleData).forEach(([name, tle]) => {
+      try {
         // Handle both line1/line2 and tle1/tle2 formats
         const line1 = tle.line1 || tle.tle1;
         const line2 = tle.line2 || tle.tle2;
@@ -237,10 +237,10 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
           startTimes,
           endTimes,
         });
-      });
-    } catch (e) {
-      // Skip satellites with invalid TLE
-    }
+      } catch (e) {
+        // Skip satellite with invalid TLE, continue processing others
+      }
+    });
 
     // Sort alphabetically by name for a consistent, static list
     nextPasses.sort((a, b) => a.name.localeCompare(b.name));
