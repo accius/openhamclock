@@ -278,7 +278,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     return () => clearInterval(interval);
   }, [calculateNextPasses]);
 
-  return { data, loading, loadingNextPass, nextPassData };
+  return { data, loading };
 };
 
 export default useSatellites;
