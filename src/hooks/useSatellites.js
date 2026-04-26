@@ -199,7 +199,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     const minElevation = satelliteConfig?.minElev || 5.0;
     const maxPasses = 2;
 
-    if (typeof enableLogging !== 'undefined' && enableLogging) {
+    if (enableLogging) {
       const formatDate = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
       let logStr = `[Satellite] calculating next passes,`;
       logStr += `\n observer lat=${groundStation.latitude}, lon=${groundStation.longitude}, alt=${groundStation.height}m,`;
@@ -243,7 +243,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     nextPasses.sort((a, b) => a.name.localeCompare(b.name));
 
     // log passes for debugging
-    if (typeof enableLogging !== 'undefined' && enableLogging) {
+    if (enableLogging) {
       const formatDate = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
       nextPasses.forEach(({ name, startTimes, endTimes }) => {
         let logStr = `[Satellite] Next passes for ${name}: `;
