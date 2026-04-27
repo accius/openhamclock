@@ -78,7 +78,15 @@ export const SettingsPanel = ({
   const [tuneEnabled, setTuneEnabled] = useState(config?.rigControl?.tuneEnabled || false);
   const [autoMode, setAutoMode] = useState(config?.rigControl?.autoMode !== false);
   const [rigApiToken, setRigApiToken] = useState(config?.rigControl?.apiToken || '');
-  const [cloudRelaySession, setCloudRelaySession] = useState(config?.rigControl?.cloudRelaySession || '');
+  const [cloudRelaySession, setCloudRelaySession] = useState(() => {
+    // Session ID lives in localStorage (per-browser), not in the server config.
+    // Server config used to store this but it makes no sense in a multi-user system.
+    try {
+      return localStorage.getItem('ohc-relay-session') || '';
+    } catch {
+      return '';
+    }
+  });
   const [showRigToken, setShowRigToken] = useState(false);
   const [wsjtxRelayStatus, setWsjtxRelayStatus] = useState(null); // null | 'pushing' | 'ok' | 'error'
   const [wsjtxRelayMsg, setWsjtxRelayMsg] = useState('');
@@ -454,7 +462,8 @@ export const SettingsPanel = ({
         tuneEnabled,
         autoMode,
         apiToken: rigApiToken.trim(),
-        cloudRelaySession: cloudRelaySession.trim(),
+        // cloudRelaySession intentionally omitted — session ID belongs in
+        // localStorage (per-browser), not in the shared server config.
       },
     });
   };
@@ -5116,6 +5125,10 @@ export const SettingsPanel = ({
                             if (Number.isFinite(p) && p > 0) nextRigPort = p;
                           }
                           setCloudRelaySession('');
+                          // Clear from localStorage so hooks stop using this session
+                          try {
+                            localStorage.removeItem('ohc-relay-session');
+                          } catch {}
                           onSave({
                             ...config,
                             rigControl: {
@@ -5126,7 +5139,6 @@ export const SettingsPanel = ({
                               tuneEnabled,
                               autoMode,
                               apiToken: rigApiToken.trim(),
-                              cloudRelaySession: '',
                             },
                           });
                         }}
