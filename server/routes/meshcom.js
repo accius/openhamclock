@@ -282,7 +282,7 @@ module.exports = function (app, ctx) {
       });
     }
 
-    const ACTIVE_WINDOW_MS = 5 * 60_000;
+    const ACTIVE_WINDOW_MS = 30 * 60_000; // 30 min — LoRa beacons can be 15+ min apart
     const running = s.lastIngestTime > 0 && Date.now() - s.lastIngestTime < ACTIVE_WINDOW_MS;
     res.json({
       nodeCount: s.nodes.size,

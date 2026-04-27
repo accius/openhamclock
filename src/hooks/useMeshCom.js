@@ -78,7 +78,12 @@ export function useMeshCom(options = {}) {
         const etag = res.headers?.get('ETag');
         if (etag) nodeEtagRef.current = etag;
         const data = await res.json();
-        setNodes(data.nodes || []);
+        // In local/direct mode the OHC server has no node data (packets arrive
+        // via rig-bridge SSE, not via server-side ingest). Never overwrite
+        // SSE-populated nodes with an empty server response.
+        if ((data.nodes ?? []).length > 0 || !isLiveModeRef.current) {
+          setNodes(data.nodes || []);
+        }
       }
     } catch (err) {
       if (err?.name !== 'AbortError' && err?.name !== 'TimeoutError') {
@@ -119,8 +124,16 @@ export function useMeshCom(options = {}) {
     }
   }, [enabled, sessionId]);
 
+  // How long without an SSE packet before we consider the live stream stale.
+  // LoRa beacons can be 15+ min apart, so we allow 25 min before falling back.
+  const SSE_STALE_MS = 25 * 60_000;
+
   const fetchStatus = useCallback(async () => {
     if (!enabled) return;
+    // If SSE events are arriving, the plugin is clearly running — don't let a
+    // stale server-side status (no data in local mode) override that.
+    // Only poll status when SSE has been silent long enough to be considered stale.
+    if (isLiveModeRef.current && Date.now() - lastSseAtRef.current < SSE_STALE_MS) return;
     try {
       const res = await apiFetch(`/api/meshcom/status?session=${sessionId}`, {
         cache: 'no-store',
@@ -168,6 +181,8 @@ export function useMeshCom(options = {}) {
 
       isLiveModeRef.current = true;
       lastSseAtRef.current = Date.now();
+      // SSE packet = plugin is clearly running; don't wait for the polling cycle
+      setConnected(true);
 
       const call = String(pkt.src).toUpperCase().trim();
       const ts = pkt.timestamp ?? Date.now();
