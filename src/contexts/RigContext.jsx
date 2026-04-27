@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { getModeFromFreq, mapModeToRig } from '../utils/bandPlan.js';
+import { isRelayConfigured, setRelayConfigured, setRelaySessionId } from '../utils/relaySession.js';
 
 // Default config
 // Default config (fallback)
@@ -27,7 +28,31 @@ export const useRig = () => {
   return context;
 };
 
+/**
+ * One-time upgrade migration: if the server config still carries a
+ * cloudRelaySession from an older version that saved it there, copy it into
+ * localStorage and set the configured flag so RigContext enters cloud relay
+ * mode without the user having to re-click "Connect Cloud Relay".
+ * Called synchronously at the top of RigProvider so it runs before any state
+ * is derived from localStorage.
+ */
+function _migrateCloudRelaySession(rigConfig) {
+  const serverSession = rigConfig?.cloudRelaySession?.trim();
+  if (!serverSession || !/^[a-z0-9]{8,32}$/.test(serverSession)) return;
+  try {
+    // Only migrate if localStorage doesn't already have a configured session
+    if (!isRelayConfigured() || !localStorage.getItem('ohc-relay-session')) {
+      setRelaySessionId(serverSession);
+      setRelayConfigured(true);
+    }
+  } catch {}
+}
+
 export const RigProvider = ({ children, rigConfig }) => {
+  // Upgrade path: migrate session from server config to localStorage on first render.
+  // After migration, isRelayConfigured() + localStorage['ohc-relay-session'] are
+  // the authoritative source — the server config value is no longer used.
+  _migrateCloudRelaySession(rigConfig);
   const [rigState, setRigState] = useState({
     connected: false,
     freq: 0,
@@ -51,9 +76,20 @@ export const RigProvider = ({ children, rigConfig }) => {
   // Construct URL from config or default
   const rigUrl = buildRigUrl(rigConfig);
 
-  // Cloud relay mode: if a cloudRelaySession is configured, route state/commands
-  // through the OHC server instead of connecting directly to rig-bridge.
-  const cloudRelaySession = rigConfig?.cloudRelaySession?.trim() || '';
+  // Cloud relay mode: read session from localStorage (per-browser, per-user).
+  // isRelayConfigured() is true only when the user explicitly clicked
+  // "Connect Cloud Relay" — it is NOT set by the auto-generated session that
+  // useMeshCom/useWsjtx create for data isolation. This prevents local-only
+  // users from accidentally entering cloud relay mode.
+  const cloudRelaySession = isRelayConfigured()
+    ? (() => {
+        try {
+          return localStorage.getItem('ohc-relay-session') || '';
+        } catch {
+          return '';
+        }
+      })()
+    : '';
   const isCloudRelay = !!cloudRelaySession;
 
   // Build auth headers — only set when a token is configured

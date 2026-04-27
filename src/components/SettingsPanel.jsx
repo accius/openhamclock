@@ -23,7 +23,7 @@ import CustomThemeEditor from './CustomThemeEditor';
 import useLocalInstall from '../hooks/app/useLocalInstall.js';
 import { emojiToIso2 } from '../utils/countryFlags';
 import { getAlertSettings, saveAlertSettings, playTone, TONE_PRESETS, ALERT_FEEDS } from '../utils/audioAlerts';
-import { setRelaySessionId } from '../utils/relaySession';
+import { setRelaySessionId, setRelayConfigured, clearRelaySession } from '../utils/relaySession';
 
 export const SettingsPanel = ({
   isOpen,
@@ -79,13 +79,22 @@ export const SettingsPanel = ({
   const [autoMode, setAutoMode] = useState(config?.rigControl?.autoMode !== false);
   const [rigApiToken, setRigApiToken] = useState(config?.rigControl?.apiToken || '');
   const [cloudRelaySession, setCloudRelaySession] = useState(() => {
-    // Session ID lives in localStorage (per-browser), not in the server config.
-    // Server config used to store this but it makes no sense in a multi-user system.
+    // 1. Prefer localStorage — set by "Connect Cloud Relay" in this browser.
     try {
-      return localStorage.getItem('ohc-relay-session') || '';
-    } catch {
-      return '';
+      const stored = localStorage.getItem('ohc-relay-session');
+      if (stored) return stored;
+    } catch {}
+    // 2. Migration: older versions stored the session in server config.
+    //    Copy it to localStorage so the user doesn't need to re-connect.
+    const serverSession = config?.rigControl?.cloudRelaySession?.trim();
+    if (serverSession && /^[a-z0-9]{8,32}$/.test(serverSession)) {
+      try {
+        localStorage.setItem('ohc-relay-session', serverSession);
+        localStorage.setItem('ohc-relay-configured', 'true');
+      } catch {}
+      return serverSession;
     }
+    return '';
   });
   const [showRigToken, setShowRigToken] = useState(false);
   const [wsjtxRelayStatus, setWsjtxRelayStatus] = useState(null); // null | 'pushing' | 'ok' | 'error'
@@ -5125,10 +5134,8 @@ export const SettingsPanel = ({
                             if (Number.isFinite(p) && p > 0) nextRigPort = p;
                           }
                           setCloudRelaySession('');
-                          // Clear from localStorage so hooks stop using this session
-                          try {
-                            localStorage.removeItem('ohc-relay-session');
-                          } catch {}
+                          // Clear session and configured flag from localStorage
+                          clearRelaySession();
                           onSave({
                             ...config,
                             rigControl: {
@@ -5192,6 +5199,9 @@ export const SettingsPanel = ({
                             // (WSJTX, MeshCom, APRS) immediately poll with this ID
                             // instead of whatever random ID they generated earlier.
                             setRelaySessionId(credData.session);
+                            // Mark cloud relay as explicitly configured so RigContext
+                            // enters cloud relay mode on next re-render (save triggers it).
+                            setRelayConfigured(true);
 
                             // Copy config to clipboard for easy paste into rig-bridge
                             const configText = JSON.stringify(credData.configPayload, null, 2);
