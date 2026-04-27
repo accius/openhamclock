@@ -134,7 +134,14 @@ export const RigProvider = ({ children, rigConfig }) => {
         eventSource.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
-            if (data.type === 'state') applyRelayState(data);
+            if (data.type === 'state') {
+              applyRelayState(data);
+            } else if (data.type === 'plugin' || data.type === 'plugin-init') {
+              // Forward plugin data (decodes, APRS, MeshCom, …) as a window event
+              // so individual hooks can subscribe without coupling to RigContext —
+              // same dispatch used by the local/direct SSE path below.
+              window.dispatchEvent(new CustomEvent('rig-plugin-data', { detail: data }));
+            }
           } catch (e) {
             console.error('[RigContext] Failed to parse relay SSE message', e);
           }
