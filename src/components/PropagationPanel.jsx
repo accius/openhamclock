@@ -31,13 +31,23 @@ export const PropagationPanel = ({
   const [localMode, setLocalMode] = useState(propConfig.mode || 'SSB');
   const [localPower, setLocalPower] = useState(propConfig.power || 100);
   const [localAntenna, setLocalAntenna] = useState(propConfig.antenna || 'isotropic');
+  // Whether the user has explicitly opened the custom-power input field. This is
+  // independent of `localPower`: if the saved power happens to match a preset,
+  // we still want to keep showing the input once the user opens it, so they can
+  // type freely without the input disappearing under them on every keystroke.
+  const [customPowerRevealed, setCustomPowerRevealed] = useState(() => !POWERS.includes(propConfig.power || 100));
 
   // Keep local state in sync if parent config changes (e.g. settings panel update)
   useEffect(() => {
     if (propConfig.mode && propConfig.mode !== localMode) setLocalMode(propConfig.mode);
   }, [propConfig.mode]);
   useEffect(() => {
-    if (propConfig.power && propConfig.power !== localPower) setLocalPower(propConfig.power);
+    if (propConfig.power && propConfig.power !== localPower) {
+      setLocalPower(propConfig.power);
+      // External update from Settings: open the custom field iff the new value
+      // isn't a preset (so non-preset values from saved config are visible/editable).
+      if (!POWERS.includes(propConfig.power)) setCustomPowerRevealed(true);
+    }
   }, [propConfig.power]);
   useEffect(() => {
     if (propConfig.antenna && propConfig.antenna !== localAntenna) setLocalAntenna(propConfig.antenna);
@@ -624,10 +634,18 @@ export const PropagationPanel = ({
               ))}
             </select>
 
-            {/* Power */}
+            {/* Power — preset select + revealable custom-watts input */}
             <select
-              value={localPower}
-              onChange={(e) => updatePropConfig({ power: parseInt(e.target.value) })}
+              value={customPowerRevealed || !POWERS.includes(localPower) ? 'custom' : localPower}
+              onChange={(e) => {
+                if (e.target.value === 'custom') {
+                  setCustomPowerRevealed(true);
+                  // keep current localPower so the revealed input is pre-filled
+                } else {
+                  setCustomPowerRevealed(false);
+                  updatePropConfig({ power: parseInt(e.target.value) });
+                }
+              }}
               style={{
                 background: 'var(--bg-tertiary)',
                 color: 'var(--text-primary)',
@@ -643,7 +661,35 @@ export const PropagationPanel = ({
                   {p}W
                 </option>
               ))}
+              <option value="custom">Custom…</option>
             </select>
+            {(customPowerRevealed || !POWERS.includes(localPower)) && (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
+                <input
+                  type="number"
+                  value={localPower}
+                  min="0.1"
+                  max="2000"
+                  step="1"
+                  onChange={(e) => {
+                    const v = parseFloat(e.target.value);
+                    if (Number.isFinite(v) && v > 0 && v <= 2000) updatePropConfig({ power: v });
+                  }}
+                  style={{
+                    width: '52px',
+                    background: 'var(--bg-tertiary)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '3px',
+                    padding: '2px 4px',
+                    fontSize: '10px',
+                    fontFamily: 'JetBrains Mono, monospace',
+                    textAlign: 'right',
+                  }}
+                />
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>W</span>
+              </span>
+            )}
 
             {/* Antenna */}
             {antennaProfiles && (

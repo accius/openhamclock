@@ -1650,7 +1650,7 @@ export const SettingsPanel = ({
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr) 1.2fr',
+                    gridTemplateColumns: 'repeat(4, 1fr)',
                     gap: '4px',
                     alignItems: 'center',
                   }}
@@ -1680,33 +1680,20 @@ export const SettingsPanel = ({
                       {p.label}
                     </button>
                   ))}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
-                    <input
-                      type="number"
-                      value={propPower}
-                      onChange={(e) => {
-                        const v = parseFloat(e.target.value);
-                        if (v > 0 && v <= 2000) setPropPower(v);
-                      }}
-                      style={{
-                        width: '100%',
-                        padding: '5px 4px',
-                        background: 'var(--bg-tertiary)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        color: 'var(--text-primary)',
-                        fontSize: '11px',
-                        fontFamily: 'JetBrains Mono, monospace',
-                        textAlign: 'center',
-                        boxSizing: 'border-box',
-                      }}
-                      min="0.1"
-                      max="2000"
-                      step="1"
-                    />
-                    <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>W</span>
-                  </div>
                 </div>
+                {/* Non-preset value (set from Propagation panel's Custom… input) — show, but read-only here */}
+                {![5, 25, 100, 1500].includes(propPower) && (
+                  <div
+                    style={{
+                      marginTop: '4px',
+                      fontSize: '10px',
+                      color: 'var(--text-muted)',
+                      fontFamily: 'JetBrains Mono, monospace',
+                    }}
+                  >
+                    Custom: {propPower}W <span style={{ opacity: 0.7 }}>(set from Propagation panel)</span>
+                  </div>
+                )}
               </div>
 
               <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
