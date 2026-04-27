@@ -41,7 +41,14 @@ const POLL_INTERVAL = 30_000; // 30 s — LoRa beacon rate is much slower than A
 const FETCH_TIMEOUT_MS = 5_000; // hard cap per request — never tie up a connection longer
 
 export function useMeshCom(options = {}) {
-  const { enabled = true } = options;
+  const {
+    enabled = true,
+    // In local/direct mode the OHC server may not be able to reach rig-bridge
+    // (e.g. server is in the cloud, rig-bridge is local). Pass the rig-bridge
+    // base URL (e.g. 'http://localhost:5555') to have sendMessage POST directly
+    // from the browser instead of proxying via the server.
+    rigBridgeUrl = null,
+  } = options;
 
   // Stable relay session ID — shared with useWSJTX and all other relay-delivered data
   const [sessionId] = useState(getRelaySessionId);
@@ -257,17 +264,31 @@ export function useMeshCom(options = {}) {
     async (to, message) => {
       let res;
       try {
-        res = await apiFetch('/api/meshcom/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: to || '*', message, session: sessionId }),
-          signal: AbortSignal.timeout(10_000),
-        });
+        if (rigBridgeUrl) {
+          // Local/direct mode: POST directly to rig-bridge from the browser.
+          // The OHC server cannot proxy to rig-bridge when they are on different
+          // machines (e.g. cloud server + local rig-bridge). This mirrors how
+          // freq/mode/PTT commands work in RigContext's local mode.
+          res = await fetch(`${rigBridgeUrl}/api/meshcom-udp/send`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: to || '*', message }),
+            signal: AbortSignal.timeout(10_000),
+          });
+        } else {
+          // Cloud relay mode (or same-host setup): proxy via the OHC server.
+          res = await apiFetch('/api/meshcom/send', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: to || '*', message, session: sessionId }),
+            signal: AbortSignal.timeout(10_000),
+          });
+        }
       } catch (err) {
         if (err?.name === 'AbortError' || err?.name === 'TimeoutError') {
           throw new Error('Send timed out — check that rig-bridge is running and reachable');
         }
-        throw new Error('Could not reach the server — check your network connection');
+        throw new Error('Could not reach rig-bridge — check your network connection');
       }
       if (!res?.ok) {
         const data = await res?.json().catch(() => ({}));
@@ -275,7 +296,7 @@ export function useMeshCom(options = {}) {
       }
       return true;
     },
-    [sessionId],
+    [rigBridgeUrl, sessionId],
   );
 
   return {

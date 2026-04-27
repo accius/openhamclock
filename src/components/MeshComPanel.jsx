@@ -8,6 +8,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeshCom } from '../hooks/useMeshCom.js';
+import { useRig } from '../contexts/RigContext.jsx';
 import CallsignLink from './CallsignLink.jsx';
 import { primaryCall } from '../utils/callsign.js';
 import { IconMap } from './Icons.jsx';
@@ -518,7 +519,14 @@ const TAB_IDS = ['nodes', 'messages', 'info'];
 const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState('nodes');
-  const { nodes, messages, connected, loading, sendMessage } = useMeshCom();
+
+  // In local/direct mode the OHC server cannot proxy send requests to rig-bridge
+  // (they may be on different machines). Pass the rig-bridge URL so useMeshCom
+  // can POST directly from the browser — same pattern as freq/mode/PTT commands.
+  const { rigUrl, isCloudRelay } = useRig();
+  const { nodes, messages, connected, loading, sendMessage } = useMeshCom({
+    rigBridgeUrl: isCloudRelay ? null : rigUrl,
+  });
 
   const tabLabels = {
     nodes: t('meshcomPanel.tabNodes'),

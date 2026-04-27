@@ -548,6 +548,10 @@ export const RigProvider = ({ children, rigConfig }) => {
     tuneEnabled: rigConfig?.tuneEnabled,
     error,
     rigBridgeStatus,
+    // Expose routing info so consumers (e.g. MeshComPanel) can choose
+    // between direct rig-bridge requests and OHC server proxying.
+    rigUrl,
+    isCloudRelay,
     setFreq,
     setMode,
     setPTT,
