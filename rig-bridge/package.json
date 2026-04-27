@@ -17,7 +17,8 @@
     "assets": [
       "core/**/*",
       "lib/**/*",
-      "plugins/**/*"
+      "plugins/**/*",
+      "node_modules/@serialport/bindings-cpp/prebuilds/**/*"
     ],
     "outputPath": "dist"
   },
