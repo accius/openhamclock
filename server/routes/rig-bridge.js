@@ -197,11 +197,15 @@ module.exports = function (app, ctx) {
       // Forward MeshCom packets received from the rig-bridge cloud relay.
       // sessionId is injected so the meshcom route can store data in the
       // correct per-user session rather than a shared global pool.
+      // Packets are also fanned out to any open SSE stream clients so the
+      // browser panel updates in real-time (same path as WSJTX decodes).
       if (Array.isArray(req.body.meshcomPackets) && req.body.meshcomPackets.length > 0) {
         logInfo(`[RigBridge] Relaying ${req.body.meshcomPackets.length} MeshCom packet(s) for session=${sessionId}`);
         for (const pkt of req.body.meshcomPackets) {
           const subtype = pkt.subtype;
           if (subtype !== 'pos' && subtype !== 'msg' && subtype !== 'telem') continue;
+
+          // 1. Persist in server-side session store (history, reconnect recovery)
           ctx
             .fetch(`http://localhost:${ctx.PORT}/api/meshcom/local/${subtype}`, {
               method: 'POST',
@@ -216,6 +220,20 @@ module.exports = function (app, ctx) {
             .catch((e) => {
               logWarn(`[RigBridge] MeshCom ingest forward failed subtype=${subtype}: ${e.message}`);
             });
+
+          // 2. Fan out to SSE stream clients — same { type:'plugin' } envelope
+          //    used by WSJTX decodes; RigContext forwards it as a rig-plugin-data
+          //    window event that useMeshCom listens for.
+          if (sseClients && sseClients.size > 0) {
+            const sseMsg = `data: ${JSON.stringify({ type: 'plugin', event: 'meshcom', data: pkt })}\n\n`;
+            for (const client of sseClients) {
+              try {
+                client.write(sseMsg);
+              } catch {
+                sseClients.delete(client);
+              }
+            }
+          }
         }
       }
 

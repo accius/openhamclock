@@ -1,7 +1,20 @@
 /**
  * useMeshCom Hook
- * Polls /api/meshcom/nodes and /api/meshcom/messages for MeshCom node and
- * message data received via the rig-bridge UDP plugin.
+ * Combines real-time SSE updates with a 30 s polling fallback.
+ *
+ * Data path (SSE — primary):
+ *   meshcom-udp plugin  →  plugin bus  →  cloud-relay POST /relay/state
+ *   →  server fans to relayStreamClients  →  RigContext EventSource
+ *   →  window 'rig-plugin-data' CustomEvent  →  this hook's SSE listener
+ *   →  setNodes / setMessages immediately
+ *
+ * Data path (polling — fallback / initial load):
+ *   GET /api/meshcom/nodes    (ETag — 304 when nothing changed)
+ *   GET /api/meshcom/messages (?since= incremental)
+ *   GET /api/meshcom/status
+ *   Runs every 30 s regardless of SSE state so historical data (nodes that
+ *   arrived before this browser session) is always loaded on mount, and any
+ *   packet dropped by the SSE fan-out is recovered within 30 s.
  *
  * Session isolation:
  *   Uses the shared relay session ID from src/utils/relaySession.js
@@ -9,11 +22,6 @@
  *   plugin sends this same ID in the x-relay-session header on every push,
  *   so ingest and poll always use the same session. All relay-delivered
  *   data types (WSJTX, APRS, MeshCom) share one session ID.
- *
- * Traffic optimisations:
- *   - 30s poll interval (LoRa beacons are every 5-15 min, 15s is wasteful)
- *   - ETag / If-None-Match on nodes — 304 with no body when nothing changed
- *   - ?since= incremental messages — only new messages each poll
  *
  * Isolation — MeshCom must never block other panels:
  *   - loading is always false — the panel renders immediately with empty state
@@ -49,6 +57,9 @@ export function useMeshCom(options = {}) {
   const nodeEtagRef = useRef(null);
   // Timestamp of newest message received — for ?since= incremental fetch
   const lastMessageTsRef = useRef(0);
+  // SSE live-mode tracking — true once the first meshcom window event arrives
+  const isLiveModeRef = useRef(false);
+  const lastSseAtRef = useRef(0);
 
   const fetchNodes = useCallback(async () => {
     if (!enabled) return;
@@ -135,6 +146,91 @@ export function useMeshCom(options = {}) {
     fetchStatus();
   }, [fetchNodes, fetchMessages, fetchStatus]);
 
+  // ── SSE live updates ──────────────────────────────────────────────────────
+  // RigContext holds the relay/stream EventSource and re-dispatches every
+  // { type: 'plugin' } message as a window CustomEvent('rig-plugin-data').
+  // We listen here for event === 'meshcom' and apply the packet immediately
+  // so the panel updates in real-time without waiting for the next poll cycle.
+  //
+  // Normalisation mirrors server/routes/meshcom.js local ingest endpoints:
+  //   pos   → update/replace node entry keyed by callsign
+  //   msg   → append to messages (dedup by msgId when present)
+  //   telem → attach weather object to the matching node
+  useEffect(() => {
+    if (!enabled) return;
+
+    const handler = (e) => {
+      const msg = e.detail;
+      if (msg.event !== 'meshcom') return;
+
+      const pkt = msg.data;
+      if (!pkt?.subtype || !pkt?.src) return;
+
+      isLiveModeRef.current = true;
+      lastSseAtRef.current = Date.now();
+
+      const call = String(pkt.src).toUpperCase().trim();
+      const ts = pkt.timestamp ?? Date.now();
+
+      if (pkt.subtype === 'pos') {
+        setNodes((prev) => {
+          const rest = prev.filter((n) => n.call !== call);
+          return [
+            ...rest,
+            {
+              call,
+              hwId: pkt.hwId ?? null,
+              lat: pkt.lat ?? null,
+              lon: pkt.lon ?? null,
+              alt: pkt.alt ?? null,
+              batt: pkt.batt ?? null,
+              aprsSymbol: pkt.aprsSymbol ?? null,
+              firmware: pkt.firmware ?? null,
+              source: 'live-sse',
+              timestamp: ts,
+            },
+          ];
+        });
+      } else if (pkt.subtype === 'msg') {
+        const newMsg = {
+          src: call,
+          dst: pkt.dst ? String(pkt.dst).toUpperCase() : '*',
+          text: pkt.msg,
+          msgId: pkt.msgId ?? null,
+          srcType: pkt.srcType ?? null,
+          timestamp: ts,
+        };
+        setMessages((prev) => {
+          // Deduplicate by msgId — same packet can arrive via multiple mesh paths
+          if (newMsg.msgId && prev.some((m) => m.msgId === newMsg.msgId)) return prev;
+          const combined = [...prev, newMsg];
+          return combined.length > 200 ? combined.slice(-200) : combined;
+        });
+        // Keep ?since= pointer in sync so the next poll doesn't re-fetch this message
+        if (ts > lastMessageTsRef.current) lastMessageTsRef.current = ts;
+      } else if (pkt.subtype === 'telem') {
+        const wx = {
+          call,
+          tempC: pkt.tempC ?? null,
+          humidity: pkt.humidity ?? null,
+          pressureHpa: pkt.pressureHpa ?? null,
+          co2ppm: pkt.co2ppm ?? null,
+          rssi: pkt.rssi ?? null,
+          snr: pkt.snr ?? null,
+          timestamp: ts,
+        };
+        setNodes((prev) => prev.map((n) => (n.call === call ? { ...n, weather: wx } : n)));
+      }
+    };
+
+    window.addEventListener('rig-plugin-data', handler);
+    return () => window.removeEventListener('rig-plugin-data', handler);
+  }, [enabled]);
+
+  // ── Polling fallback / initial load ──────────────────────────────────────
+  // Runs every 30 s regardless of SSE state.
+  // Handles: initial page load, server-side history from before this session,
+  // and any packet the SSE fan-out dropped due to a transient write error.
   useEffect(() => {
     if (!enabled) return;
     refresh();
