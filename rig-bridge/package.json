@@ -16,6 +16,7 @@
   "pkg": {
     "assets": [
       "core/**/*",
+      "lib/**/*",
       "plugins/**/*"
     ],
     "outputPath": "dist"
