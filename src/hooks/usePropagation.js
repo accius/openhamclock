@@ -21,7 +21,6 @@ export const usePropagation = (deLocation, dxLocation, propagationConfig = {}) =
   const mode = propagationConfig.mode || 'SSB';
   const power = propagationConfig.power || 100;
   const antenna = propagationConfig.antenna || 'isotropic';
-  const [loggedFailure, setLoggedFailure] = useState(false);
 
   useEffect(() => {
     if (!deLocation || !dxLocation) return;
@@ -45,7 +44,7 @@ export const usePropagation = (deLocation, dxLocation, propagationConfig = {}) =
         const response = await fetch(`/api/propagation?${params}`);
         if (response.ok) rest = await response.json();
       } catch (err) {
-        console.error('Propagation error:', err);
+        console.error('[usePropagation] Propagation error:', err);
       }
 
       if (!alive) return;
@@ -66,7 +65,6 @@ export const usePropagation = (deLocation, dxLocation, propagationConfig = {}) =
           ssn: rest?.solarData?.ssn ?? 100,
           signal: wasmAbort.signal,
         });
-        setLoggedFailure(false);
         if (!alive) return;
         // Preserve REST-derived fields the WASM engine doesn't own (solar data,
         // path distance, LUF) so downstream panels don't lose them on swap.
@@ -93,12 +91,8 @@ export const usePropagation = (deLocation, dxLocation, propagationConfig = {}) =
       } catch (err) {
         // Expected when /wasm/p533.mjs is missing (self-hoster) or the 10 MB
         // coefficient download fails — keep the REST data we already rendered.
-        //
-        // loggedFailure ensures we only log this message once, or on a failure
-        //  after a success.
-        if (!wasmAbort.signal.aborted && !loggedFailure) {
+        if (!wasmAbort.signal.aborted) {
           console.debug('[usePropagation] WASM engine skipped:', err.message);
-          setLoggedFailure(true);
         }
       }
     };
