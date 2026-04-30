@@ -210,8 +210,8 @@ function MessagesTab({ messages, nodes, sendMessage }) {
 
   const nodeCalls = nodes.map((n) => primaryCall(n.call));
 
-  // Ensure the reply-to sender appears in the dropdown even if not a known node
-  const dropdownCalls = selectedMsg ? [...new Set([...nodeCalls, primaryCall(selectedMsg.src)])] : nodeCalls;
+  // Ensure the reply-to sender appears in suggestions even if not a known node
+  const datalistCalls = selectedMsg ? [...new Set([...nodeCalls, primaryCall(selectedMsg.src)])] : nodeCalls;
 
   // Determine the "group/broadcast" reply target for a given message
   const groupTarget = (msg) => {
@@ -369,9 +369,12 @@ function MessagesTab({ messages, nodes, sendMessage }) {
           <span style={{ fontSize: '11px', color: 'var(--text-muted)', alignSelf: 'center', whiteSpace: 'nowrap' }}>
             {t('meshcomPanel.sendTo')}
           </span>
-          <select
+          <input
+            type="text"
             value={toField}
-            onChange={(e) => setToField(e.target.value)}
+            onChange={(e) => setToField(e.target.value.toUpperCase())}
+            list="meshcom-to-suggestions"
+            placeholder="* or callsign"
             style={{
               flex: 1,
               padding: '3px 4px',
@@ -380,21 +383,20 @@ function MessagesTab({ messages, nodes, sendMessage }) {
               border: '1px solid var(--border-color)',
               borderRadius: '3px',
               color: 'var(--text-primary)',
-              fontFamily: 'inherit',
+              fontFamily: 'JetBrains Mono, monospace',
             }}
-          >
+          />
+          <datalist id="meshcom-to-suggestions">
             <option value="*">{t('meshcomPanel.sendBroadcast')}</option>
             {[0, 1, 2, 3, 4, 5].map((g) => (
               <option key={g} value={String(g)}>
                 {t('meshcomPanel.sendGroup', { n: g })}
               </option>
             ))}
-            {dropdownCalls.map((call) => (
-              <option key={call} value={call}>
-                {call}
-              </option>
+            {datalistCalls.map((call) => (
+              <option key={call} value={call} />
             ))}
-          </select>
+          </datalist>
         </div>
         <div style={{ display: 'flex', gap: '4px' }}>
           <input
