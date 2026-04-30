@@ -142,16 +142,16 @@ export const LatLonToMaidenhead = ({ lat, lon }, precision = 6) => {
  * Parse a Maidenhead grid square string into lat/lon coordinates.
  * Supports 4-character (e.g. "JN58") and 6-character (e.g. "JN58sm") locators.
  * Returns { lat, lon } of the grid square center, or null if input is invalid.
+ * Deprecated, use maidenheadToLatLon(grid)
  */
-// Function provided for legacy support.
 export const parseGridSquare = (grid) => {
   return maidenheadToLatLon(grid);
 };
 
 /**
- * Calculate Maidenhead grid square (size 6) from coordinates
+ * Calculate Maidenhead grid square (size 6) from coordinates.
+ * Deprecated, use LatLonToMaidenhead({lat, lon}) which defaults to size 6.
  */
-// Function provided for legacy support.
 export const calculateGridSquare = (lat, lon) => {
   return LatLonToMaidenhead({ lat, lon }, 6);
 };
