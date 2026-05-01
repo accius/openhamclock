@@ -17,11 +17,12 @@ It also connects FT8/FT4 decoding software (WSJT-X, JTDX, MSHV, JS8Call) to Open
 5. [Connecting to OpenHamClock](#connecting-to-openhamclock)
 6. [Digital Mode Software (FT8, JS8, etc.)](#digital-mode-software)
 7. [APRS via Local TNC _(Beta)_](#aprs-via-local-tnc-beta)
-8. [Antenna Rotator](#antenna-rotator-alpha)
-9. [HTTPS Setup (needed for openhamclock.com)](#https-setup)
-10. [Troubleshooting](#troubleshooting)
-11. [Glossary](#glossary)
-12. [Advanced Topics](#advanced-topics)
+8. [MeshCom UDP _(Beta)_](#meshcom-udp-plugin-beta)
+9. [Antenna Rotator](#antenna-rotator-alpha)
+10. [HTTPS Setup (needed for openhamclock.com)](#https-setup)
+11. [Troubleshooting](#troubleshooting)
+12. [Glossary](#glossary)
+13. [Advanced Topics](#advanced-topics)
 
 ---
 
@@ -475,7 +476,7 @@ This works alongside the regular internet-based APRS-IS feed. When the internet 
 
 APRS packets from nearby stations on RF will now appear alongside internet-sourced APRS stations on the map.
 
-### MeshCom UDP Plugin
+### MeshCom UDP Plugin _(Beta)_
 
 Receives MeshCom LoRa mesh network packets and forwards them to OHC. See [MeshCom UDP Plugin](#meshcom-udp-plugin) for full setup instructions.
 
@@ -506,7 +507,7 @@ If you have a traditional hardware TNC connected via serial port:
 
 The APRS TNC runs alongside APRS-IS (internet) for dual-path coverage. When internet goes down, local RF keeps working.
 
-### MeshCom UDP Plugin
+### MeshCom UDP Plugin _(Beta)_
 
 Receives JSON packets broadcast by [MeshCom](https://github.com/icssw-org/MeshCom-Firmware) LoRa mesh network nodes over UDP and forwards them to OpenHamClock. MeshCom nodes appear on the OHC world map and in the dedicated MeshCom panel with live positions, battery levels, weather/telemetry, and text messages.
 
@@ -612,14 +613,14 @@ On the OHC server, received data is held in memory:
 
 #### Troubleshooting
 
-| Problem                          | Solution                                                                                                                             |
-| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| No packets arriving              | Verify `--extudp on` is set in MeshCom firmware; check UDP destination IP reaches the rig-bridge host                                |
-| Port already in use              | Another app is listening on 1799 — change `bindPort` in rig-bridge and in firmware                                                   |
-| Duplicate packets in OHC         | Normal — dedup is active; if you see duplicates, check that `hw_id` is present in firmware packets                                   |
-| Nodes appear but no map marker   | Node has no GPS fix yet — position packets without valid coordinates are stored but not mapped                                       |
-| Altitude shows wrong value       | Plugin converts MeshCom GPS feet → metres automatically; values should be correct                                                    |
-| MeshCom panel not visible in OHC | Requires Cloud Relay to be configured and connected (see [Scenario 3](#scenario-3-cloud-relay-ohc-on-openhamclockcom-radio-at-home)) |
+| Problem                          | Solution                                                                                                                                                 |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| No packets arriving              | Verify `--extudp on` is set in MeshCom firmware; check UDP destination IP reaches the rig-bridge host                                                    |
+| Port already in use              | Another app is listening on 1799 — change `bindPort` in rig-bridge and in firmware                                                                       |
+| Duplicate packets in OHC         | Normal — dedup is active; if you see duplicates, check that `hw_id` is present in firmware packets                                                       |
+| Nodes appear but no map marker   | Node has no GPS fix yet — position packets without valid coordinates are stored but not mapped                                                           |
+| Altitude shows wrong value       | Plugin converts MeshCom GPS feet → metres automatically; values should be correct                                                                        |
+| MeshCom panel not visible in OHC | Works in both local/direct mode and Cloud Relay mode. Check that the `meshcom` plugin is enabled in rig-bridge config and that OHC can reach rig-bridge. |
 
 ---
 
