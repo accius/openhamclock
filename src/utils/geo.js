@@ -93,11 +93,10 @@ export const maidenheadToBoundingBox = (grid) => {
   ];
 };
 
-// Convert lat/lon to Maidenhead grid at given precision
 /**
- * Convert latitude/longitude coordinates to Maidenhead grid locator at specified precision (2, 4, or 6 characters)
- * @param {lat, lon} Latitude and longitude coordinates
- * @param precision Precision of the grid locator, can be 2, 4, or 6 characters long (default is 6)
+ * Convert latitude/longitude coordinates to Maidenhead grid locator of specified precision (character length)
+ * @param Latitude and longitude coordinates
+ * @param precision Precision (character length) of the grid locator returned, can be 2, 4, 6, or 8. (default if not specified is 6)
  * @returns Maidenhead grid locator
  */
 export const LatLonToMaidenhead = ({ lat, lon }, precision = 6) => {
