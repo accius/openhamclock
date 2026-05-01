@@ -88,6 +88,13 @@ body::before {
   font-size: 12px !important;
 }
 
+/* Force all child elements (spans, buttons) inside the header to white.
+   Specificity [0,3,1] beats the retro button rule [0,1,1] so this wins
+   even when both declarations carry !important. */
+[data-theme='retro'] .panel > div.meshcom-header * {
+  color: #ffffff !important;
+}
+
 /* Classic buttons */
 [data-theme='retro'] button,
 [data-theme='retro'] .map-style-btn {
