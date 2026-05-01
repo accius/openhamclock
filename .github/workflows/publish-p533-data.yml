@@ -1,0 +1,146 @@
+name: Publish P.533 coefficient data
+
+# Packages the month-keyed ionospheric coefficient files from ITU-R-HF v14.3
+# and uploads them to a GitHub Release (tag: p533-data-v14.3), so the browser
+# WASM build can fetch coefficients on demand with IndexedDB caching.
+#
+# We never commit these binaries to the repo — this workflow is the canonical
+# publish path. Per ISOTROPIC-only client needs:
+#   - ionos{MM}.bin                  (12 files, ~11.2 MB each uncompressed)
+#   - COEFF{MM}W.txt                 (12 files, ~230 KB each)
+#   - P1239-3 Decile Factors.txt     (1 file, ~72 KB — month-independent)
+# Each file is gzipped (-9) before upload. ionos.bin compresses to ~84%,
+# COEFF to ~30%, decile to ~7%.
+#
+# Trigger manually when pinning a new ITU-R-HF release. The CI build-wasm
+# workflow already pins the same ITU_TAG from wasm-build/build.sh.
+
+on:
+  workflow_dispatch:
+    inputs:
+      itu_tag:
+        description: 'ITU-R-HF git tag to source data from'
+        required: true
+        default: 'v14.3'
+      overwrite:
+        description: 'Overwrite release assets if they already exist'
+        required: true
+        default: 'true'
+        type: boolean
+
+permissions:
+  contents: write  # needed to create/update releases
+
+jobs:
+  publish:
+    if: github.repository == 'accius/openhamclock'
+    runs-on: ubuntu-latest
+
+    env:
+      ITU_REPO: https://github.com/ITU-R-Study-Group-3/ITU-R-HF
+      ITU_TAG: ${{ inputs.itu_tag }}
+      RELEASE_TAG: p533-data-${{ inputs.itu_tag }}
+      STAGING_DIR: staging
+
+    steps:
+      - name: Checkout (shallow, just for the workflow file)
+        uses: actions/checkout@v4
+
+      - name: Fetch ITU-R-HF source tarball
+        run: |
+          mkdir -p src
+          curl -fsSL -o src/source.tar.gz \
+            "${ITU_REPO}/archive/refs/tags/${ITU_TAG}.tar.gz"
+          tar -xzf src/source.tar.gz -C src
+          rm src/source.tar.gz
+          # Upstream extracts to src/ITU-R-HF-{tag-without-v}/
+          SRC_DIR="src/ITU-R-HF-${ITU_TAG#v}"
+          if [[ ! -d "$SRC_DIR" ]]; then
+            echo "error: expected source directory $SRC_DIR not found" >&2
+            ls src/
+            exit 1
+          fi
+          echo "SRC_DIR=$SRC_DIR" >> "$GITHUB_ENV"
+
+      - name: Collect + gzip required data files
+        run: |
+          set -euo pipefail
+          mkdir -p "$STAGING_DIR"
+
+          # Each month's ionos/COEFF files appear in multiple subdirs of the
+          # tarball (P533/Data, P372/Data, ITURHFProp/Data) — all byte-identical.
+          # Take whichever is found first.
+          for mm in 01 02 03 04 05 06 07 08 09 10 11 12; do
+            src_ionos=$(find "$SRC_DIR" -type f -name "ionos${mm}.bin" -print -quit)
+            src_coeff=$(find "$SRC_DIR" -type f -name "COEFF${mm}W.txt" -print -quit)
+            if [[ -z "$src_ionos" || -z "$src_coeff" ]]; then
+              echo "error: month $mm missing files (ionos=$src_ionos coeff=$src_coeff)" >&2
+              exit 1
+            fi
+            gzip -9c "$src_ionos" > "$STAGING_DIR/ionos${mm}.bin.gz"
+            gzip -9c "$src_coeff" > "$STAGING_DIR/COEFF${mm}W.txt.gz"
+          done
+
+          # Decile factors — spaces in filename dropped for cleaner URLs.
+          src_decile=$(find "$SRC_DIR" -type f -name "P1239-3 Decile Factors.txt" -print -quit)
+          if [[ -z "$src_decile" ]]; then
+            echo "error: P1239-3 Decile Factors.txt not found in tarball" >&2
+            exit 1
+          fi
+          gzip -9c "$src_decile" > "$STAGING_DIR/P1239-3-Decile-Factors.txt.gz"
+
+      - name: Generate manifest with version + sizes + sha256
+        run: |
+          set -euo pipefail
+          cd "$STAGING_DIR"
+          {
+            echo '{'
+            echo "  \"version\": \"${ITU_TAG}\","
+            echo "  \"generated_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\","
+            echo '  "files": ['
+            first=1
+            for f in $(ls -1 | sort); do
+              if [[ "$f" == "manifest.json" ]]; then continue; fi
+              size=$(stat -c%s "$f")
+              sha=$(sha256sum "$f" | awk '{print $1}')
+              [[ $first -eq 0 ]] && echo ','
+              first=0
+              printf '    {"name": "%s", "size": %s, "sha256": "%s"}' "$f" "$size" "$sha"
+            done
+            echo
+            echo '  ]'
+            echo '}'
+          } > manifest.json
+          cat manifest.json
+
+      - name: Create or update release (${{ env.RELEASE_TAG }})
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          cd "$STAGING_DIR"
+
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists."
+            if [[ "${{ inputs.overwrite }}" != "true" ]]; then
+              echo "overwrite=false — refusing to reupload. Nothing to do."
+              exit 0
+            fi
+          else
+            gh release create "$RELEASE_TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "P.533 coefficient data ($ITU_TAG)" \
+              --notes "ITU-R-HF $ITU_TAG coefficient tables, gzipped, for browser WASM consumption. See .github/workflows/publish-p533-data.yml for provenance. Regenerate with the workflow_dispatch trigger — do not hand-edit."
+          fi
+
+          gh release upload "$RELEASE_TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            ./*
+
+          echo "Release URL: https://github.com/$GITHUB_REPOSITORY/releases/tag/$RELEASE_TAG"
+
+      - name: Summary
+        run: |
+          echo "Published P.533 data release: $RELEASE_TAG"
+          ls -lh "$STAGING_DIR"
