@@ -2186,10 +2186,10 @@ export const WorldMap = ({
 
             marker
               .bindPopup(
-                `<b style="color:#2dd4bf">${esc(primaryCall(node.call))}</b><br>
-                <span style="color:#888;font-size:11px">${t('meshcomPanel.mapPopupAge', { age: ageStr })}</span><br>
+                `<b style="color:var(--accent-cyan)">${esc(primaryCall(node.call))}</b><br>
+                <span style="color:var(--text-muted);font-size:11px">${t('meshcomPanel.mapPopupAge', { age: ageStr })}</span><br>
                 ${battLine}${altLine}${wxLine}
-                ${node.firmware ? `<span style="font-size:10px;color:#aaa">${t('meshcomPanel.mapPopupFirmware')} ${esc(node.firmware)}</span>` : ''}`,
+                ${node.firmware ? `<span style="font-size:10px;color:var(--text-muted)">${t('meshcomPanel.mapPopupFirmware')} ${esc(node.firmware)}</span>` : ''}`,
               )
               .addTo(map);
 
