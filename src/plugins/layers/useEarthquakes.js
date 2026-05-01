@@ -45,7 +45,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
           //'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson'
         );
         const data = await response.json();
-        console.log('[Earthquakes] fetched:', data.features?.length || 0, 'quakes');
+        console.info('[Earthquakes] fetched:', data.features?.length || 0, 'quakes');
         // Limit earthquakes in low memory mode
         const quakes = (data.features || []).slice(0, MAX_QUAKES);
         setEarthquakeData(quakes);

@@ -30,7 +30,7 @@ export default function useVersionCheck() {
         }
 
         if (version !== knownVersion.current) {
-          console.log(`[VersionCheck] Update detected: ${knownVersion.current} → ${version}`);
+          console.info(`[VersionCheck] Update detected: ${knownVersion.current} → ${version}`);
           showUpdateToast(knownVersion.current, version);
           // Wait a moment so the user can see the toast, then reload
           setTimeout(() => {

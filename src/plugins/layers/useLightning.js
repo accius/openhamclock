@@ -96,7 +96,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
   // Fetch WebSocket key from Blitzortung (fallback to 111)
   useEffect(() => {
     if (enabled && !wsKey) {
-      console.log('[Lightning] Using WebSocket key 111 (Blitzortung standard)');
+      console.info('[Lightning] Using WebSocket key 111 (Blitzortung standard)');
       setWsKey(111); // Standard Blitzortung key
     }
   }, [enabled, wsKey]);
@@ -117,13 +117,13 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
     const connectWebSocket = () => {
       try {
         const serverUrl = servers[currentServerIndexRef.current];
-        console.log(`[Lightning] Connecting to ${serverUrl} (attempt ${connectionAttemptsRef.current + 1})...`);
+        console.debug(`[Lightning] Connecting to ${serverUrl} (attempt ${connectionAttemptsRef.current + 1})...`);
 
         const ws = new WebSocket(serverUrl);
         wsRef.current = ws;
 
         ws.onopen = () => {
-          console.log(`[Lightning] Connected to ${serverUrl}, sending key:`, wsKey);
+          console.debug(`[Lightning] Connected to ${serverUrl}, sending key:`, wsKey);
           ws.send(JSON.stringify({ a: wsKey }));
           connectionAttemptsRef.current = 0; // Reset attempts on success
         };
@@ -176,7 +176,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
           // Try next server if this one fails
           if (connectionAttemptsRef.current >= 3) {
-            console.log(`[Lightning] Failed to connect after 3 attempts, trying next server...`);
+            console.debug(`[Lightning] Failed to connect after 3 attempts, trying next server...`);
             currentServerIndexRef.current = (currentServerIndexRef.current + 1) % servers.length;
             connectionAttemptsRef.current = 0;
           }
@@ -184,7 +184,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
         ws.onclose = () => {
           const serverUrl = servers[currentServerIndexRef.current];
-          console.log(`[Lightning] WebSocket closed for ${serverUrl}`);
+          console.debug(`[Lightning] WebSocket closed for ${serverUrl}`);
           wsRef.current = null;
 
           // Increment connection attempts
@@ -192,14 +192,14 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
           // Try next server if too many failed attempts on current server
           if (connectionAttemptsRef.current >= 3) {
-            console.log(`[Lightning] Too many failures on ${serverUrl}, rotating to next server...`);
+            console.debug(`[Lightning] Too many failures on ${serverUrl}, rotating to next server...`);
             currentServerIndexRef.current = (currentServerIndexRef.current + 1) % servers.length;
             connectionAttemptsRef.current = 0;
           }
 
           // Reconnect after 5 seconds if still enabled
           if (enabled) {
-            console.log(`[Lightning] Reconnecting to ${servers[currentServerIndexRef.current]} in 5s...`);
+            console.debug(`[Lightning] Reconnecting to ${servers[currentServerIndexRef.current]} in 5s...`);
             setTimeout(connectWebSocket, 5000);
           }
         };
@@ -209,7 +209,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
         // Try next server on connection error
         if (connectionAttemptsRef.current >= 3) {
-          console.log(`[Lightning] Too many connection errors, trying next server...`);
+          console.debug(`[Lightning] Too many connection errors, trying next server...`);
           currentServerIndexRef.current = (currentServerIndexRef.current + 1) % servers.length;
           connectionAttemptsRef.current = 0;
         }
@@ -225,7 +225,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
     return () => {
       if (wsRef.current) {
-        console.log('[Lightning] Closing WebSocket connection');
+        console.debug('[Lightning] Closing WebSocket connection');
         wsRef.current.close();
         wsRef.current = null;
       }
@@ -503,7 +503,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
           contentClassName: 'lightning-panel-content',
           buttonClassName: 'lightning-minimize-btn',
         });
-        console.log('[Lightning] Stats panel is now draggable with minimize toggle');
+        console.debug('[Lightning] Stats panel is now draggable with minimize toggle');
       } else {
         console.error('[Lightning] Could not find .lightning-stats container');
       }
@@ -784,7 +784,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
           contentClassName: 'lightning-panel-content',
           buttonClassName: 'lightning-minimize-btn',
         });
-        console.log('[Lightning] Proximity: Panel is now draggable and minimizable');
+        console.ldebugog('[Lightning] Proximity: Panel is now draggable and minimizable');
 
         // IMPORTANT: Set ref AFTER setup is complete
         proximityControlRef.current = control;

@@ -58,14 +58,14 @@ export default function useScreenWakeLock(config, displaySleeping = false) {
       }
       wakeLockRef.current = await navigator.wakeLock.request('screen');
       setWakeLockStatus({ active: true, reason: null });
-      console.log('[WakeLock] Screen wake lock acquired.');
+      console.debug('[WakeLock] Screen wake lock acquired.');
 
       wakeLockRef.current.addEventListener('release', () => {
         // Only update status if we didn't release intentionally (ref cleared on intentional release)
         if (wakeLockRef.current) {
           setWakeLockStatus({ active: false, reason: 'error' });
         }
-        console.log('[WakeLock] Screen wake lock released.');
+        console.debug('[WakeLock] Screen wake lock released.');
       });
     } catch (e) {
       console.warn('[WakeLock] Could not acquire screen wake lock:', e.message);

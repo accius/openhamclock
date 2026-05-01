@@ -201,7 +201,7 @@ async function fetchAndParse() {
     const exactCount = Object.keys(parsed.exact).length;
     const entityCount = parsed.entities.length;
 
-    console.log(`[CTY] Loaded ${entityCount} entities, ${prefixCount} prefixes, ${exactCount} exact calls`);
+    console.info(`[CTY] Loaded ${entityCount} entities, ${prefixCount} prefixes, ${exactCount} exact calls`);
 
     ctyCache = parsed;
     return true;

@@ -65,9 +65,9 @@ export default function useAppConfig() {
     setConfig(newConfig);
     saveConfig(newConfig);
     applyTheme(newConfig.theme || 'dark');
-    console.log('[Config] Saved to localStorage:', newConfig.callsign);
+    console.debug('[Config] Saved to localStorage:', newConfig.callsign);
     if (newConfig.lowMemoryMode) {
-      console.log('[Config] Low Memory Mode ENABLED - reduced spot limits, disabled animations');
+      console.info('[Config] Low Memory Mode ENABLED - reduced spot limits, disabled animations');
     }
     // Sync all settings to server (debounced)
     syncAllSettingsToServer();

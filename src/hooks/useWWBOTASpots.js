@@ -43,13 +43,13 @@ export const useWWBOTASpots = () => {
         const url = new URL('https://api.wwbota.org/spots/');
         url.searchParams.set('age', '1'); // Last 1 hour
 
-        console.log(`[WWBOTA] Attempting to connect to: ${url.toString()}`);
+        console.debug(`[WWBOTA] Attempting to connect to: ${url.toString()}`);
 
         const es = new EventSource(url.toString());
 
         // Connection opened successfully
         es.addEventListener('open', () => {
-          console.log('[WWBOTA] SSE connection opened successfully');
+          console.debug('[WWBOTA] SSE connection opened successfully');
           if (isMounted) {
             setLoading(false);
             setConnected(true);
@@ -171,7 +171,7 @@ export const useWWBOTASpots = () => {
 
             // Update lastUpdated when new spot arrives
             setLastUpdated(Date.now());
-            console.log('[WWBOTA] Spot processed and data updated');
+            console.debug('[WWBOTA] Spot processed and data updated');
           } catch (err) {
             console.error('[WWBOTA] Failed to parse spot:', err, 'Raw event data:', event.data);
           }
@@ -186,13 +186,13 @@ export const useWWBOTASpots = () => {
           }
 
           if (es.readyState === EventSource.CLOSED) {
-            console.log('[WWBOTA] SSE connection closed, will reconnect in 5 seconds');
+            console.debug('[WWBOTA] SSE connection closed, will reconnect in 5 seconds');
             es.close();
             if (isMounted) {
               // Reconnect after 5 seconds
               reconnectTimeoutRef.current = setTimeout(() => {
                 if (isMounted) {
-                  console.log('[WWBOTA] Attempting to reconnect...');
+                  console.debug('[WWBOTA] Attempting to reconnect...');
                   connectWWBOTA();
                 }
               }, 5000);
@@ -211,7 +211,7 @@ export const useWWBOTASpots = () => {
         if (isMounted) {
           reconnectTimeoutRef.current = setTimeout(() => {
             if (isMounted) {
-              console.log('[WWBOTA] Retrying connection after error...');
+              console.debug('[WWBOTA] Retrying connection after error...');
               connectWWBOTA();
             }
           }, 5000);

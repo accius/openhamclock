@@ -254,9 +254,9 @@ export function useLayer({
 
     if (!queryCallsign || queryCallsign === 'N0CALL') {
       if (queryMode === 'spotter') {
-        console.log('[RBN] Spotter mode: enter a skimmer callsign');
+        console.debug('[RBN] Spotter mode: enter a skimmer callsign');
       } else {
-        console.log('[RBN] No valid callsign configured');
+        console.debug('[RBN] No valid callsign configured');
       }
       return;
     }
@@ -277,17 +277,17 @@ export function useLayer({
       if (data && data.spots && Array.isArray(data.spots)) {
         const mySpots = data.spots;
 
-        console.log(`[RBN] Received ${mySpots.length} spots for ${callsign}`);
+        console.info(`[RBN] Received ${mySpots.length} spots for ${callsign}`);
 
         // Log spot details
         if (mySpots.length > 0) {
           mySpots.forEach((spot, idx) => {
             if (queryMode === 'spotter') {
-              console.log(
+              console.debug(
                 `  ${idx + 1}. DX: ${spot.dx}, Skimmer: ${spot.callsign}, Freq: ${spot.freqMHz} MHz, SNR: ${spot.snr} dB, Band: ${spot.band}, dxLat: ${spot.dxLat ?? 'MISSING'}, dxLon: ${spot.dxLon ?? 'MISSING'}, dxGrid: ${spot.dxGrid ?? 'MISSING'}`,
               );
             } else {
-              console.log(
+              console.debug(
                 `  ${idx + 1}. Skimmer: ${spot.callsign}, Freq: ${spot.freqMHz} MHz, SNR: ${spot.snr} dB, Band: ${spot.band}, Grid: ${spot.grid ?? 'MISSING'}, Lat: ${spot.skimmerLat ?? '?'}, Lon: ${spot.skimmerLon ?? '?'}`,
               );
             }
@@ -424,7 +424,7 @@ export function useLayer({
       return true;
     });
 
-    console.log(
+    console.debug(
       `[RBN] Rendering ${filteredSpots.length} spots (within ${timeWindow < 1 ? (timeWindow * 60).toFixed(0) + 's' : timeWindow.toFixed(1) + 'min'} window)`,
     );
 
