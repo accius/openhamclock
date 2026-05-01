@@ -96,8 +96,11 @@ body::before {
 }
 
 /* Buttons inside the header keep retro black text (raised 3D button look).
-   Specificity [0,3,2] beats the wildcard rule above [0,3,1]. */
-[data-theme='retro'] .panel > div.meshcom-header button {
+   Both selectors beat the wildcard rule [0,3,1]: button at [0,3,2],
+   button * at [0,3,2] (universal selector adds 0 specificity but the
+   extra element type on button already wins). */
+[data-theme='retro'] .panel > div.meshcom-header button,
+[data-theme='retro'] .panel > div.meshcom-header button * {
   color: #000000 !important;
 }
 
