@@ -44,7 +44,7 @@ module.exports = function (app, ctx) {
   // ============================================
 
   // Generate HTML status dashboard
-  function generateStatusDashboard() {
+  function generateStatusDashboard(isAuthed) {
     rolloverVisitorStats();
 
     const uptime = process.uptime();
@@ -466,246 +466,257 @@ module.exports = function (app, ctx) {
       </div>
     </div>
 
-    <!-- Session Duration Analytics -->
-    <div class="chart-section">
-      <div class="chart-title">
-        <span>⏱️ Session Duration Analytics</span>
-        <span style="color: #888; font-size: 0.75rem">${sessionStats.completedSessions} completed sessions</span>
-      </div>
+    ${
+      isAuthed
+        ? `
+      <!-- excluding footer everything past here not output unless (isAuthed === true) -->
 
-      <div class="api-summary" style="margin-bottom: 20px">
-        <div class="api-stat">
-          <div class="api-stat-value" style="color: #00ccff">${sessionStats.avgDurationFormatted || '--'}</div>
-          <div class="api-stat-label">Avg Duration</div>
+      <!-- Session Duration Analytics -->
+      <div class="chart-section">
+        <div class="chart-title">
+          <span>⏱️ Session Duration Analytics</span>
+          <span style="color: #888; font-size: 0.75rem">${sessionStats.completedSessions} completed sessions</span>
         </div>
-        <div class="api-stat">
-          <div class="api-stat-value" style="color: #a78bfa">${sessionStats.medianDurationFormatted || '--'}</div>
-          <div class="api-stat-label">Median</div>
-        </div>
-        <div class="api-stat">
-          <div class="api-stat-value" style="color: #ffb347">${sessionStats.p90DurationFormatted || '--'}</div>
-          <div class="api-stat-label">90th Percentile</div>
-        </div>
-        <div class="api-stat">
-          <div class="api-stat-value" style="color: #00ff88">${sessionStats.maxDurationFormatted || '--'}</div>
-          <div class="api-stat-label">Longest</div>
-        </div>
-      </div>
 
-      <!-- Duration Distribution Bars -->
-      ${
-        sessionStats.completedSessions > 0
-          ? (() => {
-              const b = sessionStats.durationBuckets;
-              const total = Object.values(b).reduce((s, v) => s + v, 0) || 1;
-              const bucketLabels = [
-                { key: 'under1m', label: '<1m', color: '#ff4466' },
-                { key: '1to5m', label: '1-5m', color: '#ffb347' },
-                { key: '5to15m', label: '5-15m', color: '#ffdd00' },
-                { key: '15to30m', label: '15-30m', color: '#88cc00' },
-                { key: '30to60m', label: '30m-1h', color: '#00ff88' },
-                { key: 'over1h', label: '1h+', color: '#00ccff' },
-              ];
-              return `
-          <div style="margin-bottom: 8px; font-size: 0.75rem; color: #888">Session Length Distribution</div>
-          <div style="display: flex; gap: 6px; align-items: flex-end; height: 80px; margin-bottom: 4px">
-            ${bucketLabels
-              .map(({ key, label, color }) => {
-                const count = b[key] || 0;
-                const pct = Math.max((count / total) * 100, 2);
+        <div class="api-summary" style="margin-bottom: 20px">
+          <div class="api-stat">
+            <div class="api-stat-value" style="color: #00ccff">${sessionStats.avgDurationFormatted || '--'}</div>
+            <div class="api-stat-label">Avg Duration</div>
+          </div>
+          <div class="api-stat">
+            <div class="api-stat-value" style="color: #a78bfa">${sessionStats.medianDurationFormatted || '--'}</div>
+            <div class="api-stat-label">Median</div>
+          </div>
+          <div class="api-stat">
+            <div class="api-stat-value" style="color: #ffb347">${sessionStats.p90DurationFormatted || '--'}</div>
+            <div class="api-stat-label">90th Percentile</div>
+          </div>
+          <div class="api-stat">
+            <div class="api-stat-value" style="color: #00ff88">${sessionStats.maxDurationFormatted || '--'}</div>
+            <div class="api-stat-label">Longest</div>
+          </div>
+        </div>
+
+        <!-- Duration Distribution Bars -->
+        ${
+          sessionStats.completedSessions > 0
+            ? (() => {
+                const b = sessionStats.durationBuckets;
+                const total = Object.values(b).reduce((s, v) => s + v, 0) || 1;
+                const bucketLabels = [
+                  { key: 'under1m', label: '<1m', color: '#ff4466' },
+                  { key: '1to5m', label: '1-5m', color: '#ffb347' },
+                  { key: '5to15m', label: '5-15m', color: '#ffdd00' },
+                  { key: '15to30m', label: '15-30m', color: '#88cc00' },
+                  { key: '30to60m', label: '30m-1h', color: '#00ff88' },
+                  { key: 'over1h', label: '1h+', color: '#00ccff' },
+                ];
                 return `
-                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%" title="${label}: ${count} sessions (${Math.round((count / total) * 100)}%)">
-                  <div style="font-size: 0.65rem; color: #888; margin-bottom: 4px">${count}</div>
-                  <div style="width: 100%; max-width: 50px; background: ${color}; border-radius: 4px 4px 0 0; height: ${pct}%; min-height: 3px; opacity: 0.85"></div>
-                  <div style="font-size: 0.6rem; color: #666; margin-top: 4px">${label}</div>
-                </div>
-              `;
+            <div style="margin-bottom: 8px; font-size: 0.75rem; color: #888">Session Length Distribution</div>
+            <div style="display: flex; gap: 6px; align-items: flex-end; height: 80px; margin-bottom: 4px">
+              ${bucketLabels
+                .map(({ key, label, color }) => {
+                  const count = b[key] || 0;
+                  const pct = Math.max((count / total) * 100, 2);
+                  return `
+                  <div style="flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%" title="${label}: ${count} sessions (${Math.round((count / total) * 100)}%)">
+                    <div style="font-size: 0.65rem; color: #888; margin-bottom: 4px">${count}</div>
+                    <div style="width: 100%; max-width: 50px; background: ${color}; border-radius: 4px 4px 0 0; height: ${pct}%; min-height: 3px; opacity: 0.85"></div>
+                    <div style="font-size: 0.6rem; color: #666; margin-top: 4px">${label}</div>
+                  </div>
+                `;
+                })
+                .join('')}
+            </div>
+          `;
+              })()
+            : '<div style="color: #666; text-align: center; padding: 16px">No completed sessions yet — data will appear as users visit and leave</div>'
+        }
+      </div>
+
+      <!-- Active Users Table -->
+      ${
+        sessionStats.activeSessions.length > 0
+          ? `
+      <div class="api-section">
+        <div class="api-title">
+          <span>🟢 Active Users (${sessionStats.concurrent})</span>
+          <span style="color: #888; font-size: 0.75rem">${sessionStats.peakConcurrentTime ? 'Peak: ' + sessionStats.peakConcurrent + ' at ' + new Date(sessionStats.peakConcurrentTime).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+        </div>
+        <table class="api-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th style="text-align: right">Session Duration</th>
+              <th style="text-align: right">Requests</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sessionStats.activeSessions
+              .map(
+                (s, i) => `
+              <tr>
+                <td style="color: #888">${i + 1}</td>
+                <td style="text-align: right; color: #00ff88; font-weight: 600">${s.durationFormatted}</td>
+                <td style="text-align: right">${s.requests}</td>
+              </tr>
+            `,
+              )
+              .join('')}
+          </tbody>
+        </table>
+      </div>
+      `
+          : ''
+      }
+
+      <div class="chart-section">
+        <div class="chart-title">
+          <span>📈 Visitor Trend (${chartData.length} days)</span>
+          <span class="chart-growth" style="color: ${growthColor}">${growthIcon} ${growth > 0 ? '+' : ''}${growth}% week/week</span>
+        </div>
+        <div class="chart">
+          ${bars || '<div style="color: #666; text-align: center; width: 100%;">No historical data yet</div>'}
+        </div>
+      </div>
+
+      <div class="info-section">
+        <div class="info-row">
+          <span class="info-label">Tracking Since</span>
+          <span class="info-value">${new Date(visitorStats.serverFirstStarted).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Days Tracked</span>
+          <span class="info-value">${trackingDays} days</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Deployment Count</span>
+          <span class="info-value">#${visitorStats.deploymentCount}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Last Deployment</span>
+          <span class="info-value">${new Date(visitorStats.lastDeployment).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Total Requests</span>
+          <span class="info-value">${visitorStats.allTimeRequests.toLocaleString()}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Persistence</span>
+          <span class="info-value" style="color: ${STATS_FILE ? '#00ff88' : '#ff4466'}">${STATS_FILE ? '✓ Working' : '✗ Memory Only'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Stats Location</span>
+          <span class="info-value" style="font-size: 0.75rem; color: #888">${STATS_FILE || 'Memory only (no writable storage)'}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Last Saved</span>
+          <span class="info-value">${visitorStats.lastSaved ? new Date(visitorStats.lastSaved).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not yet'}</span>
+        </div>
+      </div>
+
+
+      <div class="api-section">
+        <div class="api-title">
+          <span>📊 API Traffic Monitor</span>
+          <span style="color: #888; font-size: 0.75rem">Since last restart (${apiStats.uptimeHours}h ago)</span>
+        </div>
+
+        <div class="api-summary">
+          <div class="api-stat">
+            <div class="api-stat-value">${apiStats.totalRequests.toLocaleString()}</div>
+            <div class="api-stat-label">Total Requests</div>
+          </div>
+          <div class="api-stat">
+            <div class="api-stat-value">${formatBytes(apiStats.totalBytes)}</div>
+            <div class="api-stat-label">Total Egress</div>
+          </div>
+          <div class="api-stat">
+            <div class="api-stat-value" style="color: ${parseFloat(estimatedMonthlyGB) > 100 ? '#ff4466' : '#00ff88'}">${estimatedMonthlyGB} GB</div>
+            <div class="api-stat-label">Est. Monthly</div>
+          </div>
+          <div class="api-stat">
+            <div class="api-stat-value">${apiStats.endpoints.length}</div>
+            <div class="api-stat-label">Active Endpoints</div>
+          </div>
+        </div>
+
+        ${
+          apiStats.endpoints.length > 0
+            ? `
+        <table class="api-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Endpoint</th>
+              <th style="text-align: right">Requests</th>
+              <th style="text-align: right">Rate</th>
+              <th style="text-align: right">Total</th>
+              <th style="text-align: right">Avg Size</th>
+              <th style="text-align: right">Avg Time</th>
+              <th>Bandwidth</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${apiTableRows}
+          </tbody>
+        </table>
+        `
+            : '<div style="color: #666; text-align: center; padding: 20px">No API requests recorded yet</div>'
+        }
+      </div>
+
+      <div class="api-section">
+        <h2>🔗 Upstream Services</h2>
+        <table>
+          <thead><tr><th>Service</th><th>Status</th><th>Backoff</th><th>Consecutive Failures</th><th>In-Flight</th></tr></thead>
+          <tbody>
+            ${['pskreporter']
+              .map((svc) => {
+                const backedOff = upstream.isBackedOff(svc);
+                const remaining = upstream.backoffRemaining(svc);
+                const consecutive = upstream.backoffs.get(svc)?.consecutive || 0;
+                const prefix = svc === 'pskreporter' ? ['psk:', 'wspr:'] : ['weather:'];
+                const inFlight = [...upstream.inFlight.keys()].filter((k) =>
+                  prefix.some((p) => k.startsWith(p)),
+                ).length;
+                const label = 'PSKReporter (WSPR Heatmap)';
+                return `<tr>
+                <td>${label}</td>
+                <td style="color: ${backedOff ? '#ff4444' : '#00ff88'}">${backedOff ? '⛔ Backoff' : '✅ OK'}</td>
+                <td>${backedOff ? remaining + 's' : '—'}</td>
+                <td>${consecutive || '—'}</td>
+                <td>${inFlight}</td>
+              </tr>`;
               })
               .join('')}
-          </div>
-        `;
-            })()
-          : '<div style="color: #666; text-align: center; padding: 16px">No completed sessions yet — data will appear as users visit and leave</div>'
-      }
-    </div>
+          </tbody>
+        </table>
+        <p style="font-size: 11px; color: #888; margin-top: 8px">
+          Weather: client-direct (Open-Meteo, per-user rate limits) · In-flight deduped: ${upstream.inFlight.size}
+        </p>
 
-    <!-- Active Users Table -->
-    ${
-      sessionStats.activeSessions.length > 0
-        ? `
-    <div class="api-section">
-      <div class="api-title">
-        <span>🟢 Active Users (${sessionStats.concurrent})</span>
-        <span style="color: #888; font-size: 0.75rem">${sessionStats.peakConcurrentTime ? 'Peak: ' + sessionStats.peakConcurrent + ' at ' + new Date(sessionStats.peakConcurrentTime).toLocaleString('en-US', { hour: '2-digit', minute: '2-digit' }) : ''}</span>
+        <h2>📡 PSKReporter MQTT Proxy</h2>
+        <table>
+          <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td>Broker Connection</td><td style="color: ${pskMqtt.connected ? '#00ff88' : '#ff4444'}">${pskMqtt.connected ? '✅ Connected' : '⛔ Disconnected'}</td></tr>
+            <tr><td>Active Callsigns</td><td>${pskMqtt.subscribedCalls.size}</td></tr>
+            <tr><td>SSE Clients</td><td>${[...pskMqtt.subscribers.values()].reduce((n, s) => n + s.size, 0)}</td></tr>
+            <tr><td>Spots Received</td><td>${pskMqtt.stats.spotsReceived.toLocaleString()}</td></tr>
+            <tr><td>Spots Relayed</td><td>${pskMqtt.stats.spotsRelayed.toLocaleString()}</td></tr>
+            <tr><td>Messages Dropped</td><td>${pskMqtt.stats.messagesDropped}</td></tr>
+            <tr><td>Buffered Spots</td><td>${[...pskMqtt.spotBuffer.values()].reduce((n, b) => n + b.length, 0)}</td></tr>
+            <tr><td>Recent Spots Cache</td><td>${[...pskMqtt.recentSpots.values()].reduce((n, s) => n + s.length, 0)}</td></tr>
+            <tr><td>Last Spot</td><td>${pskMqtt.stats.lastSpotTime ? new Date(pskMqtt.stats.lastSpotTime).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—'}</td></tr>
+          </tbody>
+        </table>
+        ${pskMqtt.subscribedCalls.size > 0 ? `<p style="font-size: 11px; color: #888; margin-top: 8px">Subscribed: ${[...pskMqtt.subscribedCalls].join(', ')}</p>` : ''}
       </div>
-      <table class="api-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th style="text-align: right">Session Duration</th>
-            <th style="text-align: right">Requests</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${sessionStats.activeSessions
-            .map(
-              (s, i) => `
-            <tr>
-              <td style="color: #888">${i + 1}</td>
-              <td style="text-align: right; color: #00ff88; font-weight: 600">${s.durationFormatted}</td>
-              <td style="text-align: right">${s.requests}</td>
-            </tr>
-          `,
-            )
-            .join('')}
-        </tbody>
-      </table>
-    </div>
+
     `
         : ''
     }
-
-    <div class="chart-section">
-      <div class="chart-title">
-        <span>📈 Visitor Trend (${chartData.length} days)</span>
-        <span class="chart-growth" style="color: ${growthColor}">${growthIcon} ${growth > 0 ? '+' : ''}${growth}% week/week</span>
-      </div>
-      <div class="chart">
-        ${bars || '<div style="color: #666; text-align: center; width: 100%;">No historical data yet</div>'}
-      </div>
-    </div>
-
-    <div class="info-section">
-      <div class="info-row">
-        <span class="info-label">Tracking Since</span>
-        <span class="info-value">${new Date(visitorStats.serverFirstStarted).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Days Tracked</span>
-        <span class="info-value">${trackingDays} days</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Deployment Count</span>
-        <span class="info-value">#${visitorStats.deploymentCount}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Last Deployment</span>
-        <span class="info-value">${new Date(visitorStats.lastDeployment).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Total Requests</span>
-        <span class="info-value">${visitorStats.allTimeRequests.toLocaleString()}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Persistence</span>
-        <span class="info-value" style="color: ${STATS_FILE ? '#00ff88' : '#ff4466'}">${STATS_FILE ? '✓ Working' : '✗ Memory Only'}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Stats Location</span>
-        <span class="info-value" style="font-size: 0.75rem; color: #888">${STATS_FILE || 'Memory only (no writable storage)'}</span>
-      </div>
-      <div class="info-row">
-        <span class="info-label">Last Saved</span>
-        <span class="info-value">${visitorStats.lastSaved ? new Date(visitorStats.lastSaved).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Not yet'}</span>
-      </div>
-    </div>
-
-
-    <div class="api-section">
-      <div class="api-title">
-        <span>📊 API Traffic Monitor</span>
-        <span style="color: #888; font-size: 0.75rem">Since last restart (${apiStats.uptimeHours}h ago)</span>
-      </div>
-
-      <div class="api-summary">
-        <div class="api-stat">
-          <div class="api-stat-value">${apiStats.totalRequests.toLocaleString()}</div>
-          <div class="api-stat-label">Total Requests</div>
-        </div>
-        <div class="api-stat">
-          <div class="api-stat-value">${formatBytes(apiStats.totalBytes)}</div>
-          <div class="api-stat-label">Total Egress</div>
-        </div>
-        <div class="api-stat">
-          <div class="api-stat-value" style="color: ${parseFloat(estimatedMonthlyGB) > 100 ? '#ff4466' : '#00ff88'}">${estimatedMonthlyGB} GB</div>
-          <div class="api-stat-label">Est. Monthly</div>
-        </div>
-        <div class="api-stat">
-          <div class="api-stat-value">${apiStats.endpoints.length}</div>
-          <div class="api-stat-label">Active Endpoints</div>
-        </div>
-      </div>
-
-      ${
-        apiStats.endpoints.length > 0
-          ? `
-      <table class="api-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>Endpoint</th>
-            <th style="text-align: right">Requests</th>
-            <th style="text-align: right">Rate</th>
-            <th style="text-align: right">Total</th>
-            <th style="text-align: right">Avg Size</th>
-            <th style="text-align: right">Avg Time</th>
-            <th>Bandwidth</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${apiTableRows}
-        </tbody>
-      </table>
-      `
-          : '<div style="color: #666; text-align: center; padding: 20px">No API requests recorded yet</div>'
-      }
-    </div>
-
-    <div class="api-section">
-      <h2>🔗 Upstream Services</h2>
-      <table>
-        <thead><tr><th>Service</th><th>Status</th><th>Backoff</th><th>Consecutive Failures</th><th>In-Flight</th></tr></thead>
-        <tbody>
-          ${['pskreporter']
-            .map((svc) => {
-              const backedOff = upstream.isBackedOff(svc);
-              const remaining = upstream.backoffRemaining(svc);
-              const consecutive = upstream.backoffs.get(svc)?.consecutive || 0;
-              const prefix = svc === 'pskreporter' ? ['psk:', 'wspr:'] : ['weather:'];
-              const inFlight = [...upstream.inFlight.keys()].filter((k) => prefix.some((p) => k.startsWith(p))).length;
-              const label = 'PSKReporter (WSPR Heatmap)';
-              return `<tr>
-              <td>${label}</td>
-              <td style="color: ${backedOff ? '#ff4444' : '#00ff88'}">${backedOff ? '⛔ Backoff' : '✅ OK'}</td>
-              <td>${backedOff ? remaining + 's' : '—'}</td>
-              <td>${consecutive || '—'}</td>
-              <td>${inFlight}</td>
-            </tr>`;
-            })
-            .join('')}
-        </tbody>
-      </table>
-      <p style="font-size: 11px; color: #888; margin-top: 8px">
-        Weather: client-direct (Open-Meteo, per-user rate limits) · In-flight deduped: ${upstream.inFlight.size}
-      </p>
-
-      <h2>📡 PSKReporter MQTT Proxy</h2>
-      <table>
-        <thead><tr><th>Metric</th><th>Value</th></tr></thead>
-        <tbody>
-          <tr><td>Broker Connection</td><td style="color: ${pskMqtt.connected ? '#00ff88' : '#ff4444'}">${pskMqtt.connected ? '✅ Connected' : '⛔ Disconnected'}</td></tr>
-          <tr><td>Active Callsigns</td><td>${pskMqtt.subscribedCalls.size}</td></tr>
-          <tr><td>SSE Clients</td><td>${[...pskMqtt.subscribers.values()].reduce((n, s) => n + s.size, 0)}</td></tr>
-          <tr><td>Spots Received</td><td>${pskMqtt.stats.spotsReceived.toLocaleString()}</td></tr>
-          <tr><td>Spots Relayed</td><td>${pskMqtt.stats.spotsRelayed.toLocaleString()}</td></tr>
-          <tr><td>Messages Dropped</td><td>${pskMqtt.stats.messagesDropped}</td></tr>
-          <tr><td>Buffered Spots</td><td>${[...pskMqtt.spotBuffer.values()].reduce((n, b) => n + b.length, 0)}</td></tr>
-          <tr><td>Recent Spots Cache</td><td>${[...pskMqtt.recentSpots.values()].reduce((n, s) => n + s.length, 0)}</td></tr>
-          <tr><td>Last Spot</td><td>${pskMqtt.stats.lastSpotTime ? new Date(pskMqtt.stats.lastSpotTime).toISOString().replace('T', ' ').slice(0, 19) + ' UTC' : '—'}</td></tr>
-        </tbody>
-      </table>
-      ${pskMqtt.subscribedCalls.size > 0 ? `<p style="font-size: 11px; color: #888; margin-top: 8px">Subscribed: ${[...pskMqtt.subscribedCalls].join(', ')}</p>` : ''}
-    </div>
 
     <div class="footer">
       <div>🔧 Built with ❤️ for Amateur Radio</div>
@@ -771,81 +782,87 @@ module.exports = function (app, ctx) {
         uptime: process.uptime(),
         uptimeFormatted: `${Math.floor(process.uptime() / 86400)}d ${Math.floor((process.uptime() % 86400) / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m`,
         timestamp: new Date().toISOString(),
-        // SECURITY: Only expose file paths and detailed internals to authenticated requests
-        persistence: isAuthed
+
+        // everything after this point is not output unless (isAuthed === true)
+        ...(isAuthed
           ? {
-              enabled: !!STATS_FILE,
-              file: STATS_FILE || null,
-              lastSaved: visitorStats.lastSaved,
+              // SECURITY: Only expose file paths and detailed internals to authenticated requests
+              persistence: isAuthed
+                ? {
+                    enabled: !!STATS_FILE,
+                    file: STATS_FILE || null,
+                    lastSaved: visitorStats.lastSaved,
+                  }
+                : { enabled: !!STATS_FILE },
+              // SECURITY: Session details include partially anonymized IPs — only expose to authenticated requests.
+              // Unauthenticated requests get aggregate counts only.
+              sessions: isAuthed
+                ? sessionTracker.getStats()
+                : { concurrent: sessionTracker.activeSessions.size, peakConcurrent: sessionTracker.peakConcurrent },
+              visitors: {
+                today: {
+                  date: visitorStats.today,
+                  uniqueVisitors: visitorStats.uniqueVisitorsToday,
+                  totalRequests: visitorStats.totalRequestsToday,
+                },
+                allTime: {
+                  since: visitorStats.serverFirstStarted,
+                  uniqueVisitors: visitorStats.allTimeVisitors,
+                  totalRequests: visitorStats.allTimeRequests,
+                  deployments: visitorStats.deploymentCount,
+                },
+                dailyAverage: avg,
+                history: visitorStats.history.slice(-30),
+              },
+              apiTraffic: {
+                monitoringStarted: new Date(endpointStats.startTime).toISOString(),
+                uptimeHours: apiStats.uptimeHours,
+                totalRequests: apiStats.totalRequests,
+                totalBytes: apiStats.totalBytes,
+                totalBytesFormatted: formatBytes(apiStats.totalBytes),
+                estimatedMonthlyGB: (
+                  ((apiStats.totalBytes / parseFloat(apiStats.uptimeHours)) * 24 * 30) /
+                  (1024 * 1024 * 1024)
+                ).toFixed(2),
+                endpoints: apiStats.endpoints.slice(0, 20), // Top 20 by bandwidth
+              },
+              upstream: {
+                pskreporter: {
+                  status: upstream.isBackedOff('pskreporter') ? 'backoff' : 'ok',
+                  backoffRemaining: upstream.backoffRemaining('pskreporter'),
+                  consecutive: upstream.backoffs.get('pskreporter')?.consecutive || 0,
+                  inFlightRequests: [...upstream.inFlight.keys()].filter((k) => k.startsWith('psk:')).length,
+                },
+                wspr: {
+                  status: upstream.isBackedOff('wspr') ? 'backoff' : 'ok',
+                  backoffRemaining: upstream.backoffRemaining('wspr'),
+                  consecutive: upstream.backoffs.get('wspr')?.consecutive || 0,
+                  inFlightRequests: [...upstream.inFlight.keys()].filter((k) => k.startsWith('wspr:')).length,
+                },
+                weather: {
+                  status: 'client-direct',
+                  note: 'All weather fetched directly by user browsers from Open-Meteo (per-user rate limits)',
+                },
+                totalInFlight: upstream.inFlight.size,
+                pskMqttProxy: {
+                  connected: pskMqtt.connected,
+                  // SECURITY: Only expose active callsigns to authenticated requests
+                  activeCallsigns: isAuthed ? [...pskMqtt.subscribedCalls] : pskMqtt.subscribedCalls.size,
+                  sseClients: [...pskMqtt.subscribers.values()].reduce((n, s) => n + s.size, 0),
+                  spotsReceived: pskMqtt.stats.spotsReceived,
+                  spotsRelayed: pskMqtt.stats.spotsRelayed,
+                  messagesDropped: pskMqtt.stats.messagesDropped,
+                  bufferedSpots: [...pskMqtt.spotBuffer.values()].reduce((n, b) => n + b.length, 0),
+                  recentSpotsCache: [...pskMqtt.recentSpots.values()].reduce((n, s) => n + s.length, 0),
+                  lastSpotTime: pskMqtt.stats.lastSpotTime ? new Date(pskMqtt.stats.lastSpotTime).toISOString() : null,
+                },
+              },
             }
-          : { enabled: !!STATS_FILE },
-        // SECURITY: Session details include partially anonymized IPs — only expose to authenticated requests.
-        // Unauthenticated requests get aggregate counts only.
-        sessions: isAuthed
-          ? sessionTracker.getStats()
-          : { concurrent: sessionTracker.activeSessions.size, peakConcurrent: sessionTracker.peakConcurrent },
-        visitors: {
-          today: {
-            date: visitorStats.today,
-            uniqueVisitors: visitorStats.uniqueVisitorsToday,
-            totalRequests: visitorStats.totalRequestsToday,
-          },
-          allTime: {
-            since: visitorStats.serverFirstStarted,
-            uniqueVisitors: visitorStats.allTimeVisitors,
-            totalRequests: visitorStats.allTimeRequests,
-            deployments: visitorStats.deploymentCount,
-          },
-          dailyAverage: avg,
-          history: visitorStats.history.slice(-30),
-        },
-        apiTraffic: {
-          monitoringStarted: new Date(endpointStats.startTime).toISOString(),
-          uptimeHours: apiStats.uptimeHours,
-          totalRequests: apiStats.totalRequests,
-          totalBytes: apiStats.totalBytes,
-          totalBytesFormatted: formatBytes(apiStats.totalBytes),
-          estimatedMonthlyGB: (
-            ((apiStats.totalBytes / parseFloat(apiStats.uptimeHours)) * 24 * 30) /
-            (1024 * 1024 * 1024)
-          ).toFixed(2),
-          endpoints: apiStats.endpoints.slice(0, 20), // Top 20 by bandwidth
-        },
-        upstream: {
-          pskreporter: {
-            status: upstream.isBackedOff('pskreporter') ? 'backoff' : 'ok',
-            backoffRemaining: upstream.backoffRemaining('pskreporter'),
-            consecutive: upstream.backoffs.get('pskreporter')?.consecutive || 0,
-            inFlightRequests: [...upstream.inFlight.keys()].filter((k) => k.startsWith('psk:')).length,
-          },
-          wspr: {
-            status: upstream.isBackedOff('wspr') ? 'backoff' : 'ok',
-            backoffRemaining: upstream.backoffRemaining('wspr'),
-            consecutive: upstream.backoffs.get('wspr')?.consecutive || 0,
-            inFlightRequests: [...upstream.inFlight.keys()].filter((k) => k.startsWith('wspr:')).length,
-          },
-          weather: {
-            status: 'client-direct',
-            note: 'All weather fetched directly by user browsers from Open-Meteo (per-user rate limits)',
-          },
-          totalInFlight: upstream.inFlight.size,
-          pskMqttProxy: {
-            connected: pskMqtt.connected,
-            // SECURITY: Only expose active callsigns to authenticated requests
-            activeCallsigns: isAuthed ? [...pskMqtt.subscribedCalls] : pskMqtt.subscribedCalls.size,
-            sseClients: [...pskMqtt.subscribers.values()].reduce((n, s) => n + s.size, 0),
-            spotsReceived: pskMqtt.stats.spotsReceived,
-            spotsRelayed: pskMqtt.stats.spotsRelayed,
-            messagesDropped: pskMqtt.stats.messagesDropped,
-            bufferedSpots: [...pskMqtt.spotBuffer.values()].reduce((n, b) => n + b.length, 0),
-            recentSpotsCache: [...pskMqtt.recentSpots.values()].reduce((n, s) => n + s.length, 0),
-            lastSpotTime: pskMqtt.stats.lastSpotTime ? new Date(pskMqtt.stats.lastSpotTime).toISOString() : null,
-          },
-        },
+          : {}), // nothing if (isAuthed === false)
       });
     } else {
       // HTML dashboard for browsers
-      res.type('html').send(generateStatusDashboard());
+      res.type('html').send(generateStatusDashboard(isAuthed));
     }
   });
 
