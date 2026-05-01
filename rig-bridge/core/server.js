@@ -1007,6 +1007,11 @@ function buildSetupHtml(version, firstRunToken = null) {
         { id: 'pushInterval', label: 'Push Interval (ms)', type: 'number', default: 2000 },
         { id: 'pollInterval', label: 'Poll Interval (ms)', type: 'number', default: 1000 },
       ]},
+      { key: 'meshcom', name: 'MeshCom UDP', maturity: 'beta', desc: 'Receive MeshCom LoRa mesh node positions, messages and telemetry via UDP JSON (port 1799)', fields: [
+        { id: 'bindPort', label: 'UDP Listen Port', type: 'number', default: 1799 },
+        { id: 'bindHost', label: 'Bind Address', type: 'text', default: '0.0.0.0' },
+        { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
+      ]},
     ];
 
     function maturityBadge(level) {
@@ -2185,7 +2190,7 @@ function createServer(registry, version) {
       config.rtltcp = { ...config.rtltcp, ...newConfig.rtltcp };
     }
     // Deep-merge plugin config sections
-    for (const key of ['mshv', 'jtdx', 'js8call', 'aprs', 'rotator', 'cloudRelay', 'winlink']) {
+    for (const key of ['mshv', 'jtdx', 'js8call', 'aprs', 'rotator', 'cloudRelay', 'winlink', 'meshcom']) {
       if (newConfig[key]) {
         config[key] = { ...(config[key] || {}), ...newConfig[key] };
         // Handle nested objects (e.g. winlink.pat)

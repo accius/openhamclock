@@ -63,6 +63,7 @@ class PluginRegistry {
       'jtdx',
       'js8call',
       'aprs-tnc',
+      'meshcom-udp',
       'winlink-gateway',
       'rotator',
       'cloud-relay',

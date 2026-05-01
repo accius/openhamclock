@@ -69,6 +69,7 @@ const descriptor = {
     let lastState = {};
     let pendingDecodes = []; // Batched decodes to push
     let pendingAprs = []; // Batched APRS packets to push
+    let pendingMeshCom = []; // Batched MeshCom packets to push
 
     function makeRequest(urlStr, method, body, callback, timeoutMs) {
       let parsed;
@@ -124,6 +125,7 @@ const descriptor = {
 
       const hasDecodes = pendingDecodes.length > 0;
       const hasAprs = pendingAprs.length > 0;
+      const hasMeshCom = pendingMeshCom.length > 0;
       const stateChanged =
         currentState.freq !== lastState.freq ||
         currentState.mode !== lastState.mode ||
@@ -131,7 +133,7 @@ const descriptor = {
         currentState.connected !== lastState.connected;
 
       // Only push if state changed or there's data to send
-      if (!stateChanged && !hasDecodes && !hasAprs) return;
+      if (!stateChanged && !hasDecodes && !hasAprs && !hasMeshCom) return;
       lastState = { ...currentState };
 
       // Include batched data in the push
@@ -142,6 +144,9 @@ const descriptor = {
       }
       if (hasAprs) {
         payload.aprsPackets = pendingAprs.splice(0, 50);
+      }
+      if (hasMeshCom) {
+        payload.meshcomPackets = pendingMeshCom.splice(0, 50);
       }
 
       makeRequest(`${serverUrl}/api/rig-bridge/relay/state`, 'POST', payload, (err, status) => {
@@ -330,7 +335,11 @@ const descriptor = {
           pendingAprs.push(packet);
           if (pendingAprs.length > 200) pendingAprs.splice(0, pendingAprs.length - 200);
         });
-        console.log('[CloudRelay] Subscribed to plugin bus (decodes, APRS, status, QSOs)');
+        pluginBus.on('meshcom', (packet) => {
+          pendingMeshCom.push(packet);
+          if (pendingMeshCom.length > 200) pendingMeshCom.splice(0, pendingMeshCom.length - 200);
+        });
+        console.log('[CloudRelay] Subscribed to plugin bus (decodes, APRS, MeshCom)');
       }
     }
 

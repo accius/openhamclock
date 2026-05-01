@@ -237,3 +237,11 @@ pluginBus.on('decode-update', (msg) => {
 pluginBus.on('aprs', (pkt) => {
   broadcast({ type: 'plugin', event: 'aprs', source: 'aprs-tnc', data: pkt });
 });
+
+pluginBus.on('meshcom', (pkt) => {
+  // Bridge MeshCom packets to the SSE /stream for browsers in local/direct mode.
+  // In cloud relay mode, cloud-relay.js batches and POSTs these to the OHC server
+  // instead. Both paths use the same { type:'plugin', event:'meshcom' } envelope
+  // so useMeshCom's window event listener handles both transparently.
+  broadcast({ type: 'plugin', event: 'meshcom', source: 'meshcom-udp', data: pkt });
+});

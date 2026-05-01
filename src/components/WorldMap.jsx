@@ -13,7 +13,7 @@ import {
   replicatePath,
   replicatePoint,
 } from '../utils/geo.js';
-import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
+import { getBandColor, getBandFromFreq, primaryCall } from '../utils/callsign.js';
 import {
   BAND_LEGEND_ORDER,
   getBandColorForBand,
@@ -127,6 +127,8 @@ export const WorldMap = ({
   showAPRS,
   aprsStations,
   aprsWatchlistCalls,
+  showMeshCom,
+  meshcomNodes,
   onSpotClick,
   hoveredSpot,
   callsign = 'N0CALL',
@@ -162,6 +164,7 @@ export const WorldMap = ({
   const pskMarkersRef = useRef([]);
   const wsjtxMarkersRef = useRef([]);
   const aprsMarkersRef = useRef([]);
+  const meshcomMarkersRef = useRef([]);
   const countriesLayerRef = useRef([]);
   const dxLockedRef = useRef(dxLocked);
   const pinnedPopupRef = useRef({ marker: null, timer: null });
@@ -2113,6 +2116,93 @@ export const WorldMap = ({
       });
     }
   }, [aprsStations, showAPRS, aprsWatchlistCalls]);
+
+  // Update MeshCom node markers
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
+    const map = mapInstanceRef.current;
+
+    meshcomMarkersRef.current.forEach((m) => map.removeLayer(m));
+    meshcomMarkersRef.current = [];
+
+    if (showMeshCom && meshcomNodes && meshcomNodes.length > 0) {
+      meshcomNodes.forEach((node) => {
+        // Coordinates must be finite numbers — 0 is a valid position
+        if (!Number.isFinite(node.lat) || !Number.isFinite(node.lon)) return;
+
+        const isAged = (node.ageMin ?? 0) > 30;
+        // Brand crimson when fresh, grey when aged >30 min
+        const nodeColor = isAged ? '#6b7280' : '#8B1A2A';
+
+        // MeshCom logo — mesh network icon matching the official brand mark.
+        // White disc background ensures visibility on any map tile colour.
+        // Centre: (12,12), outer radius 7.5, outer node r 2.2, centre node r 3.8
+        const iconHtml = `<svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="12" cy="12" r="11.5" fill="white" fill-opacity="0.88" stroke="${nodeColor}" stroke-width="0.6"/>
+          <line x1="12" y1="4.5"  x2="18.5" y2="8.25"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="18.5" y1="8.25"  x2="18.5" y2="15.75" stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="18.5" y1="15.75" x2="12"   y2="19.5"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12"   y1="19.5"  x2="5.5"  y2="15.75" stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="5.5"  y1="15.75" x2="5.5"  y2="8.25"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="5.5"  y1="8.25"  x2="12"   y2="4.5"   stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="12"   y2="4.5"   stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="18.5" y2="8.25"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="18.5" y2="15.75" stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="12"   y2="19.5"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="5.5"  y2="15.75" stroke="${nodeColor}" stroke-width="1.3"/>
+          <line x1="12" y1="12" x2="5.5"  y2="8.25"  stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="12"  cy="4.5"  r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="18.5" cy="8.25"  r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="18.5" cy="15.75" r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="12"  cy="19.5" r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="5.5" cy="15.75" r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="5.5" cy="8.25"  r="2.2" fill="white" stroke="${nodeColor}" stroke-width="1.3"/>
+          <circle cx="12" cy="12" r="3.8" fill="${nodeColor}"/>
+        </svg>`;
+
+        const ageStr =
+          (node.ageMin ?? 0) < 1
+            ? 'now'
+            : (node.ageMin ?? 0) < 60
+              ? `${node.ageMin}m ago`
+              : `${Math.floor((node.ageMin ?? 0) / 60)}h ago`;
+
+        const battLine = node.batt != null ? `${t('meshcomPanel.mapPopupBattery')} ${Math.round(node.batt)}%<br>` : '';
+        const altLine = node.alt != null ? `${t('meshcomPanel.mapPopupAlt')} ${Math.round(node.alt)}m<br>` : '';
+        const wxLine =
+          node.weather?.tempC != null
+            ? `${node.weather.tempC.toFixed(1)}°C ${node.weather.humidity != null ? node.weather.humidity.toFixed(0) + '% ' : ''}${node.weather.pressureHpa != null ? node.weather.pressureHpa.toFixed(0) + 'hPa' : ''}<br>`
+            : '';
+
+        try {
+          replicatePoint(node.lat, node.lon).forEach(([rLat, rLon]) => {
+            const marker = L.marker([rLat, rLon], {
+              icon: L.divIcon({
+                className: '',
+                html: iconHtml,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+              }),
+              zIndexOffset: 1200,
+            });
+
+            marker
+              .bindPopup(
+                `<b style="color:#2dd4bf">${esc(primaryCall(node.call))}</b><br>
+                <span style="color:#888;font-size:11px">${t('meshcomPanel.mapPopupAge', { age: ageStr })}</span><br>
+                ${battLine}${altLine}${wxLine}
+                ${node.firmware ? `<span style="font-size:10px;color:#aaa">${t('meshcomPanel.mapPopupFirmware')} ${esc(node.firmware)}</span>` : ''}`,
+              )
+              .addTo(map);
+
+            meshcomMarkersRef.current.push(marker);
+          });
+        } catch {
+          // skip bad node
+        }
+      });
+    }
+  }, [meshcomNodes, showMeshCom, t]);
 
   const openBandColorEditor = (band) => {
     setEditingBand(band);

@@ -23,6 +23,7 @@ export { useSolarIndices } from './useSolarIndices.js';
 export { usePSKReporter } from './usePSKReporter.js';
 export { useWSJTX } from './useWSJTX.js';
 export { useAPRS } from './useAPRS.js';
+export { useMeshCom } from './useMeshCom.js';
 export { useEmcommData } from './useEmcommData.js';
 export { useAmbientWeather } from './useAmbientWeather.js';
 export { useBandHealth } from './useBandHealth.js';
