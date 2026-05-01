@@ -24,7 +24,7 @@
  *   pushInterval:   number   State push interval in ms (default: 2000)
  *   relayRig:       boolean  Relay rig state (default: true)
  *   relayWsjtx:     boolean  Relay WSJT-X decodes (default: true)
- *   relayAprs:      boolean  Relay APRS packets (default: false)
+ *   relayAprs:      boolean  Relay APRS packets (default: true)
  *   verbose:        boolean  Log all relay activity (default: false)
  */
 
@@ -154,8 +154,10 @@ const descriptor = {
           if (serverReachable) console.error(`[CloudRelay] Push error: ${err.message}`);
           serverReachable = false;
           consecutiveErrors++;
-          // Put decodes back if push failed
+          // Restore all batched data so it is retried on the next push cycle
           if (payload.decodes) pendingDecodes.unshift(...payload.decodes);
+          if (payload.aprsPackets) pendingAprs.unshift(...payload.aprsPackets);
+          if (payload.meshcomPackets) pendingMeshCom.unshift(...payload.meshcomPackets);
           return;
         }
         if (status === 200) {
@@ -316,30 +318,46 @@ const descriptor = {
       // or the 28 s window expires, so commands are delivered within ~RTT.
       longPollCommands();
 
-      // Subscribe to plugin bus — batch decodes and APRS packets for push
+      // Subscribe to plugin bus — batch decodes, APRS, and MeshCom packets for push.
+      // cfg.relayWsjtx and cfg.relayAprs default to true to preserve existing behaviour.
+      // cfg.relayMeshCom defaults to true.
       if (pluginBus) {
-        pluginBus.on('decode', (msg) => {
-          pendingDecodes.push({
-            source: msg.source,
-            message: msg.message,
-            snr: msg.snr,
-            deltaFreq: msg.deltaFreq,
-            mode: msg.mode,
-            time: msg.time?.formatted,
-            timestamp: msg.timestamp,
+        const relayWsjtx = cfg.relayWsjtx !== false;
+        const relayAprs = cfg.relayAprs !== false;
+        const relayMeshCom = cfg.relayMeshCom !== false;
+        const subscribed = [];
+
+        if (relayWsjtx) {
+          pluginBus.on('decode', (msg) => {
+            pendingDecodes.push({
+              source: msg.source,
+              message: msg.message,
+              snr: msg.snr,
+              deltaFreq: msg.deltaFreq,
+              mode: msg.mode,
+              time: msg.time?.formatted,
+              timestamp: msg.timestamp,
+            });
+            // Cap pending queue
+            if (pendingDecodes.length > 200) pendingDecodes.splice(0, pendingDecodes.length - 200);
           });
-          // Cap pending queue
-          if (pendingDecodes.length > 200) pendingDecodes.splice(0, pendingDecodes.length - 200);
-        });
-        pluginBus.on('aprs', (packet) => {
-          pendingAprs.push(packet);
-          if (pendingAprs.length > 200) pendingAprs.splice(0, pendingAprs.length - 200);
-        });
-        pluginBus.on('meshcom', (packet) => {
-          pendingMeshCom.push(packet);
-          if (pendingMeshCom.length > 200) pendingMeshCom.splice(0, pendingMeshCom.length - 200);
-        });
-        console.log('[CloudRelay] Subscribed to plugin bus (decodes, APRS, MeshCom)');
+          subscribed.push('WSJT-X');
+        }
+        if (relayAprs) {
+          pluginBus.on('aprs', (packet) => {
+            pendingAprs.push(packet);
+            if (pendingAprs.length > 200) pendingAprs.splice(0, pendingAprs.length - 200);
+          });
+          subscribed.push('APRS');
+        }
+        if (relayMeshCom) {
+          pluginBus.on('meshcom', (packet) => {
+            pendingMeshCom.push(packet);
+            if (pendingMeshCom.length > 200) pendingMeshCom.splice(0, pendingMeshCom.length - 200);
+          });
+          subscribed.push('MeshCom');
+        }
+        console.log(`[CloudRelay] Subscribed to plugin bus (${subscribed.join(', ')})`);
       }
     }
 

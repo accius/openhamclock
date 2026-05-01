@@ -2130,7 +2130,10 @@ export const WorldMap = ({
         // Coordinates must be finite numbers — 0 is a valid position
         if (!Number.isFinite(node.lat) || !Number.isFinite(node.lon)) return;
 
-        const isAged = (node.ageMin ?? 0) > 30;
+        // Compute age at render time so SSE-delivered nodes age correctly in
+        // local/direct mode where polling returns no server-side ageMin.
+        const ageMin = Math.max(0, Math.floor((Date.now() - (node.timestamp ?? 0)) / 60_000));
+        const isAged = ageMin > 30;
         // Brand crimson when fresh, grey when aged >30 min
         const nodeColor = isAged ? '#6b7280' : '#8B1A2A';
 
@@ -2160,12 +2163,7 @@ export const WorldMap = ({
           <circle cx="12" cy="12" r="3.8" fill="${nodeColor}"/>
         </svg>`;
 
-        const ageStr =
-          (node.ageMin ?? 0) < 1
-            ? 'now'
-            : (node.ageMin ?? 0) < 60
-              ? `${node.ageMin}m ago`
-              : `${Math.floor((node.ageMin ?? 0) / 60)}h ago`;
+        const ageStr = ageMin < 1 ? 'now' : ageMin < 60 ? `${ageMin}m ago` : `${Math.floor(ageMin / 60)}h ago`;
 
         const battLine = node.batt != null ? `${t('meshcomPanel.mapPopupBattery')} ${Math.round(node.batt)}%<br>` : '';
         const altLine = node.alt != null ? `${t('meshcomPanel.mapPopupAlt')} ${Math.round(node.alt)}m<br>` : '';

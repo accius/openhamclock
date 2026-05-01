@@ -94,6 +94,7 @@ const descriptor = {
     let running = false;
     let packetsRx = 0;
     let packetsTx = 0;
+    let packetsTxErrors = 0;
     let lastPacketTime = null;
 
     // Deduplication cache: `${hw_id}:${msg_id}` → timestamp (ms)
@@ -123,6 +124,11 @@ const descriptor = {
     function handlePacket(json) {
       const type = json.type;
       if (type !== 'pos' && type !== 'msg' && type !== 'telem') return;
+
+      if (!json.src) {
+        console.warn(`[MeshCom-UDP] Dropping ${type} packet with missing src field`);
+        return;
+      }
 
       // Dedup and bus guard are the same for all packet types — check once.
       if (isDuplicate(json.hw_id, json.msg_id)) return;
@@ -176,12 +182,17 @@ const descriptor = {
       const buf = Buffer.from(payload);
       try {
         socket.send(buf, 0, buf.length, sendPort, sendHost, (err) => {
-          if (err) console.error(`[MeshCom-UDP] TX error: ${err.message}`);
-          else packetsTx++;
+          if (err) {
+            console.error(`[MeshCom-UDP] TX error: ${err.message}`);
+            packetsTxErrors++;
+          } else {
+            packetsTx++;
+          }
         });
         return true;
       } catch (e) {
         console.error(`[MeshCom-UDP] TX error: ${e.message}`);
+        packetsTxErrors++;
         return false;
       }
     }
@@ -194,6 +205,7 @@ const descriptor = {
         bindHost,
         packetsRx,
         packetsTx,
+        packetsTxErrors,
         lastPacketTime,
         dedupCacheSize: dedupCache.size,
       };
@@ -230,9 +242,7 @@ const descriptor = {
         try {
           json = JSON.parse(raw);
         } catch {
-          if (verbose) {
-            console.log(`[MeshCom-UDP] Non-JSON datagram ignored (${msg.length} bytes)`);
-          }
+          console.warn(`[MeshCom-UDP] Non-JSON datagram ignored (${msg.length} bytes)`);
           return;
         }
         // Only count packets that are valid JSON from a MeshCom node
@@ -270,7 +280,7 @@ const descriptor = {
       }
       running = false;
       _currentInstance = null;
-      console.log(`[MeshCom-UDP] Stopped (RX: ${packetsRx}, TX: ${packetsTx})`);
+      console.log(`[MeshCom-UDP] Stopped (RX: ${packetsRx}, TX: ${packetsTx}, TX errors: ${packetsTxErrors})`);
     }
 
     const instance = { connect, disconnect, getStatus, sendMessage };

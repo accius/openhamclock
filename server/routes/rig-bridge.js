@@ -165,6 +165,7 @@ module.exports = function (app, ctx) {
           try {
             client.write(msg);
           } catch (e) {
+            logWarn(`[RigBridge] SSE client evicted during state fan-out (session=${sessionId}): ${e.message}`);
             sseClients.delete(client);
           }
         }
@@ -229,7 +230,8 @@ module.exports = function (app, ctx) {
             for (const client of sseClients) {
               try {
                 client.write(sseMsg);
-              } catch {
+              } catch (e) {
+                logWarn(`[RigBridge] SSE client evicted during MeshCom fan-out (session=${sessionId}): ${e.message}`);
                 sseClients.delete(client);
               }
             }

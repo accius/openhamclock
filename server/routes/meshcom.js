@@ -25,16 +25,32 @@
 module.exports = function (app, ctx) {
   const { logDebug, logInfo, logWarn, CONFIG } = ctx;
 
-  const NODE_MAX_AGE_MS = parseInt(process.env.MESHCOM_NODE_MAX_AGE_MINUTES || '60') * 60_000;
-  const MESSAGE_MAX_AGE_MS = parseFloat(process.env.MESHCOM_MESSAGE_MAX_AGE_HOURS || '8') * 3_600_000;
+  // Validate env-var integer fields — parseInt('xyz') returns NaN, which makes
+  // all expiry comparisons false → nodes/sessions never expire → memory leak.
+  function parseEnvMinutes(envName, defaultMinutes) {
+    const raw = parseInt(process.env[envName], 10);
+    if (!Number.isFinite(raw) || raw <= 0) {
+      if (process.env[envName] != null) {
+        logWarn(
+          `[MeshCom] ${envName}="${process.env[envName]}" is not a valid positive integer — using default ${defaultMinutes}`,
+        );
+      }
+      return defaultMinutes;
+    }
+    return raw;
+  }
+
+  const NODE_MAX_AGE_MS = parseEnvMinutes('MESHCOM_NODE_MAX_AGE_MINUTES', 60) * 60_000;
+  const msgAgeHoursRaw = parseFloat(process.env.MESHCOM_MESSAGE_MAX_AGE_HOURS);
+  const MESSAGE_MAX_AGE_MS = (Number.isFinite(msgAgeHoursRaw) && msgAgeHoursRaw > 0 ? msgAgeHoursRaw : 8) * 3_600_000;
   const MAX_MESSAGES = 200;
   // Sessions expire after 90 min of no reads or writes — 30 min longer than
   // the relay session TTL so active sessions are never evicted mid-use.
-  const SESSION_TTL_MS = parseInt(process.env.MESHCOM_SESSION_TTL_MINUTES || '90') * 60_000;
+  const SESSION_TTL_MS = parseEnvMinutes('MESHCOM_SESSION_TTL_MINUTES', 90) * 60_000;
 
   // ── Per-session state ────────────────────────────────────────────────────────
   // sessions: sessionId → SessionState
-  // Each browser tab creates its own session via useMeshCom's getSessionId().
+  // Each browser tab creates its own session via getRelaySessionId() (src/utils/relaySession.js).
   const sessions = new Map();
 
   /**
@@ -182,7 +198,9 @@ module.exports = function (app, ctx) {
 
     if (s.messages.length > MAX_MESSAGES) s.messages.shift();
     s.lastIngestTime = Date.now();
-    logInfo(`[MeshCom] [${pkt.sessionId}] Message from ${pkt.src} → ${pkt.dst || '*'}: ${pkt.msg}`);
+    logDebug(
+      `[MeshCom] [${pkt.sessionId}] Message from ${pkt.src} → ${pkt.dst || '*'} (${(pkt.msg || '').length} chars)`,
+    );
     res.json({ ok: true });
   });
 
@@ -232,7 +250,8 @@ module.exports = function (app, ctx) {
       return res.status(304).end();
     }
 
-    const since = req.query.since != null ? parseInt(req.query.since) : 0;
+    const sinceRaw = parseInt(req.query.since, 10);
+    const since = Number.isFinite(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
     const cutoff = Date.now() - NODE_MAX_AGE_MS;
 
     const result = [];
@@ -253,7 +272,8 @@ module.exports = function (app, ctx) {
     const s = getSessionIfExists(req.query.session);
     if (!s) return res.json({ count: 0, messages: [] });
 
-    const since = req.query.since != null ? parseInt(req.query.since) : 0;
+    const sinceRaw = parseInt(req.query.since, 10);
+    const since = Number.isFinite(sinceRaw) && sinceRaw > 0 ? sinceRaw : 0;
     const result = since > 0 ? s.messages.filter((m) => m.timestamp > since) : s.messages.slice();
     res.json({ count: result.length, messages: result });
   });

@@ -107,7 +107,10 @@ function NodesTab({ nodes, loading, onSpotClick, onHoverSpot }) {
       {nodes.map((node, i) => {
         const call = primaryCall(node.call);
         const hasPos = node.lat != null && node.lon != null;
-        const isAged = (node.ageMin ?? 0) > 30;
+        // Compute age at render time so SSE-delivered nodes age correctly in
+        // local/direct mode where polling returns no server-side ageMin.
+        const ageMin = Math.max(0, Math.floor((Date.now() - (node.timestamp ?? 0)) / 60_000));
+        const isAged = ageMin > 30;
         return (
           <div
             key={`${node.call}-${i}`}
@@ -134,7 +137,7 @@ function NodesTab({ nodes, loading, onSpotClick, onHoverSpot }) {
                 )}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '2px' }}>
-                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{formatAge(node.ageMin ?? 0)}</span>
+                <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{formatAge(ageMin)}</span>
                 <BatteryBar batt={node.batt} />
               </div>
             </div>
@@ -218,7 +221,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
     if (!msg) return '*';
     const { dst } = msg;
     // Groups 0–5 or broadcast: reply to same destination
-    if (dst === '*' || (dst >= '0' && dst <= '5')) return dst;
+    if (dst === '*' || /^[0-5]$/.test(dst)) return dst;
     // Direct message: reply direct to sender
     return primaryCall(msg.src);
   };
@@ -226,7 +229,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
   // Label for the group/broadcast reply button
   const replyLabel = (target) => {
     if (target === '*') return t('meshcomPanel.replyToBroadcast');
-    if (target >= '0' && target <= '5') return t('meshcomPanel.replyToGroup', { n: target });
+    if (/^[0-5]$/.test(target)) return t('meshcomPanel.replyToGroup', { n: target });
     return t('meshcomPanel.replyToDirect', { call: target });
   };
 

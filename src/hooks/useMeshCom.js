@@ -39,6 +39,7 @@ import { getRelaySessionId } from '../utils/relaySession';
 
 const POLL_INTERVAL = 30_000; // 30 s — LoRa beacon rate is much slower than APRS
 const FETCH_TIMEOUT_MS = 5_000; // hard cap per request — never tie up a connection longer
+const SSE_STALE_MS = 25 * 60_000; // 25 min — LoRa beacons can be 15+ min apart
 
 export function useMeshCom(options = {}) {
   const {
@@ -116,7 +117,10 @@ export function useMeshCom(options = {}) {
           if (newest > lastMessageTsRef.current) lastMessageTsRef.current = newest;
           if (since > 0) {
             setMessages((prev) => {
-              const combined = [...prev, ...data.messages];
+              // Dedup by msgId — same packet can arrive via both SSE and polling
+              const knownIds = new Set(prev.map((m) => m.msgId).filter(Boolean));
+              const fresh = data.messages.filter((m) => !m.msgId || !knownIds.has(m.msgId));
+              const combined = [...prev, ...fresh];
               return combined.length > 200 ? combined.slice(combined.length - 200) : combined;
             });
           } else {
@@ -130,10 +134,6 @@ export function useMeshCom(options = {}) {
       }
     }
   }, [enabled, sessionId]);
-
-  // How long without an SSE packet before we consider the live stream stale.
-  // LoRa beacons can be 15+ min apart, so we allow 25 min before falling back.
-  const SSE_STALE_MS = 25 * 60_000;
 
   const fetchStatus = useCallback(async () => {
     if (!enabled) return;

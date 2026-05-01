@@ -53,7 +53,8 @@ export function setRelaySessionId(id) {
   try {
     localStorage.setItem(RELAY_KEY, id);
     return id;
-  } catch {
+  } catch (e) {
+    console.warn('[RelaySession] setRelaySessionId: localStorage unavailable:', e.message);
     return null;
   }
 }
@@ -69,7 +70,9 @@ export function setRelayConfigured(active) {
     } else {
       localStorage.removeItem(RELAY_ACTIVE_KEY);
     }
-  } catch {}
+  } catch (e) {
+    console.warn('[RelaySession] setRelayConfigured: localStorage unavailable:', e.message);
+  }
 }
 
 /**
@@ -79,7 +82,8 @@ export function setRelayConfigured(active) {
 export function isRelayConfigured() {
   try {
     return localStorage.getItem(RELAY_ACTIVE_KEY) === 'true';
-  } catch {
+  } catch (e) {
+    console.warn('[RelaySession] isRelayConfigured: localStorage unavailable:', e.message);
     return false;
   }
 }
@@ -91,7 +95,9 @@ export function clearRelaySession() {
   try {
     localStorage.removeItem(RELAY_KEY);
     localStorage.removeItem(RELAY_ACTIVE_KEY);
-  } catch {}
+  } catch (e) {
+    console.warn('[RelaySession] clearRelaySession: localStorage unavailable:', e.message);
+  }
 }
 
 /**
@@ -115,8 +121,9 @@ export function getRelaySessionId() {
     const id = generate();
     localStorage.setItem(RELAY_KEY, id);
     return id;
-  } catch {
+  } catch (e) {
     // Privacy browsers that block localStorage — return a session-scoped ID
+    console.warn('[RelaySession] getRelaySessionId: localStorage unavailable, using ephemeral ID:', e.message);
     return generate();
   }
 }
