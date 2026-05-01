@@ -6,6 +6,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as satellite from 'satellite.js';
 import Orbit from '../utils/orbit.js';
+import { getDebugConfig } from '../debug/debugConfig.js';
 
 function round(value, decimals) {
   const factor = Math.pow(10, decimals);
@@ -187,6 +188,8 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
       return;
     }
 
+    const { logLevel } = getDebugConfig();
+
     const groundStation = {
       latitude: observerLocation.lat,
       longitude: observerLocation.lon,
@@ -197,8 +200,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     const minElevation = satelliteConfig?.minElev || 5.0;
     const maxPasses = 2;
 
-    // debug logging
-    {
+    if (logLevel === 'debug') {
       const formatDate = (date) => date.toISOString().slice(0, 19).replace('T', ' ');
       let logStr = `[Satellite] calculating next passes,`;
       logStr += `\n observer lat=${groundStation.latitude}, lon=${groundStation.longitude}, alt=${groundStation.height}m,`;
@@ -217,14 +219,15 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
         if (!line1 || !line2) return;
 
         const orbit = new Orbit(name, `${name}\n${line1}\n${line2}`);
-        orbit.error && console.warn('Satellite orbit error:', orbit.error);
+        if (orbit.error) console.warn('Satellite orbit error:', orbit.error);
         const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
 
         const startTimes = [];
         const endTimes = [];
         passes.forEach((pass) => {
           if (pass.start && pass.end) {
-            (startTimes.push(pass.start), endTimes.push(pass.end));
+            startTimes.push(pass.start);
+            endTimes.push(pass.end);
           }
         });
 
@@ -241,8 +244,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     // Sort alphabetically by name for a consistent, static list
     nextPasses.sort((a, b) => a.name.localeCompare(b.name));
 
-    // debug logging
-    {
+    if (logLevel === 'debug') {
       const formatDate = (date) => new Date(date).toISOString().slice(0, 19).replace('T', ' ');
       nextPasses.forEach(({ name, startTimes, endTimes }) => {
         let logStr = `[Satellite] Next passes for ${name}: `;
