@@ -771,77 +771,83 @@ module.exports = function (app, ctx) {
         uptime: process.uptime(),
         uptimeFormatted: `${Math.floor(process.uptime() / 86400)}d ${Math.floor((process.uptime() % 86400) / 3600)}h ${Math.floor((process.uptime() % 3600) / 60)}m`,
         timestamp: new Date().toISOString(),
-        // SECURITY: Only expose file paths and detailed internals to authenticated requests
-        persistence: isAuthed
+
+        // everything after this point is not output unless (isAuthed === true)
+        ...(isAuthed
           ? {
-              enabled: !!STATS_FILE,
-              file: STATS_FILE || null,
-              lastSaved: visitorStats.lastSaved,
+              // SECURITY: Only expose file paths and detailed internals to authenticated requests
+              persistence: isAuthed
+                ? {
+                    enabled: !!STATS_FILE,
+                    file: STATS_FILE || null,
+                    lastSaved: visitorStats.lastSaved,
+                  }
+                : { enabled: !!STATS_FILE },
+              // SECURITY: Session details include partially anonymized IPs — only expose to authenticated requests.
+              // Unauthenticated requests get aggregate counts only.
+              sessions: isAuthed
+                ? sessionTracker.getStats()
+                : { concurrent: sessionTracker.activeSessions.size, peakConcurrent: sessionTracker.peakConcurrent },
+              visitors: {
+                today: {
+                  date: visitorStats.today,
+                  uniqueVisitors: visitorStats.uniqueVisitorsToday,
+                  totalRequests: visitorStats.totalRequestsToday,
+                },
+                allTime: {
+                  since: visitorStats.serverFirstStarted,
+                  uniqueVisitors: visitorStats.allTimeVisitors,
+                  totalRequests: visitorStats.allTimeRequests,
+                  deployments: visitorStats.deploymentCount,
+                },
+                dailyAverage: avg,
+                history: visitorStats.history.slice(-30),
+              },
+              apiTraffic: {
+                monitoringStarted: new Date(endpointStats.startTime).toISOString(),
+                uptimeHours: apiStats.uptimeHours,
+                totalRequests: apiStats.totalRequests,
+                totalBytes: apiStats.totalBytes,
+                totalBytesFormatted: formatBytes(apiStats.totalBytes),
+                estimatedMonthlyGB: (
+                  ((apiStats.totalBytes / parseFloat(apiStats.uptimeHours)) * 24 * 30) /
+                  (1024 * 1024 * 1024)
+                ).toFixed(2),
+                endpoints: apiStats.endpoints.slice(0, 20), // Top 20 by bandwidth
+              },
+              upstream: {
+                pskreporter: {
+                  status: upstream.isBackedOff('pskreporter') ? 'backoff' : 'ok',
+                  backoffRemaining: upstream.backoffRemaining('pskreporter'),
+                  consecutive: upstream.backoffs.get('pskreporter')?.consecutive || 0,
+                  inFlightRequests: [...upstream.inFlight.keys()].filter((k) => k.startsWith('psk:')).length,
+                },
+                wspr: {
+                  status: upstream.isBackedOff('wspr') ? 'backoff' : 'ok',
+                  backoffRemaining: upstream.backoffRemaining('wspr'),
+                  consecutive: upstream.backoffs.get('wspr')?.consecutive || 0,
+                  inFlightRequests: [...upstream.inFlight.keys()].filter((k) => k.startsWith('wspr:')).length,
+                },
+                weather: {
+                  status: 'client-direct',
+                  note: 'All weather fetched directly by user browsers from Open-Meteo (per-user rate limits)',
+                },
+                totalInFlight: upstream.inFlight.size,
+                pskMqttProxy: {
+                  connected: pskMqtt.connected,
+                  // SECURITY: Only expose active callsigns to authenticated requests
+                  activeCallsigns: isAuthed ? [...pskMqtt.subscribedCalls] : pskMqtt.subscribedCalls.size,
+                  sseClients: [...pskMqtt.subscribers.values()].reduce((n, s) => n + s.size, 0),
+                  spotsReceived: pskMqtt.stats.spotsReceived,
+                  spotsRelayed: pskMqtt.stats.spotsRelayed,
+                  messagesDropped: pskMqtt.stats.messagesDropped,
+                  bufferedSpots: [...pskMqtt.spotBuffer.values()].reduce((n, b) => n + b.length, 0),
+                  recentSpotsCache: [...pskMqtt.recentSpots.values()].reduce((n, s) => n + s.length, 0),
+                  lastSpotTime: pskMqtt.stats.lastSpotTime ? new Date(pskMqtt.stats.lastSpotTime).toISOString() : null,
+                },
+              },
             }
-          : { enabled: !!STATS_FILE },
-        // SECURITY: Session details include partially anonymized IPs — only expose to authenticated requests.
-        // Unauthenticated requests get aggregate counts only.
-        sessions: isAuthed
-          ? sessionTracker.getStats()
-          : { concurrent: sessionTracker.activeSessions.size, peakConcurrent: sessionTracker.peakConcurrent },
-        visitors: {
-          today: {
-            date: visitorStats.today,
-            uniqueVisitors: visitorStats.uniqueVisitorsToday,
-            totalRequests: visitorStats.totalRequestsToday,
-          },
-          allTime: {
-            since: visitorStats.serverFirstStarted,
-            uniqueVisitors: visitorStats.allTimeVisitors,
-            totalRequests: visitorStats.allTimeRequests,
-            deployments: visitorStats.deploymentCount,
-          },
-          dailyAverage: avg,
-          history: visitorStats.history.slice(-30),
-        },
-        apiTraffic: {
-          monitoringStarted: new Date(endpointStats.startTime).toISOString(),
-          uptimeHours: apiStats.uptimeHours,
-          totalRequests: apiStats.totalRequests,
-          totalBytes: apiStats.totalBytes,
-          totalBytesFormatted: formatBytes(apiStats.totalBytes),
-          estimatedMonthlyGB: (
-            ((apiStats.totalBytes / parseFloat(apiStats.uptimeHours)) * 24 * 30) /
-            (1024 * 1024 * 1024)
-          ).toFixed(2),
-          endpoints: apiStats.endpoints.slice(0, 20), // Top 20 by bandwidth
-        },
-        upstream: {
-          pskreporter: {
-            status: upstream.isBackedOff('pskreporter') ? 'backoff' : 'ok',
-            backoffRemaining: upstream.backoffRemaining('pskreporter'),
-            consecutive: upstream.backoffs.get('pskreporter')?.consecutive || 0,
-            inFlightRequests: [...upstream.inFlight.keys()].filter((k) => k.startsWith('psk:')).length,
-          },
-          wspr: {
-            status: upstream.isBackedOff('wspr') ? 'backoff' : 'ok',
-            backoffRemaining: upstream.backoffRemaining('wspr'),
-            consecutive: upstream.backoffs.get('wspr')?.consecutive || 0,
-            inFlightRequests: [...upstream.inFlight.keys()].filter((k) => k.startsWith('wspr:')).length,
-          },
-          weather: {
-            status: 'client-direct',
-            note: 'All weather fetched directly by user browsers from Open-Meteo (per-user rate limits)',
-          },
-          totalInFlight: upstream.inFlight.size,
-          pskMqttProxy: {
-            connected: pskMqtt.connected,
-            // SECURITY: Only expose active callsigns to authenticated requests
-            activeCallsigns: isAuthed ? [...pskMqtt.subscribedCalls] : pskMqtt.subscribedCalls.size,
-            sseClients: [...pskMqtt.subscribers.values()].reduce((n, s) => n + s.size, 0),
-            spotsReceived: pskMqtt.stats.spotsReceived,
-            spotsRelayed: pskMqtt.stats.spotsRelayed,
-            messagesDropped: pskMqtt.stats.messagesDropped,
-            bufferedSpots: [...pskMqtt.spotBuffer.values()].reduce((n, b) => n + b.length, 0),
-            recentSpotsCache: [...pskMqtt.recentSpots.values()].reduce((n, s) => n + s.length, 0),
-            lastSpotTime: pskMqtt.stats.lastSpotTime ? new Date(pskMqtt.stats.lastSpotTime).toISOString() : null,
-          },
-        },
+          : {}), // nothing if (isAuthed === false)
       });
     } else {
       // HTML dashboard for browsers
