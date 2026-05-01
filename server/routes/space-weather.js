@@ -473,8 +473,26 @@ module.exports = function (app, ctx) {
       timestamp: Date.now(),
     };
 
+    const isValidNasaImageUrl = (url) => {
+      if (!url) return false;
+
+      let parsed;
+      try {
+        parsed = new URL(url);
+      } catch {
+        return false; // not a valid URL at all
+      }
+
+      if (parsed.protocol !== 'https:') return false;
+      if (!parsed.hostname.endsWith('.nasa.gov')) return false;
+      return true;
+    };
+
     const imageUrl = meta?.image?.url;
     if (!imageUrl) throw new Error('No image URL in Dial-A-Moon response');
+    if (!isValidNasaImageUrl(imageUrl)) {
+      throw new Error('Rejected non‑NASA URL:', imageUrl);
+    }
 
     const imgResponse = await fetch(imageUrl);
     if (!imgResponse.ok) throw new Error(`Moon image fetch returned ${imgResponse.status}`);
