@@ -1704,7 +1704,7 @@ export const WorldMap = ({
 
       // Initialize state ONLY on first mount (when empty)
       if (Object.keys(pluginLayerStates).length === 0) {
-        console.log('Loading saved layer states:', initialStates);
+        console.debug('Loading saved layer states:', initialStates);
         setPluginLayerStates(initialStates);
       }
 

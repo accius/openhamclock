@@ -23,7 +23,7 @@ export const useSOTASpots = () => {
         const res = await apiFetch('/api/sota/spots', { cache: 'no-store' });
         if (res?.ok) {
           const spots = await res.json();
-          console.log(`[SOTA] Fetched ${Array.isArray(spots) ? spots.length : 0} spots`);
+          console.info(`[SOTA] Fetched ${Array.isArray(spots) ? spots.length : 0} spots`);
 
           // Only mark as "updated" when data content actually changes
           let newestTime = null;

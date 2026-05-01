@@ -24,7 +24,7 @@ export const useWWFFSpots = () => {
         const res = await apiFetch('/api/wwff/spots', { cache: 'no-store' });
         if (res?.ok) {
           const spots = await res.json();
-          console.log(`[WWFF] Fetched ${Array.isArray(spots) ? spots.length : 0} spots`);
+          console.info(`[WWFF] Fetched ${Array.isArray(spots) ? spots.length : 0} spots`);
 
           // Only mark as "updated" when data content actually changes
           let newestTime = null;

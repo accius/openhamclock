@@ -40,7 +40,7 @@ export async function initCtyLookup() {
       exact = data.exact;
       entities = Array.isArray(data.entities) ? data.entities : [];
       loaded = true;
-      console.log(`[CTY] Loaded: ${Object.keys(prefixes).length} prefixes, ${Object.keys(exact).length} exact calls`);
+      console.info(`[CTY] Loaded: ${Object.keys(prefixes).length} prefixes, ${Object.keys(exact).length} exact calls`);
       window.dispatchEvent(new CustomEvent('openhamclock-cty-loaded'));
     }
   } catch (err) {

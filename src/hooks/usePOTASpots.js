@@ -47,7 +47,7 @@ export const usePOTASpots = () => {
         const res = await apiFetch('/api/pota/spots', { cache: 'no-store' });
         if (res?.ok) {
           const spots = await res.json();
-          console.log(`[POTA] Fetched ${Array.isArray(spots) ? spots.length : 0} spots`);
+          console.info(`[POTA] Fetched ${Array.isArray(spots) ? spots.length : 0} spots`);
 
           // Log newest spot time for staleness debugging
           let newestTime = null;
@@ -58,7 +58,6 @@ export const usePOTASpots = () => {
               .sort()
               .reverse();
             newestTime = times[0] || null;
-            if (newestTime) console.log(`[POTA] Newest spot: ${newestTime}`);
           }
 
           // Only mark as "updated" when data content actually changes

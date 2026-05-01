@@ -44,7 +44,7 @@ export const usePropagation = (deLocation, dxLocation, propagationConfig = {}) =
         const response = await fetch(`/api/propagation?${params}`);
         if (response.ok) rest = await response.json();
       } catch (err) {
-        console.error('Propagation error:', err);
+        console.error('[usePropagation] Propagation error:', err);
       }
 
       if (!alive) return;

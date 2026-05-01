@@ -127,7 +127,7 @@ export const usePSKReporter = (callsign, options = {}) => {
     setSource('connecting');
 
     const modeLabel = filterMode === 'grid' ? `grid ${upperIdentifier}` : upperIdentifier;
-    console.log(`[PSKReporter SSE] Connecting for ${modeLabel}...`);
+    console.info(`[PSKReporter SSE] Connecting for ${modeLabel}...`);
 
     const typeParam = filterMode === 'grid' ? '?type=grid' : '';
     const url = `/api/pskreporter/stream/${encodeURIComponent(upperIdentifier)}${typeParam}`;
@@ -139,7 +139,7 @@ export const usePSKReporter = (callsign, options = {}) => {
       if (!mountedRef.current) return;
       try {
         const data = JSON.parse(e.data);
-        console.log(
+        console.info(
           `[PSKReporter SSE] Connected! MQTT ${data.mqttConnected ? 'up' : 'pending'}, ${data.recentSpots?.length || 0} recent spots`,
         );
         setConnected(true);
@@ -172,7 +172,7 @@ export const usePSKReporter = (callsign, options = {}) => {
     es.onerror = () => {
       if (!mountedRef.current) return;
       if (es.readyState === EventSource.CLOSED) {
-        console.log('[PSKReporter SSE] Connection closed');
+        console.debug('[PSKReporter SSE] Connection closed');
         setConnected(false);
         setSource('disconnected');
         setError('Stream closed');
@@ -184,7 +184,7 @@ export const usePSKReporter = (callsign, options = {}) => {
     return () => {
       mountedRef.current = false;
       if (es) {
-        console.log('[PSKReporter SSE] Cleaning up...');
+        console.debug('[PSKReporter SSE] Cleaning up...');
         es.close();
       }
     };
@@ -221,7 +221,7 @@ export const usePSKReporter = (callsign, options = {}) => {
 
   // Manual refresh
   const refresh = useCallback(() => {
-    console.log('[PSKReporter] Manual refresh requested');
+    console.debug('[PSKReporter] Manual refresh requested');
 
     if (eventSourceRef.current) {
       eventSourceRef.current.close();
@@ -240,7 +240,7 @@ export const usePSKReporter = (callsign, options = {}) => {
     if (!enabled) return;
     const es = eventSourceRef.current;
     if (!es || es.readyState === EventSource.CLOSED) {
-      console.log('[PSKReporter] Tab visible — reconnecting SSE');
+      console.debug('[PSKReporter] Tab visible — reconnecting SSE');
       refresh();
     }
   }, 5000);

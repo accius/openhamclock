@@ -45,12 +45,12 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
           //'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_hour.geojson'
         );
         const data = await response.json();
-        console.log('Earthquakes fetched:', data.features?.length || 0, 'quakes');
+        console.info('[Earthquakes] fetched:', data.features?.length || 0, 'quakes');
         // Limit earthquakes in low memory mode
         const quakes = (data.features || []).slice(0, MAX_QUAKES);
         setEarthquakeData(quakes);
       } catch (err) {
-        console.error('Earthquake data fetch error:', err);
+        console.error('[Earthquakes] data fetch error:', err);
       }
     };
 
@@ -75,7 +75,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
     setMarkersRef([]);
 
     if (!enabled || earthquakeData.length === 0) {
-      console.log('Earthquakes: enabled=', enabled, 'data count=', earthquakeData.length);
+      console.info('[Earthquakes] enabled=', enabled, 'data count=', earthquakeData.length);
       return;
     }
 
@@ -98,7 +98,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       const quakeId = quake.id;
 
       // Debug logging with detailed info
-      console.log(`🌋 Earthquake ${quakeId}:`, {
+      console.debug(`[Earthquakes] 🌋 ${quakeId}:`, {
         place: props.place,
         mag: mag,
         geojson: `[lon=${coords[0]}, lat=${coords[1]}, depth=${coords[2]}]`,
@@ -164,14 +164,16 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
         popupAnchor: [0, 0], // Popup appears at the marker position (icon center)
       });
 
-      console.log(`📍 Creating marker for ${quakeId}: M${mag.toFixed(1)} at [lat=${lat}, lon=${lon}] - ${props.place}`);
+      console.debug(
+        `[Earthquakes]📍 Creating marker for ${quakeId}: M${mag.toFixed(1)} at [lat=${lat}, lon=${lon}] - ${props.place}`,
+      );
 
       // Use standard Leaflet [latitude, longitude] format
       // The popup was appearing in the correct location, confirming marker position is correct
       // The icon was appearing offset due to CSS position: relative issue (now fixed)
       const markerCoords = [lat, lon]; // CORRECT: [latitude, longitude]
 
-      console.log(`   → Creating L.marker([${markerCoords[0]}, ${markerCoords[1]}]) = [lat, lon]`);
+      console.debug(`[Earthquakes]   → Creating L.marker([${markerCoords[0]}, ${markerCoords[1]}]) = [lat, lon]`);
 
       const circle = L.marker(markerCoords, {
         icon,
@@ -202,7 +204,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
               }
             }
           } catch (e) {
-            console.warn('Could not animate earthquake marker:', e);
+            console.warn('[Earthquakes] Could not animate earthquake marker:', e);
           }
         }, 10);
 
@@ -264,7 +266,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       isFirstLoad.current = false;
     }
 
-    console.log('Earthquakes: Created', newMarkers.length, 'markers on map');
+    console.debug('[Earthquakes] Created', newMarkers.length, 'markers on map');
     setMarkersRef(newMarkers);
 
     return () => {

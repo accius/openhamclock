@@ -40,7 +40,7 @@ const localPlugins = Object.entries(localPluginModules)
   .filter(Boolean);
 
 if (localPlugins.length > 0) {
-  console.log(
+  console.info(
     `[Plugins] Loaded ${localPlugins.length} local plugin(s):`,
     localPlugins.map((p) => p.metadata.id).join(', '),
   );

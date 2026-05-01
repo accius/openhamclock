@@ -232,9 +232,9 @@ export const useWeather = (location, allUnits = { dist: 'imperial', temp: 'imper
         const lat = normalizeLat(location.lat);
         const lon = normalizeLon(location.lon);
 
-        console.log(`[Weather] Fetching for ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
+        console.info(`[Weather] Fetching for ${lat.toFixed(4)}, ${lon.toFixed(4)}`);
         const data = await fetchOpenMeteoDirect(lat, lon);
-        console.log(
+        console.info(
           `[Weather] Result: ${data?.current?.temperature_2m}°C (${Math.round((data?.current?.temperature_2m * 9) / 5 + 32)}°F) from ${data?._source || 'unknown'}`,
         );
         setRawData(data);
