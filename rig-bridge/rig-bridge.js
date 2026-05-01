@@ -19,7 +19,7 @@
 
 'use strict';
 
-const VERSION = '2.1.0';
+const VERSION = '2.2.0';
 
 const { config, loadConfig, applyCliArgs } = require('./core/config');
 const {

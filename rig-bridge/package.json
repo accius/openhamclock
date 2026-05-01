@@ -1,6 +1,6 @@
 {
   "name": "openhamclock-rig-bridge",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "Universal rig control bridge for OpenHamClock — plugin architecture supporting USB, flrig, rigctld, and more",
   "main": "rig-bridge.js",
   "bin": "rig-bridge.js",
