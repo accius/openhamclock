@@ -76,6 +76,18 @@ body::before {
   font-size: 12px !important;
 }
 
+/* Panels with padding:0 on the outer container (flush-header layout) need the
+   title bar without the -10px margin compensation. Same specificity as the rule
+   above but placed later in the cascade so it wins for .meshcom-header. */
+[data-theme='retro'] .panel > div.meshcom-header {
+  background: linear-gradient(90deg, #000080, #1084d0) !important;
+  color: #ffffff !important;
+  font-weight: bold !important;
+  padding: 4px 8px !important;
+  margin: 0 !important;
+  font-size: 12px !important;
+}
+
 /* Classic buttons */
 [data-theme='retro'] button,
 [data-theme='retro'] .map-style-btn {

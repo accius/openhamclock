@@ -540,9 +540,13 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', fontSize: '12px' }}>
+    <div
+      className="panel"
+      style={{ display: 'flex', flexDirection: 'column', height: '100%', fontSize: '12px', padding: 0 }}
+    >
       {/* Header */}
       <div
+        className="meshcom-header"
         style={{
           display: 'flex',
           alignItems: 'center',
