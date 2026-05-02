@@ -99,7 +99,7 @@ export const maidenheadToBoundingBox = (grid) => {
  * @param precision Precision (character length) of the grid locator returned, can be 2, 4, 6, or 8. (default if not specified is 6)
  * @returns Maidenhead grid locator
  */
-export const LatLonToMaidenhead = ({ lat, lon }, precision = 6) => {
+export const latLonToMaidenhead = ({ lat, lon }, precision = 6) => {
   if (lat < -90 || lat > 90) throw new Error('invalid latitude, it should be between -90 and 90');
   if (lon < -180 || lon > 180) throw new Error('invalid longitude, it should be between -180 and 180');
 
@@ -149,10 +149,10 @@ export const parseGridSquare = (grid) => {
 
 /**
  * Calculate Maidenhead grid square (size 6) from coordinates.
- * Deprecated, use LatLonToMaidenhead({lat, lon}) which defaults to size 6.
+ * Deprecated, use latLonToMaidenhead({lat, lon}) which defaults to size 6.
  */
 export const calculateGridSquare = (lat, lon) => {
-  return LatLonToMaidenhead({ lat, lon }, 6);
+  return latLonToMaidenhead({ lat, lon }, 6);
 };
 
 /**
@@ -553,7 +553,7 @@ export const classifyTwilight = (solarElevationDeg) => {
 export default {
   validateGridLocator,
   maidenheadToLatLon,
-  LatLonToMaidenhead,
+  latLonToMaidenhead,
   maidenheadToBoundingBox,
   parseGridSquare,
   calculateGridSquare,

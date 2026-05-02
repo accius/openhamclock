@@ -20,7 +20,7 @@ export {
 // Geographic calculations
 export {
   validateGridLocator,
-  LatLonToMaidenhead,
+  latLonToMaidenhead,
   maidenheadToLatLon,
   maidenheadToBoundingBox,
   parseGridSquare,

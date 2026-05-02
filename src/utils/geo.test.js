@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { parseGridSquare, calculateGridSquare } from './geo.js';
-import { validateGridLocator, LatLonToMaidenhead, maidenheadToLatLon, maidenheadToBoundingBox } from './geo.js';
+import { validateGridLocator, latLonToMaidenhead, maidenheadToLatLon, maidenheadToBoundingBox } from './geo.js';
 
 describe('Maidenhead Grid tests', () => {
   const gridCases = [
@@ -52,13 +52,13 @@ describe('Maidenhead Grid tests', () => {
 
     for (const size of sizes) {
       it('should convert Lat/Lon to Maidenhead Grid of requested size ' + size, () => {
-        const result = LatLonToMaidenhead(actualLatLon, size);
+        const result = latLonToMaidenhead(actualLatLon, size);
         expect(result.toUpperCase()).toBe(grid.substring(0, size).toUpperCase());
       });
     }
 
     it('should convert Lat/Lon to Maidenhead Grid with default size 6 when no size is specified', () => {
-      const result = LatLonToMaidenhead(actualLatLon);
+      const result = latLonToMaidenhead(actualLatLon);
       expect(result.toUpperCase()).toBe(grid.substring(0, defaultSize).toUpperCase());
     });
 
