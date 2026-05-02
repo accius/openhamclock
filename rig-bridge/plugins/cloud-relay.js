@@ -144,7 +144,7 @@ const descriptor = {
         payload.aprsPackets = pendingAprs.splice(0, 50);
       }
 
-      makeRequest(`${serverUrl}/api/rig-bridge/relay/state`, 'POST', payload, (err, status) => {
+      makeRequest(`${serverUrl}/api/rig-bridge/relay/state`, 'POST', payload, (err, status, data) => {
         if (err) {
           if (serverReachable) console.error(`[CloudRelay] Push error: ${err.message}`);
           serverReachable = false;

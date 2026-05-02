@@ -130,6 +130,11 @@ module.exports = function (app, ctx) {
     const sessionId = req.headers['x-relay-session'] || req.query.session || req.body?.session;
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
     if (!sessionId || !token || token !== sessionToken(sessionId)) {
+      logWarn(
+        `[RigBridge] relay auth failed — sessionId: ${sessionId ? sessionId.slice(0, 8) + '…' : '(none)'}, ` +
+          `token: ${token ? token.slice(0, 8) + '…' : '(none)'}, ` +
+          `expected: ${sessionId ? sessionToken(sessionId).slice(0, 8) + '…' : '(n/a)'}`,
+      );
       return res.status(401).json({
         error:
           'Invalid relay credentials — re-run Connect Cloud Relay in OHC Settings → Rig Bridge to generate fresh credentials',
