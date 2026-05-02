@@ -65,15 +65,22 @@ module.exports = function (app, ctx) {
   const MAX_LONG_POLL_PER_IP = 10;
   const relayPollCountByIP = new Map(); // ip → count
 
-  // Issued relay tokens — sessionId → random token returned by relay/configure or relay/credentials.
+  // Issued relay tokens — sessionId → { token, lastUsed }.
   // Simple server-side lookup avoids any dependency on RIG_BRIDGE_RELAY_KEY being stable across
   // restarts or deployments (the HMAC approach broke when the key changed between issue and verify).
   // Tokens are persisted to RELAY_TOKENS_FILE so they survive server restarts.
-  const relayIssuedTokens = new Map(); // sessionId → token
+  // Entries not used for RELAY_TOKEN_MAX_AGE are pruned on startup (background, non-blocking).
+  const RELAY_TOKEN_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
+  const relayIssuedTokens = new Map(); // sessionId → { token, lastUsed }
   try {
     const raw = fs.readFileSync(RELAY_TOKENS_FILE, 'utf8');
     const obj = JSON.parse(raw);
-    for (const [k, v] of Object.entries(obj)) relayIssuedTokens.set(k, v);
+    const now = Date.now();
+    for (const [k, v] of Object.entries(obj)) {
+      // Migrate old plain-string format — treat as freshly used so it isn't immediately pruned
+      if (typeof v === 'string') relayIssuedTokens.set(k, { token: v, lastUsed: now });
+      else if (v?.token) relayIssuedTokens.set(k, { token: v.token, lastUsed: v.lastUsed ?? now });
+    }
     logInfo(`[RigBridge] Loaded ${relayIssuedTokens.size} relay token(s) from ${RELAY_TOKENS_FILE}`);
   } catch {
     /* file absent on first run — normal */
@@ -86,6 +93,26 @@ module.exports = function (app, ctx) {
       logWarn(`[RigBridge] Could not persist relay tokens: ${err.message}`);
     }
   }
+
+  // Flush updated lastUsed timestamps to disk once per hour so they survive restarts
+  setInterval(saveRelayTokens, 3600000);
+
+  // Background startup cleanup — runs 15 s after boot so it never delays request handling.
+  // Removes tokens unused for RELAY_TOKEN_MAX_AGE and persists the trimmed file.
+  setTimeout(() => {
+    const cutoff = Date.now() - RELAY_TOKEN_MAX_AGE;
+    let removed = 0;
+    for (const [k, v] of relayIssuedTokens) {
+      if ((v.lastUsed ?? 0) < cutoff) {
+        relayIssuedTokens.delete(k);
+        removed++;
+      }
+    }
+    if (removed > 0) {
+      saveRelayTokens();
+      logInfo(`[RigBridge] Pruned ${removed} stale relay token(s) (unused > 30 days)`);
+    }
+  }, 15000);
 
   function notifyCommandWaiters(sessionId) {
     const waiters = relayCommandWaiters.get(sessionId);
@@ -168,17 +195,18 @@ module.exports = function (app, ctx) {
     }
     const sessionId = req.headers['x-relay-session'] || req.query.session || req.body?.session;
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    const issuedToken = sessionId ? relayIssuedTokens.get(sessionId) : undefined;
-    if (!sessionId || !token || !issuedToken || token !== issuedToken) {
+    const entry = sessionId ? relayIssuedTokens.get(sessionId) : undefined;
+    if (!sessionId || !token || !entry || token !== entry.token) {
       logWarn(
         `[RigBridge] relay auth failed — sessionId: ${sessionId ? sessionId.slice(0, 8) + '…' : '(none)'}, ` +
-          `token ${token ? 'present' : 'missing'}, issued token ${issuedToken ? 'found' : 'not found in store'}`,
+          `token ${token ? 'present' : 'missing'}, issued token ${entry ? 'found' : 'not found in store'}`,
       );
       return res.status(401).json({
         error:
           'Invalid relay credentials — re-run Connect Cloud Relay in OHC Settings → Rig Bridge to generate fresh credentials',
       });
     }
+    entry.lastUsed = Date.now();
     next();
   }
 
@@ -190,7 +218,7 @@ module.exports = function (app, ctx) {
       }
       const sessionId = req.query.session || crypto.randomBytes(8).toString('hex');
       const token = crypto.randomBytes(32).toString('hex');
-      relayIssuedTokens.set(sessionId, token);
+      relayIssuedTokens.set(sessionId, { token, lastUsed: Date.now() });
       saveRelayTokens();
       res.json({
         relayKey: token,
@@ -494,7 +522,7 @@ module.exports = function (app, ctx) {
       const sessionId = crypto.randomBytes(8).toString('hex');
       const serverUrl = `${req.protocol}://${req.get('host')}`;
       const token = crypto.randomBytes(32).toString('hex');
-      relayIssuedTokens.set(sessionId, token);
+      relayIssuedTokens.set(sessionId, { token, lastUsed: Date.now() });
       saveRelayTokens();
       res.json({
         ok: true,
