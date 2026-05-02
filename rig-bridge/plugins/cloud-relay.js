@@ -135,7 +135,7 @@ const descriptor = {
       lastState = { ...currentState };
 
       // Include batched data in the push
-      const payload = { ...currentState };
+      const payload = { ...currentState, session };
       if (hasDecodes) {
         payload.decodes = pendingDecodes.splice(0, 50);
         totalDecodes += payload.decodes.length;
@@ -162,7 +162,12 @@ const descriptor = {
             console.log(`[CloudRelay] Pushed state (${currentState.freq} Hz ${currentState.mode}${decodeInfo})`);
           }
         } else if (status === 401 || status === 403) {
-          console.error(`[CloudRelay] Authentication failed (${status}) — check relay API key`);
+          try {
+            const msg = JSON.parse(data)?.error || data;
+            console.error(`[CloudRelay] Authentication failed (${status}): ${msg}`);
+          } catch {
+            console.error(`[CloudRelay] Authentication failed (${status}) — check relay API key and session`);
+          }
         }
       });
     }
@@ -264,8 +269,8 @@ const descriptor = {
     }
 
     function connect() {
-      if (!serverUrl || !apiKey) {
-        console.error('[CloudRelay] Cannot start: url and apiKey are required');
+      if (!serverUrl || !apiKey || !session) {
+        console.error('[CloudRelay] Cannot start: url, apiKey, and session are required');
         return;
       }
 
