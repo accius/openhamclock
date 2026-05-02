@@ -597,37 +597,43 @@ module.exports = function (app, ctx) {
     return { sfi, ssn, kIndex };
   }
 
+  const maintainCache = (cache, ttlMs, maxEntries, label = 'Cache') => {
+    const now = Date.now();
+    let purged = 0;
+
+    // Remove stale entries
+    for (const key of Object.keys(cache)) {
+      if (now - cache[key].ts > ttlMs * 2) {
+        delete cache[key];
+        purged++;
+      }
+    }
+
+    // Enforce max size by evicting oldest
+    const remaining = Object.keys(cache);
+    if (remaining.length > maxEntries) {
+      remaining
+        .sort((a, b) => cache[a].ts - cache[b].ts)
+        .slice(0, remaining.length - maxEntries)
+        .forEach((key) => {
+          delete cache[key];
+          purged++;
+        });
+    }
+
+    if (purged > 0) {
+      logDebug(`[${label}] purged ${purged} stale entries, ${Object.keys(cache).length} remaining`);
+    }
+  };
+
   const PROP_HEATMAP_CACHE = {};
   const PROP_HEATMAP_TTL = 15 * 60 * 1000; // 15 minutes — propagation changes slowly
   const PROP_HEATMAP_MAX_ENTRIES = 200; // Hard cap on cache entries
 
-  // Periodic cleanup: purge expired heatmap cache entries every 10 minutes
+  // Periodic cleanup: purge expired cache entries every 10 minutes
   setInterval(
     () => {
-      const now = Date.now();
-      const keys = Object.keys(PROP_HEATMAP_CACHE);
-      let purged = 0;
-      for (const key of keys) {
-        if (now - PROP_HEATMAP_CACHE[key].ts > PROP_HEATMAP_TTL * 2) {
-          delete PROP_HEATMAP_CACHE[key];
-          purged++;
-        }
-      }
-      // If still over cap, evict oldest
-      const remaining = Object.keys(PROP_HEATMAP_CACHE);
-      if (remaining.length > PROP_HEATMAP_MAX_ENTRIES) {
-        remaining
-          .sort((a, b) => PROP_HEATMAP_CACHE[a].ts - PROP_HEATMAP_CACHE[b].ts)
-          .slice(0, remaining.length - PROP_HEATMAP_MAX_ENTRIES)
-          .forEach((key) => {
-            delete PROP_HEATMAP_CACHE[key];
-            purged++;
-          });
-      }
-      if (purged > 0)
-        console.log(
-          `[Cache] PropHeatmap: purged ${purged} stale entries, ${Object.keys(PROP_HEATMAP_CACHE).length} remaining`,
-        );
+      maintainCache(PROP_HEATMAP_CACHE, PROP_HEATMAP_TTL, PROP_HEATMAP_MAX_ENTRIES, 'Prop Heatmap cache');
     },
     10 * 60 * 1000,
   );
@@ -734,8 +740,18 @@ module.exports = function (app, ctx) {
   // Computes MUF from DE to each grid cell using solar indices + path geometry.
   // Unlike the old ionosonde-based MUF map, this shows path-specific MUF from
   // your QTH to every point on the globe — more useful for operators.
+
   const MUF_MAP_CACHE = {};
   const MUF_MAP_TTL = 5 * 60 * 1000;
+  const MUF_MAP_MAX_ENTRIES = 200; // Hard cap on cache entries
+
+  // Periodic cleanup: purge expired cache entries every 10 minutes
+  setInterval(
+    () => {
+      maintainCache(MUF_MAP_CACHE, MUF_MAP_TTL, MUF_MAP_MAX_ENTRIES, 'MUF map cache');
+    },
+    10 * 60 * 1000,
+  );
 
   app.get('/api/propagation/mufmap', async (req, res) => {
     const deLat = parseFloat(req.query.deLat) || 0;
