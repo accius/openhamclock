@@ -6,10 +6,48 @@
 module.exports = function (app, ctx) {
   const { fetch, logDebug, logErrorOnce } = ctx;
 
+  const maintainCache = (cache, ttlMs, maxEntries, label = 'Cache') => {
+    const now = Date.now();
+    let purged = 0;
+
+    // Remove stale entries
+    for (const key of Object.keys(cache)) {
+      if (now - cache[key].timestamp > ttlMs * 2) {
+        delete cache[key];
+        purged++;
+      }
+    }
+
+    // Enforce max size by evicting oldest
+    const remaining = Object.keys(cache);
+    if (remaining.length > maxEntries) {
+      remaining
+        .sort((a, b) => cache[a].timestamp - cache[b].timestamp)
+        .slice(0, remaining.length - maxEntries)
+        .forEach((key) => {
+          delete cache[key];
+          purged++;
+        });
+    }
+
+    if (purged > 0) {
+      logDebug(`[${label}] purged ${purged} stale entries, ${Object.keys(cache).length} remaining`);
+    }
+  };
+
   // --- NWS Alerts ---
   // Cache keyed on rounded lat/lon, 3 minute TTL
   const alertsCache = {};
   const ALERTS_CACHE_TTL = 3 * 60 * 1000;
+  const ALERTS_CACHE_MAX_ENTRIES = 200; // Hard cap on cache entries
+
+  // Periodic cleanup: purge expired cache entries every 10 minutes
+  setInterval(
+    () => {
+      maintainCache(alertsCache, ALERTS_CACHE_TTL, ALERTS_CACHE_MAX_ENTRIES, 'Alerts cache');
+    },
+    10 * 60 * 1000,
+  );
 
   app.get('/api/emcomm/alerts', async (req, res) => {
     try {
@@ -66,6 +104,15 @@ module.exports = function (app, ctx) {
   // --- FEMA Open Shelters ---
   const sheltersCache = {};
   const SHELTERS_CACHE_TTL = 10 * 60 * 1000;
+  const SHELTERS_MAX_ENTRIES = 200; // Hard cap on cache entries
+
+  // Periodic cleanup: purge expired cache entries every 10 minutes
+  setInterval(
+    () => {
+      maintainCache(sheltersCache, SHELTERS_CACHE_TTL, SHELTERS_MAX_ENTRIES, 'Shelters cache');
+    },
+    10 * 60 * 1000,
+  );
 
   app.get('/api/emcomm/shelters', async (req, res) => {
     try {
@@ -136,6 +183,15 @@ module.exports = function (app, ctx) {
   // --- FEMA Disaster Declarations ---
   const disastersCache = {};
   const DISASTERS_CACHE_TTL = 30 * 60 * 1000;
+  const DISASTERS_MAX_ENTRIES = 200; // Hard cap on cache entries
+
+  // Periodic cleanup: purge expired cache entries every 10 minutes
+  setInterval(
+    () => {
+      maintainCache(disastersCache, DISASTERS_CACHE_TTL, DISASTERS_MAX_ENTRIES, 'Disasters cache');
+    },
+    10 * 60 * 1000,
+  );
 
   app.get('/api/emcomm/disasters', async (req, res) => {
     try {
