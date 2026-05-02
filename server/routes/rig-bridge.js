@@ -43,6 +43,11 @@ module.exports = function (app, ctx) {
   const MAX_LONG_POLL_PER_IP = 10;
   const relayPollCountByIP = new Map(); // ip → count
 
+  // Issued relay tokens — sessionId → random token returned by relay/configure or relay/credentials.
+  // Simple server-side lookup avoids any dependency on RIG_BRIDGE_RELAY_KEY being stable across
+  // restarts or deployments (the HMAC approach broke when the key changed between issue and verify).
+  const relayIssuedTokens = new Map(); // sessionId → token
+
   function notifyCommandWaiters(sessionId) {
     const waiters = relayCommandWaiters.get(sessionId);
     if (!waiters || waiters.size === 0) return;
@@ -111,29 +116,23 @@ module.exports = function (app, ctx) {
           }
           relayStreamClients.delete(k);
         }
+        relayIssuedTokens.delete(k);
       }
     }
   }, 300000); // Every 5 minutes
 
   // ─── Relay Auth ───────────────────────────────────────────────────────
-  // Session tokens are HMAC(masterKey, sessionId) so the master key never
-  // leaves the server. A leaked session token is scoped to that one session
-  // and cannot be used to create new sessions or impersonate other relays.
-  function sessionToken(sessionId) {
-    return crypto.createHmac('sha256', RIG_BRIDGE_RELAY_KEY).update(sessionId).digest('hex');
-  }
-
   function requireRelayAuth(req, res, next) {
     if (!RIG_BRIDGE_RELAY_KEY) {
       return res.status(503).json({ error: 'Cloud relay not configured — set RIG_BRIDGE_RELAY_KEY in .env' });
     }
     const sessionId = req.headers['x-relay-session'] || req.query.session || req.body?.session;
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    if (!sessionId || !token || token !== sessionToken(sessionId)) {
+    const issuedToken = sessionId ? relayIssuedTokens.get(sessionId) : undefined;
+    if (!sessionId || !token || !issuedToken || token !== issuedToken) {
       logWarn(
         `[RigBridge] relay auth failed — sessionId: ${sessionId ? sessionId.slice(0, 8) + '…' : '(none)'}, ` +
-          `token: ${token ? token.slice(0, 8) + '…' : '(none)'}, ` +
-          `expected: ${sessionId ? sessionToken(sessionId).slice(0, 8) + '…' : '(n/a)'}`,
+          `token ${token ? 'present' : 'missing'}, issued token ${issuedToken ? 'found' : 'not found in store'}`,
       );
       return res.status(401).json({
         error:
@@ -150,8 +149,10 @@ module.exports = function (app, ctx) {
         return res.json({ error: 'Cloud relay not configured', configured: false });
       }
       const sessionId = req.query.session || crypto.randomBytes(8).toString('hex');
+      const token = crypto.randomBytes(32).toString('hex');
+      relayIssuedTokens.set(sessionId, token);
       res.json({
-        relayKey: sessionToken(sessionId),
+        relayKey: token,
         session: sessionId,
         serverUrl: `${req.protocol}://${req.get('host')}`,
       });
@@ -451,7 +452,8 @@ module.exports = function (app, ctx) {
       }
       const sessionId = crypto.randomBytes(8).toString('hex');
       const serverUrl = `${req.protocol}://${req.get('host')}`;
-      const token = sessionToken(sessionId);
+      const token = crypto.randomBytes(32).toString('hex');
+      relayIssuedTokens.set(sessionId, token);
       res.json({
         ok: true,
         session: sessionId,
