@@ -24,6 +24,28 @@ module.exports = function (app, ctx) {
   const RIG_BRIDGE_DIR = path.join(ROOT_DIR, 'rig-bridge');
   const RIG_BRIDGE_ENTRY = path.join(RIG_BRIDGE_DIR, 'rig-bridge.js');
 
+  // ─── Relay Token Persistence ──────────────────────────────────────────
+  // Resolve a writable path for relay-tokens.json using the same waterfall
+  // as data/settings.json so tokens survive server restarts.
+  const RELAY_TOKENS_FILE = (() => {
+    const candidates = [
+      process.env.RELAY_TOKENS_FILE,
+      '/data/relay-tokens.json',
+      path.join(ROOT_DIR, 'data', 'relay-tokens.json'),
+      '/tmp/openhamclock-relay-tokens.json',
+    ];
+    for (const p of candidates) {
+      if (!p) continue;
+      try {
+        fs.mkdirSync(path.dirname(p), { recursive: true });
+        return p;
+      } catch {
+        continue;
+      }
+    }
+    return '/tmp/openhamclock-relay-tokens.json';
+  })();
+
   // ─── Cloud Relay State Store ──────────────────────────────────────────
   // Per-session relay state and command queues.
   // Session = unique browser tab / user connection.
@@ -46,7 +68,24 @@ module.exports = function (app, ctx) {
   // Issued relay tokens — sessionId → random token returned by relay/configure or relay/credentials.
   // Simple server-side lookup avoids any dependency on RIG_BRIDGE_RELAY_KEY being stable across
   // restarts or deployments (the HMAC approach broke when the key changed between issue and verify).
+  // Tokens are persisted to RELAY_TOKENS_FILE so they survive server restarts.
   const relayIssuedTokens = new Map(); // sessionId → token
+  try {
+    const raw = fs.readFileSync(RELAY_TOKENS_FILE, 'utf8');
+    const obj = JSON.parse(raw);
+    for (const [k, v] of Object.entries(obj)) relayIssuedTokens.set(k, v);
+    logInfo(`[RigBridge] Loaded ${relayIssuedTokens.size} relay token(s) from ${RELAY_TOKENS_FILE}`);
+  } catch {
+    /* file absent on first run — normal */
+  }
+
+  function saveRelayTokens() {
+    try {
+      fs.writeFileSync(RELAY_TOKENS_FILE, JSON.stringify(Object.fromEntries(relayIssuedTokens), null, 2), 'utf8');
+    } catch (err) {
+      logWarn(`[RigBridge] Could not persist relay tokens: ${err.message}`);
+    }
+  }
 
   function notifyCommandWaiters(sessionId) {
     const waiters = relayCommandWaiters.get(sessionId);
@@ -116,7 +155,8 @@ module.exports = function (app, ctx) {
           }
           relayStreamClients.delete(k);
         }
-        relayIssuedTokens.delete(k);
+        // Tokens are NOT deleted here — they survive session expiry so rig-bridge
+        // can reconnect after a server restart without re-authenticating.
       }
     }
   }, 300000); // Every 5 minutes
@@ -151,6 +191,7 @@ module.exports = function (app, ctx) {
       const sessionId = req.query.session || crypto.randomBytes(8).toString('hex');
       const token = crypto.randomBytes(32).toString('hex');
       relayIssuedTokens.set(sessionId, token);
+      saveRelayTokens();
       res.json({
         relayKey: token,
         session: sessionId,
@@ -454,6 +495,7 @@ module.exports = function (app, ctx) {
       const serverUrl = `${req.protocol}://${req.get('host')}`;
       const token = crypto.randomBytes(32).toString('hex');
       relayIssuedTokens.set(sessionId, token);
+      saveRelayTokens();
       res.json({
         ok: true,
         session: sessionId,
@@ -472,6 +514,21 @@ module.exports = function (app, ctx) {
       logWarn(`[RigBridge] relay/configure error: ${err.message}`);
       if (!res.headersSent) res.json({ ok: false, error: 'Internal error' });
     }
+  });
+
+  // ─── Cloud Relay: Revoke credentials ──────────────────────────────────
+  // Invalidates a relay token immediately. Requires OHC write auth.
+  // After revocation the rig-bridge must run Connect Cloud Relay again to get new credentials.
+  app.delete('/api/rig-bridge/relay/revoke/:sessionId', requireWriteAuth, (req, res) => {
+    const { sessionId } = req.params;
+    if (!relayIssuedTokens.has(sessionId)) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    relayIssuedTokens.delete(sessionId);
+    relaySessions.delete(sessionId);
+    saveRelayTokens();
+    logInfo(`[RigBridge] Relay token revoked for session ${sessionId.slice(0, 8)}…`);
+    res.json({ ok: true });
   });
 
   // ─── Downloads: Platform-specific installer scripts ────────────────────
