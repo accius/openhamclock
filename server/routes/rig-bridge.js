@@ -14,6 +14,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { validateCustomHost } = require('../utils/ssrf');
 
 module.exports = function (app, ctx) {
   const { ROOT_DIR, logInfo, logWarn, requireWriteAuth, RIG_BRIDGE_RELAY_KEY } = ctx;
@@ -37,6 +38,10 @@ module.exports = function (app, ctx) {
   // When a browser POSTs a command, any waiting rig-bridge poll is resolved
   // immediately instead of waiting up to 250 ms for the next poll tick.
   const relayCommandWaiters = new Map(); // sessionId → Set<{ resolve, timer }>
+
+  // Per-IP long-poll connection counter — caps concurrent waiters to bound resource use.
+  const MAX_LONG_POLL_PER_IP = 10;
+  const relayPollCountByIP = new Map(); // ip → count
 
   function notifyCommandWaiters(sessionId) {
     const waiters = relayCommandWaiters.get(sessionId);
@@ -111,13 +116,21 @@ module.exports = function (app, ctx) {
   }, 300000); // Every 5 minutes
 
   // ─── Relay Auth ───────────────────────────────────────────────────────
+  // Session tokens are HMAC(masterKey, sessionId) so the master key never
+  // leaves the server. A leaked session token is scoped to that one session
+  // and cannot be used to create new sessions or impersonate other relays.
+  function sessionToken(sessionId) {
+    return crypto.createHmac('sha256', RIG_BRIDGE_RELAY_KEY).update(sessionId).digest('hex');
+  }
+
   function requireRelayAuth(req, res, next) {
     if (!RIG_BRIDGE_RELAY_KEY) {
       return res.status(503).json({ error: 'Cloud relay not configured — set RIG_BRIDGE_RELAY_KEY in .env' });
     }
+    const sessionId = req.headers['x-relay-session'] || req.query.session || req.body?.session;
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    if (token !== RIG_BRIDGE_RELAY_KEY) {
-      return res.status(401).json({ error: 'Invalid relay key' });
+    if (!sessionId || !token || token !== sessionToken(sessionId)) {
+      return res.status(401).json({ error: 'Invalid relay credentials' });
     }
     next();
   }
@@ -130,7 +143,7 @@ module.exports = function (app, ctx) {
       }
       const sessionId = req.query.session || crypto.randomBytes(8).toString('hex');
       res.json({
-        relayKey: RIG_BRIDGE_RELAY_KEY,
+        relayKey: sessionToken(sessionId),
         session: sessionId,
         serverUrl: `${req.protocol}://${req.get('host')}`,
       });
@@ -365,16 +378,32 @@ module.exports = function (app, ctx) {
         return res.json({ commands: [] });
       }
 
+      const clientIP = req.ip || req.socket?.remoteAddress || 'unknown';
+      const ipCount = relayPollCountByIP.get(clientIP) ?? 0;
+      if (ipCount >= MAX_LONG_POLL_PER_IP) {
+        return res.status(429).json({ error: 'Too many concurrent long-polls from this IP' });
+      }
+      relayPollCountByIP.set(clientIP, ipCount + 1);
+
       if (!relayCommandWaiters.has(sessionId)) {
         relayCommandWaiters.set(sessionId, new Set());
       }
       const waiterSet = relayCommandWaiters.get(sessionId);
       let resolved = false;
 
+      function releaseIPSlot() {
+        const n = relayPollCountByIP.get(clientIP);
+        if (n != null) {
+          if (n <= 1) relayPollCountByIP.delete(clientIP);
+          else relayPollCountByIP.set(clientIP, n - 1);
+        }
+      }
+
       const waiter = {
         resolve(commands) {
           if (resolved) return;
           resolved = true;
+          releaseIPSlot();
           try {
             res.json({ commands });
           } catch (e) {
@@ -397,6 +426,7 @@ module.exports = function (app, ctx) {
           clearTimeout(waiter.timer);
           waiterSet.delete(waiter);
           if (waiterSet.size === 0) relayCommandWaiters.delete(sessionId);
+          releaseIPSlot();
         }
       });
     } catch (err) {
@@ -413,16 +443,17 @@ module.exports = function (app, ctx) {
       }
       const sessionId = crypto.randomBytes(8).toString('hex');
       const serverUrl = `${req.protocol}://${req.get('host')}`;
+      const token = sessionToken(sessionId);
       res.json({
         ok: true,
         session: sessionId,
         serverUrl,
-        relayKey: RIG_BRIDGE_RELAY_KEY,
+        relayKey: token,
         configPayload: {
           cloudRelay: {
             enabled: true,
             url: serverUrl,
-            apiKey: RIG_BRIDGE_RELAY_KEY,
+            apiKey: token,
             session: sessionId,
           },
         },
@@ -443,6 +474,11 @@ module.exports = function (app, ctx) {
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const serverURL = (proto + '://' + host).replace(/[^a-zA-Z0-9._\-:\/\@]/g, '');
+    try {
+      new URL(serverURL);
+    } catch {
+      return res.status(400).json({ error: 'Invalid server URL derived from request headers' });
+    }
 
     if (platform === 'windows') {
       const script = [
@@ -753,15 +789,24 @@ module.exports = function (app, ctx) {
     }
   });
 
-  app.get('/api/rig-bridge/status', async (req, res) => {
-    const host = req.query.host || 'http://localhost';
+  app.get('/api/rig-bridge/status', requireWriteAuth, async (req, res) => {
+    const rawHost = (req.query.host || 'localhost').replace(/^https?:\/\//i, '');
+    const proto = (req.query.host || '').startsWith('https') ? 'https' : 'http';
     const port = req.query.port || '5555';
-    const url = `${host}:${port}/health`;
 
+    const validation = await validateCustomHost(rawHost);
+    if (!validation.ok) {
+      return res.status(400).json({ reachable: false, error: `Invalid host: ${validation.reason}` });
+    }
+
+    const url = `${proto}://${validation.resolvedIP}:${port}/health`;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
-      const response = await ctx.fetch(url, { signal: controller.signal });
+      const response = await ctx.fetch(url, {
+        signal: controller.signal,
+        headers: { Host: rawHost },
+      });
       clearTimeout(timeout);
       if (!response.ok) {
         return res.json({ reachable: false, error: `HTTP ${response.status}` });

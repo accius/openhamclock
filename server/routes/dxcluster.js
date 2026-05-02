@@ -3,11 +3,11 @@
  * Lines ~2936-4193 of original server.js
  */
 
-const dns = require('dns');
 const dgram = require('dgram');
 const net = require('net');
 const { gridToLatLon, getBandFromKHz } = require('../utils/grid');
 const { areDXPathsDuplicate } = require('../utils/dxClusterPathIdentity');
+const { isPrivateIP, validateCustomHost } = require('../utils/ssrf');
 
 module.exports = function (app, ctx) {
   const {
@@ -1247,79 +1247,6 @@ module.exports = function (app, ctx) {
       }
     }
   }, 60 * 1000);
-
-  /**
-   * SSRF protection: resolve hostname to IP and reject private/reserved addresses.
-   * Returns the resolved IP so callers can connect to the IP directly, preventing
-   * DNS rebinding (TOCTOU) attacks where the record changes between validation and connect.
-   */
-  function isPrivateIP(ip) {
-    // Normalize IPv4-mapped IPv6 (e.g. ::ffff:127.0.0.1 → 127.0.0.1)
-    const normalized = ip.replace(/^::ffff:/i, '');
-
-    // IPv4 private/reserved ranges
-    const parts = normalized.split('.').map(Number);
-    if (parts.length === 4 && parts.every((n) => n >= 0 && n <= 255)) {
-      if (parts[0] === 127) return true; // loopback
-      if (parts[0] === 10) return true; // 10.0.0.0/8
-      if (parts[0] === 172 && parts[1] >= 16 && parts[1] <= 31) return true; // 172.16.0.0/12
-      if (parts[0] === 192 && parts[1] === 168) return true; // 192.168.0.0/16
-      if (parts[0] === 169 && parts[1] === 254) return true; // link-local
-      if (parts[0] === 0) return true; // 0.0.0.0/8
-      if (parts[0] >= 224) return true; // multicast + reserved
-    }
-    // IPv6 private/reserved
-    const lower = normalized.toLowerCase();
-    if (
-      lower === '::1' ||
-      lower === '::' ||
-      lower.startsWith('fe80:') ||
-      lower.startsWith('fc00:') ||
-      lower.startsWith('fd00:') ||
-      lower.startsWith('ff00:') ||
-      lower.startsWith('::ffff:')
-    ) {
-      // Catch any remaining IPv4-mapped forms that weren't normalized above
-      return true;
-    }
-    return false;
-  }
-
-  async function validateCustomHost(host) {
-    // Allow localhost and IP-literal private addresses directly — OpenHamClock is
-    // self-hosted software and users commonly run local DX cluster servers (CC Cluster,
-    // DXSpider on a Pi, etc.).  SSRF is only a concern for multi-user cloud deployments.
-    if (/^localhost$/i.test(host)) return { ok: true, resolvedIP: '127.0.0.1' };
-
-    // If the host is already an IP address, allow it directly (including private ranges)
-    const ipParts = host.split('.').map(Number);
-    if (ipParts.length === 4 && ipParts.every((n) => n >= 0 && n <= 255)) {
-      return { ok: true, resolvedIP: host };
-    }
-
-    // Resolve hostname to IPv4 addresses.
-    // Try resolve4 first (direct DNS), then fall back to lookup (OS resolver)
-    // which handles /etc/hosts, search domains, and alternate resolvers.
-    let addresses;
-    try {
-      addresses = await dns.promises.resolve4(host);
-    } catch {
-      try {
-        const result = await dns.promises.lookup(host, { family: 4 });
-        if (result?.address) addresses = [result.address];
-      } catch {
-        return { ok: false, reason: 'Host could not be resolved (IPv4 required for custom DX clusters)' };
-      }
-    }
-
-    if (!addresses || addresses.length === 0) {
-      return { ok: false, reason: 'Host did not resolve to any IPv4 address' };
-    }
-
-    // Return the first resolved IP so callers connect to the validated IP, not the hostname.
-    // This prevents DNS rebinding (TOCTOU) where the record changes between validation and connect.
-    return { ok: true, resolvedIP: addresses[0] };
-  }
 
   app.get('/api/dxcluster/paths', async (req, res) => {
     // Parse query parameters for custom cluster settings
