@@ -135,7 +135,7 @@ const descriptor = {
       lastState = { ...currentState };
 
       // Include batched data in the push
-      const payload = { ...currentState };
+      const payload = { ...currentState, session };
       if (hasDecodes) {
         payload.decodes = pendingDecodes.splice(0, 50);
         totalDecodes += payload.decodes.length;
@@ -144,7 +144,7 @@ const descriptor = {
         payload.aprsPackets = pendingAprs.splice(0, 50);
       }
 
-      makeRequest(`${serverUrl}/api/rig-bridge/relay/state`, 'POST', payload, (err, status) => {
+      makeRequest(`${serverUrl}/api/rig-bridge/relay/state`, 'POST', payload, (err, status, data) => {
         if (err) {
           if (serverReachable) console.error(`[CloudRelay] Push error: ${err.message}`);
           serverReachable = false;
@@ -162,7 +162,12 @@ const descriptor = {
             console.log(`[CloudRelay] Pushed state (${currentState.freq} Hz ${currentState.mode}${decodeInfo})`);
           }
         } else if (status === 401 || status === 403) {
-          console.error(`[CloudRelay] Authentication failed (${status}) — check relay API key`);
+          try {
+            const msg = JSON.parse(data)?.error || data;
+            console.error(`[CloudRelay] Authentication failed (${status}): ${msg}`);
+          } catch {
+            console.error(`[CloudRelay] Authentication failed (${status}) — check relay API key and session`);
+          }
         }
       });
     }
@@ -204,56 +209,50 @@ const descriptor = {
     }
 
     // Execute a command received from the cloud
+    // Uses https when rig-bridge TLS is enabled, http otherwise.
+    // All requests have an error handler to prevent unhandled-error crashes.
     function executeCommand(cmd) {
       totalCommands++;
       if (cfg.verbose) console.log(`[CloudRelay] Command: ${cmd.type} ${JSON.stringify(cmd.payload || {})}`);
 
+      const localMod = config.tls?.enabled ? https : http;
+      const localOptions = (path, body) => ({
+        hostname: '127.0.0.1',
+        port: config.port || 5555,
+        path,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-RigBridge-Token': config.apiToken || '' },
+        // Skip cert verification for loopback self-signed cert
+        rejectUnauthorized: false,
+      });
+
       switch (cmd.type) {
         case 'setFreq':
           if (cmd.payload?.freq) {
-            // Dispatch through the local rig-bridge HTTP API
-            const freqReq = http.request(
-              {
-                hostname: '127.0.0.1',
-                port: config.port || 5555,
-                path: '/freq',
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-RigBridge-Token': config.apiToken || '' },
-              },
-              () => {},
-            );
+            const freqReq = localMod.request(localOptions('/freq'), () => {});
+            freqReq.on('error', (err) => {
+              if (cfg.verbose) console.error(`[CloudRelay] setFreq dispatch error: ${err.message}`);
+            });
             freqReq.write(JSON.stringify({ freq: cmd.payload.freq }));
             freqReq.end();
           }
           break;
         case 'setMode':
           if (cmd.payload?.mode) {
-            const modeReq = http.request(
-              {
-                hostname: '127.0.0.1',
-                port: config.port || 5555,
-                path: '/mode',
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-RigBridge-Token': config.apiToken || '' },
-              },
-              () => {},
-            );
+            const modeReq = localMod.request(localOptions('/mode'), () => {});
+            modeReq.on('error', (err) => {
+              if (cfg.verbose) console.error(`[CloudRelay] setMode dispatch error: ${err.message}`);
+            });
             modeReq.write(JSON.stringify({ mode: cmd.payload.mode }));
             modeReq.end();
           }
           break;
         case 'setPTT':
           if (cmd.payload != null) {
-            const pttReq = http.request(
-              {
-                hostname: '127.0.0.1',
-                port: config.port || 5555,
-                path: '/ptt',
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-RigBridge-Token': config.apiToken || '' },
-              },
-              () => {},
-            );
+            const pttReq = localMod.request(localOptions('/ptt'), () => {});
+            pttReq.on('error', (err) => {
+              if (cfg.verbose) console.error(`[CloudRelay] setPTT dispatch error: ${err.message}`);
+            });
             pttReq.write(JSON.stringify({ ptt: !!cmd.payload.ptt }));
             pttReq.end();
           }
@@ -264,8 +263,8 @@ const descriptor = {
     }
 
     function connect() {
-      if (!serverUrl || !apiKey) {
-        console.error('[CloudRelay] Cannot start: url and apiKey are required');
+      if (!serverUrl || !apiKey || !session) {
+        console.error('[CloudRelay] Cannot start: url, apiKey, and session are required');
         return;
       }
 

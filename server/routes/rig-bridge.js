@@ -14,6 +14,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
+const { validateCustomHost } = require('../utils/ssrf');
 
 module.exports = function (app, ctx) {
   const { ROOT_DIR, logInfo, logWarn, requireWriteAuth, RIG_BRIDGE_RELAY_KEY } = ctx;
@@ -22,6 +23,28 @@ module.exports = function (app, ctx) {
 
   const RIG_BRIDGE_DIR = path.join(ROOT_DIR, 'rig-bridge');
   const RIG_BRIDGE_ENTRY = path.join(RIG_BRIDGE_DIR, 'rig-bridge.js');
+
+  // ─── Relay Token Persistence ──────────────────────────────────────────
+  // Resolve a writable path for relay-tokens.json using the same waterfall
+  // as data/settings.json so tokens survive server restarts.
+  const RELAY_TOKENS_FILE = (() => {
+    const candidates = [
+      process.env.RELAY_TOKENS_FILE,
+      '/data/relay-tokens.json',
+      path.join(ROOT_DIR, 'data', 'relay-tokens.json'),
+      '/tmp/openhamclock-relay-tokens.json',
+    ];
+    for (const p of candidates) {
+      if (!p) continue;
+      try {
+        fs.mkdirSync(path.dirname(p), { recursive: true });
+        return p;
+      } catch {
+        continue;
+      }
+    }
+    return '/tmp/openhamclock-relay-tokens.json';
+  })();
 
   // ─── Cloud Relay State Store ──────────────────────────────────────────
   // Per-session relay state and command queues.
@@ -37,6 +60,59 @@ module.exports = function (app, ctx) {
   // When a browser POSTs a command, any waiting rig-bridge poll is resolved
   // immediately instead of waiting up to 250 ms for the next poll tick.
   const relayCommandWaiters = new Map(); // sessionId → Set<{ resolve, timer }>
+
+  // Per-IP long-poll connection counter — caps concurrent waiters to bound resource use.
+  const MAX_LONG_POLL_PER_IP = 10;
+  const relayPollCountByIP = new Map(); // ip → count
+
+  // Issued relay tokens — sessionId → { token, lastUsed }.
+  // Simple server-side lookup avoids any dependency on RIG_BRIDGE_RELAY_KEY being stable across
+  // restarts or deployments (the HMAC approach broke when the key changed between issue and verify).
+  // Tokens are persisted to RELAY_TOKENS_FILE so they survive server restarts.
+  // Entries not used for RELAY_TOKEN_MAX_AGE are pruned on startup (background, non-blocking).
+  const RELAY_TOKEN_MAX_AGE = 30 * 24 * 60 * 60 * 1000; // 30 days
+  const relayIssuedTokens = new Map(); // sessionId → { token, lastUsed }
+  try {
+    const raw = fs.readFileSync(RELAY_TOKENS_FILE, 'utf8');
+    const obj = JSON.parse(raw);
+    const now = Date.now();
+    for (const [k, v] of Object.entries(obj)) {
+      // Migrate old plain-string format — treat as freshly used so it isn't immediately pruned
+      if (typeof v === 'string') relayIssuedTokens.set(k, { token: v, lastUsed: now });
+      else if (v?.token) relayIssuedTokens.set(k, { token: v.token, lastUsed: v.lastUsed ?? now });
+    }
+    logInfo(`[RigBridge] Loaded ${relayIssuedTokens.size} relay token(s) from ${RELAY_TOKENS_FILE}`);
+  } catch {
+    /* file absent on first run — normal */
+  }
+
+  function saveRelayTokens() {
+    try {
+      fs.writeFileSync(RELAY_TOKENS_FILE, JSON.stringify(Object.fromEntries(relayIssuedTokens), null, 2), 'utf8');
+    } catch (err) {
+      logWarn(`[RigBridge] Could not persist relay tokens: ${err.message}`);
+    }
+  }
+
+  // Flush updated lastUsed timestamps to disk once per hour so they survive restarts
+  setInterval(saveRelayTokens, 3600000);
+
+  // Background startup cleanup — runs 15 s after boot so it never delays request handling.
+  // Removes tokens unused for RELAY_TOKEN_MAX_AGE and persists the trimmed file.
+  setTimeout(() => {
+    const cutoff = Date.now() - RELAY_TOKEN_MAX_AGE;
+    let removed = 0;
+    for (const [k, v] of relayIssuedTokens) {
+      if ((v.lastUsed ?? 0) < cutoff) {
+        relayIssuedTokens.delete(k);
+        removed++;
+      }
+    }
+    if (removed > 0) {
+      saveRelayTokens();
+      logInfo(`[RigBridge] Pruned ${removed} stale relay token(s) (unused > 30 days)`);
+    }
+  }, 15000);
 
   function notifyCommandWaiters(sessionId) {
     const waiters = relayCommandWaiters.get(sessionId);
@@ -106,6 +182,8 @@ module.exports = function (app, ctx) {
           }
           relayStreamClients.delete(k);
         }
+        // Tokens are NOT deleted here — they survive session expiry so rig-bridge
+        // can reconnect after a server restart without re-authenticating.
       }
     }
   }, 300000); // Every 5 minutes
@@ -115,10 +193,20 @@ module.exports = function (app, ctx) {
     if (!RIG_BRIDGE_RELAY_KEY) {
       return res.status(503).json({ error: 'Cloud relay not configured — set RIG_BRIDGE_RELAY_KEY in .env' });
     }
+    const sessionId = req.headers['x-relay-session'] || req.query.session || req.body?.session;
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
-    if (token !== RIG_BRIDGE_RELAY_KEY) {
-      return res.status(401).json({ error: 'Invalid relay key' });
+    const entry = sessionId ? relayIssuedTokens.get(sessionId) : undefined;
+    if (!sessionId || !token || !entry || token !== entry.token) {
+      logWarn(
+        `[RigBridge] relay auth failed — sessionId: ${sessionId ? sessionId.slice(0, 8) + '…' : '(none)'}, ` +
+          `token ${token ? 'present' : 'missing'}, issued token ${entry ? 'found' : 'not found in store'}`,
+      );
+      return res.status(401).json({
+        error:
+          'Invalid relay credentials — re-run Connect Cloud Relay in OHC Settings → Rig Bridge to generate fresh credentials',
+      });
     }
+    entry.lastUsed = Date.now();
     next();
   }
 
@@ -129,8 +217,11 @@ module.exports = function (app, ctx) {
         return res.json({ error: 'Cloud relay not configured', configured: false });
       }
       const sessionId = req.query.session || crypto.randomBytes(8).toString('hex');
+      const token = crypto.randomBytes(32).toString('hex');
+      relayIssuedTokens.set(sessionId, { token, lastUsed: Date.now() });
+      saveRelayTokens();
       res.json({
-        relayKey: RIG_BRIDGE_RELAY_KEY,
+        relayKey: token,
         session: sessionId,
         serverUrl: `${req.protocol}://${req.get('host')}`,
       });
@@ -365,16 +456,32 @@ module.exports = function (app, ctx) {
         return res.json({ commands: [] });
       }
 
+      const clientIP = req.ip || req.socket?.remoteAddress || 'unknown';
+      const ipCount = relayPollCountByIP.get(clientIP) ?? 0;
+      if (ipCount >= MAX_LONG_POLL_PER_IP) {
+        return res.status(429).json({ error: 'Too many concurrent long-polls from this IP' });
+      }
+      relayPollCountByIP.set(clientIP, ipCount + 1);
+
       if (!relayCommandWaiters.has(sessionId)) {
         relayCommandWaiters.set(sessionId, new Set());
       }
       const waiterSet = relayCommandWaiters.get(sessionId);
       let resolved = false;
 
+      function releaseIPSlot() {
+        const n = relayPollCountByIP.get(clientIP);
+        if (n != null) {
+          if (n <= 1) relayPollCountByIP.delete(clientIP);
+          else relayPollCountByIP.set(clientIP, n - 1);
+        }
+      }
+
       const waiter = {
         resolve(commands) {
           if (resolved) return;
           resolved = true;
+          releaseIPSlot();
           try {
             res.json({ commands });
           } catch (e) {
@@ -397,6 +504,7 @@ module.exports = function (app, ctx) {
           clearTimeout(waiter.timer);
           waiterSet.delete(waiter);
           if (waiterSet.size === 0) relayCommandWaiters.delete(sessionId);
+          releaseIPSlot();
         }
       });
     } catch (err) {
@@ -413,16 +521,19 @@ module.exports = function (app, ctx) {
       }
       const sessionId = crypto.randomBytes(8).toString('hex');
       const serverUrl = `${req.protocol}://${req.get('host')}`;
+      const token = crypto.randomBytes(32).toString('hex');
+      relayIssuedTokens.set(sessionId, { token, lastUsed: Date.now() });
+      saveRelayTokens();
       res.json({
         ok: true,
         session: sessionId,
         serverUrl,
-        relayKey: RIG_BRIDGE_RELAY_KEY,
+        relayKey: token,
         configPayload: {
           cloudRelay: {
             enabled: true,
             url: serverUrl,
-            apiKey: RIG_BRIDGE_RELAY_KEY,
+            apiKey: token,
             session: sessionId,
           },
         },
@@ -431,6 +542,21 @@ module.exports = function (app, ctx) {
       logWarn(`[RigBridge] relay/configure error: ${err.message}`);
       if (!res.headersSent) res.json({ ok: false, error: 'Internal error' });
     }
+  });
+
+  // ─── Cloud Relay: Revoke credentials ──────────────────────────────────
+  // Invalidates a relay token immediately. Requires OHC write auth.
+  // After revocation the rig-bridge must run Connect Cloud Relay again to get new credentials.
+  app.delete('/api/rig-bridge/relay/revoke/:sessionId', requireWriteAuth, (req, res) => {
+    const { sessionId } = req.params;
+    if (!relayIssuedTokens.has(sessionId)) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    relayIssuedTokens.delete(sessionId);
+    relaySessions.delete(sessionId);
+    saveRelayTokens();
+    logInfo(`[RigBridge] Relay token revoked for session ${sessionId.slice(0, 8)}…`);
+    res.json({ ok: true });
   });
 
   // ─── Downloads: Platform-specific installer scripts ────────────────────
@@ -443,6 +569,11 @@ module.exports = function (app, ctx) {
     const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     const serverURL = (proto + '://' + host).replace(/[^a-zA-Z0-9._\-:\/\@]/g, '');
+    try {
+      new URL(serverURL);
+    } catch {
+      return res.status(400).json({ error: 'Invalid server URL derived from request headers' });
+    }
 
     if (platform === 'windows') {
       const script = [
@@ -753,15 +884,24 @@ module.exports = function (app, ctx) {
     }
   });
 
-  app.get('/api/rig-bridge/status', async (req, res) => {
-    const host = req.query.host || 'http://localhost';
+  app.get('/api/rig-bridge/status', requireWriteAuth, async (req, res) => {
+    const rawHost = (req.query.host || 'localhost').replace(/^https?:\/\//i, '');
+    const proto = (req.query.host || '').startsWith('https') ? 'https' : 'http';
     const port = req.query.port || '5555';
-    const url = `${host}:${port}/health`;
 
+    const validation = await validateCustomHost(rawHost);
+    if (!validation.ok) {
+      return res.status(400).json({ reachable: false, error: `Invalid host: ${validation.reason}` });
+    }
+
+    const url = `${proto}://${validation.resolvedIP}:${port}/health`;
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 3000);
-      const response = await ctx.fetch(url, { signal: controller.signal });
+      const response = await ctx.fetch(url, {
+        signal: controller.signal,
+        headers: { Host: rawHost },
+      });
       clearTimeout(timeout);
       if (!response.ok) {
         return res.json({ reachable: false, error: `HTTP ${response.status}` });
