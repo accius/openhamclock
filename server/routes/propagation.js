@@ -622,7 +622,7 @@ module.exports = function (app, ctx) {
     }
 
     if (purged > 0) {
-      console.log(`[${label}] purged ${purged} stale entries, ${Object.keys(cache).length} remaining`);
+      logDebug(`[${label}] purged ${purged} stale entries, ${Object.keys(cache).length} remaining`);
     }
   };
 
