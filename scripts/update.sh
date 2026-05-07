@@ -223,12 +223,14 @@ done
 
 echo ""
 echo "📦 Installing dependencies..."
-# --include=dev ensures vite is installed even if NODE_ENV=production.
+# npm ci deletes node_modules and reinstalls from the lockfile exactly,
+# preventing stale packages from surviving across updates (e.g. a newly added
+# production dependency not appearing in an existing node_modules tree).
 # --ignore-scripts skips postinstall hooks that fail on Linux/Pi (e.g.
 # electron-winstaller copying Windows-only binaries).
 # ELECTRON_SKIP_BINARY_DOWNLOAD=1 avoids downloading the ~200 MB Electron
 # binary which is not needed for the server/kiosk build.
-ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install --include=dev --ignore-scripts
+ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci --ignore-scripts
 
 echo ""
 echo "📦 Downloading vendor assets..."
