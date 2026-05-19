@@ -697,7 +697,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
 
         // Unfortunately, to fit both km and miles in the header we need to override the font size
         let distStr = isMetric ? ` (${PROXIMITY_RADIUS_KM} km)` : ` (${PROXIMITY_RADIUS_MILES.toFixed(1)} miles)`;
-        div.innerHTML = `<div class="floating-panel-header" style="font-size: 11px">📍 ${t('plugins.layers.lightning.nearbyStrikes')} ${distStr}</div><div style="opacity: 0.7; font-size: 10px; text-align: center;">No recent strikes</div>`;
+        div.innerHTML = `<div class="floating-panel-header" style="font-size: 11px">📍 ${t('plugins.layers.lightning.nearbyStrikes')}${distStr}</div><div style="opacity: 0.7; font-size: 10px; text-align: center;">No recent strikes</div>`;
 
         // Prevent map interaction
         L.DomEvent.disableClickPropagation(div);
