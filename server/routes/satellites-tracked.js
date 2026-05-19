@@ -230,7 +230,7 @@ const HAM_SATELLITES = {
   'ELEKTRO-L4': {
     data_source: 'celestrak_active',
     norad: 55506,
-    name: 'ELEKTRO-L3',
+    name: 'ELEKTRO-L4',
     color: '#ff9900',
     priority: 2,
   },
