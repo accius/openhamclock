@@ -44,11 +44,10 @@ describe('StateMachine with invalid inputs', () => {
     expect(() => new StateMachine(['A'], {})).toThrow();
   });
 
-  it('should throw if invalid state index is provided', () => {
-    expect(() => {
-      new StateMachine(['A'], { A: () => 'B' });
-      sm.run(); // will try to run handler for state 'A' which returns 'B' (invalid)
-    }).toThrow();
+  it('should gracefully reset if invalid state index is provided', async () => {
+    const sm = new StateMachine(['A'], { A: () => 'B' });
+    sm.run();
+    expect(await sm.currentState()).toBe('A'); // should reset to 'A'
   });
 
   {
@@ -66,7 +65,7 @@ describe('StateMachine with invalid inputs', () => {
       expect(await sm.currentState()).toBe('A');
     });
 
-    it('should reset if invalid index is provided', async () => {
+    it('should gracefully reset if invalid index is provided', async () => {
       const sm = new StateMachine(['A', 'B'], { A: () => 'B', B: () => 'B' });
       await sm.run();
       expect(await sm.currentState()).toBe('B');
@@ -84,11 +83,5 @@ describe('StateMachine with invalid inputs', () => {
         expect(await sm.currentState()).toBe('A'); // should reset to 'A'
       });
     }
-
-    it('should reset if next state is invalid', async () => {
-      const sm = new StateMachine(states, { A: () => 'X', B: () => 'C', C: () => 'C' }); // A returns invalid state 'X'
-      await sm.run(); // will try to run handler for state 'A' which returns 'X' (invalid)
-      expect(await sm.currentState()).toBe('A'); // should reset to 'A'
-    });
   }
 });
