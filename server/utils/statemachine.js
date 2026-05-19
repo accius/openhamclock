@@ -1,4 +1,4 @@
-const { Mutex, MutexValue, MutexCounter } = require('../utils/mutex');
+const { Mutex, MutexValue, MutexCounter } = require('./mutex');
 
 /**
  * A simple state machine implementation with safety checks to prevent invalid states and handlers.
