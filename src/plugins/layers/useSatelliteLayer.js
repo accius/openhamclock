@@ -206,21 +206,64 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     const activeSats = satellites.filter((s) => selectedSats.includes(s.name));
 
     const titleBar = `
-      <div class="sat-data-window-title" style="display:flex; justify-content:space-between; align-items:center;
-                  cursor:grab; user-select:none;
-                  padding: 8px 10px; border-bottom: 1px solid var(--border-color); background: var(--bg-tertiary);">
-        <span data-drag-handle="true" style="font-family: var(--font-mono); font-size:13px; font-weight:700; color: var(--accent-blue); letter-spacing:0.05em;">
-          🛰 ${activeSats.length} ${activeSats.length !== 1 ? t('station.settings.satellites.name_plural') : t('station.settings.satellites.name')}
-        </span>
-        <button class="sat-data-window-minimize"
-                onclick="window.__satWinToggleMinimize()"
-                title="${winMinimized ? 'Expand' : 'Minimize'}"
-          style="background:none; border:none; color: var(--text-secondary); cursor:pointer;
-                       font-size:10px; line-height:1; padding:2px 4px; margin:0;">
-          ${winMinimized ? '▶' : '▼'}
-        </button>
-      </div>
-    `;
+  <div class="sat-data-window-title"
+       style="
+         display:flex;
+         justify-content:space-between;
+         align-items:center;
+         cursor:grab;
+         user-select:none;
+         border-bottom: 1px solid var(--border-color);
+         background: var(--bg-tertiary);
+         ${
+           winMinimized
+             ? `
+             padding: 2px 6px;
+             width: fit-content;
+             min-width: 0;
+             flex: none;
+           `
+             : `
+             padding: 8px 10px;
+           `
+         }
+       ">
+       
+    <span data-drag-handle="true"
+          style="font-family: var(--font-mono);
+                 font-size:13px;
+                 font-weight:700;
+                 color: var(--accent-blue);
+                 letter-spacing:0.05em;">
+      🛰 ${
+        !winMinimized
+          ? `${activeSats.length} ${
+              activeSats.length !== 1
+                ? t('station.settings.satellites.name_plural')
+                : t('station.settings.satellites.name')
+            }`
+          : ''
+      }
+    </span>
+
+    <button class="sat-data-window-minimize"
+            onclick="window.__satWinToggleMinimize()"
+            title="${winMinimized ? 'Expand' : 'Minimize'}"
+            style="
+              background:none;
+              border:none;
+              color: var(--text-secondary);
+              cursor:pointer;
+              font-size:10px;
+              line-height:1;
+              padding:2px 4px;
+              margin:0;
+            ">
+      ${winMinimized ? '▶' : '▼'}
+    </button>
+
+  </div>
+`;
 
     const clearAllBtn = `
       <div style="margin: 10px 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 5px;">
@@ -236,7 +279,16 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     if (winMinimized) {
       win.style.maxHeight = '';
       win.style.overflowY = 'hidden';
+
+      // shrink to minimal size
+      win.style.width = 'fit-content';
+      win.style.minWidth = 'unset';
+      win.style.maxWidth = 'fit-content';
+      win.style.height = 'fit-content';
+      win.style.minHeight = 'unset';
+
       win.innerHTML = `${titleBar}<div class="sat-data-window-content"></div>`;
+
       addMinimizeToggle(win, 'sat-data-window', {
         contentClassName: 'sat-data-window-content',
         buttonClassName: 'sat-data-window-minimize',
@@ -245,6 +297,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         persist: false,
         manageButtonEvents: true,
       });
+
       return;
     }
 
