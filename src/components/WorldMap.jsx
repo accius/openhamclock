@@ -2838,7 +2838,7 @@ export const WorldMap = ({
         </div>
       )}
       <style>{`
-        ${mapUiHidden ? '.leaflet-control-container,.grayline-control,.muf-map-control,.voacap-heatmap-control,.rbn-control,.lightning-stats,.lightning-proximity,.wspr-filter-control,.wspr-stats,.wspr-legend,.wspr-chart,.sat-data-window{display:none !important;}' : ''}
+        ${mapUiHidden ? '.leaflet-control-container,.grayline-control,.muf-map-control,.voacap-heatmap-control,.rbn-control,.lightning-stats,.lightning-proximity,.wspr-filter-control,.wspr-stats,.wspr-legend,.wspr-chart{display:none !important;}' : ''}
         .ohc-rotator-bearing {
           stroke-dasharray: 10 10;
           animation: ohcRotDash 2.8s linear infinite, ohcRotPulse 3.2s ease-in-out infinite;
