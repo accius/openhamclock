@@ -1,4 +1,26 @@
 // Curated list of active ham radio and amateur-accessible satellites
+//
+// =========
+// CelesTrak
+// =========
+//
+// If the data_source is set to one of the following then an attempt will be made to refresh using a CelesTrak group query.
+// celestrak_amateur
+// celestrak_weather
+// Note that other group names are not supported since it is not efficient to download a large group only to utilize a few entries.
+//
+// Subsequently for satellites that remain data stale but have data_source of form celestrak* then individual download will be attempted.
+//
+// If the data_source field is missing or is not of the form celestrak* then no attempt will be made to assess for refresh using CelesTrak,
+// however if that satellite appears coincidentally in another CelesTrak group search then it still may get updated.
+//
+// ===========
+// Space-Track
+// ===========
+// It is not necessary to set data_source with Space-Track, if the feature is enabled (see .env) then all satellites with stale data
+// will be checked for updates.
+//
+//
 // Last audited: May 9, 2026
 //
 // REMOVED (dead/decayed/not ham):
