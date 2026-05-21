@@ -206,70 +206,22 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     const activeSats = satellites.filter((s) => selectedSats.includes(s.name));
 
     const titleBar = `
-  <div class="sat-data-window-title"
-       style="
-         display:flex;
-         justify-content:space-between;
-         align-items:center;
-         cursor:grab;
-         user-select:none;
-         border-bottom: 1px solid var(--border-color);
-         background: var(--bg-tertiary);
-         ${
-           winMinimized
-             ? `
-             padding: 2px 6px;
-             width: fit-content;
-             min-width: 0;
-             flex: none;
-           `
-             : `
-             padding: 8px 10px;
-           `
-         }
-       ">
-       
-    <span data-drag-handle="true"
-          style="font-family: var(--font-mono);
-                 font-size:13px;
-                 font-weight:700;
-                 color: var(--accent-blue);
-                 letter-spacing:0.05em;">
-      🛰 ${
-        !winMinimized
-          ? `${activeSats.length} ${
-              activeSats.length !== 1
-                ? t('station.settings.satellites.name_plural')
-                : t('station.settings.satellites.name')
-            }`
-          : ''
-      }
-    </span>
-
-    <button class="sat-data-window-minimize"
-            onclick="window.__satWinToggleMinimize()"
-            title="${winMinimized ? 'Expand' : 'Minimize'}"
-            style="
-              background:none;
-              border:none;
-              color: var(--text-secondary);
-              cursor:pointer;
-              font-size:10px;
-              line-height:1;
-              padding:2px 4px;
-              margin:0;
-            ">
-      ${winMinimized ? '▶' : '▼'}
-    </button>
-
-  </div>
-`;
+      <div class="sat-data-window-title"
+        style="display:flex; justify-content:space-between; align-items:center; cursor:grab; user-select:none; border-bottom:1px solid var(--border-color); background:var(--bg-tertiary);
+          ${winMinimized ? `padding:2px 6px; width:fit-content; min-width:0; max-width:fit-content; height:fit-content; min-height:0; flex:none;` : `padding:8px 10px;`}">
+        <span data-drag-handle="true" style="font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--accent-blue); letter-spacing:0.05em;">
+          🛰 ${!winMinimized ? `${activeSats.length} ${activeSats.length !== 1 ? t('station.settings.satellites.name_plural') : t('station.settings.satellites.name')}` : ''}
+        </span>
+        <button class="sat-data-window-minimize" onclick="window.__satWinToggleMinimize()" title="${winMinimized ? 'Expand' : 'Minimize'}" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:10px; line-height:1; padding:2px 4px; margin:0;">
+          ${winMinimized ? '▶' : '▼'}
+        </button>
+      </div>`;
 
     const clearAllBtn = `
       <div style="margin: 10px 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 5px;">
         <button onclick="sessionStorage.removeItem('selected_satellites'); window.location.reload();"
           style="background: var(--bg-primary); border: 1px solid var(--accent-red); color: var(--accent-red); cursor: pointer;
-                       padding: 4px 10px; font-size: 10px; border-radius: 3px; font-weight: bold; width: 100%;">
+            padding: 4px 10px; font-size: 10px; border-radius: 3px; font-weight: bold; width: 100%;">
           ${t('station.settings.satellites.clearFootprints')}
         </button>
         <span style="font-size: 9px; color: var(--text-muted);">${t('station.settings.satellites.dragTitle')}</span>
@@ -301,6 +253,12 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       return;
     }
 
+    // reset to default size constraints
+    win.style.width = '260px';
+    win.style.minWidth = '';
+    win.style.maxWidth = '';
+    win.style.height = '';
+    win.style.minHeight = '';
     win.style.maxHeight = 'calc(100% - 80px)';
     win.style.overflowY = 'auto';
 
