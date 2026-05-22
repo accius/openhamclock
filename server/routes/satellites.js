@@ -539,7 +539,7 @@ module.exports = function (app, ctx) {
   const celestrakSatsToDownload = (now) => {
     return Object.values(HAM_SATELLITES).filter(
       (s) =>
-        s.data_source.startsWith('celestrak') &&
+        s.data_source?.startsWith('celestrak') &&
         isStale(s.ommTimestamp) &&
         !(s.backoffCelestrakUntil && now < s.backoffCelestrakUntil),
     );
