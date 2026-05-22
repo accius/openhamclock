@@ -374,7 +374,7 @@ module.exports = function (app, ctx) {
         const { httpStatusCode, ommJson } = await fetchOmmFromCelesTrakGroups('amateur');
         if (httpStatusCode === 200) {
           if (ommJson && Object.keys(ommJson).length > 0) appendDataToOmmCache(ommJson);
-        } else if (httpStatusCode === 301 || httpStatusCode === 403) {
+        } else if (httpStatusCode === 301 || httpStatusCode === 403 || httpStatusCode === 429) {
           logWarn('[Satellites] Detected CelesTrak rate limit or ban, blocking fetches for 120mins');
           blockCelesTrakUntil = Date.now() + 120 * 60 * 1000; // Block CelesTrak fetches for 120mins
         } else if (httpStatusCode === 404) {
@@ -419,7 +419,7 @@ module.exports = function (app, ctx) {
         const { httpStatusCode, ommJson } = await fetchOmmFromCelesTrakGroups('weather');
         if (httpStatusCode === 200) {
           if (ommJson && Object.keys(ommJson).length > 0) appendDataToOmmCache(ommJson);
-        } else if (httpStatusCode === 301 || httpStatusCode === 403) {
+        } else if (httpStatusCode === 301 || httpStatusCode === 403 || httpStatusCode === 429) {
           logWarn('[Satellites] Detected CelesTrak rate limit or ban, blocking fetches for 120mins');
           blockCelesTrakUntil = Date.now() + 120 * 60 * 1000; // Block CelesTrak fetches for 120mins
         } else if (httpStatusCode === 404) {
@@ -468,7 +468,7 @@ module.exports = function (app, ctx) {
         const { httpStatusCode, ommJson } = await fetchOmmFromCelesTrakIndividual(noradsToDownload);
         if (httpStatusCode === 200) {
           if (ommJson && Object.keys(ommJson).length > 0) appendDataToOmmCache(ommJson);
-        } else if (httpStatusCode === 301 || httpStatusCode === 403) {
+        } else if (httpStatusCode === 301 || httpStatusCode === 403 || httpStatusCode === 429) {
           logWarn('[Satellites] Detected CelesTrak rate limit or ban, blocking fetches for 120mins');
           blockCelesTrakUntil = Date.now() + 120 * 60 * 1000; // Block CelesTrak fetches for 120mins
         } else if (httpStatusCode === 404) {
