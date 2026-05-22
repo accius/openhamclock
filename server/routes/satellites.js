@@ -295,8 +295,15 @@ module.exports = function (app, ctx) {
     return json;
   };
 
+  // record of satellites whose data is known and are part of the tracked list HAM_SATELLITES
+  // note, the size of ommCache is not expected to grow beyond the size of the target list
   let ommCache = {};
-  let ommUnusedCache = {}; // record of satellites whose data is known but are not being tracked
+
+  // record of satellites whose data is known but are not being tracked,
+  // note that the size of ommUnusedCache is not expected to grow beyond the intersection size of downloaded groups minus
+  // any satellites downloaded that are part of the target list HAM_SATELLITES
+  let ommUnusedCache = {};
+
   const OMM_CACHE_DURATION = 12 * 60 * 60 * 1000; // 12 hours, period after which OMM data considered stale
   const SPACE_TRACK_BACKOFF = 120 * 60 * 1000; // 2 hour, any satellite not allowed to repeat query to Space-Track within this period
   const CELESTRAK_BACKOFF = 120 * 60 * 1000; // 2 hour, any satellite not allowed to repeat query to CelesTrak within this period
