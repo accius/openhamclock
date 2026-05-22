@@ -1,3 +1,5 @@
+'use strict';
+
 /**
  * Satellite TLE / OMM tracking routes.
  */
@@ -181,7 +183,7 @@ module.exports = function (app, ctx) {
 
     // 2. Check whoami, JSON returned indicates whether logged in or not
     const isLoggedIn = (whoami) => {
-      jsonBytes = new Uint8Array(whoami);
+      const jsonBytes = new Uint8Array(whoami);
       if (!jsonBytes || jsonBytes.length === 0) return false;
       const json = new TextDecoder('utf-8').decode(jsonBytes);
 
@@ -556,7 +558,7 @@ module.exports = function (app, ctx) {
     ommJson.forEach((omm) => {
       const noradId = omm.NORAD_CAT_ID;
       const objectName = omm.OBJECT_NAME;
-      match = knownNoradIds.has(noradId);
+      const match = knownNoradIds.has(noradId);
       const key = objectName.replace(/[^A-Z0-9\-]/g, '_').toUpperCase();
       if (match) {
         countUsed++;
