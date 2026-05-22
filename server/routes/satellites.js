@@ -98,9 +98,7 @@ module.exports = function (app, ctx) {
       }
     } catch (ex) {
       // timeout occurred, will return with httpStatusCode = 0
-      if (ex.name === 'AbortError') {
-        logErrorOnce(`[Satellites] CelesTrak OMM fetch for ${group} group timed out after 20s`);
-      }
+      logWarn(`[Satellites] CelesTrak OMM fetch for ${group} group timed out after 20s`);
     } finally {
       clearTimeout(timeout);
     }
@@ -133,9 +131,7 @@ module.exports = function (app, ctx) {
       }
     } catch (ex) {
       // timeout occurred, will return with httpStatusCode = 0
-      if (ex.name === 'AbortError') {
-        logErrorOnce(`[Satellites] CelesTrak OMM fetch for NORAD ID ${noradId} timed out after 20s`);
-      }
+      logWarn(`[Satellites] CelesTrak OMM fetch for NORAD ID ${noradId} timed out after 20s`);
     } finally {
       clearTimeout(timeout);
     }
@@ -383,6 +379,10 @@ module.exports = function (app, ctx) {
         } else if (httpStatusCode === 0) {
           logErrorOnce(`[Satellites] CelesTrak OMM fetch failed with no response (possible timeout)`);
         }
+      } catch (ex) {
+        logWarn(
+          '[Satellites] caught unknown exception occurred in CELESTRAK_AMATEUR_GROUP_FETCH handler, advancing to next state',
+        );
       } finally {
         return 'CELESTRAK_WEATHER_GROUP_INIT'; // return next state
       }
@@ -428,6 +428,10 @@ module.exports = function (app, ctx) {
         } else if (httpStatusCode === 0) {
           logErrorOnce(`[Satellites] CelesTrak OMM fetch failed with no response (possible timeout)`);
         }
+      } catch (ex) {
+        logWarn(
+          '[Satellites] caught unknown exception occurred in CELESTRAK_WEATHER_GROUP_FETCH handler, advancing to next state',
+        );
       } finally {
         return 'CELESTRAK_INDIVIDUAL_INIT'; // return next state
       }
@@ -479,6 +483,10 @@ module.exports = function (app, ctx) {
         } else if (httpStatusCode === 0) {
           logErrorOnce(`[Satellites] CelesTrak OMM fetch failed with no response (possible timeout)`);
         }
+      } catch (ex) {
+        logWarn(
+          '[Satellites] caught unknown exception occurred in CELESTRAK_INDIVIDUAL_FETCH handler, advancing to next state',
+        );
       } finally {
         return 'CELESTRAK_INDIVIDUAL_INIT'; // return next state, back to INIT
       }
@@ -523,6 +531,8 @@ module.exports = function (app, ctx) {
           logWarn('[Satellites] Detected Space-Track rate limit or ban, blocking fetches for 60min');
           blockSpaceTrackUntil = Date.now() + 60 * 60 * 1000; // Block Space-Track fetches for 60mins
         }
+      } catch (ex) {
+        logWarn('[Satellites] caught unknown exception occurred in SPACE_TRACK_FETCH handler, advancing to next state');
       } finally {
         return 'START'; // return next state
       }
