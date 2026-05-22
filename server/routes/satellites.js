@@ -14,7 +14,7 @@ const CookieJar = require('tough-cookie');
 const axios = require('axios');
 
 module.exports = function (app, ctx) {
-  const { fetch, CONFIG, logDebug, logInfo, logWarn, logError, logErrorOnce, APP_VERSION, ROOT_DIR } = ctx;
+  const { fetch, CONFIG, logDebug, logInfo, logWarn, logErrorOnce, APP_VERSION, ROOT_DIR } = ctx;
 
   // ============================================
   // SATELLITE TRACKING API
@@ -168,10 +168,12 @@ module.exports = function (app, ctx) {
           identity: username,
           password,
         }),
-        controller.signal,
+        {
+          signal: controller.signal,
+        },
       );
     } catch (ex) {
-      logError(`[Satellites] Space-Track login could not establish connection: ${ex.message}`);
+      logWarn(`[Satellites] Space-Track login could not establish connection: ${ex.message}`);
       return { httpStatusCode, ommJson }; // return with httpStatusCode = 0 to indicate connection failure
     } finally {
       clearTimeout(timeout);
@@ -195,11 +197,10 @@ module.exports = function (app, ctx) {
 
     try {
       timeout = setTimeout(() => controller.abort(), 20000); // 20s hard timeout
-      const whoamiResp = await client.get(
-        'https://www.space-track.org/app/data/whoami',
-        { responseType: 'arraybuffer' },
-        controller.signal,
-      );
+      const whoamiResp = await client.get('https://www.space-track.org/app/data/whoami', {
+        responseType: 'arraybuffer',
+        signal: controller.signal,
+      });
 
       const whoami = whoamiResp.data;
       const loggedIn = isLoggedIn(whoami);
@@ -210,7 +211,7 @@ module.exports = function (app, ctx) {
         return { httpStatusCode, ommJson }; // return with httpStatusCode = 401 to indicate auth failure
       }
     } catch (ex) {
-      logError(`[Satellites] Space-Track OMM fetch login failed: ${ex.message}`);
+      logWarn(`[Satellites] Space-Track OMM fetch login failed: ${ex.message}`);
       httpStatusCode = 401;
       return { httpStatusCode, ommJson }; // return with httpStatusCode = 401 to indicate auth failure
     } finally {
@@ -246,10 +247,8 @@ module.exports = function (app, ctx) {
         logWarn(`[Satellites] Space-Track OMM fetch failed for NORAD ID '${norad}': ${res.status}`);
       }
     } catch (ex) {
-      // probable timeout occurred in which case will return with httpStatusCode = 0
-      if (ex.name === 'AbortError') {
-        logErrorOnce(`[Satellites] Space-Track OMM fetch for NORAD ID '${norad}' timed out after 20s`);
-      }
+      // timeout occurred, return with httpStatusCode = 0
+      logWarn(`[Satellites] Space-Track OMM fetch for NORAD ID '${norad}' timed out after 20s`);
       return { httpStatusCode, ommJson };
     } finally {
       clearTimeout(timeout);
@@ -271,7 +270,7 @@ module.exports = function (app, ctx) {
       csvToJson.supportQuotedField(true);
       json = await csvToJson.csvStringToJson(csvText);
     } catch (err) {
-      logError('Error reading CSV:', err);
+      logWarn('Error reading CSV:', err);
     }
 
     normalizeJsonTree(json);
@@ -301,10 +300,10 @@ module.exports = function (app, ctx) {
     return OMM_PROVIDERS[ommProviderIndex];
   };
 
-  const spaceTrackEnabled = CONFIG.satellites.spaceTrack?.enabled || false; // default false if undefined
-  const celestrakEnabled = CONFIG.satellites.celestrak?.enabled ?? true; // default true if undefined
-  logDebug('[Satellites] Space-Track enabled: ' + spaceTrackEnabled);
-  logDebug('[Satellites] CelesTrak enabled: ' + celestrakEnabled);
+  const isSpaceTrackEnabled = CONFIG.satellites.spaceTrack?.enabled || false; // default false if undefined
+  const isCelestrakEnabled = CONFIG.satellites.celestrak?.enabled ?? true; // default true if undefined
+  logDebug('[Satellites] Space-Track enabled: ' + isSpaceTrackEnabled);
+  logDebug('[Satellites] CelesTrak enabled: ' + isCelestrakEnabled);
 
   let blockCelesTrakUntil = Date.now() - 1; // Timestamp until which CelesTrak fetches are blocked due to rate limiting or ban
   let blockSpaceTrackUntil = Date.now() - 1; // Timestamp until which Space-Track fetches are blocked due to rate limiting or ban
@@ -330,12 +329,12 @@ module.exports = function (app, ctx) {
       // toggle between OMM providers
       switch (nextOmmProvider()) {
         case 'SPACE_TRACK':
-          return spaceTrackEnabled ? 'SPACE_TRACK_INIT' : 'START'; // return next state
+          return isSpaceTrackEnabled ? 'SPACE_TRACK_INIT' : 'START'; // return next state
           break;
         case 'CELESTRAK': {
           const now = Date.now();
           celestrakNumSatNeedDownload = celestrakSatsToDownload(now).length; // record how many satellites with a CelesTrak datasource need data
-          return celestrakNumSatNeedDownload > 0 ? 'CELESTRAK_AMATEUR_GROUP_INIT' : 'START'; // return next state
+          return isCelestrakEnabled && celestrakNumSatNeedDownload > 0 ? 'CELESTRAK_AMATEUR_GROUP_INIT' : 'START'; // return next state
         }
         default:
           break;
