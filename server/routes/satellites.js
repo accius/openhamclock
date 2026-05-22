@@ -156,28 +156,48 @@ module.exports = function (app, ctx) {
       }),
     );
 
-    // 1. Login to space-track, saves cookie
+    // 1. Login to Space-Track, saves cookie
     const controller = new AbortController();
     let timeout = setTimeout(() => controller.abort(), 20000); // 20s hard timeout
     try {
       const loginResponse = await client.post(
         'https://www.space-track.org/ajaxauth/login',
-        new URLSearchParams({
-          identity: username,
-          password,
-        }),
-        {
-          signal: controller.signal,
-        },
+        new URLSearchParams({ identity: username, password }),
+        { signal: controller.signal },
       );
+
+      // Fail on non-200
+      if (loginResponse.status !== 200) {
+        logWarn(`[Satellites] Space-Track login HTTP error: ${loginResponse.status}`);
+        return { httpStatusCode: loginResponse.status, ommJson };
+      }
+
+      const body = loginResponse.data;
+
+      // Normalize into a single lowercase string for easy matching
+      let bodyStr = '';
+      if (typeof body === 'string') {
+        bodyStr = body.toLowerCase();
+      } else if (body && typeof body === 'object') {
+        // Join all object values into one string
+        bodyStr = Object.values(body)
+          .map((v) => String(v).toLowerCase())
+          .join(' ');
+      }
+
+      // Case‑insensitive failure detection
+      if (bodyStr.includes('failed') || bodyStr.includes('denied')) {
+        logWarn(`[Satellites] Space-Track login rejected credentials`);
+        return { httpStatusCode: 401, ommJson };
+      }
     } catch (ex) {
       logWarn(`[Satellites] Space-Track login could not establish connection: ${ex.message}`);
-      return { httpStatusCode, ommJson }; // return with httpStatusCode = 0 to indicate connection failure
+      return { httpStatusCode: 0, ommJson };
     } finally {
       clearTimeout(timeout);
     }
 
-    // 2. Check whoami, JSON returned indicates whether logged in or not
+    // 2. Check whoami, JSON returned confirms whether logged in or not
     const isLoggedIn = (whoami) => {
       const jsonBytes = new Uint8Array(whoami);
       if (!jsonBytes || jsonBytes.length === 0) return false;
