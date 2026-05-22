@@ -584,7 +584,7 @@ module.exports = function (app, ctx) {
 
   // append OMM JSON data to cache
   const appendDataToOmmCache = async (ommJson) => {
-    if (!ommJson || Array.isArray(ommJson)) return;
+    if (!ommJson || !Array.isArray(ommJson)) return;
 
     // Build NORAD_ID value lookup set for fast matching
     const knownNoradIds = new Set(Object.values(HAM_SATELLITES).map((s) => s.norad));
