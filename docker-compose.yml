@@ -6,6 +6,7 @@ services:
       - path: .env
         required: false
     build: .
+    image: ghcr.io/accius/openhamclock:latest
     container_name: openhamclock
     ports:
       - '3000:3000' # HTTP

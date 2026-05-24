@@ -18,7 +18,14 @@ OpenHamClock brings DX cluster spots, space weather, propagation predictions, PO
 
 ## Quick Start
 
-### Prerequisites
+### Container Deployment
+
+Container images are available from the github container registry at `ghcr.io/accius/openhamclock`
+Follow [these steps](#using-docker) for a docker-based deployment
+
+### Local Install
+
+#### Prerequisites
 
 - **Node.js v20.19 or later** (v22.12+ also supported) — required by Vite and the Express
   backend. The version of Node.js shipped by default in most Linux distributions
@@ -54,7 +61,7 @@ OpenHamClock brings DX cluster spots, space weather, propagation predictions, PO
 > ⚠️ **Ubuntu / Debian users:** Do **not** use `apt install nodejs` — the packaged version
 > is v18 which is below the minimum required. Use NodeSource or nvm as shown above.
 
-### Install & run
+#### Install & run
 
 ```bash
 git clone https://github.com/accius/openhamclock.git
@@ -446,7 +453,7 @@ HF propagation reliability predictions between your station (DE) and whatever DX
 
 **Standard mode:** Uses a built-in propagation model based on current SFI, SSN, Kp, great-circle path distance, solar zenith angle, geomagnetic latitude, and estimated MUF (Maximum Usable Frequency) for each band.
 
-**ITU-R P.533-14 predictions:** By default, all installs use the public OpenHamClock ITURHFProp prediction service for ITU-R P.533-14 propagation calculations — the international standard for HF propagation prediction. If you prefer to self-host, deploy the optional ITURHFProp microservice (in the `iturhfprop-service/` directory) and set `ITURHFPROP_URL` in `.env` to your own instance.
+**ITU-R P.533-14 predictions:** By default, all installs use the public OpenHamClock ITURHFProp prediction service for ITU-R P.533-14 propagation calculations — the international standard for HF propagation prediction. If you prefer to self-host, deploy the optional ITURHFProp microservice (documentation and deployment examples in `iturhfprop-service/README.md`)
 
 **Hybrid correction:** When ionosonde data is available from `prop.kc2g.com`, the system applies real-time corrections based on actual measured ionospheric conditions rather than just modeled values. This can catch unusual propagation events that models miss.
 
@@ -1044,8 +1051,12 @@ The Pi setup script installs Node.js 22 LTS, clones the repository, builds the f
 
 **Docker Compose (recommended):**
 
+Grab `docker-compose.yml` and `.env.example` from the repo root, rename `.env.example` to `.env` and adjust the variables in `.env` to configure OpenHamClock.
+
+Start the container:
+
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
 **Manual Docker build:**
