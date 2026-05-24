@@ -112,7 +112,7 @@ set -e
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 YELLOW=$(tput setaf 3; tput bold)
-BLUE=$(tput setaf 4)
+CYAN=$(tput setaf 6)
 NC=$(tput sgr0) # No Color
 
 # Configuration
@@ -121,7 +121,7 @@ SERVICE_NAME="openhamclock"
 NODE_VERSION="22"
 
 # Print banner
-echo -e "${ORANGE}"
+echo -e "${CYAN}"
 echo "╔═══════════════════════════════════════════════════════════╗"
 echo "║                                                           ║"
 echo "║   ██████╗ ██████╗ ███████╗███╗   ██╗                      ║"
@@ -175,7 +175,7 @@ check_raspberry_pi() {
 
 # Update system
 update_system() {
-    echo -e "${ORANGE}>>> Updating system packages...${NC}"
+    echo -e "${CYAN}>>> Updating system packages...${NC}"
     sudo apt-get update -qq
     # DEBIAN_FRONTEND=noninteractive suppresses dpkg interactive prompts.
     # --force-confold keeps existing config files when a package ships a new version
@@ -188,7 +188,7 @@ update_system() {
 
 # Install Node.js
 install_nodejs() {
-    echo -e "${ORANGE}>>> Installing Node.js ${NODE_VERSION}...${NC}"
+    echo -e "${CYAN}>>> Installing Node.js ${NODE_VERSION}...${NC}"
 
     # Check if Node.js is already installed
     if command -v node &> /dev/null; then
@@ -206,7 +206,7 @@ install_nodejs() {
         # The official nodejs.org project still publishes armv7l tarballs, so we
         # download and install those directly instead.
         echo -e "${YELLOW}⚠ 32-bit ARM (armhf) detected — NodeSource does not support this architecture.${NC}"
-        echo -e "${ORANGE}  Downloading official Node.js ${NODE_VERSION} armv7l binary from nodejs.org...${NC}"
+        echo -e "${CYAN}  Downloading official Node.js ${NODE_VERSION} armv7l binary from nodejs.org...${NC}"
 
         NODE_DIST_BASE="https://nodejs.org/dist/latest-v${NODE_VERSION}.x"
         NODE_TARBALL=$(curl -fsSL "$NODE_DIST_BASE/" \
@@ -222,7 +222,7 @@ install_nodejs() {
         # Piping curl directly into tar gives no retry opportunity on a
         # dropped connection; saving to disk first lets curl resume/retry
         # and keeps extraction separate so errors are easier to diagnose.
-        echo -e "${ORANGE}  Installing $NODE_TARBALL ...${NC}"
+        echo -e "${CYAN}  Installing $NODE_TARBALL ...${NC}"
         NODE_TMPFILE=$(mktemp /tmp/nodejs-armv7l-XXXXXX.tar.gz)
         curl -fsSL \
             --retry 3 --retry-delay 5 --retry-connrefused \
@@ -252,7 +252,7 @@ install_nodejs() {
 
 # Install dependencies
 install_dependencies() {
-    echo -e "${ORANGE}>>> Installing system dependencies...${NC}"
+    echo -e "${CYAN}>>> Installing system dependencies...${NC}"
     
     # fonts-noto-color-emoji: required for emoji icons to render in Chromium on Linux/Pi.
     # Without this package, weather symbols, band indicators, and other emoji display as blank boxes.
@@ -275,7 +275,7 @@ install_dependencies() {
 
 # Clone or update repository
 setup_repository() {
-    echo -e "${ORANGE}>>> Setting up OpenHamClock...${NC}"
+    echo -e "${CYAN}>>> Setting up OpenHamClock...${NC}"
     
     if [ -d "$INSTALL_DIR" ]; then
         echo "Updating existing installation..."
@@ -299,7 +299,7 @@ setup_repository() {
     ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install --include=dev --ignore-scripts
 
     # Download vendor assets (fonts, Leaflet) for self-hosting — no external CDN requests
-    echo -e "${ORANGE}>>> Downloading vendor assets for privacy...${NC}"
+    echo -e "${CYAN}>>> Downloading vendor assets for privacy...${NC}"
     bash scripts/vendor-download.sh || echo -e "${YELLOW}⚠ Vendor download failed — will fall back to CDN${NC}"
 
     # Build frontend for production
@@ -337,7 +337,7 @@ setup_repository() {
 
 # Create systemd service
 create_service() {
-    echo -e "${ORANGE}>>> Creating systemd service...${NC}"
+    echo -e "${CYAN}>>> Creating systemd service...${NC}"
 
     # Resolve the node binary path at install time so the service works regardless
     # of whether Node was installed via NodeSource deb, nvm, or any other method.
@@ -379,7 +379,7 @@ EOF
 
 # Setup kiosk mode
 setup_kiosk() {
-    echo -e "${ORANGE}>>> Configuring kiosk mode...${NC}"
+    echo -e "${CYAN}>>> Configuring kiosk mode...${NC}"
     
     # Disable screen blanking (0 = disable, 1 = enable — keep the screen on for kiosk)
     sudo raspi-config nonint do_blanking 0 2>/dev/null || true
@@ -549,7 +549,7 @@ EOF
 
 # Create helper scripts
 create_scripts() {
-    echo -e "${ORANGE}>>> Creating helper scripts...${NC}"
+    echo -e "${CYAN}>>> Creating helper scripts...${NC}"
     
     # Start script
     cat > "$INSTALL_DIR/start.sh" << EOF
@@ -598,8 +598,8 @@ print_summary() {
     echo -e "${GREEN}║              Installation Complete!                       ║${NC}"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "  ${ORANGE}Installation Directory:${NC} $INSTALL_DIR"
-    echo -e "  ${ORANGE}Web Interface:${NC} http://localhost:3001"
+    echo -e "  ${CYAN}Installation Directory:${NC} $INSTALL_DIR"
+    echo -e "  ${CYAN}Web Interface:${NC} http://localhost:3001"
     echo ""
     echo -e "  ${YELLOW}Helper Commands:${NC}"
     echo "    $INSTALL_DIR/scripts/update.sh - Update to latest version"
@@ -629,7 +629,7 @@ print_summary() {
         echo ""
     fi
     
-    echo -e "  ${ORANGE}73 de OpenHamClock!${NC}"
+    echo -e "  ${CYAN}73 de OpenHamClock!${NC}"
     echo ""
     
     if [ "$KIOSK_MODE" = true ]; then
