@@ -161,7 +161,7 @@ done
 # Check if running on Raspberry Pi
 check_raspberry_pi() {
     if [ -f /proc/device-tree/model ]; then
-        MODEL=$(cat /proc/device-tree/model)
+        MODEL=$(tr -d '\0' < /proc/device-tree/model)
         echo -e "${GREEN}✓ Detected: $MODEL${NC}"
     else
         echo -e "${YELLOW}⚠ Warning: This doesn't appear to be a Raspberry Pi${NC}"
