@@ -288,9 +288,9 @@ module.exports = function (app, ctx) {
       csvToJson.supportQuotedField(true);
       json = await csvToJson.csvStringToJson(csvText);
     } catch (err) {
-      logWarn('Error reading CSV:', err);
+      const msg = ex?.message || String(ex ?? '(unknown error)');
+      logWarn(`Error reading CSV: ${msg}`);
     }
-
     normalizeJsonTree(json);
     return json;
   };
