@@ -125,6 +125,10 @@ curl http://localhost:3000/api/health
 If using a compose file, you can also add it as an additional service:
 
 ```yaml
+services:
+  openhamclock:
+    ...
+
   iturhfprop:
     build:
       context: ./iturhfprop-service # path to this subdirectory in the openhamclock repo
