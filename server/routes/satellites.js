@@ -574,6 +574,7 @@ module.exports = function (app, ctx) {
 
   // Initialize state-machine with periodic advance every 15s
   const sm = new StateMachine(smStates, handlers);
+  sm.run(); // kick-start before the first interval
   setInterval(async () => {
     sm.run();
   }, 15 * 1000);

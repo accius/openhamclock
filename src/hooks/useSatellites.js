@@ -35,7 +35,10 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     }
 
     fetchSatelliteData();
-    const interval = setInterval(fetchSatelliteData, 6 * 60 * 60 * 1000); // 6 hours
+
+    const ONE_MINUTE = 60 * 1000;
+    const SIX_HOURS = 6 * 60 * 60 * 1000;
+    const interval = setInterval(fetchSatelliteData, Object.keys(satelliteData).length === 0 ? ONE_MINUTE : SIX_HOURS); // repeat frequently if empty data set
 
     return () => clearInterval(interval);
   }, []);
