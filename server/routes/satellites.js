@@ -150,7 +150,7 @@ module.exports = function (app, ctx) {
         jar,
         withCredentials: true,
         headers: {
-          'User-Agent': 'Mozilla/5.0',
+          'User-Agent': `OpenHamClock/${APP_VERSION}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
       }),
