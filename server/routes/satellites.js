@@ -407,8 +407,9 @@ module.exports = function (app, ctx) {
           logErrorOnce(`[Satellites] CelesTrak OMM fetch failed with no response (possible timeout)`);
         }
       } catch (ex) {
+        const msg = ex?.message || String(ex ?? '(unknown error)');
         logWarn(
-          '[Satellites] caught unknown exception occurred in CELESTRAK_AMATEUR_GROUP_FETCH handler, advancing to next state',
+          `[Satellites] caught unknown exception occurred in CELESTRAK_AMATEUR_GROUP_FETCH handler, advancing to next state: ${msg}`,
         );
       } finally {
         return 'CELESTRAK_WEATHER_GROUP_INIT'; // return next state
@@ -456,8 +457,9 @@ module.exports = function (app, ctx) {
           logErrorOnce(`[Satellites] CelesTrak OMM fetch failed with no response (possible timeout)`);
         }
       } catch (ex) {
+        const msg = ex?.message || String(ex ?? '(unknown error)');
         logWarn(
-          '[Satellites] caught unknown exception occurred in CELESTRAK_WEATHER_GROUP_FETCH handler, advancing to next state',
+          `[Satellites] caught unknown exception occurred in CELESTRAK_WEATHER_GROUP_FETCH handler, advancing to next state: ${msg}`,
         );
       } finally {
         return 'CELESTRAK_INDIVIDUAL_INIT'; // return next state
@@ -511,8 +513,9 @@ module.exports = function (app, ctx) {
           logErrorOnce(`[Satellites] CelesTrak OMM fetch failed with no response (possible timeout)`);
         }
       } catch (ex) {
+        const msg = ex?.message || String(ex ?? '(unknown error)');
         logWarn(
-          '[Satellites] caught unknown exception occurred in CELESTRAK_INDIVIDUAL_FETCH handler, advancing to next state',
+          `[Satellites] caught unknown exception occurred in CELESTRAK_INDIVIDUAL_FETCH handler, advancing to next state: ${msg}`,
         );
       } finally {
         return 'CELESTRAK_INDIVIDUAL_INIT'; // return next state, back to INIT
@@ -559,7 +562,10 @@ module.exports = function (app, ctx) {
           blockSpaceTrackUntil = Date.now() + 60 * 60 * 1000; // Block Space-Track fetches for 60mins
         }
       } catch (ex) {
-        logWarn('[Satellites] caught unknown exception occurred in SPACE_TRACK_FETCH handler, advancing to next state');
+        const msg = ex?.message || String(ex ?? '(unknown error)');
+        logWarn(
+          `[Satellites] caught unknown exception occurred in SPACE_TRACK_FETCH handler, advancing to next state: ${msg}`,
+        );
       } finally {
         return 'START'; // return next state
       }
