@@ -132,6 +132,7 @@ services:
   iturhfprop:
     build:
       context: ./iturhfprop-service # path to this subdirectory in the openhamclock repo
+    restart_policy: unless-stopped
     container_name: iturhfprop
 ```
 
