@@ -111,8 +111,14 @@ The Dockerfile will:
 
 ### Docker
 
+A container image is provided in the github container registry
+
 ```bash
-# Build
+
+# Pull
+docker pull ghcr.io/accius/iturhfprop-service:latest
+
+# or Build
 docker build -t iturhfprop-service .
 
 # Run
@@ -122,16 +128,16 @@ docker run -p 3000:3000 iturhfprop-service
 curl http://localhost:3000/api/health
 ```
 
-If using a compose file, you can also add it as an additional service:
+If using a compose file for OpenHamClock, you can also add it as an additional service:
 
 ```yaml
 services:
   openhamclock:
-    ...
-
+    # [...]
   iturhfprop:
     build:
       context: ./iturhfprop-service # path to this subdirectory in the openhamclock repo
+    image: ghcr.io/accius/iturhfprop-service:latest
     restart: unless-stopped
     container_name: iturhfprop
 ```

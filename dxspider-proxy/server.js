@@ -30,9 +30,13 @@ const CONFIG = {
   reconnectDelayMs: 10000, // 10 seconds between reconnect attempts
   maxReconnectAttempts: 3,
   cleanupIntervalMs: 60000, // 1 minute
-  keepAliveIntervalMs: 120000, // 2 minutes - send keepalive
+  keepAliveIntervalMs: 60000, // 1 minute - send keepalive (must stay < socketTimeoutMs)
   activityTimeoutMs: 180000, // 3 minutes - if no spots, assume dead and failover
   authTimeoutMs: 30000, // 30 seconds - if no prompt after login, try next node
+  // Last-resort TCP backstop. Must be LONGER than activityTimeoutMs so the
+  // graceful node-failover watchdog acts first. A 60s value here used to
+  // preempt it and tear down healthy connections during quiet-band gaps.
+  socketTimeoutMs: 300000, // 5 minutes
 };
 
 // State
@@ -242,7 +246,7 @@ const connect = () => {
   log('CONNECT', `Attempting connection to ${node.name} (${node.host}:${node.port})`);
 
   client = new net.Socket();
-  client.setTimeout(60000); // 60 second timeout
+  client.setTimeout(CONFIG.socketTimeoutMs);
 
   client.connect(node.port, node.host, () => {
     connected = true;
@@ -313,6 +317,13 @@ const connect = () => {
         if (spot) {
           addSpot(spot);
           resetActivityWatchdog(); // Got a spot, connection is healthy
+          // A flowing spot is definitive proof login succeeded. The DXSpider
+          // prompt has no trailing newline so it never arrives as a complete
+          // line — prompt-based detection alone is unreliable.
+          if (!authenticated) {
+            authenticated = true;
+            log('AUTH', 'Login confirmed (spot stream active)');
+          }
           // Only reset failover counter if connection has been stable for 60s+
           // A few spots before a timeout isn't truly healthy — it traps us
           // on a flaky node that connects briefly then drops
@@ -328,8 +339,10 @@ const connect = () => {
         continue;
       }
 
-      // Detect auth completion - DX Spider sends "callsign de NODE >" prompt
-      if (!authenticated && /\sde\s+\S+\s*>/.test(trimmed)) {
+      // Detect auth completion - DX Spider sends "callsign de NODE >" prompt.
+      // Exclude lines containing '<' — sh/dx output (e.g. "...de Helmut<DF4IY>")
+      // otherwise false-matches this pattern.
+      if (!authenticated && !trimmed.includes('<') && /\sde\s+\S+\s*>/.test(trimmed)) {
         authenticated = true;
         log('AUTH', `Login confirmed: ${trimmed.substring(0, 80)}`);
         resetActivityWatchdog(); // Auth done, start watching for spots
@@ -344,6 +357,16 @@ const connect = () => {
   client.on('timeout', () => {
     log('TIMEOUT', 'Connection timed out');
     connecting = false;
+    // Node does NOT auto-close a socket on timeout. Without this teardown the
+    // old socket keeps emitting 'data' until the next connect(), spuriously
+    // logging "Connection stable" and resetting the failover counter.
+    if (client) {
+      try {
+        client.removeAllListeners();
+        client.destroy();
+      } catch (e) {}
+      client = null;
+    }
     handleDisconnect();
   });
 
