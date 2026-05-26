@@ -7,8 +7,8 @@
 # ═══════════════════════════════════════════════════════════════════
 #
 #   Raspberry Pi 3B / 3B+   (32-bit and 64-bit Raspberry Pi OS)
-#   Raspberry Pi 4           (32-bit and 64-bit Raspberry Pi OS)
-#   Raspberry Pi 5           (64-bit Raspberry Pi OS)
+#   Raspberry Pi 4          (32-bit and 64-bit Raspberry Pi OS)
+#   Raspberry Pi 5          (64-bit Raspberry Pi OS)
 #
 #   Other Debian-based ARM boards may work but are not tested.
 #   Non-Raspberry Pi hardware will trigger a warning and prompt.
@@ -96,11 +96,10 @@
 # USAGE
 # ═══════════════════════════════════════════════════════════════════
 #
-#   chmod +x setup-pi.sh
-#   ./setup-pi.sh               # server only (no kiosk)
-#   ./setup-pi.sh --kiosk       # server + fullscreen kiosk on boot
-#   ./setup-pi.sh --server      # headless server, no GUI packages
-#   ./setup-pi.sh --help        # show option summary
+#   scripts/setup-pi.sh               # server only (no kiosk)
+#   scripts/setup-pi.sh --kiosk       # server + fullscreen kiosk on boot
+#   scripts/setup-pi.sh --server      # headless server, no GUI packages
+#   scripts/setup-pi.sh --help        # show option summary
 #
 #   After installation, edit ~/openhamclock/.env to set your
 #   CALLSIGN and LOCATOR before (re)starting the service.
