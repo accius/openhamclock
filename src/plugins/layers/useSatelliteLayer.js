@@ -63,7 +63,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
   const fetchSatellites = async () => {
     try {
       const response = await fetch('/api/satellites/data');
-      const data = await response.json();
+      const { timestamp: newTimestamp, data } = await response.json();
 
       const satArray = Object.keys(data).map((name) => {
         const satData = data[name];

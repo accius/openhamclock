@@ -3,7 +3,7 @@
  * Tracks amateur radio satellites using API data source provided by satellite.js server-side service.
  * Includes orbit track prediction
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import * as satellite from 'satellite.js';
 import Orbit from '../utils/orbit.js';
 import { getDebugConfig } from '../debug/debugConfig.js';
@@ -18,30 +18,54 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
   const [nextPassData, setNextPassData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingNextPass, setLoadingNextPass] = useState(true);
+  const satelliteDataRef = useRef({});
   const [satelliteData, setSatelliteData] = useState({});
+  const satelliteDataTimestampRef = useRef(0);
+
+  const fetchSatelliteData = useCallback(async () => {
+    try {
+      const { timestamp: ts } = await fetch('/api/satellites/data/timestamp').then((r) => r.json());
+
+      if (ts && satelliteDataTimestampRef.current && ts <= satelliteDataTimestampRef.current) {
+        console.debug(`[Satellite] data is up to date (timestamp: ${ts}), no update needed.`);
+        return;
+      }
+
+      console.debug(
+        `[Satellite] New data available, updating... (new timestamp: ${ts || 'N/A'}, previous timestamp: ${satelliteDataTimestampRef.current || 'N/A'})`,
+      );
+
+      const response = await fetch('/api/satellites/data');
+      if (response.ok) {
+        const { timestamp: newTimestamp, data } = await response.json();
+
+        satelliteDataRef.current = data;
+        satelliteDataTimestampRef.current = newTimestamp;
+
+        setSatelliteData(data);
+      }
+    } catch (err) {
+      console.error('[Satellite] data fetch error:', err);
+    }
+  }, []);
 
   // Fetch satellite data
   useEffect(() => {
-    async function fetchSatelliteData() {
-      try {
-        const response = await fetch('/api/satellites/data');
-        if (response.ok) {
-          const satData = await response.json();
-          setSatelliteData(satData);
-        }
-      } catch (err) {
-        console.error('Satellite data fetch error:', err);
-      }
-    }
+    fetchSatelliteData(); // prefetch immediately on mount
+  }, [fetchSatelliteData]);
 
-    fetchSatelliteData();
-
+  useEffect(() => {
     const ONE_MINUTE = 60 * 1000;
-    const SIX_HOURS = 6 * 60 * 60 * 1000;
-    const interval = setInterval(fetchSatelliteData, Object.keys(satelliteData).length === 0 ? ONE_MINUTE : SIX_HOURS); // repeat frequently if empty data set
+    const ONE_HOUR = 60 * 60 * 1000;
+
+    // interval is short if data set is empty, otherwise long
+    const isEmptyDataSet = Object.keys(satelliteDataRef.current).length === 0;
+    const delay = isEmptyDataSet ? ONE_MINUTE : ONE_HOUR;
+
+    const interval = setInterval(fetchSatelliteData, delay);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchSatelliteData, satelliteData]);
 
   // Calculate satellite positions and orbits
   const calculatePositions = useCallback(() => {
