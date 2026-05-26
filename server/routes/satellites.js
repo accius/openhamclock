@@ -298,6 +298,7 @@ module.exports = function (app, ctx) {
   // record of satellites whose data is known and are part of the tracked list HAM_SATELLITES
   // note, the size of ommCache is not expected to grow beyond the size of the target list
   let ommCache = {};
+  let ommCacheTimestamp = 0;
 
   // record of satellites whose data is known but are not being tracked,
   // note that the size of ommUnusedCache is not expected to grow beyond the intersection size of downloaded groups minus
@@ -619,9 +620,16 @@ module.exports = function (app, ctx) {
       }
     });
 
+    ommCacheTimestamp = now;
     logInfo(`[Satellites] OMM cache updated, ${countUsed} used, ${countUnused} unused records`);
   };
 
+  // satellite data timestamp endpoint
+  app.get('/api/satellites/data/timestamp', async (req, res) => {
+    return res.json({ timestamp: typeof ommCacheTimestamp === 'number' ? ommCacheTimestamp : null });
+  });
+
+  // satellite data endpoint
   app.get('/api/satellites/data', async (req, res) => {
     // Don't let Fastly/CDN pin an empty payload — when all sources fail we want
     // the next request after backoff to hit the origin, not the edge cache.
@@ -638,7 +646,10 @@ module.exports = function (app, ctx) {
       const stale = newestTimestamp === 0 || Date.now() - newestTimestamp > OMM_CACHE_DURATION;
       if (stale) res.set('X-TLE-Stale', 'true');
 
-      return res.json(payload);
+      return res.json({
+        timestamp: ommCacheTimestamp,
+        data: payload,
+      });
     };
 
     sendSatelliteData(ommCache || {});
