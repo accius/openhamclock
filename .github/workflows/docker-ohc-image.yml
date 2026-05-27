@@ -1,22 +1,33 @@
-name: Build and Publish Docker Image
-
-on:
-  push:
-    branches: ['main']
-  release:
-    types: [published]
-
-permissions:
-  contents: read
-  packages: write
+name: Build and Publish OHC Docker Image
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
+on:
+  push:
+    branches: ['*']
+    paths-ignore:
+      - 'iturhfprop-service/**'
+      - 'dxspider-proxy/**'
+  pull_request:
+    branches:
+      - Staging
+      - main
+    paths-ignore:
+      - 'iturhfprop-service/**'
+      - 'dxspider-proxy/**'
+  release:
+    types: [published]
+  # Allows running this workflow manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   build-and-push:
-    if: github.repository == 'accius/openhamclock'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -60,7 +71,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           annotations: ${{ steps.meta.outputs.annotations }}
@@ -71,7 +82,6 @@ jobs:
           sbom: true
 
       - name: Generate artifact attestation
-        if: github.event_name != 'pull_request'
         uses: actions/attest-build-provenance@v1
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
