@@ -1338,7 +1338,7 @@ export const WorldMap = ({
           iconAnchor: [12, 12],
         });
         const m = L.marker([moonPos.lat, moonPos.lon + offset], { icon: moonIcon })
-          .bindPopup(`<b>Sublunar Point</b><br>${moonPos.lat.toFixed(2)}°, ${moonPos.lon.toFixed(2)}°`)
+          .bindPopup(`<b>Sublunar Point</b><br>${moonPos.lat.toFixed(1)}°, ${moonPos.lon.toFixed(1)}°`)
           .addTo(map);
         moonMarkerRef.current.push(m);
       }
