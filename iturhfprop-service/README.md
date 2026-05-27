@@ -126,8 +126,7 @@ If using a compose file, you can also add it as an additional service:
 
 ```yaml
 services:
-  openhamclock:
-    ...
+  openhamclock: ...
 
   iturhfprop:
     build:
