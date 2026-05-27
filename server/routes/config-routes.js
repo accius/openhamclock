@@ -145,6 +145,7 @@ module.exports = function (app, ctx) {
       locator: CONFIG.gridSquare,
       latitude: CONFIG.latitude,
       longitude: CONFIG.longitude,
+      serverLocal: CONFIG.serverLocal,
 
       // Display preferences
       units: CONFIG.units,
