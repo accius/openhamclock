@@ -5,7 +5,12 @@ import { useMemo } from 'react';
 export default function useLocalInstall(serverLocal = false) {
   return useMemo(() => {
     const host = (window.location.hostname || '').toLowerCase();
-    if (serverLocal) return true;
+
+    if (serverLocal) {
+      console.info('[useLocalInstall] Bypassing extra testing as serverLocal is set true');
+      return true;
+    }
+
     if (!host || host === 'openhamclock.com' || host.endsWith('.openhamclock.com')) return false;
     if (
       host === 'localhost' ||
