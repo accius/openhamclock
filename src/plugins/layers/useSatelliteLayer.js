@@ -62,8 +62,8 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
   const fetchSatellites = async () => {
     try {
-      const response = await fetch('/api/satellites/tle');
-      const data = await response.json();
+      const response = await fetch('/api/satellites/data');
+      const { timestamp: newTimestamp, data } = await response.json();
 
       const satArray = Object.keys(data).map((name) => {
         const satData = data[name];
@@ -181,7 +181,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       };
 
       // Prevent map from capturing events on the window
-      win.addEventListener('wheel', handleWheelPropagation);
+      win.addEventListener('wheel', handleWheelPropagation, { passive: true });
       win.addEventListener('mousedown', handleMouseDownPropagation);
       win.addEventListener('mousemove', handleMouseMovePropagation);
       win.addEventListener('mouseup', handleMouseUpPropagation);
@@ -206,27 +206,22 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     const activeSats = satellites.filter((s) => selectedSats.includes(s.name));
 
     const titleBar = `
-      <div class="sat-data-window-title" style="display:flex; justify-content:space-between; align-items:center;
-                  cursor:grab; user-select:none;
-                  padding: 8px 10px; border-bottom: 1px solid var(--border-color); background: var(--bg-tertiary);">
-        <span data-drag-handle="true" style="font-family: var(--font-mono); font-size:13px; font-weight:700; color: var(--accent-blue); letter-spacing:0.05em;">
-          🛰 ${activeSats.length} ${activeSats.length !== 1 ? t('station.settings.satellites.name_plural') : t('station.settings.satellites.name')}
+      <div class="sat-data-window-title"
+        style="display:flex; justify-content:space-between; align-items:center; cursor:grab; user-select:none; border-bottom:1px solid var(--border-color); background:var(--bg-tertiary);
+          ${winMinimized ? `padding:2px 6px; width:fit-content; min-width:0; max-width:fit-content; height:fit-content; min-height:0; flex:none;` : `padding:8px 10px;`}">
+        <span data-drag-handle="true" style="font-family:var(--font-mono); font-size:13px; font-weight:700; color:var(--accent-blue); letter-spacing:0.05em;">
+          🛰 ${!winMinimized ? `${activeSats.length} ${activeSats.length !== 1 ? t('station.settings.satellites.name_plural') : t('station.settings.satellites.name')}` : ''}
         </span>
-        <button class="sat-data-window-minimize"
-                onclick="window.__satWinToggleMinimize()"
-                title="${winMinimized ? 'Expand' : 'Minimize'}"
-          style="background:none; border:none; color: var(--text-secondary); cursor:pointer;
-                       font-size:10px; line-height:1; padding:2px 4px; margin:0;">
+        <button class="sat-data-window-minimize" onclick="window.__satWinToggleMinimize()" title="${winMinimized ? 'Expand' : 'Minimize'}" style="background:none; border:none; color:var(--text-secondary); cursor:pointer; font-size:10px; line-height:1; padding:2px 4px; margin:0;">
           ${winMinimized ? '▶' : '▼'}
         </button>
-      </div>
-    `;
+      </div>`;
 
     const clearAllBtn = `
       <div style="margin: 10px 12px 8px; display: flex; flex-direction: column; align-items: center; gap: 5px;">
         <button onclick="sessionStorage.removeItem('selected_satellites'); window.location.reload();"
           style="background: var(--bg-primary); border: 1px solid var(--accent-red); color: var(--accent-red); cursor: pointer;
-                       padding: 4px 10px; font-size: 10px; border-radius: 3px; font-weight: bold; width: 100%;">
+            padding: 4px 10px; font-size: 10px; border-radius: 3px; font-weight: bold; width: 100%;">
           ${t('station.settings.satellites.clearFootprints')}
         </button>
         <span style="font-size: 9px; color: var(--text-muted);">${t('station.settings.satellites.dragTitle')}</span>
@@ -236,7 +231,16 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     if (winMinimized) {
       win.style.maxHeight = '';
       win.style.overflowY = 'hidden';
+
+      // shrink to minimal size
+      win.style.width = 'fit-content';
+      win.style.minWidth = 'unset';
+      win.style.maxWidth = 'fit-content';
+      win.style.height = 'fit-content';
+      win.style.minHeight = 'unset';
+
       win.innerHTML = `${titleBar}<div class="sat-data-window-content"></div>`;
+
       addMinimizeToggle(win, 'sat-data-window', {
         contentClassName: 'sat-data-window-content',
         buttonClassName: 'sat-data-window-minimize',
@@ -245,9 +249,16 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         persist: false,
         manageButtonEvents: true,
       });
+
       return;
     }
 
+    // reset to default size constraints
+    win.style.width = '260px';
+    win.style.minWidth = '';
+    win.style.maxWidth = '';
+    win.style.height = '';
+    win.style.minHeight = '';
     win.style.maxHeight = 'calc(100% - 80px)';
     win.style.overflowY = 'auto';
 
@@ -399,8 +410,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                 class="sat-open-predict"
                 data-action="open-predict"
                 data-sat-name="${attrEscape(sat.name)}"
-                data-tle1="${attrEscape(sat.tle1)}"
-                data-tle2="${attrEscape(sat.tle2)}"
+                data-omm="${attrEscape(sat.omm ? JSON.stringify(sat.omm) : '')}"
                 style="
                   width: 100%;
                   padding: 2px 0;
@@ -588,10 +598,16 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         e.stopPropagation();
         e.preventDefault();
         const name = actionEl.dataset.satName;
-        const tle1 = actionEl.dataset.tle1;
-        const tle2 = actionEl.dataset.tle2;
-        if (name && tle1 && tle2 && window.openSatellitePredict) {
-          window.openSatellitePredict(name, tle1, tle2);
+        let omm = null;
+        if (actionEl.dataset.omm) {
+          try {
+            omm = JSON.parse(actionEl.dataset.omm);
+          } catch (err) {
+            console.warn('Failed to parse satellite OMM data:', err);
+          }
+        }
+        if (name && omm && window.openSatellitePredict) {
+          window.openSatellitePredict(name, omm);
         }
         return;
       }
@@ -619,7 +635,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
   // Expose satellite prediction panel function
   useEffect(() => {
-    const openSatellitePredict = (satName, tle1, tle2) => {
+    const openSatellitePredict = (satName, omm) => {
       if (!satName || !satellites) return;
 
       // Find the satellite data
@@ -629,7 +645,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         return;
       }
 
-      const orbit = new Orbit(sat.name, `${sat.name}\n${tle1}\n${tle2}`);
+      const orbit = new Orbit(sat.name, omm);
       orbit.error && console.warn('Satellite orbit error:', orbit.error);
 
       const groundStation = {
@@ -808,7 +824,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
       );
 
       // update modal every second, satellite data currentPasses is not updated unless modal is reopened,
-      // or if satellite layer is updated for instance if TLE data changes
+      // or if satellite layer is updated for instance if satellite data changes
       const updatePasses = () => {
         content.innerHTML = generateModalContent(currentPasses);
       };

@@ -41,6 +41,27 @@ module.exports = function (app, ctx) {
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   }
 
+  // Great-circle midpoint of the short-path between two lat/lon points.
+  // Continuous everywhere (no |Δlon|>180 hack needed) and automatically
+  // picks the actual shorter direction around the globe. Used for the
+  // VOACAP heatmap's midLat/midLon so MUF/LUF read continuously across
+  // adjacent cells — see #990 for the vertical-cliff-through-China bug
+  // the previous average-longitude implementation produced.
+  function greatCircleMidpoint(lat1, lon1, lat2, lon2) {
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const λ1 = (lon1 * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+    const Bx = Math.cos(φ2) * Math.cos(Δλ);
+    const By = Math.cos(φ2) * Math.sin(Δλ);
+    const φm = Math.atan2(Math.sin(φ1) + Math.sin(φ2), Math.sqrt((Math.cos(φ1) + Bx) ** 2 + By ** 2));
+    const λm = λ1 + Math.atan2(By, Math.cos(φ1) + Bx);
+    return {
+      lat: (φm * 180) / Math.PI,
+      lon: (((λm * 180) / Math.PI + 540) % 360) - 180,
+    };
+  }
+
   // ============================================
   // ITURHFProp SERVICE INTEGRATION (ITU-R P.533-14)
   // ============================================
@@ -304,14 +325,13 @@ module.exports = function (app, ctx) {
       const dx = { lat: parseFloat(dxLat) || 35, lon: parseFloat(dxLon) || 139 };
 
       const distance = haversineDistance(de.lat, de.lon, dx.lat, dx.lon);
-      const midLat = (de.lat + dx.lat) / 2;
-      let midLon = (de.lon + dx.lon) / 2;
-
-      // Handle antimeridian crossing
-      if (Math.abs(de.lon - dx.lon) > 180) {
-        midLon = (de.lon + dx.lon + 360) / 2;
-        if (midLon > 180) midLon -= 360;
-      }
+      // Use proper great-circle midpoint (continuous everywhere, picks
+      // short-path automatically). The old "average + 360 wraparound when
+      // |Δlon|>180" trick produced a vertical-line discontinuity through
+      // China/Russia in the heatmap, see #990.
+      const mid = greatCircleMidpoint(de.lat, de.lon, dx.lat, dx.lon);
+      const midLat = mid.lat;
+      const midLon = mid.lon;
 
       const currentHour = new Date().getUTCHours();
       const currentMonth = new Date().getMonth() + 1;
@@ -658,12 +678,9 @@ module.exports = function (app, ctx) {
           // Skip very short distances (< 200km) - not meaningful for HF skip
           if (distance < 200) continue;
 
-          const midLat = (de.lat + lat) / 2;
-          let midLon = (de.lon + lon) / 2;
-          if (Math.abs(de.lon - lon) > 180) {
-            midLon = (de.lon + lon + 360) / 2;
-            if (midLon > 180) midLon -= 360;
-          }
+          const mid = greatCircleMidpoint(de.lat, de.lon, lat, lon);
+          const midLat = mid.lat;
+          const midLon = mid.lon;
 
           const reliability = calculateEnhancedReliability(
             freq,
@@ -772,14 +789,8 @@ module.exports = function (app, ctx) {
           const distance = haversineDistance(deLat, deLon, lat, lon);
           if (distance < 200) continue;
 
-          const midLat = (deLat + lat) / 2;
-          let midLon = (deLon + lon) / 2;
-          if (Math.abs(deLon - lon) > 180) {
-            midLon = (deLon + lon + 360) / 2;
-            if (midLon > 180) midLon -= 360;
-          }
-
-          const muf = calculateMUF(distance, midLat, midLon, currentHour, sfi, ssn);
+          const mid = greatCircleMidpoint(deLat, deLon, lat, lon);
+          const muf = calculateMUF(distance, mid.lat, mid.lon, currentHour, sfi, ssn);
           cells.push({ lat, lon, muf: Math.round(muf * 10) / 10 });
         }
       }

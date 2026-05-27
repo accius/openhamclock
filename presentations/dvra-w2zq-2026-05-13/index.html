@@ -1,814 +1,873 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>OpenHamClock — DVRA / W2ZQ</title>
-  <meta name="description" content="A real-time amateur radio dashboard for the modern operator. Talk for the Delaware Valley Radio Association.">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenHamClock — DVRA / W2ZQ</title>
+    <meta
+      name="description"
+      content="A real-time amateur radio dashboard for the modern operator. Talk for the Delaware Valley Radio Association."
+    />
 
-  <link rel="icon" href="../../public/favicon-32x32.png">
+    <link rel="icon" href="../../public/favicon-32x32.png" />
 
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reset.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/black.css" id="theme">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/monokai.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reset.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/black.css" id="theme" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/monokai.css" />
 
-  <style>
-    :root {
-      --ohc-bg:        #0b1220;
-      --ohc-bg-soft:   #111a2e;
-      --ohc-text:      #e6edf3;
-      --ohc-muted:     #94a3b8;
-      --ohc-cyan:      #22d3ee;
-      --ohc-amber:     #fbbf24;
-      --ohc-green:     #4ade80;
-      --ohc-rule:      #1e293b;
-    }
-
-    .reveal {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-      color: var(--ohc-text);
-      font-size: 32px;
-    }
-    .reveal .slides { text-align: left; }
-    .reveal .slides section { padding: 0 0.5em; }
-    body.reveal-viewport, .reveal-viewport { background: var(--ohc-bg); }
-    .reveal h1, .reveal h2, .reveal h3, .reveal h4 {
-      color: var(--ohc-text);
-      text-transform: none;
-      letter-spacing: -0.01em;
-      font-weight: 700;
-    }
-    .reveal h1 { font-size: 2.2em; line-height: 1.05; }
-    .reveal h2 { font-size: 1.5em; line-height: 1.1; margin-bottom: 0.4em; }
-    .reveal h3 { font-size: 1.05em; color: var(--ohc-cyan); margin-bottom: 0.3em; margin-top: 0.4em; }
-    .reveal p { line-height: 1.35; margin: 0.4em 0; }
-
-    .reveal a { color: var(--ohc-cyan); }
-    .reveal strong { color: var(--ohc-amber); }
-    .reveal em { color: var(--ohc-muted); font-style: normal; }
-
-    .reveal ul, .reveal ol { margin-left: 1em; }
-    .reveal li { margin: 0.15em 0; line-height: 1.3; }
-    .reveal .muted { color: var(--ohc-muted); }
-    .reveal .small { font-size: 0.75em; }
-    .reveal .xsmall { font-size: 0.6em; }
-
-    .reveal pre, .reveal code {
-      font-family: "SF Mono", Menlo, Consolas, monospace;
-    }
-    .reveal pre {
-      background: var(--ohc-bg-soft);
-      border: 1px solid var(--ohc-rule);
-      border-radius: 6px;
-      padding: 0.55em 0.8em;
-      box-shadow: none;
-      font-size: 0.5em;
-      width: 100%;
-    }
-    .reveal pre code {
-      white-space: pre-wrap;
-      word-break: break-all;
-      display: block;
-    }
-    .reveal code { color: var(--ohc-amber); }
-
-    .title-slide { text-align: center !important; }
-    .title-slide h1 {
-      font-size: 3.2em;
-      background: linear-gradient(90deg, var(--ohc-cyan), var(--ohc-amber));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      margin-bottom: 0.1em;
-    }
-    .title-slide .tagline {
-      color: var(--ohc-muted);
-      font-size: 1.1em;
-      margin-bottom: 2em;
-    }
-    .title-slide .meta {
-      font-size: 0.7em;
-      color: var(--ohc-muted);
-      line-height: 1.6;
-    }
-    .title-slide .meta strong { color: var(--ohc-text); }
-
-    .kicker {
-      display: inline-block;
-      font-size: 0.55em;
-      font-weight: 600;
-      color: var(--ohc-cyan);
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      margin-bottom: 0.5em;
-    }
-
-    .two-col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5em;
-      align-items: start;
-    }
-
-    .stat-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.6em;
-      margin-top: 0.6em;
-    }
-    .stat {
-      background: var(--ohc-bg-soft);
-      border: 1px solid var(--ohc-rule);
-      border-radius: 8px;
-      padding: 0.5em 0.5em;
-      text-align: center;
-    }
-    .stat .num {
-      display: block;
-      font-size: 1.35em;
-      font-weight: 700;
-      color: var(--ohc-cyan);
-      line-height: 1.1;
-    }
-    .stat .label {
-      font-size: 0.5em;
-      color: var(--ohc-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.1em;
-    }
-
-    .url-big {
-      font-family: "SF Mono", Menlo, monospace;
-      font-size: 1.3em;
-      color: var(--ohc-amber);
-      letter-spacing: 0.02em;
-      text-align: center;
-    }
-
-    .demo-card {
-      margin: 0.8em auto 0;
-      max-width: 80%;
-      text-align: center;
-      padding: 1.5em 1em 1.2em;
-      background: var(--ohc-bg-soft);
-      border: 1px solid var(--ohc-rule);
-      border-radius: 12px;
-    }
-    .demo-card .url {
-      display: block;
-      font-family: "SF Mono", Menlo, monospace;
-      font-size: 2.4em;
-      line-height: 1.1;
-      background: linear-gradient(90deg, var(--ohc-cyan), var(--ohc-amber));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      letter-spacing: -0.01em;
-      margin-bottom: 0.6em;
-    }
-    .demo-card .cta {
-      display: inline-block;
-      padding: 0.6em 1.4em;
-      border: 1px solid var(--ohc-cyan);
-      border-radius: 8px;
-      color: var(--ohc-cyan) !important;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 0.85em;
-      letter-spacing: 0.03em;
-    }
-    .demo-card .cta:hover { background: rgba(34,211,238,0.1); }
-    .demo-card .hint {
-      margin-top: 1em;
-      color: var(--ohc-muted);
-      font-size: 0.6em;
-    }
-    .demo-card .hint kbd {
-      background: var(--ohc-bg);
-      border: 1px solid var(--ohc-rule);
-      border-radius: 4px;
-      padding: 0.1em 0.4em;
-      font-family: "SF Mono", Menlo, monospace;
-      color: var(--ohc-amber);
-    }
-
-    .marker-legend {
-      display: grid;
-      grid-template-columns: auto 1fr;
-      gap: 0.5em 1em;
-      align-items: center;
-      font-size: 0.85em;
-    }
-    .swatch {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border-radius: 3px;
-    }
-
-    .closer {
-      text-align: center;
-      padding-top: 0.2em;
-    }
-    .closer p { margin: 0.3em 0; }
-    .closer .seventythree {
-      font-size: 3em;
-      background: linear-gradient(90deg, var(--ohc-cyan), var(--ohc-amber));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
-      font-weight: 800;
-      margin: 0.15em 0;
-      line-height: 1;
-    }
-
-    .reveal .slide-number {
-      color: var(--ohc-muted);
-      background: transparent;
-    }
-
-    .footer-band {
-      position: absolute;
-      bottom: 0.5em;
-      left: 0;
-      right: 0;
-      text-align: center;
-      font-size: 0.4em;
-      color: var(--ohc-muted);
-      letter-spacing: 0.1em;
-    }
-
-    /* Strip reveal theme's default image background/border on all deck images. */
-    .reveal section img {
-      background: transparent;
-      border: 0;
-      box-shadow: none;
-    }
-    .reveal section img.title-logo {
-      width: 130px;
-      height: 130px;
-      margin: 0 auto 0.3em !important;
-      display: block;
-      filter: drop-shadow(0 4px 14px rgba(34,211,238,0.15));
-    }
-    .reveal section img.closer-mark {
-      width: 80px;
-      height: auto;
-      margin: 0 auto 0.3em !important;
-      display: block;
-      opacity: 0.9;
-    }
-    .hero-shot {
-      display: block;
-      max-width: 100%;
-      max-height: 510px;
-      margin: 0.4em auto 0;
-      border: 1px solid var(--ohc-rule);
-      border-radius: 8px;
-      box-shadow: 0 8px 28px rgba(0,0,0,0.45);
-    }
-    .side-shot {
-      width: 100%;
-      max-height: 520px;
-      border: 1px solid var(--ohc-rule);
-      border-radius: 8px;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.35);
-      object-fit: contain;
-    }
-    .shot-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.8em;
-      margin: 0.7em 0 0.3em;
-      align-items: end;
-    }
-    .shot-grid img {
-      width: 100%;
-      max-height: 340px;
-      border: 1px solid var(--ohc-rule);
-      border-radius: 6px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-      object-fit: contain;
-    }
-    .caption {
-      text-align: center;
-      margin-top: 0.5em;
-      color: var(--ohc-muted);
-      font-size: 0.65em;
-      letter-spacing: 0.02em;
-    }
-    .install-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.8em;
-      margin-top: 0.6em;
-    }
-    .install-card {
-      background: var(--ohc-bg-soft);
-      border: 1px solid var(--ohc-rule);
-      border-radius: 8px;
-      padding: 0.7em 0.9em;
-      min-width: 0;          /* allow grid item to shrink so children wrap */
-      overflow: hidden;
-    }
-    .install-card h3 {
-      margin: 0 0 0.3em;
-      font-size: 0.85em;
-    }
-    .install-card pre {
-      margin: 0.2em 0;
-      font-size: 0.42em;
-      padding: 0.5em 0.7em;
-      max-width: 100%;
-      box-sizing: border-box;
-    }
-    .install-card pre code {
-      white-space: pre-wrap;
-      word-break: break-all;
-      overflow-wrap: anywhere;
-      display: block;
-    }
-    .install-card .note {
-      font-size: 0.5em;
-      color: var(--ohc-muted);
-      margin-top: 0.3em;
-    }
-    .install-card .note code { color: var(--ohc-amber); }
-
-    .contrib-callout {
-      margin-top: 0.7em;
-      padding: 0.5em 0.9em;
-      background: rgba(34, 211, 238, 0.08);
-      border-left: 3px solid var(--ohc-cyan);
-      border-radius: 4px;
-      font-size: 0.6em;
-      line-height: 1.4;
-    }
-    .contrib-callout strong { color: var(--ohc-cyan); }
-
-    .closer .contrib-thanks {
-      max-width: 72%;
-      margin: 0.3em auto;
-      padding: 0.55em 0.9em;
-      background: rgba(34, 211, 238, 0.08);
-      border: 1px solid rgba(34, 211, 238, 0.3);
-      border-radius: 8px;
-      font-size: 0.55em;
-      line-height: 1.4;
-      color: var(--ohc-text);
-      text-align: center;
-    }
-    .closer .contrib-thanks strong { color: var(--ohc-cyan); }
-  </style>
-</head>
-<body>
-  <div class="reveal">
-    <div class="slides">
-
-      <!-- 1. Title -->
-      <section class="title-slide">
-        <img src="assets/icon-512.png" alt="OpenHamClock logo" class="title-logo">
-        <div class="kicker">DVRA · W2ZQ · MAY 13, 2026</div>
-        <h1>OpenHamClock</h1>
-        <p class="tagline">A real-time ham radio dashboard<br/>for the modern operator.</p>
-        <p class="meta">
-          <strong>Chris Hetherington · K0CJH</strong><br/>
-          openhamclock.com · github.com/accius/openhamclock
-        </p>
-        <aside class="notes">
-          Welcome to DVRA. Tonight, ~25 minutes: what OpenHamClock is, what it does, and how
-          you can run it. We'll spend the back half live in the app. Quick intro of self —
-          name, callsign, how you got into the project — then dive in.
-        </aside>
-      </section>
-
-      <!-- 2. The pitch -->
-      <section>
-        <div class="kicker">In one breath</div>
-        <h2>Everything a working ham wants — on one screen, in any browser.</h2>
-        <ul>
-          <li>DX cluster, PSKReporter, POTA/SOTA/WWFF/WWBOTA</li>
-          <li>Propagation, space weather, satellites</li>
-          <li>Click a spot → your radio tunes</li>
-          <li>Free, open source, runs anywhere a browser does</li>
-        </ul>
-        <p class="muted small" style="margin-top:1.2em;">
-          Cloud-hosted at <strong>openhamclock.com</strong> — or self-host on a Pi, a Mac,
-          a Linux box, in Docker, on Railway.
-        </p>
-        <aside class="notes">
-          Don't read the bullets — talk through them at a clip. The point of this slide is
-          that OHC is *one* thing that replaces opening eight tabs. Ask the room: who here
-          runs HamClock? VOACAP online? PSKReporter in a tab? DX Heat? That's the audience.
-        </aside>
-      </section>
-
-      <!-- 3. Origin / dedication -->
-      <section>
-        <div class="kicker">Standing on shoulders</div>
-        <h2>For WB0OEW.</h2>
-        <div class="two-col">
-          <div>
-            <p>Elwood Downey, <strong>WB0OEW (SK)</strong>, built the original HamClock —
-            the one that's been running on Raspberry Pis in shacks around the world for years.</p>
-            <p>OpenHamClock is a ground-up rewrite for the modern web. Same spirit,
-            new foundation, friendly to extend.</p>
-          </div>
-          <div>
-            <p class="muted small"><strong>From the original HamClock</strong></p>
-            <ul class="small">
-              <li>Single-screen situational awareness</li>
-              <li>Map + clocks + space weather</li>
-              <li>Honest data, no fluff</li>
-            </ul>
-            <p class="muted small" style="margin-top:1em;"><strong>What's new in OpenHamClock</strong></p>
-            <ul class="small">
-              <li>Web-native, responsive UI</li>
-              <li>Modular plugin system</li>
-              <li>Open source from day one (MIT)</li>
-              <li>Rig control + WSJT-X integration baked in</li>
-            </ul>
-          </div>
-        </div>
-        <aside class="notes">
-          Set the tone here — this is *not* a competitor to HamClock. It's a love letter.
-          Elwood passed in early 2026. Many hams here will recognize HamClock running on
-          the wall of their shack. Acknowledge that lineage before showing anything new.
-        </aside>
-      </section>
-
-      <!-- 4. The big picture -->
-      <section>
-        <div class="kicker">The big picture</div>
-        <h2>One screen. One glance. Everything.</h2>
-        <img src="assets/1.png" alt="OpenHamClock full dashboard view" class="hero-shot">
-        <p class="caption">Map · DX cluster · solar imagery · VOACAP · weather · station panels — all one screen.</p>
-        <aside class="notes">
-          Just let the image do the work. Talk through the regions on screen:
-          - Top header: callsign, UTC + local time, weather, solar indices.
-          - Left: your DE/DX station panels and a solar imagery panel + VOACAP.
-          - Center: world map with day/night terminator and great-circle paths.
-          - Right: DX cluster, PSKReporter, DXpeditions, contests.
-          - Bottom: band buttons.
-          Mention flexlayout — panels dock/undock/tear off like a real ops console,
-          and you can save layouts (bench, EmComm, contesting) and flip between them.
-        </aside>
-      </section>
-
-      <!-- 5. Map at the center -->
-      <section>
-        <div class="kicker">The map</div>
-        <h2>The map is the application.</h2>
-        <img src="assets/2.png" alt="World map with great-circle paths and FT8 spots" class="hero-shot">
-        <p class="caption">Day/night terminator · great-circle paths · live spots · togglable layers (aurora, radar, satellites, earthquakes…)</p>
-        <aside class="notes">
-          The map is the killer feature. It's NOT a static image — it's interactive.
-          Click any DX cluster spot and it draws the great-circle path right there.
-          Pick your DE (you) and a DX (anywhere) and you get distance, bearing, grid,
-          sunrise/sunset at both ends.
-
-          Demo this live in slide 12 by clicking a few cluster spots.
-        </aside>
-      </section>
-
-      <!-- 6. DX cluster -->
-      <section>
-        <div class="kicker">Spots</div>
-        <h2>The DX cluster, the way you wish it looked.</h2>
-        <div class="two-col">
-          <img src="assets/3.png" alt="DX Cluster, PSKReporter, and DXpeditions panels" class="side-shot">
-          <div>
-            <h3>DX Cluster</h3>
-            <ul class="small">
-              <li>Live spots from DX Spider</li>
-              <li>Filter by band, mode, zone, watchlist</li>
-              <li>Exclude callsigns you don't want to see</li>
-              <li>30-min retention — see the <em>trend</em>, not just "now"</li>
-            </ul>
-            <h3>PSKReporter</h3>
-            <ul class="small">
-              <li>FT8 / FT4 / JS8 / WSPR / JT65 reception, live via MQTT</li>
-              <li>Who's hearing you · who you're hearing</li>
-              <li>"MySpots" lights up the moment your call hits the cluster</li>
-            </ul>
-          </div>
-        </div>
-        <p class="contrib-callout">
-          With thanks to DVRA's own <strong>Rich Freedman, N2EHL</strong> — his work on
-          DX cluster filtering shaped the patterns the activations panel uses too.
-        </p>
-        <aside class="notes">
-          Two takeaways: (1) cluster filtering is finally sane — exclude list, watchlist,
-          band/mode/zone, watchlist persists across sessions. (2) MQTT for PSKReporter
-          is the big upgrade — actual real-time, not poll-every-5-minutes. The
-          DXpeditions panel underneath shows active expeditions ranked by activity.
-
-          IMPORTANT — DVRA moment: pause when you get to the N2EHL callout. Look at
-          Rich if he's in the room. The cluster filtering UX you're showing literally
-          came from his work, and the same patterns now drive activations filtering.
-          Let the room give him a hand. Suggested line:
-
-          "Quick aside — the cluster filtering you're seeing here, exclude list,
-          watchlist, band/mode/zone — that pattern is largely shaped by contributions
-          from one of your own members, Rich Freedman, N2EHL. And that same approach
-          is what now drives how activations get filtered too. Rich, if you're here,
-          thank you — those contributions are greatly appreciated."
-        </aside>
-      </section>
-
-      <!-- 7. Activations -->
-      <section>
-        <div class="kicker">Activations</div>
-        <h2>POTA, SOTA, WWFF, WWBOTA — all on the same map.</h2>
-        <div class="two-col">
-          <div>
-            <div class="marker-legend">
-              <span class="swatch" style="background:#4ade80; clip-path: polygon(50% 0, 100% 100%, 0 100%);"></span>
-              <span><strong>POTA</strong> — Parks on the Air</span>
-              <span class="swatch" style="background:#fb923c; transform:rotate(45deg);"></span>
-              <span><strong>SOTA</strong> — Summits on the Air</span>
-              <span class="swatch" style="background:#86efac; clip-path: polygon(0 0, 100% 0, 50% 100%);"></span>
-              <span><strong>WWFF</strong> — Flora &amp; Fauna</span>
-              <span class="swatch" style="background:#c4b5fd;"></span>
-              <span><strong>WWBOTA</strong> — Bunkers on the Air</span>
-            </div>
-            <p class="small" style="margin-top:1em;">Click an activator → reference, name, frequency, mode, time. Audio alerts when one shows up on a band you're watching.</p>
-          </div>
-          <img src="assets/4.png" alt="POTA activations and contest calendar panel" class="side-shot">
-        </div>
-        <aside class="notes">
-          DVRA probably has POTA chasers in the room. Ask. WWBOTA is the new one — bunkers
-          (mil/civil defense relics). It's exploded in the last 18 months. Good moment to
-          ask: "Anyone here activated a bunker yet?" — almost always gets a laugh.
-        </aside>
-      </section>
-
-      <!-- 8. Propagation -->
-      <section>
-        <div class="kicker">Propagation</div>
-        <h2>Real numbers. Real predictions. Live.</h2>
-        <div class="shot-grid">
-          <img src="assets/10.png" alt="Solar indices panel — SFI, K-index, SSN, solar wind">
-          <img src="assets/6.png" alt="Band conditions panel — HF band statuses">
-          <img src="assets/5.png" alt="VOACAP per-band reliability heatmap">
-        </div>
-        <p class="caption">
-          <strong>Solar indices</strong> &middot; <strong>HF band conditions</strong> &middot; <strong>VOACAP heatmap</strong> — and the map's band-color overlay <em>is</em> a live prediction.
-        </p>
-        <aside class="notes">
-          The VOACAP piece is the part hams actually care about. Most propagation tools
-          are stale screenshots of voacap online. OHC runs the ITU-R HF engine itself,
-          locally, every 10 minutes — so when conditions change, the band-color overlay
-          on the map updates. The heatmap on the right shows per-band reliability by UTC
-          hour for your QTH right now. This is recent work — worth flagging as something
-          that came in over the last few months.
-
-          Also: solar imagery (SDO/LMSAL/Helioviewer), X-ray flux, lunar phase are all
-          panels in the same column. Show those live in the demo if K-index is elevated.
-        </aside>
-      </section>
-
-      <!-- 9. Satellites -->
-      <section>
-        <div class="kicker">Satellites</div>
-        <h2>Satellites on the same map as everything else.</h2>
-        <div class="two-col">
-          <div>
-            <ul class="small">
-              <li>Live SGP4 tracking — the standard algorithm</li>
-              <li>Pass predictions for <em>your</em> QTH, sorted by AOS</li>
-              <li>Footprint + ground track drawn on the map</li>
-              <li>Big catalog: AO-91/92, SO-50, ISS, RS-44, FO-29, GOES, METEOR, QO-100 footprint…</li>
-              <li>Multi-select — overlay several at once next to your DX spots and activators</li>
-            </ul>
-          </div>
-          <img src="assets/14.png" alt="Satellite picker settings — full active sat catalog" class="side-shot">
-        </div>
-        <aside class="notes">
-          Satellite ops folks always perk up. Mention QO-100 even though it's not visible
-          from PA — the footprint visualization alone is fun for the room. The screenshot
-          on the right is the picker — search/select any satellite from the active TLE
-          catalog and OHC tracks it.
-        </aside>
-      </section>
-
-      <!-- 10. Rig control -->
-      <section>
-        <div class="kicker">Rig control</div>
-        <h2>Click a spot. Your radio tunes.</h2>
-        <div class="two-col">
-          <div>
-            <h3>Transports</h3>
-            <ul class="small">
-              <li>USB CAT — direct, no hamlib</li>
-              <li>rigctld (Hamlib) &middot; flrig</li>
-              <li>SmartSDR, TCI, RTL-SDR</li>
-              <li>Cloud relay — your shack from the road</li>
-            </ul>
-          </div>
-          <div>
-            <h3>Radios</h3>
-            <ul class="small">
-              <li>Yaesu, Kenwood, Icom, Elecraft</li>
-              <li>FlexRadio, SunSDR, Hermes-Lite 2, ANAN</li>
-              <li>WSJT-X / JTDX / MSHV / JS8Call decodes plotted live on the map</li>
-            </ul>
-          </div>
-        </div>
-        <p class="muted small" style="margin-top:0.8em;">Plugin-based <strong>Rig Bridge</strong> — almost any modern radio over almost any transport.</p>
-        <aside class="notes">
-          Most-loved feature among power users. The flow: see a DX spot on 20m, click it,
-          rig moves there, you call. WSJT-X relay is the same idea backwards — decoded
-          callsigns appear on the map in real time, so you can *see* who's working you.
-          Specific models supported: FT-991A/891/710/DX10/5000, TS-890/590/2000/480,
-          IC-7300/7610/9700/705/7851, K3/K4 — name-drop if asked.
-        </aside>
-      </section>
-
-      <!-- 11. EmComm -->
-      <section>
-        <div class="kicker">EmComm</div>
-        <h2>Built with the bad day in mind.</h2>
-        <ul>
-          <li><strong>EmComm layout</strong> — single-screen situational picture: weather, space weather, paths, activations, all visible at once</li>
-          <li><strong>Aurora overlay</strong> (NOAA OVATION) — see the auroral oval in real time</li>
-          <li><strong>Weather radar</strong> overlay — precipitation on the same map</li>
-          <li><strong>Earthquakes</strong> overlay — live USGS feed</li>
-          <li><strong>Winlink RMS gateway</strong> via Rig Bridge (API approval pending)</li>
-          <li><strong>MeshCom UDP</strong> (beta) — local mesh radio relay</li>
-          <li><strong>10 languages</strong> — English, Spanish, French, German, Dutch, Portuguese, Italian, Slovenian, Japanese, Korean</li>
-        </ul>
-        <aside class="notes">
-          DVRA does ARES/RACES? Ask the room. If yes, lean in here. EmComm layout is a
-          recent feature — born from feedback from operators who wanted one screen during
-          activations rather than alt-tabbing.
-        </aside>
-      </section>
-
-      <!-- 12. LIVE DEMO -->
-      <section data-background-image="assets/1.png" data-background-size="cover" data-background-position="center" data-background-opacity="0.22" data-background-color="#0a0e1a">
-        <div class="kicker">Live demo</div>
-        <h2 style="margin-bottom:0.2em;">Let's go to the actual thing.</h2>
-        <div class="demo-card">
-          <span class="url">openhamclock.com</span>
-          <a class="cta" href="https://openhamclock.com" target="_blank" rel="noopener">Open in new tab →</a>
-          <p class="hint">
-            Or just press <kbd>L</kbd>. Switch back to the deck with <kbd>Alt</kbd>+<kbd>Tab</kbd>.
-          </p>
-        </div>
-        <aside class="notes">
-          ~5 min here. Switch to a pre-warmed browser tab — don't try to embed (OHC blocks
-          iframing on purpose). Press L on this slide to open the live site cleanly.
-
-          Suggested walk:
-          1) Map + terminator. Point at the day/night line.
-          2) Click a DX cluster spot — great-circle path draws.
-          3) Filter cluster by band (20m only).
-          4) Open PSKReporter pane — MySpots / TX-RX tabs.
-          5) Toggle POTA layer — click an activator.
-          6) Open Space Weather pane — point at SFI/K.
-          7) Toggle Aurora overlay if K is elevated.
-
-          DO NOT live-edit settings. Stay in defaults so nothing goes sideways.
-          When done, Alt+Tab back to the deck and advance.
-        </aside>
-      </section>
-
-      <!-- 13. Built to be hacked -->
-      <section>
-        <div class="kicker">Under the hood</div>
-        <h2>Built to be hacked on.</h2>
-        <div class="stat-grid">
-          <div class="stat"><span class="num">MIT</span><span class="label">License</span></div>
-          <div class="stat"><span class="num">17</span><span class="label">Rig plugins</span></div>
-          <div class="stat"><span class="num">28+</span><span class="label">Contributors</span></div>
-          <div class="stat"><span class="num">10</span><span class="label">Languages</span></div>
-          <div class="stat"><span class="num">3</span><span class="label">Map overlays</span></div>
-          <div class="stat"><span class="num">~3 mo</span><span class="label">Project age</span></div>
-        </div>
-        <ul class="small" style="margin-top:0.8em;">
-          <li>Map overlays are React hooks — copy one of the three built-ins, edit, restart</li>
-          <li>Community AddOns folder for userscripts (APRS auto-pos, calculators, news feeds)</li>
-        </ul>
-        <aside class="notes">
-          Three months old is the headline — show the velocity. Pull up github.com/accius/openhamclock
-          if you have time and scroll the contributors list. This is a young project that
-          will absolutely take feature requests.
-          For coders in the room: `docs/ARCHITECTURE.md` and `src/plugins/OpenHamClock-Plugin-Guide.md`
-          are the entry points.
-        </aside>
-      </section>
-
-      <!-- 14. Run it anywhere -->
-      <section>
-        <div class="kicker">Install</div>
-        <h2>Pick your poison.</h2>
-        <div class="install-grid">
-          <div class="install-card">
-            <h3>Zero install</h3>
-            <p class="note">Visit <strong>openhamclock.com</strong> — wizard asks for callsign + grid. Done in 30 seconds.</p>
-          </div>
-          <div class="install-card">
-            <h3>Docker</h3>
-            <pre><code class="language-bash">docker-compose up -d</code></pre>
-            <p class="note">Self-hosted on your LAN. API calls proxied through your backend.</p>
-          </div>
-          <div class="install-card">
-            <h3>Local (Mac / Linux / Win / WSL)</h3>
-            <pre><code class="language-bash">git clone https://github.com/accius/openhamclock.git
-cd openhamclock &amp;&amp; npm ci &amp;&amp; npm start</code></pre>
-            <p class="note">Open <code>http://localhost:3000</code>.</p>
-          </div>
-          <div class="install-card">
-            <h3>Raspberry Pi kiosk</h3>
-            <pre><code class="language-bash">curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-pi.sh | bash -s -- --kiosk</code></pre>
-            <p class="note">Fullscreen Chromium on boot. Wall-display ready.</p>
-          </div>
-        </div>
-        <aside class="notes">
-          Show of hands: who runs a Pi for ham stuff? Most of them. The kiosk one-liner
-          is the killer install — fresh Pi, paste, walk away, come back to a wall display.
-        </aside>
-      </section>
-
-      <!-- 15. Get involved -->
-      <section>
-        <div class="kicker">Get involved</div>
-        <h2>Try it, break it, tell us about it.</h2>
-        <ul>
-          <li><strong>Try it:</strong> <a href="https://openhamclock.com">openhamclock.com</a></li>
-          <li><strong>Source:</strong> <a href="https://github.com/accius/openhamclock">github.com/accius/openhamclock</a></li>
-          <li><strong>Bugs &amp; features:</strong> GitHub Issues — read first, then file</li>
-          <li><strong>Facebook group:</strong> "OpenHamClock" — most active community channel</li>
-          <li><strong>Reddit:</strong> r/OpenHamClock</li>
-          <li><strong>Code contributions:</strong> PRs welcome against the <code>Staging</code> branch</li>
-          <li><strong>Plugins / AddOns:</strong> docs walk you through it; happy to mentor</li>
-        </ul>
-        <aside class="notes">
-          End with a specific ask: file an issue, even if it's "I tried it and didn't like
-          X." Negative feedback is more useful than silence. If you have business cards
-          or a QR code to the GitHub, this is the slide to mention them.
-        </aside>
-      </section>
-
-      <!-- 16. Thanks -->
-      <section class="closer" data-background-color="#0a0e1a">
-        <img src="assets/icon-512.png" alt="OpenHamClock logo" class="closer-mark">
-        <div class="kicker">Thank you</div>
-        <p>To the 28+ contributors who made this real.</p>
-        <p class="contrib-thanks">
-          And to DVRA's own <strong>Rich Freedman, N2EHL</strong> — your work on DX
-          cluster filtering (and the patterns it set for the activations panel) is
-          greatly appreciated. Thank you, Rich.
-        </p>
-        <div class="seventythree">73</div>
-        <p class="meta muted small" style="margin-top:0.5em;">
-          <strong>Chris Hetherington — K0CJH</strong><br/>
-          chris@cjhlighting.com<br/>
-          openhamclock.com · github.com/accius/openhamclock
-        </p>
-        <p class="xsmall muted" style="margin-top:0.5em;">Questions?</p>
-        <aside class="notes">
-          Hold here for Q&A. Common questions to be ready for:
-          - "Does it work offline?" — mostly no; some panes do (clock, sat predictions).
-          - "Will it run on my old Pi 3?" — yes, kiosk mode is happy on a Pi 3.
-          - "How is it different from HamClock?" — modern web stack, plugin system,
-            active community. Same spiritual goal.
-          - "Who funds it?" — it's open source, no funder. Donations welcome but not
-            required. Hosting on openhamclock.com is on me.
-          - "Is my data private?" — yes; self-host if you want zero external dependencies.
-            Otherwise, only public APIs (cluster, PSKReporter) get your callsign.
-        </aside>
-      </section>
-
-    </div>
-  </div>
-
-  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/notes/notes.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/highlight.js"></script>
-  <script>
-    Reveal.initialize({
-      // Design canvas is 16:9 (1280x720). Reveal scales uniformly to fit any
-      // browser window or projector aspect ratio — wider screens letterbox
-      // left/right, taller screens letterbox top/bottom.
-      width: 1280,
-      height: 720,
-      margin: 0.04,
-      minScale: 0.2,
-      maxScale: 2.0,
-      hash: true,
-      slideNumber: 'c/t',
-      controls: true,
-      progress: true,
-      transition: 'slide',
-      backgroundTransition: 'fade',
-      plugins: [ RevealHighlight, RevealNotes ],
-      keyboard: {
-        76: () => window.open('https://openhamclock.com', '_blank')  // 'L' opens live site
+    <style>
+      :root {
+        --ohc-bg: #0b1220;
+        --ohc-bg-soft: #111a2e;
+        --ohc-text: #e6edf3;
+        --ohc-muted: #94a3b8;
+        --ohc-cyan: #22d3ee;
+        --ohc-amber: #fbbf24;
+        --ohc-green: #4ade80;
+        --ohc-rule: #1e293b;
       }
-    });
-  </script>
-</body>
+
+      .reveal {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        color: var(--ohc-text);
+        font-size: 32px;
+      }
+      .reveal .slides {
+        text-align: left;
+      }
+      .reveal .slides section {
+        padding: 0 0.5em;
+      }
+      body.reveal-viewport,
+      .reveal-viewport {
+        background: var(--ohc-bg);
+      }
+      .reveal h1,
+      .reveal h2,
+      .reveal h3,
+      .reveal h4 {
+        color: var(--ohc-text);
+        text-transform: none;
+        letter-spacing: -0.01em;
+        font-weight: 700;
+      }
+      .reveal h1 {
+        font-size: 2.2em;
+        line-height: 1.05;
+      }
+      .reveal h2 {
+        font-size: 1.5em;
+        line-height: 1.1;
+        margin-bottom: 0.4em;
+      }
+      .reveal h3 {
+        font-size: 1.05em;
+        color: var(--ohc-cyan);
+        margin-bottom: 0.3em;
+        margin-top: 0.4em;
+      }
+      .reveal p {
+        line-height: 1.35;
+        margin: 0.4em 0;
+      }
+
+      .reveal a {
+        color: var(--ohc-cyan);
+      }
+      .reveal strong {
+        color: var(--ohc-amber);
+      }
+      .reveal em {
+        color: var(--ohc-muted);
+        font-style: normal;
+      }
+
+      .reveal ul,
+      .reveal ol {
+        margin-left: 1em;
+      }
+      .reveal li {
+        margin: 0.15em 0;
+        line-height: 1.3;
+      }
+      .reveal .muted {
+        color: var(--ohc-muted);
+      }
+      .reveal .small {
+        font-size: 0.75em;
+      }
+      .reveal .xsmall {
+        font-size: 0.6em;
+      }
+
+      .reveal pre,
+      .reveal code {
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
+      }
+      .reveal pre {
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 6px;
+        padding: 0.55em 0.8em;
+        box-shadow: none;
+        font-size: 0.5em;
+        width: 100%;
+      }
+      .reveal pre code {
+        white-space: pre-wrap;
+        word-break: break-all;
+        display: block;
+      }
+      .reveal code {
+        color: var(--ohc-amber);
+      }
+
+      .title-slide {
+        text-align: center !important;
+      }
+      .title-slide h1 {
+        font-size: 3.2em;
+        background: linear-gradient(90deg, var(--ohc-cyan), var(--ohc-amber));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        margin-bottom: 0.1em;
+      }
+      .title-slide .tagline {
+        color: var(--ohc-muted);
+        font-size: 1.1em;
+        margin-bottom: 2em;
+      }
+      .title-slide .meta {
+        font-size: 0.7em;
+        color: var(--ohc-muted);
+        line-height: 1.6;
+      }
+      .title-slide .meta strong {
+        color: var(--ohc-text);
+      }
+
+      .kicker {
+        display: inline-block;
+        font-size: 0.55em;
+        font-weight: 600;
+        color: var(--ohc-cyan);
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        margin-bottom: 0.5em;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5em;
+        align-items: start;
+      }
+
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.6em;
+        margin-top: 0.6em;
+      }
+      .stat {
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 8px;
+        padding: 0.5em 0.5em;
+        text-align: center;
+      }
+      .stat .num {
+        display: block;
+        font-size: 1.35em;
+        font-weight: 700;
+        color: var(--ohc-cyan);
+        line-height: 1.1;
+      }
+      .stat .label {
+        font-size: 0.5em;
+        color: var(--ohc-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+
+      .url-big {
+        font-family: 'SF Mono', Menlo, monospace;
+        font-size: 1.3em;
+        color: var(--ohc-amber);
+        letter-spacing: 0.02em;
+        text-align: center;
+      }
+
+      .demo-card {
+        margin: 0.8em auto 0;
+        max-width: 80%;
+        text-align: center;
+        padding: 1.5em 1em 1.2em;
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 12px;
+      }
+      .demo-card .url {
+        display: block;
+        font-family: 'SF Mono', Menlo, monospace;
+        font-size: 2.4em;
+        line-height: 1.1;
+        background: linear-gradient(90deg, var(--ohc-cyan), var(--ohc-amber));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        letter-spacing: -0.01em;
+        margin-bottom: 0.6em;
+      }
+      .demo-card .cta {
+        display: inline-block;
+        padding: 0.6em 1.4em;
+        border: 1px solid var(--ohc-cyan);
+        border-radius: 8px;
+        color: var(--ohc-cyan) !important;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.85em;
+        letter-spacing: 0.03em;
+      }
+      .demo-card .cta:hover {
+        background: rgba(34, 211, 238, 0.1);
+      }
+      .demo-card .hint {
+        margin-top: 1em;
+        color: var(--ohc-muted);
+        font-size: 0.6em;
+      }
+      .demo-card .hint kbd {
+        background: var(--ohc-bg);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 4px;
+        padding: 0.1em 0.4em;
+        font-family: 'SF Mono', Menlo, monospace;
+        color: var(--ohc-amber);
+      }
+
+      .marker-legend {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 0.5em 1em;
+        align-items: center;
+        font-size: 0.85em;
+      }
+      .swatch {
+        display: inline-block;
+        width: 14px;
+        height: 14px;
+        border-radius: 3px;
+      }
+
+      .closer {
+        text-align: center;
+        padding-top: 0.2em;
+      }
+      .closer p {
+        margin: 0.3em 0;
+      }
+      .closer .seventythree {
+        font-size: 3em;
+        background: linear-gradient(90deg, var(--ohc-cyan), var(--ohc-amber));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        font-weight: 800;
+        margin: 0.15em 0;
+        line-height: 1;
+      }
+
+      .reveal .slide-number {
+        color: var(--ohc-muted);
+        background: transparent;
+      }
+
+      .footer-band {
+        position: absolute;
+        bottom: 0.5em;
+        left: 0;
+        right: 0;
+        text-align: center;
+        font-size: 0.4em;
+        color: var(--ohc-muted);
+        letter-spacing: 0.1em;
+      }
+
+      /* Strip reveal theme's default image background/border on all deck images. */
+      .reveal section img {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+      }
+      .reveal section img.title-logo {
+        width: 130px;
+        height: 130px;
+        margin: 0 auto 0.3em !important;
+        display: block;
+        filter: drop-shadow(0 4px 14px rgba(34, 211, 238, 0.15));
+      }
+      .reveal section img.closer-mark {
+        width: 80px;
+        height: auto;
+        margin: 0 auto 0.3em !important;
+        display: block;
+        opacity: 0.9;
+      }
+      .hero-shot {
+        display: block;
+        max-width: 100%;
+        max-height: 510px;
+        margin: 0.4em auto 0;
+        border: 1px solid var(--ohc-rule);
+        border-radius: 8px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+      }
+      .side-shot {
+        width: 100%;
+        max-height: 520px;
+        border: 1px solid var(--ohc-rule);
+        border-radius: 8px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        object-fit: contain;
+      }
+      .shot-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.8em;
+        margin: 0.7em 0 0.3em;
+        align-items: end;
+      }
+      .shot-grid img {
+        width: 100%;
+        max-height: 340px;
+        border: 1px solid var(--ohc-rule);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        object-fit: contain;
+      }
+      .caption {
+        text-align: center;
+        margin-top: 0.5em;
+        color: var(--ohc-muted);
+        font-size: 0.65em;
+        letter-spacing: 0.02em;
+      }
+      .install-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8em;
+        margin-top: 0.6em;
+      }
+      .install-card {
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 8px;
+        padding: 0.7em 0.9em;
+        min-width: 0; /* allow grid item to shrink so children wrap */
+        overflow: hidden;
+      }
+      .install-card h3 {
+        margin: 0 0 0.3em;
+        font-size: 0.85em;
+      }
+      .install-card pre {
+        margin: 0.2em 0;
+        font-size: 0.42em;
+        padding: 0.5em 0.7em;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      .install-card pre code {
+        white-space: pre-wrap;
+        word-break: break-all;
+        overflow-wrap: anywhere;
+        display: block;
+      }
+      .install-card .note {
+        font-size: 0.5em;
+        color: var(--ohc-muted);
+        margin-top: 0.3em;
+      }
+      .install-card .note code {
+        color: var(--ohc-amber);
+      }
+
+      .contrib-callout {
+        margin-top: 0.7em;
+        padding: 0.5em 0.9em;
+        background: rgba(34, 211, 238, 0.08);
+        border-left: 3px solid var(--ohc-cyan);
+        border-radius: 4px;
+        font-size: 0.6em;
+        line-height: 1.4;
+      }
+      .contrib-callout strong {
+        color: var(--ohc-cyan);
+      }
+
+      .closer .contrib-thanks {
+        max-width: 72%;
+        margin: 0.3em auto;
+        padding: 0.55em 0.9em;
+        background: rgba(34, 211, 238, 0.08);
+        border: 1px solid rgba(34, 211, 238, 0.3);
+        border-radius: 8px;
+        font-size: 0.55em;
+        line-height: 1.4;
+        color: var(--ohc-text);
+        text-align: center;
+      }
+      .closer .contrib-thanks strong {
+        color: var(--ohc-cyan);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <!-- 1. Title -->
+        <section class="title-slide">
+          <img src="assets/icon-512.png" alt="OpenHamClock logo" class="title-logo" />
+          <div class="kicker">DVRA · W2ZQ · MAY 13, 2026</div>
+          <h1>OpenHamClock</h1>
+          <p class="tagline">A real-time ham radio dashboard<br />for the modern operator.</p>
+          <p class="meta">
+            <strong>Chris Hetherington · K0CJH</strong><br />
+            openhamclock.com · github.com/accius/openhamclock
+          </p>
+          <aside class="notes">
+            Welcome to DVRA. Tonight, ~25 minutes: what OpenHamClock is, what it does, and how you can run it. We'll
+            spend the back half live in the app. Quick intro of self — name, callsign, how you got into the project —
+            then dive in.
+          </aside>
+        </section>
+
+        <!-- 2. The pitch -->
+        <section>
+          <div class="kicker">In one breath</div>
+          <h2>Everything a working ham wants — on one screen, in any browser.</h2>
+          <ul>
+            <li>DX cluster, PSKReporter, POTA/SOTA/WWFF/WWBOTA</li>
+            <li>Propagation, space weather, satellites</li>
+            <li>Click a spot → your radio tunes</li>
+            <li>Free, open source, runs anywhere a browser does</li>
+          </ul>
+          <p class="muted small" style="margin-top: 1.2em">
+            Cloud-hosted at <strong>openhamclock.com</strong> — or self-host on a Pi, a Mac, a Linux box, in Docker, on
+            Railway.
+          </p>
+          <aside class="notes">
+            Don't read the bullets — talk through them at a clip. The point of this slide is that OHC is *one* thing
+            that replaces opening eight tabs. Ask the room: who here runs HamClock? VOACAP online? PSKReporter in a tab?
+            DX Heat? That's the audience.
+          </aside>
+        </section>
+
+        <!-- 3. Origin / dedication -->
+        <section>
+          <div class="kicker">Standing on shoulders</div>
+          <h2>For WB0OEW.</h2>
+          <div class="two-col">
+            <div>
+              <p>
+                Elwood Downey, <strong>WB0OEW (SK)</strong>, built the original HamClock — the one that's been running
+                on Raspberry Pis in shacks around the world for years.
+              </p>
+              <p>
+                OpenHamClock is a ground-up rewrite for the modern web. Same spirit, new foundation, friendly to extend.
+              </p>
+            </div>
+            <div>
+              <p class="muted small"><strong>From the original HamClock</strong></p>
+              <ul class="small">
+                <li>Single-screen situational awareness</li>
+                <li>Map + clocks + space weather</li>
+                <li>Honest data, no fluff</li>
+              </ul>
+              <p class="muted small" style="margin-top: 1em"><strong>What's new in OpenHamClock</strong></p>
+              <ul class="small">
+                <li>Web-native, responsive UI</li>
+                <li>Modular plugin system</li>
+                <li>Open source from day one (MIT)</li>
+                <li>Rig control + WSJT-X integration baked in</li>
+              </ul>
+            </div>
+          </div>
+          <aside class="notes">
+            Set the tone here — this is *not* a competitor to HamClock. It's a love letter. Elwood passed in early 2026.
+            Many hams here will recognize HamClock running on the wall of their shack. Acknowledge that lineage before
+            showing anything new.
+          </aside>
+        </section>
+
+        <!-- 4. The big picture -->
+        <section>
+          <div class="kicker">The big picture</div>
+          <h2>One screen. One glance. Everything.</h2>
+          <img src="assets/1.png" alt="OpenHamClock full dashboard view" class="hero-shot" />
+          <p class="caption">Map · DX cluster · solar imagery · VOACAP · weather · station panels — all one screen.</p>
+          <aside class="notes">
+            Just let the image do the work. Talk through the regions on screen: - Top header: callsign, UTC + local
+            time, weather, solar indices. - Left: your DE/DX station panels and a solar imagery panel + VOACAP. -
+            Center: world map with day/night terminator and great-circle paths. - Right: DX cluster, PSKReporter,
+            DXpeditions, contests. - Bottom: band buttons. Mention flexlayout — panels dock/undock/tear off like a real
+            ops console, and you can save layouts (bench, EmComm, contesting) and flip between them.
+          </aside>
+        </section>
+
+        <!-- 5. Map at the center -->
+        <section>
+          <div class="kicker">The map</div>
+          <h2>The map is the application.</h2>
+          <img src="assets/2.png" alt="World map with great-circle paths and FT8 spots" class="hero-shot" />
+          <p class="caption">
+            Day/night terminator · great-circle paths · live spots · togglable layers (aurora, radar, satellites,
+            earthquakes…)
+          </p>
+          <aside class="notes">
+            The map is the killer feature. It's NOT a static image — it's interactive. Click any DX cluster spot and it
+            draws the great-circle path right there. Pick your DE (you) and a DX (anywhere) and you get distance,
+            bearing, grid, sunrise/sunset at both ends. Demo this live in slide 12 by clicking a few cluster spots.
+          </aside>
+        </section>
+
+        <!-- 6. DX cluster -->
+        <section>
+          <div class="kicker">Spots</div>
+          <h2>The DX cluster, the way you wish it looked.</h2>
+          <div class="two-col">
+            <img src="assets/3.png" alt="DX Cluster, PSKReporter, and DXpeditions panels" class="side-shot" />
+            <div>
+              <h3>DX Cluster</h3>
+              <ul class="small">
+                <li>Live spots from DX Spider</li>
+                <li>Filter by band, mode, zone, watchlist</li>
+                <li>Exclude callsigns you don't want to see</li>
+                <li>30-min retention — see the <em>trend</em>, not just "now"</li>
+              </ul>
+              <h3>PSKReporter</h3>
+              <ul class="small">
+                <li>FT8 / FT4 / JS8 / WSPR / JT65 reception, live via MQTT</li>
+                <li>Who's hearing you · who you're hearing</li>
+                <li>"MySpots" lights up the moment your call hits the cluster</li>
+              </ul>
+            </div>
+          </div>
+          <p class="contrib-callout">
+            With thanks to DVRA's own <strong>Rich Freedman, N2EHL</strong> — his work on DX cluster filtering shaped
+            the patterns the activations panel uses too.
+          </p>
+          <aside class="notes">
+            Two takeaways: (1) cluster filtering is finally sane — exclude list, watchlist, band/mode/zone, watchlist
+            persists across sessions. (2) MQTT for PSKReporter is the big upgrade — actual real-time, not
+            poll-every-5-minutes. The DXpeditions panel underneath shows active expeditions ranked by activity.
+            IMPORTANT — DVRA moment: pause when you get to the N2EHL callout. Look at Rich if he's in the room. The
+            cluster filtering UX you're showing literally came from his work, and the same patterns now drive
+            activations filtering. Let the room give him a hand. Suggested line: "Quick aside — the cluster filtering
+            you're seeing here, exclude list, watchlist, band/mode/zone — that pattern is largely shaped by
+            contributions from one of your own members, Rich Freedman, N2EHL. And that same approach is what now drives
+            how activations get filtered too. Rich, if you're here, thank you — those contributions are greatly
+            appreciated."
+          </aside>
+        </section>
+
+        <!-- 7. Activations -->
+        <section>
+          <div class="kicker">Activations</div>
+          <h2>POTA, SOTA, WWFF, WWBOTA — all on the same map.</h2>
+          <div class="two-col">
+            <div>
+              <div class="marker-legend">
+                <span class="swatch" style="background: #4ade80; clip-path: polygon(50% 0, 100% 100%, 0 100%)"></span>
+                <span><strong>POTA</strong> — Parks on the Air</span>
+                <span class="swatch" style="background: #fb923c; transform: rotate(45deg)"></span>
+                <span><strong>SOTA</strong> — Summits on the Air</span>
+                <span class="swatch" style="background: #86efac; clip-path: polygon(0 0, 100% 0, 50% 100%)"></span>
+                <span><strong>WWFF</strong> — Flora &amp; Fauna</span>
+                <span class="swatch" style="background: #c4b5fd"></span>
+                <span><strong>WWBOTA</strong> — Bunkers on the Air</span>
+              </div>
+              <p class="small" style="margin-top: 1em">
+                Click an activator → reference, name, frequency, mode, time. Audio alerts when one shows up on a band
+                you're watching.
+              </p>
+            </div>
+            <img src="assets/4.png" alt="POTA activations and contest calendar panel" class="side-shot" />
+          </div>
+          <aside class="notes">
+            DVRA probably has POTA chasers in the room. Ask. WWBOTA is the new one — bunkers (mil/civil defense relics).
+            It's exploded in the last 18 months. Good moment to ask: "Anyone here activated a bunker yet?" — almost
+            always gets a laugh.
+          </aside>
+        </section>
+
+        <!-- 8. Propagation -->
+        <section>
+          <div class="kicker">Propagation</div>
+          <h2>Real numbers. Real predictions. Live.</h2>
+          <div class="shot-grid">
+            <img src="assets/10.png" alt="Solar indices panel — SFI, K-index, SSN, solar wind" />
+            <img src="assets/6.png" alt="Band conditions panel — HF band statuses" />
+            <img src="assets/5.png" alt="VOACAP per-band reliability heatmap" />
+          </div>
+          <p class="caption">
+            <strong>Solar indices</strong> &middot; <strong>HF band conditions</strong> &middot;
+            <strong>VOACAP heatmap</strong> — and the map's band-color overlay <em>is</em> a live prediction.
+          </p>
+          <aside class="notes">
+            The VOACAP piece is the part hams actually care about. Most propagation tools are stale screenshots of
+            voacap online. OHC runs the ITU-R HF engine itself, locally, every 10 minutes — so when conditions change,
+            the band-color overlay on the map updates. The heatmap on the right shows per-band reliability by UTC hour
+            for your QTH right now. This is recent work — worth flagging as something that came in over the last few
+            months. Also: solar imagery (SDO/LMSAL/Helioviewer), X-ray flux, lunar phase are all panels in the same
+            column. Show those live in the demo if K-index is elevated.
+          </aside>
+        </section>
+
+        <!-- 9. Satellites -->
+        <section>
+          <div class="kicker">Satellites</div>
+          <h2>Satellites on the same map as everything else.</h2>
+          <div class="two-col">
+            <div>
+              <ul class="small">
+                <li>Live SGP4 tracking — the standard algorithm</li>
+                <li>Pass predictions for <em>your</em> QTH, sorted by AOS</li>
+                <li>Footprint + ground track drawn on the map</li>
+                <li>Big catalog: AO-91/92, SO-50, ISS, RS-44, FO-29, GOES, METEOR, QO-100 footprint…</li>
+                <li>Multi-select — overlay several at once next to your DX spots and activators</li>
+              </ul>
+            </div>
+            <img src="assets/14.png" alt="Satellite picker settings — full active sat catalog" class="side-shot" />
+          </div>
+          <aside class="notes">
+            Satellite ops folks always perk up. Mention QO-100 even though it's not visible from PA — the footprint
+            visualization alone is fun for the room. The screenshot on the right is the picker — search/select any
+            satellite from the active TLE catalog and OHC tracks it.
+          </aside>
+        </section>
+
+        <!-- 10. Rig control -->
+        <section>
+          <div class="kicker">Rig control</div>
+          <h2>Click a spot. Your radio tunes.</h2>
+          <div class="two-col">
+            <div>
+              <h3>Transports</h3>
+              <ul class="small">
+                <li>USB CAT — direct, no hamlib</li>
+                <li>rigctld (Hamlib) &middot; flrig</li>
+                <li>SmartSDR, TCI, RTL-SDR</li>
+                <li>Cloud relay — your shack from the road</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Radios</h3>
+              <ul class="small">
+                <li>Yaesu, Kenwood, Icom, Elecraft</li>
+                <li>FlexRadio, SunSDR, Hermes-Lite 2, ANAN</li>
+                <li>WSJT-X / JTDX / MSHV / JS8Call decodes plotted live on the map</li>
+              </ul>
+            </div>
+          </div>
+          <p class="muted small" style="margin-top: 0.8em">
+            Plugin-based <strong>Rig Bridge</strong> — almost any modern radio over almost any transport.
+          </p>
+          <aside class="notes">
+            Most-loved feature among power users. The flow: see a DX spot on 20m, click it, rig moves there, you call.
+            WSJT-X relay is the same idea backwards — decoded callsigns appear on the map in real time, so you can *see*
+            who's working you. Specific models supported: FT-991A/891/710/DX10/5000, TS-890/590/2000/480,
+            IC-7300/7610/9700/705/7851, K3/K4 — name-drop if asked.
+          </aside>
+        </section>
+
+        <!-- 11. EmComm -->
+        <section>
+          <div class="kicker">EmComm</div>
+          <h2>Built with the bad day in mind.</h2>
+          <ul>
+            <li>
+              <strong>EmComm layout</strong> — single-screen situational picture: weather, space weather, paths,
+              activations, all visible at once
+            </li>
+            <li><strong>Aurora overlay</strong> (NOAA OVATION) — see the auroral oval in real time</li>
+            <li><strong>Weather radar</strong> overlay — precipitation on the same map</li>
+            <li><strong>Earthquakes</strong> overlay — live USGS feed</li>
+            <li><strong>Winlink RMS gateway</strong> via Rig Bridge (API approval pending)</li>
+            <li><strong>MeshCom UDP</strong> (beta) — local mesh radio relay</li>
+            <li>
+              <strong>10 languages</strong> — English, Spanish, French, German, Dutch, Portuguese, Italian, Slovenian,
+              Japanese, Korean
+            </li>
+          </ul>
+          <aside class="notes">
+            DVRA does ARES/RACES? Ask the room. If yes, lean in here. EmComm layout is a recent feature — born from
+            feedback from operators who wanted one screen during activations rather than alt-tabbing.
+          </aside>
+        </section>
+
+        <!-- 12. LIVE DEMO -->
+        <section
+          data-background-image="assets/1.png"
+          data-background-size="cover"
+          data-background-position="center"
+          data-background-opacity="0.22"
+          data-background-color="#0a0e1a"
+        >
+          <div class="kicker">Live demo</div>
+          <h2 style="margin-bottom: 0.2em">Let's go to the actual thing.</h2>
+          <div class="demo-card">
+            <span class="url">openhamclock.com</span>
+            <a class="cta" href="https://openhamclock.com" target="_blank" rel="noopener">Open in new tab →</a>
+            <p class="hint">Or just press <kbd>L</kbd>. Switch back to the deck with <kbd>Alt</kbd>+<kbd>Tab</kbd>.</p>
+          </div>
+          <aside class="notes">
+            ~5 min here. Switch to a pre-warmed browser tab — don't try to embed (OHC blocks iframing on purpose). Press
+            L on this slide to open the live site cleanly. Suggested walk: 1) Map + terminator. Point at the day/night
+            line. 2) Click a DX cluster spot — great-circle path draws. 3) Filter cluster by band (20m only). 4) Open
+            PSKReporter pane — MySpots / TX-RX tabs. 5) Toggle POTA layer — click an activator. 6) Open Space Weather
+            pane — point at SFI/K. 7) Toggle Aurora overlay if K is elevated. DO NOT live-edit settings. Stay in
+            defaults so nothing goes sideways. When done, Alt+Tab back to the deck and advance.
+          </aside>
+        </section>
+
+        <!-- 13. Built to be hacked -->
+        <section>
+          <div class="kicker">Under the hood</div>
+          <h2>Built to be hacked on.</h2>
+          <div class="stat-grid">
+            <div class="stat"><span class="num">MIT</span><span class="label">License</span></div>
+            <div class="stat"><span class="num">17</span><span class="label">Rig plugins</span></div>
+            <div class="stat"><span class="num">28+</span><span class="label">Contributors</span></div>
+            <div class="stat"><span class="num">10</span><span class="label">Languages</span></div>
+            <div class="stat"><span class="num">3</span><span class="label">Map overlays</span></div>
+            <div class="stat"><span class="num">~3 mo</span><span class="label">Project age</span></div>
+          </div>
+          <ul class="small" style="margin-top: 0.8em">
+            <li>Map overlays are React hooks — copy one of the three built-ins, edit, restart</li>
+            <li>Community AddOns folder for userscripts (APRS auto-pos, calculators, news feeds)</li>
+          </ul>
+          <aside class="notes">
+            Three months old is the headline — show the velocity. Pull up github.com/accius/openhamclock if you have
+            time and scroll the contributors list. This is a young project that will absolutely take feature requests.
+            For coders in the room: `docs/ARCHITECTURE.md` and `src/plugins/OpenHamClock-Plugin-Guide.md` are the entry
+            points.
+          </aside>
+        </section>
+
+        <!-- 14. Run it anywhere -->
+        <section>
+          <div class="kicker">Install</div>
+          <h2>Pick your poison.</h2>
+          <div class="install-grid">
+            <div class="install-card">
+              <h3>Zero install</h3>
+              <p class="note">
+                Visit <strong>openhamclock.com</strong> — wizard asks for callsign + grid. Done in 30 seconds.
+              </p>
+            </div>
+            <div class="install-card">
+              <h3>Docker</h3>
+              <pre><code class="language-bash">docker-compose up -d</code></pre>
+              <p class="note">Self-hosted on your LAN. API calls proxied through your backend.</p>
+            </div>
+            <div class="install-card">
+              <h3>Local (Mac / Linux / Win / WSL)</h3>
+              <pre><code class="language-bash">git clone https://github.com/accius/openhamclock.git
+cd openhamclock &amp;&amp; npm ci &amp;&amp; npm start</code></pre>
+              <p class="note">Open <code>http://localhost:3000</code>.</p>
+            </div>
+            <div class="install-card">
+              <h3>Raspberry Pi kiosk</h3>
+              <pre><code class="language-bash">curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-pi.sh | bash -s -- --kiosk</code></pre>
+              <p class="note">Fullscreen Chromium on boot. Wall-display ready.</p>
+            </div>
+          </div>
+          <aside class="notes">
+            Show of hands: who runs a Pi for ham stuff? Most of them. The kiosk one-liner is the killer install — fresh
+            Pi, paste, walk away, come back to a wall display.
+          </aside>
+        </section>
+
+        <!-- 15. Get involved -->
+        <section>
+          <div class="kicker">Get involved</div>
+          <h2>Try it, break it, tell us about it.</h2>
+          <ul>
+            <li><strong>Try it:</strong> <a href="https://openhamclock.com">openhamclock.com</a></li>
+            <li>
+              <strong>Source:</strong>
+              <a href="https://github.com/accius/openhamclock">github.com/accius/openhamclock</a>
+            </li>
+            <li><strong>Bugs &amp; features:</strong> GitHub Issues — read first, then file</li>
+            <li><strong>Facebook group:</strong> "OpenHamClock" — most active community channel</li>
+            <li><strong>Reddit:</strong> r/OpenHamClock</li>
+            <li><strong>Code contributions:</strong> PRs welcome against the <code>Staging</code> branch</li>
+            <li><strong>Plugins / AddOns:</strong> docs walk you through it; happy to mentor</li>
+          </ul>
+          <aside class="notes">
+            End with a specific ask: file an issue, even if it's "I tried it and didn't like X." Negative feedback is
+            more useful than silence. If you have business cards or a QR code to the GitHub, this is the slide to
+            mention them.
+          </aside>
+        </section>
+
+        <!-- 16. Thanks -->
+        <section class="closer" data-background-color="#0a0e1a">
+          <img src="assets/icon-512.png" alt="OpenHamClock logo" class="closer-mark" />
+          <div class="kicker">Thank you</div>
+          <p>To the 28+ contributors who made this real.</p>
+          <p class="contrib-thanks">
+            And to DVRA's own <strong>Rich Freedman, N2EHL</strong> — your work on DX cluster filtering (and the
+            patterns it set for the activations panel) is greatly appreciated. Thank you, Rich.
+          </p>
+          <div class="seventythree">73</div>
+          <p class="meta muted small" style="margin-top: 0.5em">
+            <strong>Chris Hetherington — K0CJH</strong><br />
+            chris@cjhlighting.com<br />
+            openhamclock.com · github.com/accius/openhamclock
+          </p>
+          <p class="xsmall muted" style="margin-top: 0.5em">Questions?</p>
+          <aside class="notes">
+            Hold here for Q&A. Common questions to be ready for: - "Does it work offline?" — mostly no; some panes do
+            (clock, sat predictions). - "Will it run on my old Pi 3?" — yes, kiosk mode is happy on a Pi 3. - "How is it
+            different from HamClock?" — modern web stack, plugin system, active community. Same spiritual goal. - "Who
+            funds it?" — it's open source, no funder. Donations welcome but not required. Hosting on openhamclock.com is
+            on me. - "Is my data private?" — yes; self-host if you want zero external dependencies. Otherwise, only
+            public APIs (cluster, PSKReporter) get your callsign.
+          </aside>
+        </section>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/notes/notes.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/highlight.js"></script>
+    <script>
+      Reveal.initialize({
+        // Design canvas is 16:9 (1280x720). Reveal scales uniformly to fit any
+        // browser window or projector aspect ratio — wider screens letterbox
+        // left/right, taller screens letterbox top/bottom.
+        width: 1280,
+        height: 720,
+        margin: 0.04,
+        minScale: 0.2,
+        maxScale: 2.0,
+        hash: true,
+        slideNumber: 'c/t',
+        controls: true,
+        progress: true,
+        transition: 'slide',
+        backgroundTransition: 'fade',
+        plugins: [RevealHighlight, RevealNotes],
+        keyboard: {
+          76: () => window.open('https://openhamclock.com', '_blank'), // 'L' opens live site
+        },
+      });
+    </script>
+  </body>
 </html>

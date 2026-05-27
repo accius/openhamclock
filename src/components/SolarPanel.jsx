@@ -16,6 +16,9 @@ const MODE_TITLES = {
   lunar: 'Show solar image',
 };
 
+// X-ray history windows (hours) — 6h is the default
+const XRAY_RANGES = [6, 12, 24, 48];
+
 // Flare class from flux value (W/m²)
 const getFlareClass = (flux) => {
   if (!flux || flux <= 0) return { letter: '?', color: '#666', level: 0 };
@@ -66,6 +69,13 @@ export const SolarPanel = ({ solarIndices, bandConditions, forcedMode }) => {
   });
   const [xrayData, setXrayData] = useState(null);
   const [xrayLoading, setXrayLoading] = useState(false);
+  const [xrayRange, setXrayRange] = useState(() => {
+    try {
+      const saved = parseInt(localStorage.getItem('openhamclock_xrayRange'), 10);
+      if (XRAY_RANGES.includes(saved)) return saved;
+    } catch {}
+    return 6;
+  });
   const [imageError, setImageError] = useState(false);
 
   // Refresh solar image every 15 minutes and retry on error
@@ -165,8 +175,13 @@ export const SolarPanel = ({ solarIndices, bandConditions, forcedMode }) => {
       );
     }
 
-    // Use last ~360 points (~6 hours at 1-min resolution)
-    const points = xrayData.slice(-360);
+    // Filter to the selected history window (6/12/24/48h).
+    // The 7-day feed is fetched server-side; we trim by time here so the
+    // graph and peak rating both reflect the chosen timeframe.
+    const cutoff = Date.now() - xrayRange * 60 * 60 * 1000;
+    let points = xrayData.filter((p) => new Date(p.time_tag).getTime() >= cutoff);
+    // Fall back to whatever we have if the feed is shorter than the window
+    if (points.length === 0) points = xrayData;
     const currentFlux = points[points.length - 1]?.flux;
     const currentClass = getFlareClass(currentFlux);
     const peakFlux = Math.max(...points.map((p) => p.flux));
@@ -215,11 +230,13 @@ export const SolarPanel = ({ solarIndices, bandConditions, forcedMode }) => {
       { flux: 1e-4, label: 'X', color: '#ff0000' },
     ];
 
-    // Time labels
+    // Time labels — include the day for windows wider than 12h so the
+    // HH:MM marks aren't ambiguous across midnight.
     const firstTime = new Date(points[0]?.time_tag);
     const lastTime = new Date(points[points.length - 1]?.time_tag);
     const midTime = new Date((firstTime.getTime() + lastTime.getTime()) / 2);
-    const fmt = (d) => `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+    const hhmm = (d) => `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+    const fmt = xrayRange > 12 ? (d) => `${String(d.getUTCDate()).padStart(2, '0')} ${hhmm(d)}` : hhmm;
 
     return (
       <div>
@@ -249,7 +266,7 @@ export const SolarPanel = ({ solarIndices, bandConditions, forcedMode }) => {
             </span>
           </div>
           <div>
-            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>6h Peak </span>
+            <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{xrayRange}h Peak </span>
             <span
               style={{
                 fontSize: '14px',
@@ -340,7 +357,7 @@ export const SolarPanel = ({ solarIndices, bandConditions, forcedMode }) => {
         </svg>
 
         <div style={{ fontSize: '9px', color: 'var(--text-muted)', marginTop: '3px', textAlign: 'center' }}>
-          GOES • 0.1–0.8nm • 6hr
+          GOES • 0.1–0.8nm • {xrayRange}hr
         </div>
       </div>
     );
@@ -647,6 +664,35 @@ export const SolarPanel = ({ solarIndices, bandConditions, forcedMode }) => {
           {mode === 'lunar' ? '🌙' : '☀'} {MODE_LABELS[mode]}
         </span>
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+          {mode === 'xray' && (
+            <select
+              value={xrayRange}
+              onChange={(e) => {
+                const next = parseInt(e.target.value, 10);
+                setXrayRange(next);
+                try {
+                  localStorage.setItem('openhamclock_xrayRange', String(next));
+                } catch {}
+              }}
+              onClick={(e) => e.stopPropagation()}
+              title="History timeframe"
+              style={{
+                background: 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+                fontSize: '10px',
+                padding: '2px 4px',
+                borderRadius: '3px',
+                cursor: 'pointer',
+              }}
+            >
+              {XRAY_RANGES.map((h) => (
+                <option key={h} value={h}>
+                  {h}h
+                </option>
+              ))}
+            </select>
+          )}
           {mode === 'image' && (
             <select
               value={imageType}

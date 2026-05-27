@@ -347,6 +347,8 @@
   "station.settings.antenna": "Antenna",
   "station.settings.button.save": "Save Settings",
   "station.settings.button.save.confirm": "Settings saved to your browser",
+  "station.settings.callbook.describe": "Online callbook opened when you click a callsign in the UI.",
+  "station.settings.callbook.title": "Callsign Lookup",
   "station.settings.callsign": "Your Callsign",
   "station.settings.describe": "Enter your callsign and grid square to get started. Settings are saved in your browser.",
   "station.settings.dx.custom.callsign": "Your callsign ({{callsign}}) will be used for login.",

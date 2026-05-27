@@ -122,6 +122,23 @@ docker run -p 3000:3000 iturhfprop-service
 curl http://localhost:3000/api/health
 ```
 
+If using a compose file, you can also add it as an additional service:
+
+```yaml
+services:
+  openhamclock:
+    ...
+
+  iturhfprop:
+    build:
+      context: ./iturhfprop-service # path to this subdirectory in the openhamclock repo
+    restart: unless-stopped
+    container_name: iturhfprop
+```
+
+And then enable it in your `.env` file as:
+`ITURHFPROP_URL=http://iturhfprop:3000`
+
 ### Local Development
 
 Download ITURHFProp binaries from the [official release](https://github.com/ITU-R-Study-Group-3/ITU-R-HF/releases):

@@ -30,10 +30,9 @@ const deg2rad = Math.PI / 180;
 const rad2deg = 180 / Math.PI;
 
 export default class Orbit {
-  constructor(name, tle) {
+  constructor(name, omm) {
     this.name = name;
-    this.tle = tle.split('\n');
-    this.satrec = satellitejs.twoline2satrec(this.tle[1], this.tle[2]);
+    this.satrec = satellitejs.json2satrec(omm);
   }
 
   get satnum() {

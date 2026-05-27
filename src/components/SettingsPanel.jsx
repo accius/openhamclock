@@ -23,6 +23,7 @@ import CustomThemeEditor from './CustomThemeEditor';
 import { emojiToIso2 } from '../utils/countryFlags';
 import { getAlertSettings, saveAlertSettings, playTone, TONE_PRESETS, ALERT_FEEDS } from '../utils/audioAlerts';
 import { setRelaySessionId, setRelayConfigured, clearRelaySession } from '../utils/relaySession';
+import { CALLBOOKS, getCallbook } from '../utils/callbook.js';
 
 export const SettingsPanel = ({
   isOpen,
@@ -145,6 +146,13 @@ export const SettingsPanel = ({
       return '#3388ff';
     }
   });
+  const [n3fjpPreviewLineColor, setN3fjpPreviewLineColor] = useState(() => {
+    try {
+      return localStorage.getItem('n3fjp_preview_line_color') || '#ffaa00';
+    } catch {
+      return '#ffaa00';
+    }
+  });
 
   // Monospace font for panels/data displays (#923 — 0/8 readability)
   const [monoFont, setMonoFont] = useState(() => {
@@ -154,6 +162,9 @@ export const SettingsPanel = ({
       return "'JetBrains Mono', monospace";
     }
   });
+  // Callbook used when clicking a callsign in the UI (#989)
+  const [callbook, setCallbook] = useState(() => getCallbook());
+
   const { t, i18n } = useTranslation();
 
   // Layer controls
@@ -256,10 +267,12 @@ export const SettingsPanel = ({
       const v = parseInt(localStorage.getItem('n3fjp_display_minutes') || '15', 10);
       setN3fjpDisplayMinutes(Number.isFinite(v) ? v : 15);
       setN3fjpLineColor(localStorage.getItem('n3fjp_line_color') || '#3388ff');
+      setN3fjpPreviewLineColor(localStorage.getItem('n3fjp_preview_line_color') || '#ffaa00');
     } catch {
       setN3fjpEnabled(false);
       setN3fjpDisplayMinutes(15);
       setN3fjpLineColor('#3388ff');
+      setN3fjpPreviewLineColor('#ffaa00');
     }
   }, [isOpen]);
 
@@ -2274,6 +2287,55 @@ export const SettingsPanel = ({
               </div>
             )}
 
+            {/* Callbook for callsign lookups (#989) */}
+            <div style={{ marginBottom: '20px' }}>
+              <label
+                htmlFor="callbook-select"
+                style={{
+                  display: 'block',
+                  marginBottom: '8px',
+                  color: 'var(--text-muted)',
+                  fontSize: '11px',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                }}
+              >
+                {t('station.settings.callbook.title')}
+              </label>
+              <select
+                id="callbook-select"
+                value={callbook}
+                onChange={(e) => {
+                  const next = e.target.value;
+                  setCallbook(next);
+                  try {
+                    localStorage.setItem('ohc_callbook', next);
+                  } catch {}
+                  window.dispatchEvent(new Event('ohc-callbook-changed'));
+                }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '6px',
+                  color: 'var(--accent-green)',
+                  fontSize: '14px',
+                  fontFamily: 'var(--font-mono)',
+                  cursor: 'pointer',
+                }}
+              >
+                {CALLBOOKS.map((cb) => (
+                  <option key={cb.id} value={cb.id}>
+                    {cb.label}
+                  </option>
+                ))}
+              </select>
+              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                {t('station.settings.callbook.describe')}
+              </div>
+            </div>
+
             {/* Language */}
             <div style={{ marginBottom: '20px' }}>
               <label
@@ -2736,6 +2798,44 @@ export const SettingsPanel = ({
                       }}
                     />
                   </div>
+
+                  <div style={{ flex: '0 0 120px' }}>
+                    <label
+                      style={{
+                        display: 'block',
+                        marginBottom: 6,
+                        color: 'var(--text-muted)',
+                        fontSize: 11,
+                        textTransform: 'uppercase',
+                        letterSpacing: 1,
+                      }}
+                    >
+                      Preview color
+                    </label>
+                    <input
+                      disabled={!isLocalInstall || !n3fjpEnabled}
+                      type="color"
+                      value={n3fjpPreviewLineColor}
+                      onChange={(e) => {
+                        const next = e.target.value || '#ffaa00';
+                        setN3fjpPreviewLineColor(next);
+                        try {
+                          localStorage.setItem('n3fjp_preview_line_color', next);
+                        } catch {}
+                        try {
+                          window.dispatchEvent(new Event('ohc-n3fjp-config-changed'));
+                        } catch {}
+                      }}
+                      style={{
+                        width: '100%',
+                        height: 40,
+                        padding: 0,
+                        border: '1px solid var(--border-color)',
+                        borderRadius: 6,
+                        background: 'transparent',
+                      }}
+                    />
+                  </div>
                 </div>
 
                 <details style={{ marginTop: 10 }}>
@@ -2810,6 +2910,213 @@ export const SettingsPanel = ({
                     </div>
                   </div>
                 </details>
+              </div>
+
+              {/* QRZ.com XML API Credentials */}
+              <div
+                style={{
+                  borderTop: '1px solid rgba(255,255,255,0.08)',
+                  paddingTop: 12,
+                  marginTop: 14,
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    color: 'var(--accent-amber)',
+                    marginBottom: '4px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <span>📡 QRZ.com Callsign Lookup</span>
+                  {qrzStatus?.configured && (
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: '500',
+                        padding: '1px 6px',
+                        borderRadius: '3px',
+                        background: qrzStatus.hasSession ? 'rgba(46, 204, 113, 0.15)' : 'rgba(241, 196, 15, 0.15)',
+                        color: qrzStatus.hasSession ? '#2ecc71' : '#f1c40f',
+                      }}
+                    >
+                      {qrzStatus.hasSession ? '● Connected' : '○ Configured'}
+                      {qrzStatus.source === 'env' ? ' (env)' : ''}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.4 }}>
+                  Enables precise station locations from{' '}
+                  <a
+                    href="https://www.qrz.com/i/subscriptions.html"
+                    target="_blank"
+                    rel="noopener"
+                    style={{ color: 'var(--accent-blue)' }}
+                  >
+                    QRZ.com
+                  </a>{' '}
+                  user profiles (user-supplied coordinates, geocoded addresses, grid squares). Without this, locations
+                  fall back to HamQTH (country-level only). Requires a QRZ Logbook Data subscription.
+                  <br />
+                  <strong>Note</strong> this is a server setting and is not related to clicking a callsign to go to
+                  qrz.com. If you are not running a server, you will likely not have the permissions to change this.
+                </div>
+                {qrzStatus?.source === 'env' ? (
+                  <div
+                    style={{
+                      fontSize: '11px',
+                      color: 'var(--text-muted)',
+                      padding: '8px',
+                      background: 'var(--bg-primary)',
+                      borderRadius: '4px',
+                    }}
+                  >
+                    ✓ Credentials configured via{' '}
+                    <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: '2px' }}>
+                      QRZ_USERNAME
+                    </code>{' '}
+                    /{' '}
+                    <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: '2px' }}>
+                      QRZ_PASSWORD
+                    </code>{' '}
+                    in .env file
+                    {qrzStatus.lookupCount > 0 && (
+                      <span style={{ color: 'var(--accent-green)' }}>
+                        {' '}
+                        — {qrzStatus.lookupCount} lookups this session
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                      <input
+                        disabled={!isLocalInstall}
+                        type="text"
+                        placeholder="QRZ Username (callsign)"
+                        value={qrzUsername}
+                        onChange={(e) => setQrzUsername(e.target.value)}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          background: 'var(--bg-primary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '4px',
+                          color: 'var(--text-primary)',
+                          fontSize: '12px',
+                          fontFamily: 'var(--font-mono)',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                      <input
+                        disabled={!isLocalInstall}
+                        type="password"
+                        placeholder="QRZ Password"
+                        value={qrzPassword}
+                        onChange={(e) => setQrzPassword(e.target.value)}
+                        style={{
+                          flex: 1,
+                          padding: '8px 12px',
+                          background: 'var(--bg-primary)',
+                          border: '1px solid var(--border-color)',
+                          borderRadius: '4px',
+                          color: 'var(--text-primary)',
+                          fontSize: '12px',
+                          fontFamily: 'var(--font-mono)',
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        disabled={!isLocalInstall || qrzTesting || !qrzUsername.trim() || !qrzPassword.trim()}
+                        onClick={async () => {
+                          setQrzTesting(true);
+                          setQrzMessage(null);
+                          try {
+                            const res = await fetch('/api/qrz/configure', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ username: qrzUsername.trim(), password: qrzPassword.trim() }),
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                              setQrzMessage({ type: 'success', text: 'Connected to QRZ.com successfully!' });
+                              setQrzPassword('');
+                              // Refresh status
+                              const st = await fetch('/api/qrz/status').then((r) => r.json());
+                              setQrzStatus(st);
+                            } else {
+                              setQrzMessage({ type: 'error', text: data.error || 'Login failed' });
+                            }
+                          } catch (e) {
+                            setQrzMessage({ type: 'error', text: 'Connection error' });
+                          }
+                          setQrzTesting(false);
+                        }}
+                        style={{
+                          padding: '6px 14px',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          borderRadius: '4px',
+                          border: 'none',
+                          cursor: qrzTesting || !qrzUsername.trim() || !qrzPassword.trim() ? 'not-allowed' : 'pointer',
+                          background: 'var(--accent-amber)',
+                          color: '#000',
+                          opacity: qrzTesting || !qrzUsername.trim() || !qrzPassword.trim() ? 0.5 : 1,
+                        }}
+                      >
+                        {qrzTesting ? 'Testing...' : 'Save & Test'}
+                      </button>
+                      {qrzStatus?.configured && qrzStatus.source !== 'env' && (
+                        <button
+                          onClick={async () => {
+                            await fetch('/api/qrz/remove', { method: 'POST' });
+                            setQrzUsername('');
+                            setQrzPassword('');
+                            setQrzMessage(null);
+                            const st = await fetch('/api/qrz/status').then((r) => r.json());
+                            setQrzStatus(st);
+                          }}
+                          style={{
+                            padding: '6px 12px',
+                            fontSize: '11px',
+                            borderRadius: '4px',
+                            border: '1px solid var(--border-color)',
+                            cursor: 'pointer',
+                            background: 'transparent',
+                            color: 'var(--text-muted)',
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                      {qrzStatus?.configured && qrzStatus.lookupCount > 0 && (
+                        <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
+                          {qrzStatus.lookupCount} lookups this session
+                        </span>
+                      )}
+                    </div>
+                    {qrzMessage && (
+                      <div
+                        style={{
+                          marginTop: '6px',
+                          fontSize: '11px',
+                          padding: '6px 10px',
+                          borderRadius: '4px',
+                          background:
+                            qrzMessage.type === 'success' ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)',
+                          color: qrzMessage.type === 'success' ? '#2ecc71' : '#e74c3c',
+                        }}
+                      >
+                        {qrzMessage.type === 'success' ? '✓' : '✗'} {qrzMessage.text}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -4211,213 +4518,6 @@ export const SettingsPanel = ({
                       );
                     })}
                 </div>
-              )}
-            </div>
-
-            {/* QRZ.com XML API Credentials */}
-            <div
-              style={{
-                padding: '12px',
-                background: 'var(--bg-tertiary)',
-                borderRadius: '8px',
-                border: '1px solid var(--border-color)',
-                marginBottom: '12px',
-              }}
-            >
-              <div
-                style={{
-                  fontSize: '12px',
-                  fontWeight: '600',
-                  color: 'var(--accent-amber)',
-                  marginBottom: '4px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                }}
-              >
-                <span>📡 QRZ.com Callsign Lookup</span>
-                {qrzStatus?.configured && (
-                  <span
-                    style={{
-                      fontSize: '10px',
-                      fontWeight: '500',
-                      padding: '1px 6px',
-                      borderRadius: '3px',
-                      background: qrzStatus.hasSession ? 'rgba(46, 204, 113, 0.15)' : 'rgba(241, 196, 15, 0.15)',
-                      color: qrzStatus.hasSession ? '#2ecc71' : '#f1c40f',
-                    }}
-                  >
-                    {qrzStatus.hasSession ? '● Connected' : '○ Configured'}
-                    {qrzStatus.source === 'env' ? ' (env)' : ''}
-                  </span>
-                )}
-              </div>
-              <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.4 }}>
-                Enables precise station locations from{' '}
-                <a
-                  href="https://www.qrz.com/i/subscriptions.html"
-                  target="_blank"
-                  rel="noopener"
-                  style={{ color: 'var(--accent-blue)' }}
-                >
-                  QRZ.com
-                </a>{' '}
-                user profiles (user-supplied coordinates, geocoded addresses, grid squares). Without this, locations
-                fall back to HamQTH (country-level only). Requires a QRZ Logbook Data subscription.
-                <br />
-                <strong>Note</strong> this is a server setting and is not related to clicking a callsign to go to
-                qrz.com. If you are not running a server, you will likely not have the permissions to change this.
-              </div>
-              {qrzStatus?.source === 'env' ? (
-                <div
-                  style={{
-                    fontSize: '11px',
-                    color: 'var(--text-muted)',
-                    padding: '8px',
-                    background: 'var(--bg-primary)',
-                    borderRadius: '4px',
-                  }}
-                >
-                  ✓ Credentials configured via{' '}
-                  <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: '2px' }}>
-                    QRZ_USERNAME
-                  </code>{' '}
-                  /{' '}
-                  <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: '2px' }}>
-                    QRZ_PASSWORD
-                  </code>{' '}
-                  in .env file
-                  {qrzStatus.lookupCount > 0 && (
-                    <span style={{ color: 'var(--accent-green)' }}>
-                      {' '}
-                      — {qrzStatus.lookupCount} lookups this session
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-                    <input
-                      type="text"
-                      placeholder="QRZ Username (callsign)"
-                      value={qrzUsername}
-                      onChange={(e) => setQrzUsername(e.target.value)}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        background: 'var(--bg-primary)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        color: 'var(--text-primary)',
-                        fontSize: '12px',
-                        fontFamily: 'var(--font-mono)',
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                    <input
-                      type="password"
-                      placeholder="QRZ Password"
-                      value={qrzPassword}
-                      onChange={(e) => setQrzPassword(e.target.value)}
-                      style={{
-                        flex: 1,
-                        padding: '8px 12px',
-                        background: 'var(--bg-primary)',
-                        border: '1px solid var(--border-color)',
-                        borderRadius: '4px',
-                        color: 'var(--text-primary)',
-                        fontSize: '12px',
-                        fontFamily: 'var(--font-mono)',
-                        boxSizing: 'border-box',
-                      }}
-                    />
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <button
-                      disabled={qrzTesting || !qrzUsername.trim() || !qrzPassword.trim()}
-                      onClick={async () => {
-                        setQrzTesting(true);
-                        setQrzMessage(null);
-                        try {
-                          const res = await fetch('/api/qrz/configure', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ username: qrzUsername.trim(), password: qrzPassword.trim() }),
-                          });
-                          const data = await res.json();
-                          if (data.success) {
-                            setQrzMessage({ type: 'success', text: 'Connected to QRZ.com successfully!' });
-                            setQrzPassword('');
-                            // Refresh status
-                            const st = await fetch('/api/qrz/status').then((r) => r.json());
-                            setQrzStatus(st);
-                          } else {
-                            setQrzMessage({ type: 'error', text: data.error || 'Login failed' });
-                          }
-                        } catch (e) {
-                          setQrzMessage({ type: 'error', text: 'Connection error' });
-                        }
-                        setQrzTesting(false);
-                      }}
-                      style={{
-                        padding: '6px 14px',
-                        fontSize: '11px',
-                        fontWeight: '600',
-                        borderRadius: '4px',
-                        border: 'none',
-                        cursor: qrzTesting || !qrzUsername.trim() || !qrzPassword.trim() ? 'not-allowed' : 'pointer',
-                        background: 'var(--accent-amber)',
-                        color: '#000',
-                        opacity: qrzTesting || !qrzUsername.trim() || !qrzPassword.trim() ? 0.5 : 1,
-                      }}
-                    >
-                      {qrzTesting ? 'Testing...' : 'Save & Test'}
-                    </button>
-                    {qrzStatus?.configured && qrzStatus.source !== 'env' && (
-                      <button
-                        onClick={async () => {
-                          await fetch('/api/qrz/remove', { method: 'POST' });
-                          setQrzUsername('');
-                          setQrzPassword('');
-                          setQrzMessage(null);
-                          const st = await fetch('/api/qrz/status').then((r) => r.json());
-                          setQrzStatus(st);
-                        }}
-                        style={{
-                          padding: '6px 12px',
-                          fontSize: '11px',
-                          borderRadius: '4px',
-                          border: '1px solid var(--border-color)',
-                          cursor: 'pointer',
-                          background: 'transparent',
-                          color: 'var(--text-muted)',
-                        }}
-                      >
-                        Remove
-                      </button>
-                    )}
-                    {qrzStatus?.configured && qrzStatus.lookupCount > 0 && (
-                      <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>
-                        {qrzStatus.lookupCount} lookups this session
-                      </span>
-                    )}
-                  </div>
-                  {qrzMessage && (
-                    <div
-                      style={{
-                        marginTop: '6px',
-                        fontSize: '11px',
-                        padding: '6px 10px',
-                        borderRadius: '4px',
-                        background:
-                          qrzMessage.type === 'success' ? 'rgba(46, 204, 113, 0.1)' : 'rgba(231, 76, 60, 0.1)',
-                        color: qrzMessage.type === 'success' ? '#2ecc71' : '#e74c3c',
-                      }}
-                    >
-                      {qrzMessage.type === 'success' ? '✓' : '✗'} {qrzMessage.text}
-                    </div>
-                  )}
-                </>
               )}
             </div>
 

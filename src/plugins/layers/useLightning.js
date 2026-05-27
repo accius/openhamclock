@@ -696,7 +696,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
         const div = L.DomUtil.create('div', 'lightning-proximity', panelWrapper);
 
         // Unfortunately, to fit both km and miles in the header we need to override the font size
-        let distStr = isMetric ? ` (${PROXIMITY_RADIUS_KM}km)` : ` (${PROXIMITY_RADIUS_MILES.toFixed(1)}miles)`;
+        let distStr = isMetric ? ` (${PROXIMITY_RADIUS_KM} km)` : ` (${PROXIMITY_RADIUS_MILES.toFixed(1)} miles)`;
         div.innerHTML = `<div class="floating-panel-header" style="font-size: 11px">📍 ${t('plugins.layers.lightning.nearbyStrikes')}${distStr}</div><div style="opacity: 0.7; font-size: 10px; text-align: center;">No recent strikes</div>`;
 
         // Prevent map interaction
@@ -856,7 +856,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       const closestStrike = nearbyStrikes[0];
       const ageMinutes = Math.floor((now - closestStrike.timestamp) / 60000);
       const ageSeconds = Math.floor((now - closestStrike.timestamp) / 1000);
-      const ageStr = ageMinutes > 0 ? `${ageMinutes}min` : `${ageSeconds}s`;
+      const ageStr = ageMinutes > 0 ? `${ageMinutes} min` : `${ageSeconds} s`;
       const closestStrikeDistance = isMetric ? closestStrike.distance.km : closestStrike.distance.miles;
 
       contentHTML = `
@@ -864,9 +864,9 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
           <div style="font-weight: bold; color: var(--accent-red); margin-bottom: 4px;">
             ⚡ ${t('plugins.layers.lightning.strikesDetected')}: ${nearbyStrikes.length}</div>
           <div style="font-size: 10px;">
-            <strong>${t('plugins.layers.lightning.closest')}:</strong> ${closestStrikeDistance.toFixed(1)}${unitsStr}<br>
+            <strong>${t('plugins.layers.lightning.closest')}:</strong> ${closestStrikeDistance.toFixed(1)} ${unitsStr}<br>
             <strong>${t('plugins.layers.lightning.age')}:</strong> ${ageStr}<br>
-            <strong>${t('plugins.layers.lightning.polarity')}:</strong> ${closestStrike.polarity === 'positive' ? '+' : '-'}${Math.round(closestStrike.intensity)}kA
+            <strong>${t('plugins.layers.lightning.polarity')}:</strong> ${closestStrike.polarity === 'positive' ? '+' : '-'}${Math.round(closestStrike.intensity)} kA
           </div>
         </div>
         <div style="font-size: 9px; color: var(--text-muted); border-top: 1px solid var(--border-color); padding-top: 6px; margin-top: 6px;">
@@ -876,11 +876,11 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
               .slice(0, 10)
               .map((strike, idx) => {
                 const age = Math.floor((now - strike.timestamp) / 1000);
-                const timeStr = age < 60 ? `${age}s` : `${Math.floor(age / 60)}min`;
+                const timeStr = age < 60 ? `${age} s` : `${Math.floor(age / 60)} min`;
                 const dist = (isMetric ? strike.distance.km : strike.distance.miles).toFixed(1);
                 return `
                 <div style="padding: 2px 0; border-bottom: 1px dotted var(--border-color);">
-                  ${idx + 1}. ${dist}${unitsStr} • ${timeStr} • ${strike.polarity === 'positive' ? '+' : '-'}${Math.round(strike.intensity)}kA
+                  ${idx + 1}. ${dist} ${unitsStr} • ${timeStr} • ${strike.polarity === 'positive' ? '+' : '-'}${Math.round(strike.intensity)} kA
                 </div>
               `;
               })

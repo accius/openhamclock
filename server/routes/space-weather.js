@@ -560,13 +560,22 @@ module.exports = function (app, ctx) {
   });
 
   // NOAA Space Weather - X-Ray Flux
+  // The panel offers 6/12/24/48h history windows. We pull the 3-day SWPC feed
+  // (covers the 48h max with headroom), then keep only the 0.1-0.8nm band the
+  // panel plots and trim to the last 50h. Without that, the raw feed is several
+  // MB per response — served to every client every 5 min.
+  const XRAY_WINDOW_MS = 50 * 60 * 60 * 1000;
   app.get('/api/noaa/xray', async (req, res) => {
     try {
       if (noaaCache.xray.data && Date.now() - noaaCache.xray.timestamp < NOAA_CACHE_TTL) {
         return res.json(noaaCache.xray.data);
       }
-      const response = await fetch('https://services.swpc.noaa.gov/json/goes/primary/xrays-6-hour.json');
-      const data = await response.json();
+      const response = await fetch('https://services.swpc.noaa.gov/json/goes/primary/xrays-3-day.json');
+      const raw = await response.json();
+      const cutoff = Date.now() - XRAY_WINDOW_MS;
+      const data = Array.isArray(raw)
+        ? raw.filter((d) => d.energy === '0.1-0.8nm' && new Date(d.time_tag).getTime() >= cutoff)
+        : raw;
       noaaCache.xray = { data, timestamp: Date.now() };
       res.json(data);
     } catch (error) {

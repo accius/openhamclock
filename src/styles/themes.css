@@ -6,6 +6,11 @@
 :root {
   --font-mono: 'JetBrains Mono', monospace;
   --font-body: 'Space Grotesk', sans-serif;
+  /* Slashed zero everywhere a font supports it (JetBrains Mono, Fira Code,
+     IBM Plex Mono, and most modern UI fonts). Without this, JetBrains Mono
+     defaults to a dotted zero, which N4HNH and other operators with cataracts
+     have trouble distinguishing from O / 8 in dense data panels. */
+  font-variant-numeric: slashed-zero;
 }
 
 /* ============================================
