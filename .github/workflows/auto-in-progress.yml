@@ -13,7 +13,7 @@ jobs:
   move-to-in-progress:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.PROJECT_TOKEN }}
           script: |
