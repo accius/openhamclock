@@ -118,6 +118,23 @@ const CONFIG = {
     ? parseFloat(process.env.DX_LONGITUDE)
     : (jsonConfig.defaultDX?.lon ?? -0.1278),
 
+  // Satellites configuration
+  satellites: {
+    celestrak: {
+      get enabled() {
+        return !(process.env.CELESTRAK_ENABLED && process.env.CELESTRAK_ENABLED === 'false');
+      },
+    },
+    spaceTrack: {
+      // (do not expose usernames/passwords to frontend)
+      _username: process.env.SPACE_TRACK_USERNAME || '',
+      _password: process.env.SPACE_TRACK_PASSWORD || '',
+      get enabled() {
+        return this._username.length > 0 && this._password.length > 0;
+      },
+    },
+  },
+
   // Feature toggles
   showSatellites: process.env.SHOW_SATELLITES !== 'false' && jsonConfig.features?.showSatellites !== false,
   showPota: process.env.SHOW_POTA !== 'false' && jsonConfig.features?.showPOTA !== false,

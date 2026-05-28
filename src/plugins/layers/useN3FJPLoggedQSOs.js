@@ -7,13 +7,13 @@ import { getGreatCirclePoints, replicatePath, maidenheadToLatLon } from '../../u
 export const metadata = {
   id: 'n3fjp_logged_qsos',
   name: 'Logged QSOs (N3FJP)',
-  description: 'Shows recently logged QSOs sent from the N3FJP bridge.',
+  description: 'Shows recently logged QSOs (and live entry previews) from the N3FJP bridge.',
   icon: '🗺️',
   category: 'overlay',
   localOnly: true,
   defaultEnabled: false,
   defaultOpacity: 0.9,
-  version: '0.2.0',
+  version: '0.3.0',
 };
 
 const POLL_MS = 2000;
@@ -21,9 +21,10 @@ const POLL_MS = 2000;
 // --- User settings (persisted) ---
 const STORAGE_MINUTES_KEY = 'n3fjp_display_minutes';
 const STORAGE_COLOR_KEY = 'n3fjp_line_color';
+const STORAGE_PREVIEW_COLOR_KEY = 'n3fjp_preview_line_color';
 
 // Sanitize CSS color values from localStorage to prevent innerHTML injection
-const sanitizeColor = (c) => (/^(#[0-9a-f]{3,8}|[a-z]{3,20})$/i.test(c) ? c : '#3388ff');
+const sanitizeColor = (c, fallback = '#3388ff') => (/^(#[0-9a-f]{3,8}|[a-z]{3,20})$/i.test(c) ? c : fallback);
 
 export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
   const [layersRef, setLayersRef] = useState([]);
@@ -33,6 +34,9 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
 
   const lastOpenDxCallRef = useRef(null);
   const suppressReopenRef = useRef(false);
+  // Tracks the last previewed call pushed to the DX target, so the crosshair is
+  // nudged only when the typed call actually changes — not on every 2 s poll.
+  const lastPreviewCallRef = useRef(null);
 
   const [displayMinutes, setDisplayMinutes] = useState(() => {
     const v = parseInt(localStorage.getItem(STORAGE_MINUTES_KEY) || '15', 10);
@@ -41,6 +45,10 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
 
   const [lineColor, setLineColor] = useState(() => {
     return sanitizeColor(localStorage.getItem(STORAGE_COLOR_KEY) || '#3388ff');
+  });
+
+  const [previewLineColor, setPreviewLineColor] = useState(() => {
+    return sanitizeColor(localStorage.getItem(STORAGE_PREVIEW_COLOR_KEY) || '#ffaa00', '#ffaa00');
   });
 
   // Poll the server for QSOs
@@ -168,6 +176,10 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
         const c = sanitizeColor(localStorage.getItem(STORAGE_COLOR_KEY) || '#3388ff');
         setLineColor(c);
       } catch {}
+      try {
+        const pc = sanitizeColor(localStorage.getItem(STORAGE_PREVIEW_COLOR_KEY) || '#ffaa00', '#ffaa00');
+        setPreviewLineColor(pc);
+      } catch {}
     };
 
     sync();
@@ -193,12 +205,40 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
 
     if (!enabled || !qsos.length) return;
 
-    // ---- CLIENT-SIDE FILTER: Show only QSOs newer than X minutes ----
+    // ---- CLIENT-SIDE FILTER: recent logged QSOs + any live preview ----
+    // Previews are transient "as you type" entries — always shown, never aged out.
     const cutoff = Date.now() - displayMinutes * 60 * 1000;
     const recent = qsos.filter((q) => {
+      if (q.status === 'preview') return true;
       const t = Date.parse(q.ts_utc || q.ts || '');
       return !Number.isNaN(t) && t >= cutoff;
     });
+
+    // ---- DX target coupling ----
+    // While the operator is typing a call in N3FJP, nudge the app's DX target to
+    // the previewed station so propagation + beam heading follow along. Emitted
+    // on a dedicated channel; App.jsx listens and honours the DX Lock toggle.
+    const preview = recent.find((q) => q.status === 'preview');
+    if (preview && typeof preview.lat === 'number' && typeof preview.lon === 'number') {
+      const previewCall = (preview.dx_call || '').trim().toUpperCase();
+      if (previewCall && previewCall !== lastPreviewCallRef.current) {
+        lastPreviewCallRef.current = previewCall;
+        try {
+          window.dispatchEvent(
+            new CustomEvent('ohc-n3fjp-dx-target', {
+              detail: {
+                call: previewCall,
+                grid: preview.dx_grid || '',
+                lat: preview.lat,
+                lon: preview.lon,
+              },
+            }),
+          );
+        } catch {}
+      }
+    } else if (!preview) {
+      lastPreviewCallRef.current = null;
+    }
 
     // If nothing recent, we're done
     if (!recent.length) return;
@@ -254,6 +294,8 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
 
       const dxCall = (q.dx_call || '').trim() || '(unknown)';
       const mode = q.mode || '';
+      const isPreview = q.status === 'preview';
+      const color = isPreview ? previewLineColor : lineColor;
       // Convert integer kHz (e.g. 14230) to MHz string (e.g. 14.230)
       let freqMhz = '';
       if (typeof q.freq_khz === 'number' && Number.isFinite(q.freq_khz) && q.freq_khz > 0) {
@@ -262,7 +304,9 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
       const ts = q.ts_utc || '';
 
       const dxMarker = L.circleMarker([lat, lon], {
-        radius: 6,
+        radius: isPreview ? 7 : 6,
+        color,
+        fillColor: color,
         opacity,
         fillOpacity: Math.min(1, opacity * 0.8),
       }).addTo(map);
@@ -289,10 +333,10 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
 
       dxMarker.bindPopup(
         `<div style="font-family: var(--font-mono);">
-          <b>${esc(dxCall)}</b><br/>
+          <b>${esc(dxCall)}</b>${isPreview ? ' <span style="opacity:0.7;">(preview)</span>' : ''}<br/>
           ${mode ? `Mode: ${esc(mode)}<br/>` : ''}
           ${freqMhz ? `Freq: ${esc(freqMhz)} MHz<br/>` : ''}
-          ${ts ? `Time: ${esc(ts)}<br/>` : ''}
+          ${isPreview ? 'Typing in N3FJP…<br/>' : ts ? `Time: ${esc(ts)}<br/>` : ''}
           ${q.dx_country ? `Country: ${esc(q.dx_country)}<br/>` : ''}
           ${q.loc_source ? `Loc: ${esc(q.loc_source)}<br/>` : ''}
           ${q.dx_grid ? `Grid: ${esc(q.dx_grid)}<br/>` : ''}
@@ -311,13 +355,20 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
         }, 0);
       }
 
-      // Draw great circle arc from station -> DX if we have station coords
+      // Draw great circle arc from station -> DX if we have station coords.
+      // Preview arcs are dashed so a tentative contact reads differently from a
+      // logged one at a glance, on top of the colour difference.
       if (station) {
         const arcPoints = getGreatCirclePoints(station.lat, station.lon, lat, lon, 64);
         const segments = replicatePath(arcPoints);
         segments.forEach((seg) => {
           if (seg.length < 2) return;
-          const line = L.polyline(seg, { opacity, color: lineColor, weight: 2 }).addTo(map);
+          const line = L.polyline(seg, {
+            opacity,
+            color,
+            weight: 2,
+            dashArray: isPreview ? '6 6' : null,
+          }).addTo(map);
           newLayers.push(line);
         });
       }
@@ -333,7 +384,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
         } catch {}
       });
     };
-  }, [enabled, qsos, map, opacity, retentionMinutes, displayMinutes, lineColor]);
+  }, [enabled, qsos, map, opacity, retentionMinutes, displayMinutes, lineColor, previewLineColor]);
 
   return {
     qsoCount: qsos.length,

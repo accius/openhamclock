@@ -68,6 +68,16 @@ const PSKReporterPanel = ({
       return 30;
     }
   }); // minutes: 5, 15, 30, 60
+  // PSK retention window — user-selectable down to 2 min for "pseudo-beacon"
+  // workflows (issue #991). Drives both the panel list and the map dots via App.jsx,
+  // which reads this same localStorage key and re-passes it to usePSKReporter.
+  const [pskAge, setPskAge] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('ohc_psk_age')) || 15;
+    } catch {
+      return 15;
+    }
+  }); // minutes: 2, 5, 10, 15
 
   // Persist panel mode and active tab
   const setPanelModePersist = (v) => {
@@ -317,10 +327,40 @@ const PSKReporterPanel = ({
               {statusDot && (
                 <span style={{ color: statusDot.color, fontSize: '10px', lineHeight: 1 }}>{statusDot.char}</span>
               )}
+              <select
+                value={pskAge}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value);
+                  setPskAge(v);
+                  try {
+                    localStorage.setItem('ohc_psk_age', String(v));
+                  } catch {}
+                  try {
+                    window.dispatchEvent(new Event('ohc-psk-age-changed'));
+                  } catch {}
+                }}
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  color: 'var(--text-primary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '3px',
+                  fontSize: '10px',
+                  padding: '1px 4px',
+                  cursor: 'pointer',
+                  maxWidth: '55px',
+                }}
+                title="Spot retention time"
+              >
+                <option value={2}>2m</option>
+                <option value={5}>5m</option>
+                <option value={10}>10m</option>
+                <option value={15}>15m</option>
+              </select>
               <button
                 onClick={onOpenFilters}
                 style={iconBtn(pskFilterCount > 0, '#ffaa00')}
                 title={t('pskReporterPanel.psk.filterTooltip')}
+                aria-label={t('pskReporterPanel.psk.filterTooltip')}
               >
                 <IconSearch size={11} style={{ verticalAlign: 'middle' }} />
                 {pskFilterCount > 0 ? pskFilterCount : ''}
@@ -334,6 +374,7 @@ const PSKReporterPanel = ({
                   cursor: hasAnySpots ? 'pointer' : 'not-allowed',
                 }}
                 title={t('pskReporterPanel.psk.clearTooltip')}
+                aria-label={t('pskReporterPanel.psk.clearTooltip')}
               >
                 <IconTrash size={11} style={{ verticalAlign: 'middle' }} />
               </button>
@@ -346,6 +387,7 @@ const PSKReporterPanel = ({
                   cursor: loading ? 'not-allowed' : 'pointer',
                 }}
                 title={t('pskReporterPanel.psk.refreshTooltip')}
+                aria-label={t('pskReporterPanel.psk.refreshTooltip')}
               >
                 <IconRefresh size={11} style={{ verticalAlign: 'middle' }} />
               </button>
@@ -416,6 +458,8 @@ const PSKReporterPanel = ({
               onClick={handleMapToggle}
               style={iconBtn(isMapOn, panelMode === 'psk' ? '#4488ff' : '#a78bfa')}
               title={isMapOn ? t('pskReporterPanel.map.hide') : t('pskReporterPanel.map.show')}
+              aria-label={isMapOn ? t('pskReporterPanel.map.hide') : t('pskReporterPanel.map.show')}
+              aria-pressed={isMapOn}
             >
               <IconMap size={11} style={{ verticalAlign: 'middle' }} />
             </button>
@@ -427,6 +471,8 @@ const PSKReporterPanel = ({
               onClick={onTogglePaths}
               style={iconBtn(showPaths, '#4488ff')}
               title={showPaths ? 'Hide path lines' : 'Show path lines'}
+              aria-label={showPaths ? 'Hide path lines' : 'Show path lines'}
+              aria-pressed={showPaths}
             >
               <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: 'middle' }}>
                 <path

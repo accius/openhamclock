@@ -1303,8 +1303,6 @@ module.exports = function (app, ctx) {
     }
 
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000);
       const now = Date.now();
 
       // Try proxy first for better real-time data
@@ -1383,10 +1381,15 @@ module.exports = function (app, ctx) {
 
       // Try proxy if not using custom or custom failed
       if (newSpots.length === 0 && source !== 'custom' && source !== 'udp') {
+        // Each upstream gets its OWN AbortController. A shared controller meant a
+        // proxy timeout left the signal pre-aborted, so the HamQTH fallback below
+        // rejected instantly with AbortError and never actually ran.
+        const proxyController = new AbortController();
+        const proxyTimeout = setTimeout(() => proxyController.abort(), 10000);
         try {
           const proxyResponse = await fetch(`${DXSPIDER_PROXY_URL}/api/spots?limit=100`, {
             headers: { 'User-Agent': 'OpenHamClock/3.14.11' },
-            signal: controller.signal,
+            signal: proxyController.signal,
           });
 
           if (proxyResponse.ok) {
@@ -1409,15 +1412,19 @@ module.exports = function (app, ctx) {
           }
         } catch (proxyErr) {
           logDebug('[DX Paths] Proxy failed, trying HamQTH');
+        } finally {
+          clearTimeout(proxyTimeout);
         }
       }
 
       // Fallback to HamQTH if proxy failed (never for explicit custom source)
       if (newSpots.length === 0 && source !== 'custom' && source !== 'udp') {
+        const hamqthController = new AbortController();
+        const hamqthTimeout = setTimeout(() => hamqthController.abort(), 10000);
         try {
           const response = await fetch('https://www.hamqth.com/dxc_csv.php?limit=50', {
             headers: { 'User-Agent': 'OpenHamClock/3.13.1' },
-            signal: controller.signal,
+            signal: hamqthController.signal,
           });
 
           if (response.ok) {
@@ -1469,10 +1476,10 @@ module.exports = function (app, ctx) {
           }
         } catch (hamqthErr) {
           logDebug('[DX Paths] HamQTH also failed');
+        } finally {
+          clearTimeout(hamqthTimeout);
         }
       }
-
-      clearTimeout(timeout);
 
       if (newSpots.length === 0) {
         // Return existing paths if fetch failed

@@ -39,52 +39,60 @@ const BANDS = [
 
 // Reliability to color: HamClock-style wide spectrum
 // magenta (0%) → red → orange → yellow → green (100%)
+// Cubic smoothstep — smooth interpolation between edge0 and edge1, with zero
+// first-derivative at both ends. Eliminates the visible "step" you'd get from
+// a linear ramp between bands.
+function smoothstep(edge0, edge1, x) {
+  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
+  return t * t * (3 - 2 * t);
+}
+
 function reliabilityColor(r) {
   if (r >= 99) return { color: 'rgb(0,220,0)', alpha: 0.85 };
 
-  let red, green, blue, alpha;
-  if (r < 10) {
-    // Very poor: subtle dark blue-gray tint so map stays visible
-    red = 40;
-    green = 30;
-    blue = 80;
-    alpha = 0.25;
-  } else if (r < 25) {
-    // Poor: dark red-purple, fading in
-    const t = (r - 10) / 15;
+  let red, green, blue;
+  if (r < 25) {
+    // Below VOACAP's usefully-modelled range. Color stays as a dim
+    // red-purple but the alpha will be tapered to ~0 (see below), so the
+    // exact RGB barely matters — it just sets the hue you see at the very
+    // edge of the predicted region.
+    const t = r / 25;
     red = 40 + Math.round(t * 180);
     green = 30;
     blue = 80 - Math.round(t * 80);
-    alpha = 0.25 + t * 0.35;
   } else if (r < 40) {
     // Low: Red → Orange
     const t = (r - 25) / 15;
     red = 220 + Math.round(t * 35);
     green = Math.round(t * 120);
     blue = 0;
-    alpha = 0.6 + t * 0.15;
   } else if (r < 60) {
     // Fair: Orange → Yellow
     const t = (r - 40) / 20;
     red = 255;
     green = 120 + Math.round(t * 135);
     blue = 0;
-    alpha = 0.75 + t * 0.05;
   } else if (r < 80) {
     // Good: Yellow → Yellow-Green
     const t = (r - 60) / 20;
     red = 255 - Math.round(t * 140);
     green = 255;
     blue = 0;
-    alpha = 0.8;
   } else {
     // Excellent: Yellow-Green → Green
     const t = (r - 80) / 20;
     red = 115 - Math.round(t * 115);
     green = 220 + Math.round(t * 35);
     blue = 0;
-    alpha = 0.85;
   }
+
+  // Smooth alpha taper from 0 → 0.85 across r=0..40 (#990 round 3).
+  // Previously the alpha jumped from 0.25 at r<10 to 0.75 at r=40 in
+  // discrete bands, which read as a hard vertical cliff at VOACAP's
+  // useful-range boundary. A cubic smoothstep makes the edge fade
+  // gradually into the base map — visually a real propagation map rather
+  // than a stamped-out region.
+  const alpha = smoothstep(0, 40, r) * 0.85;
   return { color: `rgb(${red},${green},${blue})`, alpha };
 }
 
@@ -388,27 +396,83 @@ export function useLayer({ map, enabled, opacity, locator }) {
 
     if (!data?.cells?.length) return;
 
-    const half = (data.gridSize || 10) / 2;
+    const grid = data.gridSize || 10;
+    const half = grid / 2;
     const newLayers = [];
+
+    // ─── Spatial blur of the reliability grid (#990 round 4) ──────────────
+    // VOACAP's output has a real discontinuity where the short-path prediction
+    // gives up and long-path becomes shorter — adjacent cells can jump from
+    // r=5 to r=52, which renders as a visual cliff regardless of how smooth
+    // the alpha taper is. A 3×3 box average over the cell grid feathers that
+    // discontinuity over a couple of cells visually, without claiming the
+    // underlying physics is wrong (the data is preserved everywhere else).
+    // Longitude wraps at ±180; latitude doesn't.
+    const cellMap = new Map();
+    for (const c of data.cells) cellMap.set(`${c.lat},${c.lon}`, c);
+    const wrapLon = (lon) => ((lon + 540) % 360) - 180;
+    const smoothedR = new Map();
+    for (const c of data.cells) {
+      let sum = 0;
+      let count = 0;
+      for (const dlat of [-grid, 0, grid]) {
+        for (const dlon of [-grid, 0, grid]) {
+          const n = cellMap.get(`${c.lat + dlat},${wrapLon(c.lon + dlon)}`);
+          if (n) {
+            sum += n.r || 0;
+            count++;
+          }
+        }
+      }
+      smoothedR.set(c, count > 0 ? sum / count : c.r);
+    }
 
     // Use a shared canvas renderer for all cells — avoids SVG anti-aliasing
     // seams and is significantly faster for hundreds of rectangles
     const renderer = L.canvas({ padding: 0.5 });
 
+    // 3-world-copies for Mercator wraparound continuity. On the azimuthal
+    // equidistant projection (#990) longitude offsets of ±360° project to the
+    // same point as offset 0, so the extra copies just overdraw and amplify
+    // the projection distortion near the antipode where `k = c/sin(c)` blows
+    // up. Use a single copy on azimuthal; keep the fan-out on Mercator.
+    const isAzimuthal = map.options?.crs?.code === 'AzimuthalEquidistant';
+    const offsets = isAzimuthal ? [0] : [-360, 0, 360];
+
+    // Build cell polygons with subdivided edges instead of L.rectangle. A
+    // rectangle in lat/lon space projects to a curved shape under azimuthal,
+    // but L.rectangle draws it as a 4-vertex polygon with STRAIGHT pixel-space
+    // edges — which is why Dan's screenshot in #990 showed blocky/distorted
+    // cells across the disc. With ~5 subdivisions per edge (20 vertices per
+    // cell perimeter) the polygon follows the projection's curvature smoothly
+    // on azimuthal AND still renders correctly on Mercator.
+    //
+    // ~5 subdivisions × 4 edges × ~650 cells × up-to-3 world copies ≈ 39k
+    // vertices total — well within Canvas2D's comfort zone.
+    const SUBDIVISIONS = 5;
+    const buildCellPolygon = (centerLat, centerLon, h, lonOffset) => {
+      const pts = [];
+      const step = (2 * h) / SUBDIVISIONS;
+      // S edge, W → E
+      for (let i = 0; i <= SUBDIVISIONS; i++) pts.push([centerLat - h, centerLon - h + i * step + lonOffset]);
+      // E edge, S → N (skip duplicate corner)
+      for (let i = 1; i <= SUBDIVISIONS; i++) pts.push([centerLat - h + i * step, centerLon + h + lonOffset]);
+      // N edge, E → W (skip duplicate corner)
+      for (let i = 1; i <= SUBDIVISIONS; i++) pts.push([centerLat + h, centerLon + h - i * step + lonOffset]);
+      // W edge, N → S (skip duplicate corners on both ends)
+      for (let i = 1; i < SUBDIVISIONS; i++) pts.push([centerLat + h - i * step, centerLon - h + lonOffset]);
+      return pts;
+    };
+
     data.cells.forEach((cell) => {
-      const { color, alpha } = reliabilityColor(cell.r);
+      const r = smoothedR.get(cell) ?? cell.r;
+      const { color, alpha } = reliabilityColor(r);
 
       // Scale alpha by the user opacity slider (slider default 0.6 = 60%)
       const cellAlpha = alpha * (opacity / 0.6);
 
-      // Create rectangles in 3 world copies for dateline support
-      for (const offset of [-360, 0, 360]) {
-        const bounds = [
-          [cell.lat - half, cell.lon - half + offset],
-          [cell.lat + half, cell.lon + half + offset],
-        ];
-
-        const rect = L.rectangle(bounds, {
+      for (const offset of offsets) {
+        const poly = L.polygon(buildCellPolygon(cell.lat, cell.lon, half, offset), {
           stroke: false,
           fillColor: color,
           fillOpacity: Math.min(1, cellAlpha),
@@ -418,8 +482,8 @@ export function useLayer({ map, enabled, opacity, locator }) {
           renderer,
         });
 
-        rect.addTo(map);
-        newLayers.push(rect);
+        poly.addTo(map);
+        newLayers.push(poly);
       }
     });
 

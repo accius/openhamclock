@@ -1,13 +1,15 @@
 /**
- * CallsignLink — clickable callsign that opens QRZ.com
+ * CallsignLink — clickable callsign that opens the user's chosen callbook
  *
  * Usage:
  *   <CallsignLink call="K1ABC" color="#fff" fontWeight="700" />
  *
  * Reads the global toggle from localStorage (ohc_qrz_links).
- * When enabled, clicking opens https://www.qrz.com/db/CALLSIGN in a new tab.
+ * When enabled, clicking opens the callsign's page on the selected callbook
+ * (QRZ.com by default — see src/utils/callbook.js) in a new tab.
  */
 import { createContext, useContext, useState, useCallback } from 'react';
+import { getCallbookUrl } from '../utils/callbook.js';
 
 // ── Extract base callsign from decorated/portable calls ──
 // 5Z4/OZ6ABL → OZ6ABL, UA1TAN/M → UA1TAN, W1ABC/6 → W1ABC
@@ -68,7 +70,7 @@ export function QRZToggle({ style }) {
         e.stopPropagation();
         toggle();
       }}
-      title={enabled ? 'Click callsigns to open QRZ.com (ON)' : 'QRZ callsign links disabled (OFF)'}
+      title={enabled ? 'Click callsigns to open the callbook lookup (ON)' : 'Callsign links disabled (OFF)'}
       style={{
         cursor: 'pointer',
         fontSize: '11px',
@@ -102,7 +104,7 @@ export default function CallsignLink({
   const handleClick = (e) => {
     if (!enabled) return;
     e.stopPropagation();
-    window.open(`https://www.qrz.com/db/${encodeURIComponent(baseCall)}`, '_blank', 'noopener,noreferrer');
+    window.open(getCallbookUrl(baseCall), '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -123,7 +125,7 @@ export default function CallsignLink({
       onMouseLeave={(e) => {
         if (enabled) e.target.style.color = color;
       }}
-      title={enabled ? `Look up ${call} on QRZ.com` : call}
+      title={enabled ? `Look up ${call}` : call}
     >
       {children || call}
     </span>
@@ -152,7 +154,7 @@ export function setupMapQRZHandler() {
     const call = el.getAttribute('data-qrz-call');
     if (call) {
       const baseCall = extractBaseCall(call);
-      window.open(`https://www.qrz.com/db/${encodeURIComponent(baseCall)}`, '_blank', 'noopener,noreferrer');
+      window.open(getCallbookUrl(baseCall), '_blank', 'noopener,noreferrer');
     }
   });
 }

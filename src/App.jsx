@@ -328,8 +328,34 @@ const App = () => {
   const dxWeather = useWeather(dxLocation, config.allUnits);
   const localAlerts = useWeatherAlerts(config.location);
   const dxAlerts = useWeatherAlerts(dxLocation);
+  // User-selectable PSK retention window (issue #991). PSKReporterPanel writes
+  // `ohc_psk_age` to localStorage and fires `ohc-psk-age-changed`; we mirror it
+  // here so the hook re-runs with the new window and both the map dots and the
+  // panel list reflect the user's choice in lockstep.
+  const [pskAge, setPskAge] = useState(() => {
+    try {
+      return parseInt(localStorage.getItem('ohc_psk_age')) || 15;
+    } catch {
+      return 15;
+    }
+  });
+  useEffect(() => {
+    const sync = () => {
+      try {
+        const v = parseInt(localStorage.getItem('ohc_psk_age'));
+        if (Number.isFinite(v) && v > 0) setPskAge(v);
+      } catch {}
+    };
+    window.addEventListener('ohc-psk-age-changed', sync);
+    window.addEventListener('storage', sync);
+    return () => {
+      window.removeEventListener('ohc-psk-age-changed', sync);
+      window.removeEventListener('storage', sync);
+    };
+  }, []);
+
   const pskReporter = usePSKReporter(config.callsign, {
-    minutes: config.lowMemoryMode ? 5 : 30,
+    minutes: config.lowMemoryMode ? Math.min(pskAge, 5) : pskAge,
     enabled: pskFilters?.filterMode === 'grid' ? !!config.locator : config.callsign !== 'N0CALL',
     maxSpots: config.lowMemoryMode ? 50 : 500,
     filterMode: pskFilters?.filterMode || 'call',
@@ -354,6 +380,21 @@ const App = () => {
       handleDXChange({ lat: wsjtx.dxTarget.lat, lon: wsjtx.dxTarget.lon });
     }
   }, [wsjtx.dxTarget, handleDXChange]);
+
+  // ── N3FJP → DX Target ──
+  // The N3FJP Logged QSOs layer emits this on its own channel when the operator
+  // types a callsign in the logger, so propagation + beam heading follow the
+  // previewed station. handleDXChange honours the DX Lock toggle.
+  useEffect(() => {
+    const handler = (e) => {
+      const { lat, lon } = e.detail || {};
+      if (lat != null && lon != null) {
+        handleDXChange({ lat, lon });
+      }
+    };
+    window.addEventListener('ohc-n3fjp-dx-target', handler);
+    return () => window.removeEventListener('ohc-n3fjp-dx-target', handler);
+  }, [handleDXChange]);
 
   const { satelliteFilters, setSatelliteFilters, filteredSatellites } = useSatellitesFilters(satellites.data);
 

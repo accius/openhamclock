@@ -1,9 +1,9 @@
 /**
  * useSatellites Hook
- * Tracks amateur radio satellites using TLE data and satellite.js
+ * Tracks amateur radio satellites using API data source provided by satellite.js server-side service.
  * Includes orbit track prediction
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import * as satellite from 'satellite.js';
 import Orbit from '../utils/orbit.js';
 import { getDebugConfig } from '../debug/debugConfig.js';
@@ -18,30 +18,58 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
   const [nextPassData, setNextPassData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadingNextPass, setLoadingNextPass] = useState(true);
-  const [tleData, setTleData] = useState({});
+  const satelliteDataRef = useRef({});
+  const [satelliteData, setSatelliteData] = useState({});
+  const satelliteDataTimestampRef = useRef(0);
 
-  // Fetch TLE data
-  useEffect(() => {
-    const fetchTLE = async () => {
-      try {
-        const response = await fetch('/api/satellites/tle');
-        if (response.ok) {
-          const tle = await response.json();
-          setTleData(tle);
-        }
-      } catch (err) {
-        console.error('TLE fetch error:', err);
+  const fetchSatelliteData = useCallback(async () => {
+    try {
+      const { timestamp: ts } = await fetch('/api/satellites/data/timestamp').then((r) => r.json());
+
+      if (ts && satelliteDataTimestampRef.current && ts <= satelliteDataTimestampRef.current) {
+        console.debug(`[Satellite] data is up to date (timestamp: ${ts}), no update needed.`);
+        return;
       }
-    };
 
-    fetchTLE();
-    const interval = setInterval(fetchTLE, 6 * 60 * 60 * 1000); // 6 hours
-    return () => clearInterval(interval);
+      console.debug(
+        `[Satellite] New data available, updating... (new timestamp: ${ts || 'N/A'}, previous timestamp: ${satelliteDataTimestampRef.current || 'N/A'})`,
+      );
+
+      const response = await fetch('/api/satellites/data');
+      if (response.ok) {
+        const { timestamp: newTimestamp, data } = await response.json();
+
+        satelliteDataRef.current = data;
+        satelliteDataTimestampRef.current = newTimestamp;
+
+        setSatelliteData(data);
+      }
+    } catch (err) {
+      console.error('[Satellite] data fetch error:', err);
+    }
   }, []);
+
+  // Fetch satellite data
+  useEffect(() => {
+    fetchSatelliteData(); // prefetch immediately on mount
+  }, [fetchSatelliteData]);
+
+  useEffect(() => {
+    const ONE_MINUTE = 60 * 1000;
+    const ONE_HOUR = 60 * 60 * 1000;
+
+    // interval is short if data set is empty, otherwise long
+    const isEmptyDataSet = Object.keys(satelliteDataRef.current).length === 0;
+    const delay = isEmptyDataSet ? ONE_MINUTE : ONE_HOUR;
+
+    const interval = setInterval(fetchSatelliteData, delay);
+
+    return () => clearInterval(interval);
+  }, [fetchSatelliteData, satelliteData]);
 
   // Calculate satellite positions and orbits
   const calculatePositions = useCallback(() => {
-    if (!observerLocation || Object.keys(tleData).length === 0) {
+    if (!observerLocation || Object.keys(satelliteData).length === 0) {
       setLoading(false);
       return;
     }
@@ -58,19 +86,16 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
         height: (observerLocation.stationAlt ?? 100) / 1000, // above sea level [km], stationAlt is [m]), defaults to 100m
       };
 
-      Object.entries(tleData).forEach(([name, tle]) => {
-        // Handle both line1/line2 and tle1/tle2 formats
-        const line1 = tle.line1 || tle.tle1;
-        const line2 = tle.line2 || tle.tle2;
-        if (!line1 || !line2) return;
-
+      Object.entries(satelliteData).forEach(([name, satData]) => {
         // Find corresponding next pass data for this satellite
-        const nextPass = nextPassData.find((pass) => pass.name === (tle.name || name));
+        const nextPass = nextPassData.find(
+          (pass) => pass.keyName === (satData.name || '') || pass.keyName === (name || ''),
+        );
         const startTimes = nextPass?.startTimes || [];
         const endTimes = nextPass?.endTimes || [];
 
         try {
-          const satrec = satellite.twoline2satrec(line1, line2);
+          const satrec = satellite.json2satrec(satData.omm);
           const positionAndVelocity = satellite.propagate(satrec, now);
           const positionEci = positionAndVelocity.position;
           const velocityEci = positionAndVelocity.velocity;
@@ -136,9 +161,8 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
           const footprintRadius = earthRadius * Math.acos(earthRadius / (earthRadius + alt));
 
           positions.push({
-            name: tle.name || name,
-            tle1: line1,
-            tle2: line2,
+            name: satData.name || name,
+            omm: satData.omm,
             lat,
             lon,
             alt: round(alt, 1),
@@ -151,20 +175,20 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
             isVisible, // visible if above minimum elevation
             nextPassStartTimes: startTimes,
             nextPassEndTimes: endTimes,
-            isPopular: tle.priority <= 2,
+            isPopular: satData.priority <= 2,
             track,
             footprintRadius: Math.round(footprintRadius),
-            mode: tle.mode || 'Unknown',
-            color: tle.color || '#00ffff',
+            mode: satData.mode || 'Unknown',
+            color: satData.color || '#00ffff',
             // Radio metadata from satellites.json
-            downlink: tle.downlink || '',
-            uplink: tle.uplink || '',
-            tone: tle.tone || '',
-            beacon: tle.beacon || '',
-            notes: tle.notes || '',
+            downlink: satData.downlink || '',
+            uplink: satData.uplink || '',
+            tone: satData.tone || '',
+            beacon: satData.beacon || '',
+            notes: satData.notes || '',
           });
         } catch (e) {
-          // Skip satellites with invalid TLE
+          // Skip satellites with invalid data, continue processing others
         }
       });
 
@@ -177,13 +201,13 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
       console.error('Satellite calculation error:', err);
       setLoading(false);
     }
-  }, [observerLocation, tleData, nextPassData]);
+  }, [observerLocation, satelliteData, nextPassData]);
 
   // Calculate satellite next passes, finds the start/end times of the next 2 passes for each satellite that are above the minimum elevation
   // Loops every hour since passes don't change often
   // When consumed check that the first pass hasn't already ended
   const calculateNextPasses = useCallback(() => {
-    if (!observerLocation || Object.keys(tleData).length === 0) {
+    if (!observerLocation || Object.keys(satelliteData).length === 0) {
       setLoadingNextPass(false);
       return;
     }
@@ -211,14 +235,9 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
     }
 
     const nextPasses = [];
-    Object.entries(tleData).forEach(([name, tle]) => {
+    Object.entries(satelliteData).forEach(([keyName, satData]) => {
       try {
-        // Handle both line1/line2 and tle1/tle2 formats
-        const line1 = tle.line1 || tle.tle1;
-        const line2 = tle.line2 || tle.tle2;
-        if (!line1 || !line2) return;
-
-        const orbit = new Orbit(name, `${name}\n${line1}\n${line2}`);
+        const orbit = new Orbit(keyName, satData.omm);
         if (orbit.error) console.warn('Satellite orbit error:', orbit.error);
         const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
 
@@ -232,22 +251,22 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
         });
 
         nextPasses.push({
-          name: tle.name || name,
+          keyName,
           startTimes,
           endTimes,
         });
       } catch (e) {
-        // Skip satellite with invalid TLE, continue processing others
+        // Skip satellite with invalid data, continue processing others
       }
     });
 
     // Sort alphabetically by name for a consistent, static list
-    nextPasses.sort((a, b) => a.name.localeCompare(b.name));
+    nextPasses.sort((a, b) => a.keyName.localeCompare(b.keyName));
 
     if (logLevel === 'debug') {
       const formatDate = (date) => new Date(date).toISOString().slice(0, 19).replace('T', ' ');
-      nextPasses.forEach(({ name, startTimes, endTimes }) => {
-        let logStr = `[Satellite] Next passes for ${name}: `;
+      nextPasses.forEach(({ keyName, startTimes, endTimes }) => {
+        let logStr = `[Satellite] Next passes for keyname \'${keyName}\': `;
         if (startTimes.length === 0) {
           logStr += '\n  None.';
         } else {
@@ -263,7 +282,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
 
     setNextPassData(nextPasses);
     setLoadingNextPass(false);
-  }, [observerLocation, tleData, satelliteConfig]);
+  }, [observerLocation, satelliteData, satelliteConfig]);
 
   // Update positions every 5 seconds
   useEffect(() => {

@@ -812,11 +812,18 @@ module.exports = function (app, ctx) {
   const N3FJP_QSO_RETENTION_MINUTES = parseInt(process.env.N3FJP_QSO_RETENTION_MINUTES || '1440', 10);
   let n3fjpQsos = [];
 
+  // A transient "as you type" preview self-expires quickly, so a bridge that
+  // dies mid-entry without sending an explicit clear never leaves a stuck dot.
+  const N3FJP_PREVIEW_TTL_MS = 5 * 60 * 1000;
+
   function pruneN3fjpQsos() {
-    const cutoff = Date.now() - N3FJP_QSO_RETENTION_MINUTES * 60 * 1000;
+    const now = Date.now();
+    const cutoff = now - N3FJP_QSO_RETENTION_MINUTES * 60 * 1000;
     n3fjpQsos = n3fjpQsos.filter((q) => {
       const t = Date.parse(q.ts_utc || q.timestamp || '');
-      return !Number.isNaN(t) && t >= cutoff;
+      if (Number.isNaN(t)) return false;
+      if (q.status === 'preview') return now - t < N3FJP_PREVIEW_TTL_MS;
+      return t >= cutoff;
     });
   }
 
@@ -849,11 +856,27 @@ module.exports = function (app, ctx) {
     return null;
   }
 
-  // POST one QSO from a bridge (your Python script)
+  // POST one QSO from the local N3FJP→OHC bridge.
+  //
+  // An optional `status` field lets the bridge stream three kinds of update:
+  //   'log'     — a completed, logged QSO. The default when omitted, so older
+  //               bridges that only send logged QSOs keep working unchanged.
+  //   'preview' — a transient "as you type" entry shown while the operator is
+  //               still filling in the call field. At most one is kept at a time.
+  //   'clear'   — the operator cleared the call field; drop any pending preview.
   app.post('/api/n3fjp/qso', writeLimiter, requireWriteAuth, async (req, res) => {
     const qso = req.body || {};
+    const status = qso.status === 'preview' || qso.status === 'clear' ? qso.status : 'log';
+
+    // A 'clear' just drops the pending preview — no callsign needed.
+    if (status === 'clear') {
+      n3fjpQsos = n3fjpQsos.filter((q) => q.status !== 'preview');
+      return res.json({ ok: true });
+    }
+
     if (!qso.dx_call) return res.status(400).json({ ok: false, error: 'dx_call required' });
 
+    qso.status = status;
     if (!qso.ts_utc) qso.ts_utc = new Date().toISOString();
     if (!qso.source) qso.source = 'n3fjp_to_timemapper_udp';
 
@@ -864,12 +887,26 @@ module.exports = function (app, ctx) {
     setImmediate(async () => {
       try {
         //
-        // Enrich DX location: GRID → (preferred) → HamQTH fallback
+        // Enrich DX location: bridge-supplied coords → operating grid → HamQTH.
         //
         let locSource = '';
 
-        // 1) Prefer exact operating grid (N3FJP “Grid Rec” field)
-        if (qso.dx_grid) {
+        // 1) Trust coordinates the bridge already resolved. This keeps previews
+        //    instant and respects a bridge that does its own QRZ/grid lookup.
+        //    A 0,0 pair is the bridge's "could not resolve" sentinel — ignore it.
+        if (
+          typeof qso.lat === 'number' &&
+          typeof qso.lon === 'number' &&
+          Number.isFinite(qso.lat) &&
+          Number.isFinite(qso.lon) &&
+          !(qso.lat === 0 && qso.lon === 0)
+        ) {
+          qso.loc_source = 'bridge';
+          locSource = 'bridge';
+        }
+
+        // 2) Otherwise prefer the exact operating grid (N3FJP “Grid Rec” field).
+        if (!locSource && qso.dx_grid) {
           const loc = maidenheadToLatLon(qso.dx_grid);
           if (loc) {
             qso.lat = loc.lat;
@@ -879,7 +916,7 @@ module.exports = function (app, ctx) {
           }
         }
 
-        // 2) If no grid provided, fall back to HamQTH/home QTH lookup
+        // 3) Last resort: HamQTH / home-QTH lookup by callsign.
         if (!locSource) {
           const dx = await lookupCallLatLon(qso.dx_call);
           if (dx) {
@@ -892,6 +929,8 @@ module.exports = function (app, ctx) {
           }
         }
 
+        // A new preview replaces any earlier one; a logged QSO ends the preview.
+        n3fjpQsos = n3fjpQsos.filter((q) => q.status !== 'preview');
         n3fjpQsos.unshift(qso);
         pruneN3fjpQsos();
 
