@@ -3,20 +3,34 @@ import { validateGridLocator, latLonToMaidenhead, maidenheadToLatLon, maidenhead
 import { getSunPosition, getMoonPosition, getMoonPhase } from './geo.js';
 import { normalizeLon } from './geo.js';
 
+// normalize to [−π, +π)
+const normalizeRadians = (r) => {
+  const twoPi = 2 * Math.PI;
+  const x = ((r % twoPi) + twoPi) % twoPi; // now in [0, 2π)
+  return x >= Math.PI ? x - twoPi : x; // map [π, 2π) → [−π, 0)
+};
 const normalizeDegrees360 = (d) => {
   return ((d % 360) + 360) % 360;
 };
 const normalizeDegrees180 = (d) => {
   return ((((d + 180) % 360) + 360) % 360) - 180;
 };
-const normalizeRadians = (r) => {
-  return ((r % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-};
 const deg2rad = (d) => {
   return (d * Math.PI) / 180;
 };
 const rad2deg = (r) => {
   return (r * 180) / Math.PI;
+};
+// Convert H:M:S → radians
+const hmsToRad = (h, m, s) => {
+  const hours = h + m / 60 + s / 3600;
+  return (hours / 24) * 2 * Math.PI;
+};
+// Convert D:M:S → radians
+const dmsToRad = (d, m, s) => {
+  const sign = d < 0 ? -1 : 1;
+  const deg = Math.abs(d) + m / 60 + s / 3600;
+  return sign * deg * (Math.PI / 180);
 };
 
 describe('Maidenhead Grid tests', () => {
@@ -290,19 +304,6 @@ describe('Moon tests', () => {
     },
   ];
 
-  // Convert H:M:S → radians
-  function hmsToRad(h, m, s) {
-    const hours = h + m / 60 + s / 3600;
-    return (hours / 24) * 2 * Math.PI;
-  }
-
-  // Convert D:M:S → radians
-  function dmsToRad(d, m, s) {
-    const sign = d < 0 ? -1 : 1;
-    const deg = Math.abs(d) + m / 60 + s / 3600;
-    return sign * deg * (Math.PI / 180);
-  }
-
   // Convert JS Date → Julian Date
   function julianDate(date) {
     const year = date.getUTCFullYear();
@@ -329,23 +330,18 @@ describe('Moon tests', () => {
     return (((gmstSec * (Math.PI / 43200)) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
   }
 
-  // Wrap angle to [-π, +π]
-  function wrapToPi(rad) {
-    return ((rad + Math.PI) % (2 * Math.PI)) - Math.PI;
-  }
-
   // Main function: RA/Dec + UTC → sublunar lat/lon
   function sublunarPoint(dateUTC, raRad, decRad) {
     const jd = julianDate(dateUTC);
     const gmst = gmstFromJD(jd);
 
     // Approximate sublunar point
-    const lonRad = wrapToPi(raRad - gmst);
+    const lonRad = normalizeRadians(raRad - gmst);
     const latRad = decRad;
 
     return {
-      lat: (latRad * 180) / Math.PI,
-      lon: (lonRad * 180) / Math.PI,
+      lat: rad2deg(latRad),
+      lon: rad2deg(lonRad),
     };
   }
 
