@@ -13,7 +13,7 @@ function round(value, decimals) {
   return Math.round(value * factor) / factor;
 }
 
-export const useSatellites = (observerLocation, satelliteConfig, filteredNames = []) => {
+export const useSatellites = (observerLocation, satelliteConfig, filteredNames = null) => {
   const [data, setData] = useState([]);
   const [nextPassData, setNextPassData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -195,32 +195,13 @@ export const useSatellites = (observerLocation, satelliteConfig, filteredNames =
             // Skip satellites with invalid data, continue processing others
           }
         } else {
+          // Case where isCalcNeeded() is false, satellite location calculation is not needed.
+          // Note that data set is consumed by OHC settings panel which displays all satellites
+          // with data that has been downloaded from server.
+          // Satellite needs to appear there to be selectable but that panel requires name only
+          // for all known satellites and not their full details.
           positions.push({
             name: satData.name || name,
-            omm: satData.omm,
-            lat: 0,
-            lon: 0,
-            alt: 0,
-            speedKmH: 0,
-            azimuth: 0,
-            elevation: 0,
-            range: 0,
-            rangeRate: 0,
-            dopplerFactor: 1,
-            isVisible: false,
-            nextPassStartTimes: startTimes,
-            nextPassEndTimes: endTimes,
-            isPopular: satData.priority <= 2,
-            track: [],
-            footprintRadius: 0,
-            mode: satData.mode || 'Unknown',
-            color: satData.color || '#00ffff',
-            // Radio metadata from satellites.json
-            downlink: satData.downlink || '',
-            uplink: satData.uplink || '',
-            tone: satData.tone || '',
-            beacon: satData.beacon || '',
-            notes: satData.notes || '',
           });
         }
       });

@@ -24,8 +24,11 @@ export function useSatelliteFilterState() {
 }
 
 export default function useSatellitesFilters(satellitesData, externalState) {
-  const state = externalState || useSatelliteFilterState();
-  const { satelliteFilters, setSatelliteFilters } = state;
+  if (!externalState) {
+    throw new Error('useSatellitesFilters requires externalState to be provided');
+  }
+
+  const { satelliteFilters, setSatelliteFilters } = externalState;
 
   const filteredSatellites = useMemo(() => {
     // If no satellites are selected in the filter, show NONE (empty array)
