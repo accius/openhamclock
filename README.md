@@ -18,7 +18,14 @@ OpenHamClock brings DX cluster spots, space weather, propagation predictions, PO
 
 ## Quick Start
 
-### Prerequisites
+### Container Deployment
+
+Container images are available from the github container registry at `ghcr.io/accius/openhamclock`
+Follow [the quick-start steps](docs/DOCKER.md#quick-start-zero-config)
+
+### Local Install
+
+#### Prerequisites
 
 - **Node.js v20.19 or later** (v22.12+ also supported) — required by Vite and the Express
   backend. The version of Node.js shipped by default in most Linux distributions
@@ -54,7 +61,7 @@ OpenHamClock brings DX cluster spots, space weather, propagation predictions, PO
 > ⚠️ **Ubuntu / Debian users:** Do **not** use `apt install nodejs` — the packaged version
 > is v18 which is below the minimum required. Use NodeSource or nvm as shown above.
 
-### Install & run
+#### Install & run
 
 ```bash
 git clone https://github.com/accius/openhamclock.git
@@ -86,6 +93,16 @@ node server.js
 # Terminal 2 — Frontend (hot reload on http://localhost:3000)
 npm run dev
 ```
+
+### Enabling Client-side Propagation Calculation (without having to build it)
+
+If you want your clients (using your local server) to use the p533 modules for client side propagation calculation rather than the very rough estimates (which are based on band and time of day), run the following as the user who can write to your repository.
+
+```bash
+scripts/fetch-wasm.sh
+```
+
+from the top-level distribution directory, and restart the server.
 
 ---
 
@@ -446,7 +463,7 @@ HF propagation reliability predictions between your station (DE) and whatever DX
 
 **Standard mode:** Uses a built-in propagation model based on current SFI, SSN, Kp, great-circle path distance, solar zenith angle, geomagnetic latitude, and estimated MUF (Maximum Usable Frequency) for each band.
 
-**ITU-R P.533-14 predictions:** By default, all installs use the public OpenHamClock ITURHFProp prediction service for ITU-R P.533-14 propagation calculations — the international standard for HF propagation prediction. If you prefer to self-host, deploy the optional ITURHFProp microservice (in the `iturhfprop-service/` directory) and set `ITURHFPROP_URL` in `.env` to your own instance.
+**ITU-R P.533-14 predictions:** By default, all installs use the public OpenHamClock ITURHFProp prediction service for ITU-R P.533-14 propagation calculations — the international standard for HF propagation prediction. If you prefer to self-host, deploy the optional ITURHFProp microservice (documentation and deployment examples in `iturhfprop-service/README.md`)
 
 **Hybrid correction:** When ionosonde data is available from `prop.kc2g.com`, the system applies real-time corrections based on actual measured ionospheric conditions rather than just modeled values. This can catch unusual propagation events that models miss.
 
@@ -1042,31 +1059,7 @@ The Pi setup script installs Node.js 22 LTS, clones the repository, builds the f
 
 ### Using Docker
 
-**Docker Compose (recommended):**
-
-```bash
-docker-compose up -d
-```
-
-**Manual Docker build:**
-
-```bash
-docker build -t openhamclock .
-docker run -d -p 3000:3000 -p 2237:2237/udp --name openhamclock openhamclock
-```
-
-The Dockerfile uses a multi-stage build: Stage 1 compiles the React frontend with Vite, Stage 2 creates a minimal production image with only the server and built assets. The UDP port mapping (`-p 2237:2237/udp`) is only needed if you use WSJT-X integration.
-
-**Environment variables:** Pass your configuration via Docker environment variables:
-
-```bash
-docker run -d \
-  -p 3000:3000 \
-  -e CALLSIGN=K0CJH \
-  -e LOCATOR=EN10 \
-  -e HOST=0.0.0.0 \
-  openhamclock
-```
+Follow the [docker documentation](docs/DOCKER.md)
 
 ### Railway (Cloud)
 
@@ -1202,10 +1195,7 @@ On local installs, you can also click the **UPDATE** button in the header to sta
 
 ### Docker
 
-```bash
-docker-compose pull
-docker-compose up -d
-```
+[Docker documentation on updating](docs/DOCKER.md#updating)
 
 ### Railway
 

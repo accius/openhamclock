@@ -1,22 +1,22 @@
-name: Build and Publish DXSpider Proxy Docker Image
+name: Build and Publish iturhfprop-service container image
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/dxspider-proxy
+  IMAGE_NAME: ${{ github.repository_owner }}/iturhfprop-service
 
 on:
   push:
     branches: ['*']
     paths:
-      - 'dxspider-proxy/**'
-      - '.github/workflows/docker-dxspider-proxy-image.yml'
+      - 'iturhfprop-service/**'
+      - '.github/workflows/docker-iturhfprop-service.yml'
   pull_request:
     branches:
       - Staging
       - main
     paths:
-      - 'dxspider-proxy/**'
-      - '.github/workflows/docker-dxspider-proxy-image.yml'
+      - 'iturhfprop-service/**'
+      - '.github/workflows/docker-iturhfprop-service.yml'
   release:
     types: [published]
   # Allows running this workflow manually from the Actions tab
