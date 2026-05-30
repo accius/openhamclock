@@ -24,6 +24,8 @@
   "app.dxLock.unlockShort": "Desbloquejar posició DX",
   "app.dxLock.unlockTooltip": "Desbloquejar posició DX (permetre clics al mapa)",
   "app.dxLock.unlocked": "🔓 DX desbloquejat",
+  "app.dxTime.showLocal": "Show local time at DX location",
+  "app.dxTime.showUtc": "Show UTC time at DX location",
   "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.dxNews.increaseTextSize": "Increase text size",
   "app.dxNews.pauseTooltip": "Clica per pausar",

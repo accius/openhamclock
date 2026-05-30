@@ -24,6 +24,8 @@
   "app.dxLock.unlockShort": "Buka kunci DX",
   "app.dxLock.unlockTooltip": "Buka kunci posisi DX (benarkan klik peta)",
   "app.dxLock.unlocked": "🔓 DX Dibuka",
+  "app.dxTime.showLocal": "Show local time at DX location",
+  "app.dxTime.showUtc": "Show UTC time at DX location",
   "app.dxNews.decreaseTextSize": "Kecilkan saiz teks",
   "app.dxNews.increaseTextSize": "Besarkan saiz teks",
   "app.dxNews.pauseTooltip": "Klik untuk jeda tatalan",

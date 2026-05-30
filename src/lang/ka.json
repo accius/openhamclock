@@ -24,6 +24,8 @@
   "app.dxLock.unlockShort": "DX-ის განბლოკვა",
   "app.dxLock.unlockTooltip": "DX-ის განბლოკვა (რუკაზე დაწკაპუნების დაშვება)",
   "app.dxLock.unlocked": "🔓 DX განბლოკილია",
+  "app.dxTime.showLocal": "Show local time at DX location",
+  "app.dxTime.showUtc": "Show UTC time at DX location",
   "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.dxNews.increaseTextSize": "Increase text size",
   "app.dxNews.pauseTooltip": "დააწკაპუნეთ გადახვევის შესაჩერებლად",

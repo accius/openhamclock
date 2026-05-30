@@ -24,6 +24,8 @@
   "app.dxLock.unlockShort": "ปลดล็อกตำแหน่ง DX",
   "app.dxLock.unlockTooltip": "ปลดล็อกตำแหน่ง DX (อนุญาตให้คลิกบนแผนที่)",
   "app.dxLock.unlocked": "🔓 DX Unlocked",
+  "app.dxTime.showLocal": "Show local time at DX location",
+  "app.dxTime.showUtc": "Show UTC time at DX location",
   "app.dxNews.decreaseTextSize": "ลดขนาดข้อความ",
   "app.dxNews.increaseTextSize": "เพิ่มขนาดข้อความ",
   "app.dxNews.pauseTooltip": "คลิกเพื่อหยุดการเลื่อน",

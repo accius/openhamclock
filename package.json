@@ -32,6 +32,7 @@
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "flexlayout-react": "^0.7.15",
+    "geo-tz": "*",
     "helmet": "^8.0.0",
     "i18next": "^25.8.0",
     "i18next-browser-languagedetector": "^8.2.0",

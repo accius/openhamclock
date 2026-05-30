@@ -265,6 +265,7 @@ require('./server/routes/meshcom')(app, ctx);
 require('./server/routes/presence')(app, ctx);
 require('./server/routes/rig-bridge')(app, ctx);
 require('./server/routes/config-routes')(app, ctx);
+require('./server/routes/geo-time')(app, ctx);
 require('./server/routes/admin')(app, ctx);
 
 // ── Catch-all for SPA ──

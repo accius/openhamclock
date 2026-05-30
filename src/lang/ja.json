@@ -24,6 +24,8 @@
   "app.dxLock.unlockShort": "DX ロック解除",
   "app.dxLock.unlockTooltip": "DX 位置を解除（マップクリック可）",
   "app.dxLock.unlocked": "🔓 DX ロック解除",
+  "app.dxTime.showLocal": "Show local time at DX location",
+  "app.dxTime.showUtc": "Show UTC time at DX location",
   "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.dxNews.increaseTextSize": "Increase text size",
   "app.dxNews.pauseTooltip": "クリックして一時停止",

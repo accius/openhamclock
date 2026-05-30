@@ -24,6 +24,8 @@
   "app.dxLock.unlockShort": "解锁 DX 位置",
   "app.dxLock.unlockTooltip": "解锁 DX 位置 (允许点击地图)",
   "app.dxLock.unlocked": "🔓 DX 已解锁",
+  "app.dxTime.showLocal": "Show local time at DX location",
+  "app.dxTime.showUtc": "Show UTC time at DX location",
   "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.dxNews.increaseTextSize": "Increase text size",
   "app.dxNews.pauseTooltip": "点击暂停滚动",

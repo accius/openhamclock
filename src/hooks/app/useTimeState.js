@@ -3,52 +3,43 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { latLonToMaidenhead, calculateSunTimes } from '../../utils';
 
+/**
+ * Convert UTC sunrise/sunset times to local time using Intl.
+ */
 function convertTimeUTCtoLocal(sunTimes, tz, currentTime) {
-  // We are only ever going to be doing this for local timezone
-
-  if (sunTimes.sunset === '')
-    // SunTimes.rise will be 'Midnight sun' or 'Polar night'
+  if (sunTimes.sunset === '') {
     return { sunrise: sunTimes.sunrise, sunset: sunTimes.sunset };
+  }
 
-  // First we need to get today's date from the current time.
-  let [month, day, year] = currentTime
-    .toLocaleDateString('en-US', {
-      timeZone: 'UTC',
-      year: 'numeric',
-      month: 'numeric',
-      day: 'numeric',
-    })
-    .split('/')
-    .map(Number);
-  month--; // We need the month Index
+  // Get today's date in UTC
+  const parts = currentTime.toLocaleDateString('en-US', {
+    timeZone: 'UTC',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  });
+  let [month, day, year] = parts.split('/').map(Number);
+  month--; // Month is 0-indexed
 
-  let rise = {};
-  let set = {};
-  let local = {};
-  [rise.hr, rise.mn] = sunTimes.sunrise.split(':').map(Number);
-  [set.hr, set.mn] = sunTimes.sunset.split(':').map(Number);
+  const [riseHr, riseMn] = sunTimes.sunrise.split(':').map(Number);
+  const [setHr, setMn] = sunTimes.sunset.split(':').map(Number);
 
-  rise.date = new Date(Date.UTC(year, month, day, rise.hr, rise.mn));
-  set.date = new Date(Date.UTC(year, month, day, set.hr, set.mn));
+  const riseDate = new Date(Date.UTC(year, month, day, riseHr, riseMn));
+  const setDate = new Date(Date.UTC(year, month, day, setHr, setMn));
 
-  const fmtOps = {
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
+  const fmtOpts = { hour: '2-digit', minute: '2-digit', hour12: false };
+  if (tz) fmtOpts.timeZone = tz;
+
+  const local = {
+    sunrise: new Intl.DateTimeFormat(undefined, fmtOpts).format(riseDate),
+    sunset: new Intl.DateTimeFormat(undefined, fmtOpts).format(setDate),
   };
 
-  // In the case we have an invalid timezoen passed in for tz, use system timezone
-  if (tz) fmtOps.timeZone = tz;
-
-  local.sunrise = rise.date.toLocaleString('en-US', fmtOps);
-  local.sunset = set.date.toLocaleString('en-US', fmtOps);
-
-  // Add an element for the minutes since midnight for sunrise/sunset for comparisons
-  [rise.hr, rise.mn] = local.sunrise.split(':').map(Number);
-  [set.hr, set.mn] = local.sunset.split(':').map(Number);
-
-  local.sunriseMin = (rise.hr % 24) * 60 + rise.mn;
-  local.sunsetMin = (set.hr % 24) * 60 + set.mn;
+  // Add minutes since midnight for comparison
+  const [rH, rM] = local.sunrise.split(':').map(Number);
+  const [sH, sM] = local.sunset.split(':').map(Number);
+  local.sunriseMin = (rH % 24) * 60 + rM;
+  local.sunsetMin = (sH % 24) * 60 + sM;
 
   return local;
 }
@@ -74,6 +65,25 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
 
   const handleTimeFormatToggle = useCallback(() => setUse12Hour((prev) => !prev), []);
 
+  // Fetch DX timezone from server API based on dxLocation lat/lon.
+  const [dxTimezone, setDxTimezone] = useState(null);
+
+  useEffect(() => {
+    if (dxLocation.lat != null && dxLocation.lon != null) {
+      const params = new URLSearchParams({
+        lat: dxLocation.lat,
+        lon: dxLocation.lon,
+      });
+      fetch(`/api/geo-time?${params}`)
+        .then((r) => r.json())
+        .then((data) => {
+          if (data.timezone) setDxTimezone(data.timezone);
+        })
+        .catch(() => {});
+    }
+  }, [dxLocation.lat, dxLocation.lon]);
+
+  // ─── Timer ───
   useEffect(() => {
     let timeout;
 
@@ -101,9 +111,7 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
   const deGrid = useMemo(() => latLonToMaidenhead(configLocation), [configLocation]);
   const dxGrid = useMemo(() => latLonToMaidenhead(dxLocation), [dxLocation]);
 
-  // Validate the timezone once per changed value, not on every render.
-  // new Intl.DateTimeFormat throws a RangeError for invalid values such as
-  // "Etc/Unknown" (returned by Node on minimal Linux containers with no TZ set).
+  // Validate the DE timezone once per changed value, not on every render.
   const safeTimezone = useMemo(() => {
     if (!timezone) return '';
     try {
@@ -114,12 +122,14 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
     }
   }, [timezone]);
 
+  // Sunrise/sunset in local time for DE station
   const deSunTimes = useMemo(() => {
-    // Calculate what sunrise and sunset are in local time.
-    let sunTimes = calculateSunTimes(configLocation.lat, configLocation.lon, currentTime);
-    sunTimes.local = convertTimeUTCtoLocal(sunTimes, safeTimezone, currentTime);
-    return sunTimes;
+    const sunTimes = calculateSunTimes(configLocation.lat, configLocation.lon, currentTime);
+    const local = convertTimeUTCtoLocal(sunTimes, safeTimezone, currentTime);
+    return { ...sunTimes, local };
   }, [configLocation, currentTime, safeTimezone]);
+
+  // Sunrise/sunset for DX station (UTC only — local shown via DXLocalTime)
   const dxSunTimes = useMemo(
     () => calculateSunTimes(dxLocation.lat, dxLocation.lon, currentTime),
     [dxLocation, currentTime],
@@ -128,14 +138,14 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
   const utcTime = currentTime.toISOString().substr(11, 8);
   const utcDate = currentTime.toISOString().substr(0, 10);
 
-  const localTimeOpts = { hour12: use12Hour };
-  const localDateOpts = { weekday: 'short', month: 'short', day: 'numeric' };
-  if (safeTimezone) {
-    localTimeOpts.timeZone = safeTimezone;
-    localDateOpts.timeZone = safeTimezone;
-  }
-  const localTime = currentTime.toLocaleTimeString('en-US', localTimeOpts);
-  const localDate = currentTime.toLocaleDateString('en-US', localDateOpts);
+  // Local time for DE station using Intl (no toLocaleString)
+  const timeOpts = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: use12Hour };
+  if (safeTimezone) timeOpts.timeZone = safeTimezone;
+  const localTime = new Intl.DateTimeFormat(undefined, timeOpts).format(currentTime);
+
+  const dateOpts = { weekday: 'short', month: 'short', day: 'numeric' };
+  if (safeTimezone) dateOpts.timeZone = safeTimezone;
+  const localDate = new Intl.DateTimeFormat(undefined, dateOpts).format(currentTime);
 
   return {
     currentTime,
@@ -150,5 +160,7 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
     dxGrid,
     deSunTimes,
     dxSunTimes,
+    safeTimezone,
+    dxTimezone,
   };
 }

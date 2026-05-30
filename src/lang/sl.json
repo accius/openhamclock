@@ -24,6 +24,8 @@
   "app.dxLock.unlockShort": "Odkleni DX položaj",
   "app.dxLock.unlockTooltip": "Odkleni DX položaj (dovoli klike na zemljevid)",
   "app.dxLock.unlocked": "🔓 DX odklenjen",
+  "app.dxTime.showLocal": "Show local time at DX location",
+  "app.dxTime.showUtc": "Show UTC time at DX location",
   "app.dxNews.decreaseTextSize": "Decrease text size",
   "app.dxNews.increaseTextSize": "Increase text size",
   "app.dxNews.pauseTooltip": "Kliknite za premor",

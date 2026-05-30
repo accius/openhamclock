@@ -1,35 +1,56 @@
-export function DXLocalTime({ currentTime, dxLocation, isLocal, onToggle, marginTop = '2px' }) {
-  const lon = dxLocation?.lon;
-  if (lon == null) return null;
+'use strict';
 
-  const lonNum = Number(lon);
-  if (!Number.isFinite(lonNum)) return null;
+import { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
+
+export function DXLocalTime({ currentTime, timezone }) {
+  const { t } = useTranslation();
+  const [isLocal, setIsLocal] = useState(() => {
+    try {
+      return localStorage.getItem('openhamclock_dxTimeDefault') === 'local';
+    } catch (e) {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('openhamclock_dxTimeDefault', isLocal ? 'local' : 'utc');
+    } catch (e) {}
+  }, [isLocal]);
+
+  if (!timezone) return null;
 
   const now = currentTime instanceof Date ? currentTime : new Date(currentTime);
   if (Number.isNaN(now.getTime())) return null;
 
-  // Approximate solar local time from longitude; not an IANA civil timezone conversion.
-  const utcOffsetH = Math.round(lonNum / 15);
-  const localDxDate = new Date(now.getTime() + utcOffsetH * 3600000);
-  const utcHh = String(now.getUTCHours()).padStart(2, '0');
-  const utcMm = String(now.getUTCMinutes()).padStart(2, '0');
-  const localHh = String(localDxDate.getUTCHours()).padStart(2, '0');
-  const localMm = String(localDxDate.getUTCMinutes()).padStart(2, '0');
-  const sign = utcOffsetH >= 0 ? '+' : '';
+  const utcTime = new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'UTC',
+  }).format(now);
+
+  const localTime = new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: timezone,
+  }).format(now);
 
   return (
-    <div style={{ color: 'var(--accent-cyan)', fontSize: '13px', marginTop }}>
-      {isLocal ? `${localHh}:${localMm}` : `${utcHh}:${utcMm}`}{' '}
+    <div style={{ color: 'var(--accent-cyan)', fontSize: '13px', marginTop: '2px' }}>
+      {isLocal ? localTime : utcTime}{' '}
       <span
-        onClick={onToggle}
+        onClick={() => setIsLocal((prev) => !prev)}
         title={
           isLocal
-            ? 'Show UTC time. Local time shown here is approximate solar time from longitude, not civil timezone.'
-            : `Show approximate solar local time at DX destination (UTC${sign}${utcOffsetH}), not civil timezone.`
+            ? t('app.dxTime.showUtc', 'Show UTC time at DX location')
+            : t('app.dxTime.showLocal', 'Show local time at DX location')
         }
         style={{ color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', userSelect: 'none' }}
       >
-        ({isLocal ? `Local UTC${sign}${utcOffsetH}` : 'UTC'}) ⇄
+        ({isLocal ? timezone : 'UTC'}) ⇄
       </span>
     </div>
   );
