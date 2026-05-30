@@ -160,7 +160,6 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
     dxGrid,
     deSunTimes,
     dxSunTimes,
-    safeTimezone,
     dxTimezone,
   };
 }
