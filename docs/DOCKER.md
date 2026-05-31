@@ -2,11 +2,21 @@
 
 ## Quick Start (Zero Config)
 
+Docker compose is the recommended way to deploy:
+
 ```bash
 git clone https://github.com/OpenHamClock/openhamclock.git
 cd openhamclock
 docker compose up -d
 ```
+
+or you can also use traditional docker commands:
+
+```bash
+docker run -d -p 3000:3000 --name openhamclock ghcr.io/accius/openhamclock:latest
+```
+
+This will pull the latest container image and start the OpenHamClock container
 
 Open **<http://localhost:3000>** — that's it. OpenHamClock runs with sensible defaults.
 
@@ -71,9 +81,11 @@ If running behind nginx/Caddy/Traefik, you may want to override the health check
 HEALTH_ENDPOINT=http://localhost:3000/api/health
 ```
 
-## Volumes (Optional)
+## Data persistence
 
-To persist stats and settings across container rebuilds:
+To persist stats and settings across container rebuilds you can either use volumes or bind mounts
+
+[Volumes](https://docs.docker.com/engine/storage/volumes/):
 
 ```yaml
 services:
@@ -84,12 +96,43 @@ volumes:
   ohc-data:
 ```
 
+[Bind mounts](https://docs.docker.com/engine/storage/bind-mounts/):
+
+```yaml
+services:
+  openhamclock:
+    volumes:
+      - ./ohc-data:/data
+```
+
 ## Updating
+
+Pull the latest image:
+
+```bash
+# If using compose
+docker compose pull
+
+# If using plain docker cli
+docker pull ghcr.io/accius/openhamclock:latest
+```
+
+or build from the main branch:
 
 ```bash
 git pull
 docker compose build --no-cache
+```
+
+then restart container with latest image:
+
+```bash
+# If using compose
 docker compose up -d
+
+# If using plain docker cli
+docker rm -f openhamclock
+docker run -d -p 3000:3000 --name openhamclock ghcr.io/accius/openhamclock:latest
 ```
 
 ## Configuration Priority
@@ -114,3 +157,10 @@ See `.env.example` for the complete list with descriptions. Key sections:
 - **N1MM** — `N1MM_UDP_ENABLED`, `N1MM_UDP_PORT`
 - **Weather** — `OPENWEATHER_API_KEY`, `VITE_AMBIENT_*`
 - **Advanced** — `ITURHFPROP_URL`, `HEALTH_ENDPOINT`, `CORS_ORIGINS`
+
+## Other Microservices
+
+You can also self-host other microservices, check their respective documentation for details:
+
+- [iturhfprop-service](../iturhfprop-service/README.md#docker)
+- [dxspider-proxy](../dxspider-proxy/README.md#docker)

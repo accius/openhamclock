@@ -16,6 +16,7 @@ export default function useAppConfig() {
   const [configLoaded, setConfigLoaded] = useState(false);
   const [showDxWeather, setShowDxWeather] = useState(true);
   const [classicAnalogClock, setClassicAnalogClock] = useState(false);
+  const [serverLocal, setServerLocal] = useState(false);
 
   useEffect(() => {
     const initConfig = async () => {
@@ -24,6 +25,7 @@ export default function useAppConfig() {
       if (serverCfg) {
         setShowDxWeather(serverCfg.showDxWeather !== false);
         setClassicAnalogClock(serverCfg.classicAnalogClock === true);
+        if (serverCfg.serverLocal) setServerLocal(true);
       }
 
       // 2. If server-side settings sync is enabled (self-hosted/Pi), load settings from server
@@ -82,5 +84,6 @@ export default function useAppConfig() {
     classicAnalogClock,
     setClassicAnalogClock,
     handleSaveConfig,
+    serverLocal,
   };
 }

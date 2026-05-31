@@ -117,6 +117,7 @@ const SHELTER_STATUS_COLORS = {
 export default function EmcommLayout(props) {
   const {
     config,
+    isLocalInstall,
     utcTime,
     utcDate,
     dxLocation,
@@ -571,6 +572,7 @@ export default function EmcommLayout(props) {
         <div style={{ position: 'relative', overflow: 'hidden' }}>
           <WorldMap
             config={config}
+            isLocalInstall={isLocalInstall}
             deLocation={config.location}
             dxLocation={dxLocation}
             onDXChange={handleDXChange}

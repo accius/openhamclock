@@ -138,6 +138,7 @@ export default function ClassicLayout(props) {
     dxpeditions,
     filteredPotaSpots,
     filteredSotaSpots,
+    isLocalInstall,
   } = props;
 
   const mapLegendBands = ['160', '80', '40', '30', '20', '17', '15', '12', '10', '8', '6', '4'];
@@ -912,6 +913,7 @@ export default function ClassicLayout(props) {
         <div style={{ position: 'relative', overflow: 'hidden' }}>
           <WorldMap
             config={config}
+            isLocalInstall={isLocalInstall}
             deLocation={config.location}
             dxLocation={dxLocation}
             onDXChange={handleDXChange}
@@ -1429,6 +1431,7 @@ export default function ClassicLayout(props) {
         <div style={{ flex: 1, position: 'relative' }}>
           <WorldMap
             config={config}
+            isLocalInstall={isLocalInstall}
             deLocation={config.location}
             dxLocation={dxLocation}
             onDXChange={handleDXChange}
@@ -2103,6 +2106,7 @@ export default function ClassicLayout(props) {
         <div style={{ flex: 1, position: 'relative' }}>
           <WorldMap
             config={config}
+            isLocalInstall={isLocalInstall}
             deLocation={config.location}
             dxLocation={dxLocation}
             onDXChange={handleDXChange}

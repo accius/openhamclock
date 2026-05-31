@@ -178,19 +178,26 @@ export const ContestPanel = ({ data, loading }) => {
             </span>
           )}
           {/* Toggle: open contest links in WA7BNM */}
-          <span
+          <button
+            type="button"
             onClick={toggleContestLinks}
             title={openContestLinks ? 'Click contest names to open WA7BNM (ON)' : 'Contest links disabled (OFF)'}
+            aria-label={openContestLinks ? 'Disable contest links' : 'Enable contest links'}
+            aria-pressed={openContestLinks}
             style={{
               cursor: 'pointer',
               fontSize: '11px',
               opacity: openContestLinks ? 1 : 0.4,
               userSelect: 'none',
               transition: 'opacity 0.2s',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              color: 'inherit',
             }}
           >
             🔗
-          </span>
+          </button>
         </div>
       </div>
 
@@ -250,8 +257,11 @@ export const ContestPanel = ({ data, loading }) => {
                       </span>
                     )}
                     {soon && !live && <span style={{ color: '#fbbf24', fontSize: '8px' }}>◐</span>}
-                    <span
+                    <button
+                      type="button"
                       onClick={(e) => handleContestClick(contest, e)}
+                      title={openContestLinks ? `Open ${contest.name} on WA7BNM Contest Calendar` : contest.name}
+                      aria-label={openContestLinks ? `Open ${contest.name} on WA7BNM Contest Calendar` : contest.name}
                       style={{
                         color: live ? '#ef4444' : 'var(--text-primary)',
                         fontWeight: '600',
@@ -260,20 +270,24 @@ export const ContestPanel = ({ data, loading }) => {
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
                         cursor: openContestLinks ? 'pointer' : 'default',
-                        textDecoration: openContestLinks ? 'none' : 'none',
+                        textDecoration: 'none',
+                        border: 'none',
                         borderBottom: openContestLinks ? '1px dotted rgba(255,255,255,0.2)' : 'none',
                         transition: 'color 0.15s',
+                        background: 'none',
+                        padding: 0,
+                        textAlign: 'left',
+                        font: 'inherit',
                       }}
                       onMouseEnter={(e) => {
-                        if (openContestLinks) e.target.style.color = 'var(--accent-cyan)';
+                        if (openContestLinks) e.currentTarget.style.color = 'var(--accent-cyan)';
                       }}
                       onMouseLeave={(e) => {
-                        if (openContestLinks) e.target.style.color = live ? '#ef4444' : 'var(--text-primary)';
+                        if (openContestLinks) e.currentTarget.style.color = live ? '#ef4444' : 'var(--text-primary)';
                       }}
-                      title={openContestLinks ? `Open ${contest.name} on WA7BNM Contest Calendar` : contest.name}
                     >
                       {contest.name}
-                    </span>
+                    </button>
                   </div>
                   <div
                     style={{

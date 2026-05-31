@@ -679,6 +679,7 @@ export const DockableApp = ({
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <WorldMap
         config={config}
+        isLocalInstall={isLocalInstall}
         deLocation={config.location}
         dxLocation={dxLocation}
         onDXChange={handleDXChange}

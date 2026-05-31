@@ -103,7 +103,10 @@ const latLonToMaidenhead = ({ lat, lon }, precision = 6) => {
   if (lon < -180 || lon > 180) throw new Error('invalid longitude, it should be between -180 and 180');
 
   const latNorm = lat + 90;
-  const lonNorm = lon + 180;
+
+  // Handle case where longitude is given as +180, which should be treated as -180,
+  // by normalizing to 0-360 range first then applying modulus again to get back to -180..180 range.
+  const lonNorm = (((lon + 180) % 360) + 360) % 360;
 
   // Field (2 chars): 20° lon x 10° lat
   const field1 = String.fromCharCode(65 + Math.floor(lonNorm / 20)); // A-R

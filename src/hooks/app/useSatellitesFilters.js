@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { syncAllSettingsToServer } from '../../utils';
 
-export default function useSatellitesFilters(satellitesData) {
+export function useSatelliteFilterState() {
   const [satelliteFilters, setSatelliteFilters] = useState(() => {
     try {
       const saved = localStorage.getItem('openhamclock_satelliteFilters');
@@ -19,6 +19,16 @@ export default function useSatellitesFilters(satellitesData) {
       syncAllSettingsToServer();
     } catch (e) {}
   }, [satelliteFilters]);
+
+  return { satelliteFilters, setSatelliteFilters };
+}
+
+export default function useSatellitesFilters(satellitesData, externalState) {
+  if (!externalState) {
+    throw new Error('useSatellitesFilters requires externalState to be provided');
+  }
+
+  const { satelliteFilters, setSatelliteFilters } = externalState;
 
   const filteredSatellites = useMemo(() => {
     // If no satellites are selected in the filter, show NONE (empty array)

@@ -148,6 +148,7 @@ export default function ModernLayout(props) {
     <div style={{ position: 'relative', borderRadius: '6px', overflow: 'hidden', ...style }}>
       <WorldMap
         config={config}
+        isLocalInstall={isLocalInstall}
         deLocation={config.location}
         dxLocation={dxLocation}
         onDXChange={handleDXChange}

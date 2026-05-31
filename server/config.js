@@ -98,6 +98,7 @@ const CONFIG = {
   gridSquare: locator || jsonConfig.locator || '',
   latitude: Number.isFinite(stationLat) ? stationLat : 40.7128,
   longitude: Number.isFinite(stationLon) ? stationLon : -74.006,
+  serverLocal: process.env.SERVERLOCAL === 'true' || jsonConfig.serverLocal === true,
 
   // Display preferences
   units: process.env.UNITS || jsonConfig.units || 'imperial',

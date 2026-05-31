@@ -20,7 +20,6 @@ import {
 import { useTheme } from '../theme/useTheme';
 import ThemeSelector from './ThemeSelector';
 import CustomThemeEditor from './CustomThemeEditor';
-import useLocalInstall from '../hooks/app/useLocalInstall.js';
 import { emojiToIso2 } from '../utils/countryFlags';
 import { getAlertSettings, saveAlertSettings, playTone, TONE_PRESETS, ALERT_FEEDS } from '../utils/audioAlerts';
 import { setRelaySessionId, setRelayConfigured, clearRelaySession } from '../utils/relaySession';
@@ -41,6 +40,7 @@ export const SettingsPanel = ({
   wakeLockStatus,
   defaultTab,
   wsjtxSessionId,
+  isLocalInstall,
 }) => {
   const { theme, setTheme, customTheme, updateCustomVar } = useTheme();
 
@@ -101,7 +101,6 @@ export const SettingsPanel = ({
   const [wsjtxRelayStatus, setWsjtxRelayStatus] = useState(null); // null | 'pushing' | 'ok' | 'error'
   const [wsjtxRelayMsg, setWsjtxRelayMsg] = useState('');
   const [satelliteSearch, setSatelliteSearch] = useState('');
-  const isLocalInstall = useLocalInstall();
   const [rotatorEnabled, setRotatorEnabled] = useState(() => {
     try {
       return localStorage.getItem('ohc_rotator_enabled') === '1';
