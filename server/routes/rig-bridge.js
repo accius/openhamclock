@@ -189,6 +189,12 @@ module.exports = function (app, ctx) {
         // can reconnect after a server restart without re-authenticating.
       }
     }
+    // Prune auth-warn rate-limit entries older than two intervals so the map
+    // doesn't grow unboundedly when clients cycle through many bad sessionIds.
+    const authWarnCutoff = Date.now() - AUTH_WARN_INTERVAL * 2;
+    for (const [k, ts] of authWarnLastLogged) {
+      if (ts < authWarnCutoff) authWarnLastLogged.delete(k);
+    }
   }, 300000); // Every 5 minutes
 
   // ─── Relay Auth ───────────────────────────────────────────────────────

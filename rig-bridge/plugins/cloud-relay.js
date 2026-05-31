@@ -128,7 +128,7 @@ const descriptor = {
         );
       }
       console.error(
-        '[CloudRelay] Stopping relay — re-run Connect Cloud Relay in OHC Settings → Rig Bridge to get fresh credentials',
+        '[CloudRelay] Stopping relay — re-run Connect Cloud Relay in OHC Settings → Rig Bridge to get fresh credentials, then restart rig-bridge',
       );
       // Stop push timer
       if (pushTimer) {
