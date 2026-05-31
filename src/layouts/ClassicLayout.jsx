@@ -105,6 +105,8 @@ export default function ClassicLayout(props) {
     deSunTimes,
     dxSunTimes,
     dxTimezone,
+    dxTimezoneApiError,
+    dxSolarFallback,
     currentTime,
     tempUnit,
     setTempUnit,
@@ -901,7 +903,13 @@ export default function ClassicLayout(props) {
                     </>
                   )}
                 </div>
-                {dxTimezone && <DXLocalTime currentTime={currentTime} timezone={dxTimezone} />}
+                {dxLocation.lat != null && dxLocation.lon != null && (
+                  <DXLocalTime
+                    currentTime={currentTime}
+                    timezone={dxTimezone}
+                    solarTimezone={dxSolarFallback}
+                  />
+                )}
                 <div style={{ marginTop: '6px', color: '#ff8800', fontSize: '18px', fontWeight: '600' }}>
                   <span>{bearing != null ? `${bearing}°` : '--°'}</span>
                   <span style={{ marginLeft: '12px' }}>{distStr}</span>

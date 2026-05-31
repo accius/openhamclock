@@ -1,7 +1,7 @@
 'use strict';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { latLonToMaidenhead, calculateSunTimes } from '../../utils';
+import { latLonToMaidenhead, calculateSunTimes, calculateSolarTimezone } from '../../utils';
 
 /**
  * Convert UTC sunrise/sunset times to local time using Intl.
@@ -66,22 +66,49 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
   const handleTimeFormatToggle = useCallback(() => setUse12Hour((prev) => !prev), []);
 
   // Fetch DX timezone from server API based on dxLocation lat/lon.
+  // Uses AbortController to cancel stale requests when coordinates change
+  // quickly, and to enforce a 5-second timeout so a hung server doesn't
+  // block the solar fallback indefinitely.
   const [dxTimezone, setDxTimezone] = useState(null);
 
   useEffect(() => {
-    if (dxLocation.lat != null && dxLocation.lon != null) {
-      const params = new URLSearchParams({
-        lat: dxLocation.lat,
-        lon: dxLocation.lon,
+    if (dxLocation.lat == null || dxLocation.lon == null) return;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+    const params = new URLSearchParams({
+      lat: dxLocation.lat,
+      lon: dxLocation.lon,
+    });
+    fetch(`/api/geo-time?${params}`, { signal: controller.signal })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.timezone) {
+          setDxTimezone(data.timezone);
+          //setDxTimezoneApiError(false);
+        } else {
+          setDxTimezone(null);
+          //setDxTimezoneApiError(true);
+        }
+      })
+      .catch((err) => {
+        setDxTimezone(null);
+        //setDxTimezoneApiError(true);
       });
-      fetch(`/api/geo-time?${params}`)
-        .then((r) => r.json())
-        .then((data) => {
-          if (data.timezone) setDxTimezone(data.timezone);
-        })
-        .catch(() => {});
-    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
   }, [dxLocation.lat, dxLocation.lon]);
+
+  // Solar-time fallback: compute an IANA-compatible "Etc/GMT" zone from longitude.
+  // Always available regardless of API status.
+  const dxSolarFallback = useMemo(
+    () => calculateSolarTimezone(dxLocation.lon),
+    [dxLocation.lon],
+  );
 
   // ─── Timer ───
   useEffect(() => {
@@ -161,5 +188,6 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
     deSunTimes,
     dxSunTimes,
     dxTimezone,
+    dxSolarFallback,
   };
 }

@@ -67,6 +67,7 @@ export default function ModernLayout(props) {
     deSunTimes,
     dxSunTimes,
     dxTimezone,
+    dxSolarFallback,
     showDxWeather,
     currentTime,
     classicAnalogClock,
@@ -311,7 +312,13 @@ export default function ModernLayout(props) {
         {showDxccSelect && (
           <DXCCSelect dxLocked={dxLocked} onDXChange={handleDXChange} style={{ margin: '5px 0 10px 0' }} />
         )}
-        {dxTimezone && <DXLocalTime currentTime={currentTime} timezone={dxTimezone} />}
+        {dxLocation.lat != null && dxLocation.lon != null && (
+          <DXLocalTime
+            currentTime={currentTime}
+            timezone={dxTimezone}
+            solarTimezone={dxSolarFallback}
+          />
+        )}
         <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '8px' }}>
           {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
         </div>

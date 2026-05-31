@@ -412,6 +412,7 @@ const App = () => {
     deSunTimes,
     dxSunTimes,
     dxTimezone,
+    dxSolarFallback,
   } = useTimeState(config.location, dxLocation, config.timezone);
 
   const filteredPskSpots = useMemo(() => {
@@ -545,6 +546,7 @@ const App = () => {
     deSunTimes,
     dxSunTimes,
     dxTimezone,
+    dxSolarFallback,
     localWeather,
     dxWeather,
     localAlerts,

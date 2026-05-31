@@ -161,6 +161,7 @@ export const DockableApp = ({
   handleFullscreenToggle,
   isFullscreen,
   dxTimezone,
+  dxSolarFallback,
 
   // Update
   handleUpdateClick,
@@ -594,7 +595,13 @@ export const DockableApp = ({
             {showDxccSelect && (
               <DXCCSelect dxLocked={dxLocked} onDXChange={handleDXChange} style={{ margin: '5px 0 10px 0' }} />
             )}
-            {dxTimezone && <DXLocalTime currentTime={currentTime} timezone={dxTimezone} />}
+            {dxLocation.lat != null && dxLocation.lon != null && (
+              <DXLocalTime
+                currentTime={currentTime}
+                timezone={dxTimezone}
+                solarTimezone={dxSolarFallback}
+              />
+            )}
             <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
               {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
             </div>
