@@ -1,7 +1,37 @@
 import { describe, it, expect } from 'vitest';
 import { validateGridLocator, latLonToMaidenhead, maidenheadToLatLon, maidenheadToBoundingBox } from './geo.js';
-import { getSunPosition } from './geo.js';
+import { getSunPosition, getMoonPosition, getMoonPhase } from './geo.js';
 import { normalizeLon } from './geo.js';
+
+// normalize to [−π, +π)
+const normalizeRadians = (r) => {
+  const twoPi = 2 * Math.PI;
+  const x = ((r % twoPi) + twoPi) % twoPi; // now in [0, 2π)
+  return x >= Math.PI ? x - twoPi : x; // map [π, 2π) → [−π, 0)
+};
+const normalizeDegrees360 = (d) => {
+  return ((d % 360) + 360) % 360;
+};
+const normalizeDegrees180 = (d) => {
+  return ((((d + 180) % 360) + 360) % 360) - 180;
+};
+const deg2rad = (d) => {
+  return (d * Math.PI) / 180;
+};
+const rad2deg = (r) => {
+  return (r * 180) / Math.PI;
+};
+// Convert H:M:S → radians
+const hmsToRad = (h, m, s) => {
+  const hours = h + m / 60 + s / 3600;
+  return (hours / 24) * 2 * Math.PI;
+};
+// Convert D:M:S → radians
+const dmsToRad = (d, m, s) => {
+  const sign = d < 0 ? -1 : 1;
+  const deg = Math.abs(d) + m / 60 + s / 3600;
+  return sign * deg * (Math.PI / 180);
+};
 
 describe('Maidenhead Grid tests', () => {
   const gridCases = [
@@ -169,7 +199,7 @@ describe('Maidenhead Grid tests', () => {
   }
 });
 
-describe('Sun/Moon tests', () => {
+describe('Sun tests', () => {
   const sunEphemerisCases = [
     // based on https://eclipse.gsfc.nasa.gov/TYPE/sun1.html#su2000
     {
@@ -241,21 +271,96 @@ describe('Sun/Moon tests', () => {
       expect(Math.abs(normalizeDegrees180(sunPosition.lon - point.lon))).toBeLessThan(maxAllowedDeltaLon);
     });
   }
+});
 
-  function normalizeDegrees360(d) {
-    return ((d % 360) + 360) % 360;
+describe('Moon tests', () => {
+  // with reference to ephereris https://ssd.jpl.nasa.gov/horizons/app.html#/
+  // sampled over a 28-day period
+  const moonEphemerisCases = [
+    {
+      date: '2026-05-27T00:00:00Z',
+      raRad: hmsToRad(12, 57, 13.11),
+      decRad: dmsToRad(-9, 48, 29.6),
+    },
+    {
+      date: '2026-06-03T00:00:00Z',
+      raRad: hmsToRad(18, 48, 36.77),
+      decRad: dmsToRad(-26, 55, 51.1),
+    },
+    {
+      date: '2026-06-10T00:00:00Z',
+      raRad: hmsToRad(0, 25, 53.25),
+      decRad: dmsToRad(6, 1, 4.2),
+    },
+    {
+      date: '2026-06-17T00:00:00Z',
+      raRad: hmsToRad(7, 38, 4.91),
+      decRad: dmsToRad(24, 47, 13.9),
+    },
+    {
+      date: '2026-06-24T00:00:00Z',
+      raRad: hmsToRad(13, 31, 1.59),
+      decRad: dmsToRad(-13, 58, 59.0),
+    },
+  ];
+
+  // Convert JS Date → Julian Date
+  function julianDate(date) {
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth() + 1;
+    const day = date.getUTCDate() + (date.getUTCHours() + (date.getUTCMinutes() + date.getUTCSeconds() / 60) / 60) / 24;
+
+    let Y = year;
+    let M = month;
+    if (M <= 2) {
+      Y -= 1;
+      M += 12;
+    }
+
+    const A = Math.floor(Y / 100);
+    const B = 2 - A + Math.floor(A / 4);
+
+    return Math.floor(365.25 * (Y + 4716)) + Math.floor(30.6001 * (M + 1)) + day + B - 1524.5;
   }
-  function normalizeDegrees180(d) {
-    return ((((d + 180) % 360) + 360) % 360) - 180;
+
+  // Compute GMST (radians)
+  function gmstFromJD(jd) {
+    const T = (jd - 2451545.0) / 36525.0;
+    const gmstSec = 67310.54841 + (876600 * 3600 + 8640184.812866) * T + 0.093104 * T * T - 6.2e-6 * T * T * T;
+    return (((gmstSec * (Math.PI / 43200)) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
   }
-  function normalizeRadians(r) {
-    return ((r % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+
+  // Main function: RA/Dec + UTC → sublunar lat/lon
+  function sublunarPoint(dateUTC, raRad, decRad) {
+    const jd = julianDate(dateUTC);
+    const gmst = gmstFromJD(jd);
+
+    // Approximate sublunar point
+    const lonRad = normalizeRadians(raRad - gmst);
+    const latRad = decRad;
+
+    return {
+      lat: rad2deg(latRad),
+      lon: rad2deg(lonRad),
+    };
   }
-  function deg2rad(d) {
-    return (d * Math.PI) / 180;
-  }
-  function rad2deg(r) {
-    return (r * 180) / Math.PI;
+
+  for (const ephemeris of moonEphemerisCases) {
+    it('should validate getMoonPosition() for known position', () => {
+      const date = new Date(ephemeris.date);
+      const targetFunctionResult = getMoonPosition(date); // target function
+      const ephemerisResult = sublunarPoint(date, ephemeris.raRad, ephemeris.decRad); // internal calculation from ephemeris
+
+      // check absolute difference in tested and calculated values does not exceed maximum allowed
+      const maxAllowedDeltaLat = 0.25;
+      const maxAllowedDeltaLon = 0.45;
+      expect(Math.abs(normalizeDegrees180(targetFunctionResult.lat - ephemerisResult.lat))).toBeLessThan(
+        maxAllowedDeltaLat,
+      );
+      expect(Math.abs(normalizeDegrees180(targetFunctionResult.lon - ephemerisResult.lon))).toBeLessThan(
+        maxAllowedDeltaLon,
+      );
+    });
   }
 });
 

@@ -21,7 +21,7 @@ OpenHamClock brings DX cluster spots, space weather, propagation predictions, PO
 ### Container Deployment
 
 Container images are available from the github container registry at `ghcr.io/accius/openhamclock`
-Follow [these steps](#using-docker) for a docker-based deployment
+Follow [the quick-start steps](docs/DOCKER.md#quick-start-zero-config)
 
 ### Local Install
 
@@ -96,7 +96,7 @@ npm run dev
 
 ### Enabling Client-side Propagation Calculation (without having to build it)
 
-If you want your clients (using your local server) to use the p533 modules for client side propagation calculation rather than the very rough estimates (which are based on band and time of day), run teh following as the user who can write to your repository.
+If you want your clients (using your local server) to use the p533 modules for client side propagation calculation rather than the very rough estimates (which are based on band and time of day), run the following as the user who can write to your repository.
 
 ```bash
 scripts/fetch-wasm.sh
@@ -1059,35 +1059,7 @@ The Pi setup script installs Node.js 22 LTS, clones the repository, builds the f
 
 ### Using Docker
 
-**Docker Compose (recommended):**
-
-Grab `docker-compose.yml` and `.env.example` from the repo root, rename `.env.example` to `.env` and adjust the variables in `.env` to configure OpenHamClock.
-
-Start the container:
-
-```bash
-docker compose up -d
-```
-
-**Manual Docker build:**
-
-```bash
-docker build -t openhamclock .
-docker run -d -p 3000:3000 -p 2237:2237/udp --name openhamclock openhamclock
-```
-
-The Dockerfile uses a multi-stage build: Stage 1 compiles the React frontend with Vite, Stage 2 creates a minimal production image with only the server and built assets. The UDP port mapping (`-p 2237:2237/udp`) is only needed if you use WSJT-X integration.
-
-**Environment variables:** Pass your configuration via Docker environment variables:
-
-```bash
-docker run -d \
-  -p 3000:3000 \
-  -e CALLSIGN=K0CJH \
-  -e LOCATOR=EN10 \
-  -e HOST=0.0.0.0 \
-  openhamclock
-```
+Follow the [docker documentation](docs/DOCKER.md)
 
 ### Railway (Cloud)
 
@@ -1223,10 +1195,7 @@ On local installs, you can also click the **UPDATE** button in the header to sta
 
 ### Docker
 
-```bash
-docker-compose pull
-docker-compose up -d
-```
+[Docker documentation on updating](docs/DOCKER.md#updating)
 
 ### Railway
 

@@ -43,6 +43,8 @@ export function addMinimizeToggle(element, storageKey, options = {}) {
     button.innerHTML = '▶';
     button.style.transform = isMinimized ? 'rotate(0deg)' : 'rotate(90deg)';
     element.style.cursor = isMinimized ? 'pointer' : 'default';
+    button.setAttribute('aria-pressed', String(isMinimized));
+    button.setAttribute('aria-label', isMinimized ? 'Expand panel' : 'Minimize panel');
   };
 
   if (existingButton && existingWrapper) {
@@ -63,6 +65,8 @@ export function addMinimizeToggle(element, storageKey, options = {}) {
           existingButton.innerHTML = '▶';
           existingButton.style.transform = next ? 'rotate(90deg)' : 'rotate(0deg)';
           element.style.cursor = next ? 'pointer' : 'default';
+          existingButton.setAttribute('aria-pressed', String(next));
+          existingButton.setAttribute('aria-label', next ? 'Expand panel' : 'Minimize panel');
           writeState(next);
         },
         { signal },
@@ -121,6 +125,8 @@ export function addMinimizeToggle(element, storageKey, options = {}) {
       contentWrapper.style.display = hidden ? 'block' : 'none';
       minimizeBtn.style.transform = hidden ? 'rotate(90deg)' : 'rotate(0deg)';
       element.style.cursor = hidden ? 'default' : 'pointer';
+      minimizeBtn.setAttribute('aria-pressed', String(!hidden));
+      minimizeBtn.setAttribute('aria-label', hidden ? 'Minimize panel' : 'Expand panel');
       writeState(!hidden);
     },
     { signal },

@@ -7,8 +7,8 @@
 # ═══════════════════════════════════════════════════════════════════
 #
 #   Raspberry Pi 3B / 3B+   (32-bit and 64-bit Raspberry Pi OS)
-#   Raspberry Pi 4           (32-bit and 64-bit Raspberry Pi OS)
-#   Raspberry Pi 5           (64-bit Raspberry Pi OS)
+#   Raspberry Pi 4          (32-bit and 64-bit Raspberry Pi OS)
+#   Raspberry Pi 5          (64-bit Raspberry Pi OS)
 #
 #   Other Debian-based ARM boards may work but are not tested.
 #   Non-Raspberry Pi hardware will trigger a warning and prompt.
@@ -96,11 +96,10 @@
 # USAGE
 # ═══════════════════════════════════════════════════════════════════
 #
-#   chmod +x setup-pi.sh
-#   ./setup-pi.sh               # server only (no kiosk)
-#   ./setup-pi.sh --kiosk       # server + fullscreen kiosk on boot
-#   ./setup-pi.sh --server      # headless server, no GUI packages
-#   ./setup-pi.sh --help        # show option summary
+#   scripts/setup-pi.sh               # server only (no kiosk)
+#   scripts/setup-pi.sh --kiosk       # server + fullscreen kiosk on boot
+#   scripts/setup-pi.sh --server      # headless server, no GUI packages
+#   scripts/setup-pi.sh --help        # show option summary
 #
 #   After installation, edit ~/openhamclock/.env to set your
 #   CALLSIGN and LOCATOR before (re)starting the service.
@@ -112,7 +111,7 @@ set -e
 RED=$(tput setaf 1)
 GREEN=$(tput setaf 2)
 YELLOW=$(tput setaf 3; tput bold)
-BLUE=$(tput setaf 4)
+CYAN=$(tput setaf 6)
 NC=$(tput sgr0) # No Color
 
 # Configuration
@@ -121,7 +120,7 @@ SERVICE_NAME="openhamclock"
 NODE_VERSION="22"
 
 # Print banner
-echo -e "${BLUE}"
+echo -e "${CYAN}"
 echo "╔═══════════════════════════════════════════════════════════╗"
 echo "║                                                           ║"
 echo "║   ██████╗ ██████╗ ███████╗███╗   ██╗                      ║"
@@ -161,7 +160,7 @@ done
 # Check if running on Raspberry Pi
 check_raspberry_pi() {
     if [ -f /proc/device-tree/model ]; then
-        MODEL=$(cat /proc/device-tree/model)
+        MODEL=$(tr -d '\0' < /proc/device-tree/model)
         echo -e "${GREEN}✓ Detected: $MODEL${NC}"
     else
         echo -e "${YELLOW}⚠ Warning: This doesn't appear to be a Raspberry Pi${NC}"
@@ -175,7 +174,7 @@ check_raspberry_pi() {
 
 # Update system
 update_system() {
-    echo -e "${BLUE}>>> Updating system packages...${NC}"
+    echo -e "${CYAN}>>> Updating system packages...${NC}"
     sudo apt-get update -qq
     # DEBIAN_FRONTEND=noninteractive suppresses dpkg interactive prompts.
     # --force-confold keeps existing config files when a package ships a new version
@@ -188,7 +187,7 @@ update_system() {
 
 # Install Node.js
 install_nodejs() {
-    echo -e "${BLUE}>>> Installing Node.js ${NODE_VERSION}...${NC}"
+    echo -e "${CYAN}>>> Installing Node.js ${NODE_VERSION}...${NC}"
 
     # Check if Node.js is already installed
     if command -v node &> /dev/null; then
@@ -206,7 +205,7 @@ install_nodejs() {
         # The official nodejs.org project still publishes armv7l tarballs, so we
         # download and install those directly instead.
         echo -e "${YELLOW}⚠ 32-bit ARM (armhf) detected — NodeSource does not support this architecture.${NC}"
-        echo -e "${BLUE}  Downloading official Node.js ${NODE_VERSION} armv7l binary from nodejs.org...${NC}"
+        echo -e "${CYAN}  Downloading official Node.js ${NODE_VERSION} armv7l binary from nodejs.org...${NC}"
 
         NODE_DIST_BASE="https://nodejs.org/dist/latest-v${NODE_VERSION}.x"
         NODE_TARBALL=$(curl -fsSL "$NODE_DIST_BASE/" \
@@ -222,7 +221,7 @@ install_nodejs() {
         # Piping curl directly into tar gives no retry opportunity on a
         # dropped connection; saving to disk first lets curl resume/retry
         # and keeps extraction separate so errors are easier to diagnose.
-        echo -e "${BLUE}  Installing $NODE_TARBALL ...${NC}"
+        echo -e "${CYAN}  Installing $NODE_TARBALL ...${NC}"
         NODE_TMPFILE=$(mktemp /tmp/nodejs-armv7l-XXXXXX.tar.gz)
         curl -fsSL \
             --retry 3 --retry-delay 5 --retry-connrefused \
@@ -252,7 +251,7 @@ install_nodejs() {
 
 # Install dependencies
 install_dependencies() {
-    echo -e "${BLUE}>>> Installing system dependencies...${NC}"
+    echo -e "${CYAN}>>> Installing system dependencies...${NC}"
     
     # fonts-noto-color-emoji: required for emoji icons to render in Chromium on Linux/Pi.
     # Without this package, weather symbols, band indicators, and other emoji display as blank boxes.
@@ -275,7 +274,7 @@ install_dependencies() {
 
 # Clone or update repository
 setup_repository() {
-    echo -e "${BLUE}>>> Setting up OpenHamClock...${NC}"
+    echo -e "${CYAN}>>> Setting up OpenHamClock...${NC}"
     
     if [ -d "$INSTALL_DIR" ]; then
         echo "Updating existing installation..."
@@ -299,7 +298,7 @@ setup_repository() {
     ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm install --include=dev --ignore-scripts
 
     # Download vendor assets (fonts, Leaflet) for self-hosting — no external CDN requests
-    echo -e "${BLUE}>>> Downloading vendor assets for privacy...${NC}"
+    echo -e "${CYAN}>>> Downloading vendor assets for privacy...${NC}"
     bash scripts/vendor-download.sh || echo -e "${YELLOW}⚠ Vendor download failed — will fall back to CDN${NC}"
 
     # Build frontend for production
@@ -314,11 +313,11 @@ setup_repository() {
 
     # Create .env from the example template if it doesn't exist yet.
     # The example defaults PORT=3001 (dev mode, to avoid conflicts with Vite).
-    # On a Pi production install everything runs on port 3000, so override that.
+    # On a Pi production install everything runs on port 3001, so override that.
     if [ ! -f .env ]; then
         cp .env.example .env
         # Switch to the production port used by the systemd service and kiosk
-        sed -i 's/^PORT=3001$/PORT=3000/' .env
+        sed -i 's/^PORT=3000$/PORT=3001/' .env
         # Enable server-side settings sync for Pi (single-user kiosk deployment).
         # With SETTINGS_SYNC=true the UI reads/writes its settings (callsign, locator,
         # layout, theme, etc.) from the server instead of browser localStorage.
@@ -337,7 +336,7 @@ setup_repository() {
 
 # Create systemd service
 create_service() {
-    echo -e "${BLUE}>>> Creating systemd service...${NC}"
+    echo -e "${CYAN}>>> Creating systemd service...${NC}"
 
     # Resolve the node binary path at install time so the service works regardless
     # of whether Node was installed via NodeSource deb, nvm, or any other method.
@@ -364,7 +363,7 @@ SuccessExitStatus=75
 Environment=NODE_ENV=production
 # PORT is read from .env; set here only as a fallback so the service always
 # has a defined value even if .env is missing or PORT is not set there.
-Environment=PORT=3000
+Environment=PORT=3001
 
 [Install]
 WantedBy=multi-user.target
@@ -379,7 +378,7 @@ EOF
 
 # Setup kiosk mode
 setup_kiosk() {
-    echo -e "${BLUE}>>> Configuring kiosk mode...${NC}"
+    echo -e "${CYAN}>>> Configuring kiosk mode...${NC}"
     
     # Disable screen blanking (0 = disable, 1 = enable — keep the screen on for kiosk)
     sudo raspi-config nonint do_blanking 0 2>/dev/null || true
@@ -441,7 +440,7 @@ fi
 # ------------------------------------------------------------------
 # Wait for the OpenHamClock server to be ready (max 60 seconds)
 # ------------------------------------------------------------------
-HEALTH_URL="http://localhost:3000/api/health"
+HEALTH_URL="http://localhost:3001/api/health"
 MAX_WAIT=60
 WAITED=0
 until curl -s "$HEALTH_URL" > /dev/null 2>&1; do
@@ -494,7 +493,7 @@ $CHROME_CMD \
     --password-store=basic \
     --user-data-dir="$HOME/.config/openhamclock-kiosk" \
     $CHROMIUM_EXTRA_FLAGS \
-    http://localhost:3000 &
+    http://localhost:3001 &
 
 CHROME_PID=$!
 
@@ -549,7 +548,7 @@ EOF
 
 # Create helper scripts
 create_scripts() {
-    echo -e "${BLUE}>>> Creating helper scripts...${NC}"
+    echo -e "${CYAN}>>> Creating helper scripts...${NC}"
     
     # Start script
     cat > "$INSTALL_DIR/start.sh" << EOF
@@ -584,7 +583,7 @@ echo "=== OpenHamClock Status ==="
 sudo systemctl status ${SERVICE_NAME} --no-pager
 echo ""
 echo "=== Server Health ==="
-curl -s http://localhost:3000/api/health | python3 -m json.tool 2>/dev/null || echo "Server not responding"
+curl -s http://localhost:3001/api/health | python3 -m json.tool 2>/dev/null || echo "Server not responding"
 EOF
     chmod +x "$INSTALL_DIR/status.sh"
     
@@ -598,8 +597,8 @@ print_summary() {
     echo -e "${GREEN}║              Installation Complete!                       ║${NC}"
     echo -e "${GREEN}╚═══════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo -e "  ${BLUE}Installation Directory:${NC} $INSTALL_DIR"
-    echo -e "  ${BLUE}Web Interface:${NC} http://localhost:3000"
+    echo -e "  ${CYAN}Installation Directory:${NC} $INSTALL_DIR"
+    echo -e "  ${CYAN}Web Interface:${NC} http://localhost:3001"
     echo ""
     echo -e "  ${YELLOW}Helper Commands:${NC}"
     echo "    $INSTALL_DIR/scripts/update.sh - Update to latest version"
@@ -629,7 +628,7 @@ print_summary() {
         echo ""
     fi
     
-    echo -e "  ${BLUE}73 de OpenHamClock!${NC}"
+    echo -e "  ${CYAN}73 de OpenHamClock!${NC}"
     echo ""
     
     if [ "$KIOSK_MODE" = true ]; then

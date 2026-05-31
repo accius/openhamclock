@@ -267,6 +267,7 @@ export const WeatherPanel = ({
             return (
               <div
                 key={alert.id || i}
+                role="alert"
                 style={{
                   display: 'flex',
                   alignItems: 'flex-start',

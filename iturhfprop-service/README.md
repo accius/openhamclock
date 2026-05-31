@@ -111,29 +111,36 @@ The Dockerfile will:
 
 ### Docker
 
-```bash
-# Build
-docker build -t iturhfprop-service .
-
-# Run
-docker run -p 3000:3000 iturhfprop-service
-
-# Test
-curl http://localhost:3000/api/health
-```
+#### Compose
 
 If using a compose file, you can also add it as an additional service:
 
 ```yaml
 services:
-  openhamclock:
-    ...
+  openhamclock: ...
 
   iturhfprop:
     build:
       context: ./iturhfprop-service # path to this subdirectory in the openhamclock repo
+    image: ghcr.io/accius/iturhfprop-service:latest
     restart: unless-stopped
     container_name: iturhfprop
+```
+
+#### CLI
+
+```bash
+# Build
+docker build -t iturhfprop-service .
+
+# or Pull
+docker pull ghcr.io/accius/iturhfprop-service:latest
+
+# Run
+docker run -p 3000:3000 ghcr.io/accius/iturhfprop-service:latest
+
+# Test
+curl http://localhost:3000/api/health
 ```
 
 And then enable it in your `.env` file as:
@@ -168,7 +175,9 @@ npm start
 
 ## Integration with OpenHamClock
 
-In your OpenHamClock server.js, add:
+If using docker, edit the `ITURHFPROP_URL` variable in your `.env` file.
+
+If running locally, in your OpenHamClock server.js, add:
 
 ```javascript
 const ITURHFPROP_SERVICE = process.env.ITURHFPROP_URL || 'http://localhost:3001';

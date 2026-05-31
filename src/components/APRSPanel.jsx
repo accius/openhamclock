@@ -145,6 +145,7 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onHoverSpot, deLocation, 
           <button
             onClick={() => setShowGroupManager(!showGroupManager)}
             title={t('aprsPanel.groupsButtonTitle')}
+            aria-pressed={showGroupManager}
             style={{
               background: showGroupManager ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
               border: '1px solid var(--border-color)',
@@ -160,6 +161,7 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onHoverSpot, deLocation, 
           </button>
           <button
             onClick={onToggleMap}
+            aria-pressed={showOnMap}
             style={{
               background: showOnMap ? 'var(--accent-cyan)' : 'var(--bg-tertiary)',
               border: '1px solid var(--border-color)',
@@ -202,6 +204,7 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onHoverSpot, deLocation, 
             <button
               key={opt.key}
               onClick={() => !rfDisabled && setSourceFilter?.(opt.key)}
+              aria-pressed={isActive}
               title={
                 isRF && tncConnected
                   ? t('aprsPanel.source.tncConnected')
@@ -260,6 +263,7 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onHoverSpot, deLocation, 
           <button
             key={tab.key}
             onClick={() => setActiveGroup(tab.key)}
+            aria-pressed={watchlist.activeGroup === tab.key}
             style={{
               padding: '3px 8px',
               fontSize: '10px',

@@ -156,6 +156,13 @@ const PSKReporterPanel = ({
         ? t('pskReporterPanel.time.minutes', { minutes: m })
         : t('pskReporterPanel.time.hours', { hours: Math.floor(m / 60) });
 
+  const formatAgeAriaLabel = (m) => {
+    if (m < 1) return 'just now';
+    if (m < 60) return `${m} ${m === 1 ? 'minute' : 'minutes'} ago`;
+    const hours = Math.floor(m / 60);
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  };
+
   // ── WSJT-X helpers ──
   const activeClients = Object.entries(wsjtxClients);
   const primaryClient = activeClients[0]?.[1] || null;
@@ -581,79 +588,107 @@ const PSKReporterPanel = ({
                       : t('pskReporterPanel.psk.noStationsHeard')}
               </div>
             ) : (
-              filteredReports.slice(0, 25).map((report, i) => {
-                const freqMHz = report.freqMHz || (report.freq ? (report.freq / 1000000).toFixed(3) : '?');
-                const color = getFreqColor(freqMHz);
-                const displayCall = activeTab === 'tx' ? report.receiver : report.sender;
-                const grid = activeTab === 'tx' ? report.receiverGrid : report.senderGrid;
+              <div role="table" aria-label="PSK Reporter spots">
+                <div className="visually-hidden" role="row">
+                  <span role="columnheader">Frequency</span>
+                  <span role="columnheader">Callsign</span>
+                  <span role="columnheader">Mode, SNR, and age</span>
+                </div>
+                {filteredReports.slice(0, 25).map((report, i) => {
+                  const freqMHz = report.freqMHz || (report.freq ? (report.freq / 1000000).toFixed(3) : '?');
+                  const color = getFreqColor(freqMHz);
+                  const displayCall = activeTab === 'tx' ? report.receiver : report.sender;
+                  const grid = activeTab === 'tx' ? report.receiverGrid : report.senderGrid;
 
-                return (
-                  <div
-                    key={`${displayCall}-${report.freq}-${i}`}
-                    onClick={() => {
-                      if (onSpotClick) onSpotClick(report);
-                      else if (onShowOnMap) onShowOnMap(report);
-                    }}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '52px 1fr auto',
-                      gap: '5px',
-                      padding: '3px 4px',
-                      borderRadius: '2px',
-                      background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
-                      cursor: report.lat != null && report.lon != null ? 'pointer' : 'default',
-                    }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(68,136,255,0.12)')}
-                    onMouseLeave={(e) =>
-                      (e.currentTarget.style.background = i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent')
-                    }
-                  >
-                    <span style={{ color, fontWeight: '600', fontSize: '10px' }}>{freqMHz}</span>
-                    <span
-                      style={{
-                        color: 'var(--text-primary)',
-                        fontWeight: '600',
-                        fontSize: '11px',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
+                  return (
+                    <div
+                      key={`${displayCall}-${report.freq}-${i}`}
+                      role="row"
+                      onClick={() => {
+                        if (onSpotClick) onSpotClick(report);
+                        else if (onShowOnMap) onShowOnMap(report);
                       }}
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: '52px 1fr auto',
+                        gap: '5px',
+                        padding: '3px 4px',
+                        borderRadius: '2px',
+                        background: i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent',
+                        cursor: report.lat != null && report.lon != null ? 'pointer' : 'default',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = 'rgba(68,136,255,0.12)')}
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = i % 2 === 0 ? 'rgba(255,255,255,0.02)' : 'transparent')
+                      }
                     >
-                      <CallsignLink call={displayCall} color="var(--text-primary)" fontWeight="600" fontSize="11px" />
-                      {showMutualReception && isMutual(report) && (
-                        <span
-                          style={{ color: '#fbbf24', marginLeft: '3px', fontSize: '10px' }}
-                          title="Mutual reception — QSO possible"
-                        >
-                          ★
-                        </span>
-                      )}
-                      {grid && (
-                        <span
-                          style={{ color: 'var(--text-muted)', fontWeight: '400', marginLeft: '4px', fontSize: '9px' }}
-                        >
-                          {grid}
-                        </span>
-                      )}
-                    </span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '9px' }}>
-                      <span style={{ color: 'var(--text-muted)' }}>{report.mode}</span>
-                      {report.snr != null && (
-                        <span
-                          style={{
-                            color: report.snr >= 0 ? '#4ade80' : report.snr >= -10 ? '#fbbf24' : '#f97316',
-                            fontWeight: '600',
-                          }}
-                        >
-                          {report.snr > 0 ? '+' : ''}
-                          {report.snr}
-                        </span>
-                      )}
-                      <span style={{ color: 'var(--text-muted)' }}>{formatAge(report.age)}</span>
-                    </span>
-                  </div>
-                );
-              })
+                      <span role="cell" style={{ color, fontWeight: '600', fontSize: '10px' }}>
+                        {freqMHz}
+                        <span className="visually-hidden"> megahertz</span>
+                      </span>
+                      <span
+                        role="cell"
+                        style={{
+                          color: 'var(--text-primary)',
+                          fontWeight: '600',
+                          fontSize: '11px',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                        }}
+                      >
+                        <CallsignLink call={displayCall} color="var(--text-primary)" fontWeight="600" fontSize="11px" />
+                        {showMutualReception && isMutual(report) && (
+                          <span
+                            style={{ color: '#fbbf24', marginLeft: '3px', fontSize: '10px' }}
+                            title="Mutual reception — QSO possible"
+                            aria-label="Mutual reception, QSO possible"
+                          >
+                            ★
+                          </span>
+                        )}
+                        {grid && (
+                          <span
+                            style={{
+                              color: 'var(--text-muted)',
+                              fontWeight: '400',
+                              marginLeft: '4px',
+                              fontSize: '9px',
+                            }}
+                          >
+                            {grid}
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        role="cell"
+                        aria-label={[
+                          report.mode,
+                          report.snr != null ? `SNR ${report.snr > 0 ? 'plus ' : ''}${report.snr} decibels` : null,
+                          formatAgeAriaLabel(report.age),
+                        ]
+                          .filter(Boolean)
+                          .join(', ')}
+                        style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '9px' }}
+                      >
+                        <span style={{ color: 'var(--text-muted)' }}>{report.mode}</span>
+                        {report.snr != null && (
+                          <span
+                            style={{
+                              color: report.snr >= 0 ? '#4ade80' : report.snr >= -10 ? '#fbbf24' : '#f97316',
+                              fontWeight: '600',
+                            }}
+                          >
+                            {report.snr > 0 ? '+' : ''}
+                            {report.snr}
+                          </span>
+                        )}
+                        <span style={{ color: 'var(--text-muted)' }}>{formatAge(report.age)}</span>
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </>
         )}
@@ -664,6 +699,8 @@ const PSKReporterPanel = ({
             {/* No client connected */}
             {!wsjtxLoading && activeClients.length === 0 && wsjtxDecodes.length === 0 && wsjtxWspr.length === 0 ? (
               <div
+                role="status"
+                aria-live="polite"
                 style={{
                   display: 'flex',
                   alignItems: 'center',

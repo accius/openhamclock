@@ -345,6 +345,7 @@ function MessagesTab({ messages, nodes, sendMessage }) {
           <button
             onClick={handleCancelReply}
             title={t('meshcomPanel.replyCancel')}
+            aria-label={t('meshcomPanel.replyCancel')}
             style={{
               background: 'none',
               border: 'none',
@@ -601,6 +602,8 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
         <button
           onClick={onToggleMap}
           title={showOnMap ? t('meshcomPanel.mapToggleHide') : t('meshcomPanel.mapToggleShow')}
+          aria-label={showOnMap ? t('meshcomPanel.mapToggleHide') : t('meshcomPanel.mapToggleShow')}
+          aria-pressed={showOnMap}
           style={{
             background: 'var(--bg-secondary)',
             border: `1px solid ${showOnMap ? 'var(--accent-red)' : 'var(--border-color)'}`,
@@ -632,6 +635,7 @@ const MeshComPanel = ({ showOnMap, onToggleMap, onSpotClick, onHoverSpot }) => {
           <button
             key={tabId}
             onClick={() => setActiveTab(tabId)}
+            aria-pressed={activeTab === tabId}
             style={{
               padding: '3px 10px',
               fontSize: '10px',

@@ -44,7 +44,7 @@ import useAppConfig from './hooks/app/useAppConfig';
 import useDXLocation from './hooks/app/useDXLocation';
 import useMapLayers from './hooks/app/useMapLayers';
 import useFilters from './hooks/app/useFilters';
-import useSatellitesFilters from './hooks/app/useSatellitesFilters';
+import useSatellitesFilters, { useSatelliteFilterState } from './hooks/app/useSatellitesFilters';
 import useTimeState from './hooks/app/useTimeState';
 import useFullscreen from './hooks/app/useFullscreen';
 import useScreenWakeLock from './hooks/app/useScreenWakeLock';
@@ -323,7 +323,9 @@ const App = () => {
 
   const propagation = usePropagation(config.location, dxLocation, config.propagation);
   const mySpots = useMySpots(config.callsign);
-  const satellites = useSatellites(config.location, config.satellite);
+  const filterState = useSatelliteFilterState();
+  const { satelliteFilters, setSatelliteFilters } = filterState;
+  const satellites = useSatellites(config.location, config.satellite, satelliteFilters);
   const localWeather = useWeather(config.location, config.allUnits);
   const dxWeather = useWeather(dxLocation, config.allUnits);
   const localAlerts = useWeatherAlerts(config.location);
@@ -396,7 +398,7 @@ const App = () => {
     return () => window.removeEventListener('ohc-n3fjp-dx-target', handler);
   }, [handleDXChange]);
 
-  const { satelliteFilters, setSatelliteFilters, filteredSatellites } = useSatellitesFilters(satellites.data);
+  const { filteredSatellites } = useSatellitesFilters(satellites.data, filterState);
 
   const {
     currentTime,

@@ -860,7 +860,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       const closestStrikeDistance = isMetric ? closestStrike.distance.km : closestStrike.distance.miles;
 
       contentHTML = `
-        <div style="margin-bottom: 8px; padding: 8px; background: rgba(255,0,0,0.1); border-left: 3px solid var(--accent-red); border-radius: 4px;">
+        <div role="alert" aria-live="assertive" style="margin-bottom: 8px; padding: 8px; background: rgba(255,0,0,0.1); border-left: 3px solid var(--accent-red); border-radius: 4px;">
           <div style="font-weight: bold; color: var(--accent-red); margin-bottom: 4px;">
             ⚡ ${t('plugins.layers.lightning.strikesDetected')}: ${nearbyStrikes.length}</div>
           <div style="font-size: 10px;">

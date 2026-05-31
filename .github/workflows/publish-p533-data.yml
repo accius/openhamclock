@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout (shallow, just for the workflow file)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Fetch ITU-R-HF source tarball
         run: |

@@ -1661,6 +1661,7 @@ export const SettingsPanel = ({
                     <button
                       key={m.id}
                       onClick={() => setPropMode(m.id)}
+                      aria-pressed={propMode === m.id}
                       style={{
                         padding: '6px 4px',
                         background: propMode === m.id ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
@@ -1704,6 +1705,7 @@ export const SettingsPanel = ({
                     <button
                       key={p.w}
                       onClick={() => setPropPower(p.w)}
+                      aria-pressed={propPower === p.w}
                       style={{
                         padding: '6px 4px',
                         background: propPower === p.w ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
@@ -4424,6 +4426,7 @@ export const SettingsPanel = ({
                                   setTimeout(() => setProfileMessage(null), 3000);
                                 }}
                                 title="Update with current settings"
+                                aria-label="Update with current settings"
                                 style={{
                                   padding: '5px 8px',
                                   background: 'var(--bg-primary)',
@@ -4443,6 +4446,7 @@ export const SettingsPanel = ({
                                   setRenameValue(name);
                                 }}
                                 title="Rename"
+                                aria-label="Rename profile"
                                 style={{
                                   padding: '5px 8px',
                                   background: 'var(--bg-primary)',
@@ -4477,6 +4481,7 @@ export const SettingsPanel = ({
                                   }
                                 }}
                                 title="Export to file"
+                                aria-label="Export profile to file"
                                 style={{
                                   padding: '5px 8px',
                                   background: 'var(--bg-primary)',
@@ -4500,6 +4505,7 @@ export const SettingsPanel = ({
                                   }
                                 }}
                                 title="Delete"
+                                aria-label="Delete profile"
                                 style={{
                                   padding: '5px 8px',
                                   background: 'var(--bg-primary)',
@@ -5600,6 +5606,7 @@ function AudioAlertsTab() {
                 <button
                   onClick={() => playTone(feedConf.tone, alertSettings.volume ?? 0.5)}
                   title="Preview tone"
+                  aria-label="Preview tone"
                   style={{
                     background: 'var(--bg-secondary)',
                     border: '1px solid var(--border-color)',

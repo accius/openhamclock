@@ -124,6 +124,9 @@ export function DXFavorites({ dxLocation, dxGrid, onDXChange, dxLocked }) {
         ref={buttonRef}
         onClick={() => setIsOpen((prev) => !prev)}
         title={hasFavorites ? 'DX Favorites' : 'Save DX location as favorite'}
+        aria-label={hasFavorites ? 'DX Favorites' : 'Save DX location as favorite'}
+        aria-pressed={isOpen}
+        aria-expanded={isOpen}
         style={{
           background: isOpen ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
           color: isOpen ? '#000' : hasFavorites ? 'var(--accent-amber)' : 'var(--text-muted)',
@@ -269,6 +272,7 @@ export function DXFavorites({ dxLocation, dxGrid, onDXChange, dxLocked }) {
                     removeFavorite(i);
                   }}
                   title="Remove favorite"
+                  aria-label="Remove favorite"
                   style={{
                     background: 'none',
                     border: 'none',

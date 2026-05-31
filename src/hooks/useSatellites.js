@@ -13,7 +13,7 @@ function round(value, decimals) {
   return Math.round(value * factor) / factor;
 }
 
-export const useSatellites = (observerLocation, satelliteConfig) => {
+export const useSatellites = (observerLocation, satelliteConfig, filteredNames = null) => {
   const [data, setData] = useState([]);
   const [nextPassData, setNextPassData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -87,6 +87,9 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
       };
 
       Object.entries(satelliteData).forEach(([name, satData]) => {
+        // calculation needed only if satellite appears in filter, or if filter is missing completely
+        const isCalcNeeded = (satData) => !(filteredNames && satData?.name && !filteredNames.includes(satData.name));
+
         // Find corresponding next pass data for this satellite
         const nextPass = nextPassData.find(
           (pass) => pass.keyName === (satData.name || '') || pass.keyName === (name || ''),
@@ -94,101 +97,112 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
         const startTimes = nextPass?.startTimes || [];
         const endTimes = nextPass?.endTimes || [];
 
-        try {
-          const satrec = satellite.json2satrec(satData.omm);
-          const positionAndVelocity = satellite.propagate(satrec, now);
-          const positionEci = positionAndVelocity.position;
-          const velocityEci = positionAndVelocity.velocity;
+        if (isCalcNeeded(satData)) {
+          try {
+            const satrec = satellite.json2satrec(satData.omm);
+            const positionAndVelocity = satellite.propagate(satrec, now);
+            const positionEci = positionAndVelocity.position;
+            const velocityEci = positionAndVelocity.velocity;
 
-          if (!positionEci) return;
+            if (!positionEci) return;
 
-          const positionGd = satellite.eciToGeodetic(positionEci, gmst);
+            const positionGd = satellite.eciToGeodetic(positionEci, gmst);
 
-          // Convert to degrees
-          const lat = satellite.degreesLat(positionGd.latitude);
-          const lon = satellite.degreesLong(positionGd.longitude);
-          const alt = positionGd.height;
+            // Convert to degrees
+            const lat = satellite.degreesLat(positionGd.latitude);
+            const lon = satellite.degreesLong(positionGd.longitude);
+            const alt = positionGd.height;
 
-          // Calculate look angles
-          const positionEcf = satellite.eciToEcf(positionEci, gmst);
-          const lookAngles = satellite.ecfToLookAngles(observerGd, positionEcf);
-          const azimuth = satellite.radiansToDegrees(lookAngles.azimuth);
-          const elevation = satellite.radiansToDegrees(lookAngles.elevation);
-          const rangeSat = lookAngles.rangeSat;
+            // Calculate look angles
+            const positionEcf = satellite.eciToEcf(positionEci, gmst);
+            const lookAngles = satellite.ecfToLookAngles(observerGd, positionEcf);
+            const azimuth = satellite.radiansToDegrees(lookAngles.azimuth);
+            const elevation = satellite.radiansToDegrees(lookAngles.elevation);
+            const rangeSat = lookAngles.rangeSat;
 
-          const isVisible = elevation >= (satelliteConfig?.minElev ?? 5.0); // visible only if above minimum elevation
+            const isVisible = elevation >= (satelliteConfig?.minElev ?? 5.0); // visible only if above minimum elevation
 
-          // Calculate range-rate and doppler factor, only if satellite is visible
-          let dopplerFactor = 1;
-          let rangeRate = 0;
+            // Calculate range-rate and doppler factor, only if satellite is visible
+            let dopplerFactor = 1;
+            let rangeRate = 0;
 
-          if (isVisible) {
-            const observerEcf = satellite.geodeticToEcf(observerGd);
-            const velocityEcf = satellite.eciToEcf(velocityEci, gmst);
-            dopplerFactor = satellite.dopplerFactor(observerEcf, positionEcf, velocityEcf);
-            const c = 299792.458; // Speed of light [km/s]
-            rangeRate = (1 - dopplerFactor) * c; // [km/s]
-          }
-
-          // Calculate speed from ECI velocity vector [km/s]
-          let speedKmH = 0;
-          if (velocityEci) {
-            const v = velocityEci;
-            speedKmH = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) * 3600; // [km/s] → [km/h]
-          }
-
-          // Calculate orbit track (past 45 min and future 45 min = 90 min total)
-          const track = [];
-          const trackMinutes = 90;
-          const stepMinutes = 1;
-
-          for (let m = -trackMinutes / 2; m <= trackMinutes / 2; m += stepMinutes) {
-            const trackTime = new Date(now.getTime() + m * 60 * 1000);
-            const trackPV = satellite.propagate(satrec, trackTime);
-
-            if (trackPV.position) {
-              const trackGmst = satellite.gstime(trackTime);
-              const trackGd = satellite.eciToGeodetic(trackPV.position, trackGmst);
-              const trackLat = satellite.degreesLat(trackGd.latitude);
-              const trackLon = satellite.degreesLong(trackGd.longitude);
-              track.push([trackLat, trackLon]);
+            if (isVisible) {
+              const observerEcf = satellite.geodeticToEcf(observerGd);
+              const velocityEcf = satellite.eciToEcf(velocityEci, gmst);
+              dopplerFactor = satellite.dopplerFactor(observerEcf, positionEcf, velocityEcf);
+              const c = 299792.458; // Speed of light [km/s]
+              rangeRate = (1 - dopplerFactor) * c; // [km/s]
             }
+
+            // Calculate speed from ECI velocity vector [km/s]
+            let speedKmH = 0;
+            if (velocityEci) {
+              const v = velocityEci;
+              speedKmH = Math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z) * 3600; // [km/s] → [km/h]
+            }
+
+            // Calculate orbit track (past 45 min and future 45 min = 90 min total)
+            const track = [];
+            const trackMinutes = 90;
+            const stepMinutes = 1;
+
+            for (let m = -trackMinutes / 2; m <= trackMinutes / 2; m += stepMinutes) {
+              const trackTime = new Date(now.getTime() + m * 60 * 1000);
+              const trackPV = satellite.propagate(satrec, trackTime);
+
+              if (trackPV.position) {
+                const trackGmst = satellite.gstime(trackTime);
+                const trackGd = satellite.eciToGeodetic(trackPV.position, trackGmst);
+                const trackLat = satellite.degreesLat(trackGd.latitude);
+                const trackLon = satellite.degreesLong(trackGd.longitude);
+                track.push([trackLat, trackLon]);
+              }
+            }
+
+            // Calculate footprint radius (visibility circle)
+            // Formula: radius = Earth_radius * arccos(Earth_radius / (Earth_radius + altitude))
+            const earthRadius = 6371; // [km]
+            const footprintRadius = earthRadius * Math.acos(earthRadius / (earthRadius + alt));
+
+            positions.push({
+              name: satData.name || name,
+              omm: satData.omm,
+              lat,
+              lon,
+              alt: round(alt, 1),
+              speedKmH: round(speedKmH, 1),
+              azimuth: round(azimuth, 0),
+              elevation: round(elevation, 0),
+              range: round(rangeSat, 1),
+              rangeRate: round(rangeRate, 3),
+              dopplerFactor: round(dopplerFactor, 9),
+              isVisible, // visible if above minimum elevation
+              nextPassStartTimes: startTimes,
+              nextPassEndTimes: endTimes,
+              isPopular: satData.priority <= 2,
+              track,
+              footprintRadius: Math.round(footprintRadius),
+              mode: satData.mode || 'Unknown',
+              color: satData.color || '#00ffff',
+              // Radio metadata from satellites.json
+              downlink: satData.downlink || '',
+              uplink: satData.uplink || '',
+              tone: satData.tone || '',
+              beacon: satData.beacon || '',
+              notes: satData.notes || '',
+            });
+          } catch (e) {
+            // Skip satellites with invalid data, continue processing others
           }
-
-          // Calculate footprint radius (visibility circle)
-          // Formula: radius = Earth_radius * arccos(Earth_radius / (Earth_radius + altitude))
-          const earthRadius = 6371; // [km]
-          const footprintRadius = earthRadius * Math.acos(earthRadius / (earthRadius + alt));
-
+        } else {
+          // Case where isCalcNeeded() is false, satellite location calculation is not needed.
+          // Note that data set is consumed by OHC settings panel which displays all satellites
+          // with data that has been downloaded from server.
+          // Satellite needs to appear there to be selectable but that panel requires name only
+          // for all known satellites and not their full details.
           positions.push({
             name: satData.name || name,
-            omm: satData.omm,
-            lat,
-            lon,
-            alt: round(alt, 1),
-            speedKmH: round(speedKmH, 1),
-            azimuth: round(azimuth, 0),
-            elevation: round(elevation, 0),
-            range: round(rangeSat, 1),
-            rangeRate: round(rangeRate, 3),
-            dopplerFactor: round(dopplerFactor, 9),
-            isVisible, // visible if above minimum elevation
-            nextPassStartTimes: startTimes,
-            nextPassEndTimes: endTimes,
-            isPopular: satData.priority <= 2,
-            track,
-            footprintRadius: Math.round(footprintRadius),
-            mode: satData.mode || 'Unknown',
-            color: satData.color || '#00ffff',
-            // Radio metadata from satellites.json
-            downlink: satData.downlink || '',
-            uplink: satData.uplink || '',
-            tone: satData.tone || '',
-            beacon: satData.beacon || '',
-            notes: satData.notes || '',
           });
-        } catch (e) {
-          // Skip satellites with invalid data, continue processing others
         }
       });
 
@@ -201,7 +215,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
       console.error('Satellite calculation error:', err);
       setLoading(false);
     }
-  }, [observerLocation, satelliteData, nextPassData]);
+  }, [observerLocation, satelliteData, nextPassData, filteredNames]);
 
   // Calculate satellite next passes, finds the start/end times of the next 2 passes for each satellite that are above the minimum elevation
   // Loops every hour since passes don't change often
@@ -286,7 +300,6 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
 
   // Update positions every 5 seconds
   useEffect(() => {
-    calculatePositions();
     const interval = setInterval(calculatePositions, 5000);
     return () => clearInterval(interval);
   }, [calculatePositions]);
@@ -294,7 +307,7 @@ export const useSatellites = (observerLocation, satelliteConfig) => {
   // Update next passes every hour
   useEffect(() => {
     calculateNextPasses();
-    const interval = setInterval(calculateNextPasses, 3600000); // 1 hour
+    const interval = setInterval(calculateNextPasses, 60 * 60 * 1000); // 1 hour
     return () => clearInterval(interval);
   }, [calculateNextPasses]);
 

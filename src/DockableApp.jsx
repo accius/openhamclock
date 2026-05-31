@@ -23,6 +23,7 @@ import {
   DXpeditionPanel,
   PSKReporterPanel,
   APRSPanel,
+  MapDataListView,
   MeshComPanel,
   WeatherPanel,
   AmbientPanel,
@@ -417,6 +418,7 @@ export const DockableApp = ({
 
     return {
       'world-map': { name: 'World Map', icon: '🗺️' },
+      'map-list-view': { name: 'Map Data (text view)', icon: '👁️‍🗨️' },
       'de-location': { name: 'DE Location', icon: '📍' },
       'dx-location': { name: 'DX Target', icon: '🎯' },
       'analog-clock': { name: 'Analog Clock', icon: '🕐' },
@@ -748,6 +750,21 @@ export const DockableApp = ({
       switch (component) {
         case 'world-map':
           return renderWorldMap(); // Map has its own zoom — skip panel zoom
+
+        case 'map-list-view':
+          content = (
+            <MapDataListView
+              dxSpots={dxClusterData.spots}
+              satellites={filteredSatellites || satellites}
+              potaSpots={filteredPotaSpots || potaSpots?.data}
+              sotaSpots={filteredSotaSpots || sotaSpots?.data}
+              wwffSpots={filteredWwffSpots || wwffSpots?.data}
+              wwbotaSpots={filteredWwbotaSpots || wwbotaSpots?.data}
+              deLocation={config.location}
+              units={config.allUnits?.dist}
+            />
+          );
+          break;
 
         case 'de-location':
           content = renderDELocation(nodeId);

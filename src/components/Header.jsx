@@ -275,6 +275,8 @@ export const Header = ({
         <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
           <button
             onClick={onSettingsClick}
+            title="Open settings"
+            aria-label="Open settings"
             style={{
               background: 'var(--bg-tertiary)',
               border: '1px solid var(--border-color)',
@@ -300,6 +302,8 @@ export const Header = ({
               cursor: 'pointer',
             }}
             title={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
+            aria-label={isFullscreen ? 'Exit Fullscreen (Esc)' : 'Enter Fullscreen'}
+            aria-pressed={isFullscreen}
           >
             {isFullscreen ? <IconShrink size={12} /> : <IconExpand size={12} />}
           </button>

@@ -164,9 +164,33 @@ The service will automatically start and connect to DX Spider.
 
 ### Docker
 
+#### Compose
+
+When using a compose file for OpenHamClock, you can add it as an additional service:
+
+```yaml
+services:
+  openhamclock: ...
+
+  dxspider-proxy:
+    build:
+      context: ./dxspider-proxy # path to this subdirectory in the openhamclock repo
+    image: ghcr.io/accius/dxspider-proxy:latest
+    restart: unless-stopped
+    container_name: dxspider-proxy
+```
+
+#### CLI
+
 ```bash
+# Build
 docker build -t dxspider-proxy .
-docker run -p 3001:3001 -e CALLSIGN=YOURCALL dxspider-proxy
+
+# or Pull
+docker pull ghcr.io/accius/dxspider-proxy:latest
+
+# Run
+docker run -p 3001:3001 -e CALLSIGN=YOURCALL ghcr.io/accius/dxspider-proxy:latest
 ```
 
 ### Local Development
@@ -178,7 +202,9 @@ CALLSIGN=YOURCALL npm start
 
 ## Using with OpenHamClock
 
-Once deployed, update your OpenHamClock configuration to use this proxy as a DX cluster source:
+If using docker, edit the `DXSPIDER_PROXY_URL` variable in your `.env` file
+
+else, update your OpenHamClock configuration to use this proxy as a DX cluster source:
 
 ```text
 https://your-proxy-url.railway.app/api/dxcluster/spots

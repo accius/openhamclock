@@ -186,6 +186,7 @@ export default function BandActivityHeatmap({ dxSpots = [], userCallsign = '' })
             <button
               key={o.value}
               onClick={() => setWindowMin(o.value)}
+              aria-pressed={windowMin === o.value}
               style={{
                 background: windowMin === o.value ? 'var(--accent-cyan)' : 'var(--bg-tertiary)',
                 color: windowMin === o.value ? '#000' : 'var(--text-primary)',
