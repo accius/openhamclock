@@ -105,10 +105,7 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
 
   // Solar-time fallback: compute an IANA-compatible "Etc/GMT" zone from longitude.
   // Always available regardless of API status.
-  const dxSolarFallback = useMemo(
-    () => calculateSolarTimezone(dxLocation.lon),
-    [dxLocation.lon],
-  );
+  const dxSolarFallback = useMemo(() => calculateSolarTimezone(dxLocation.lon), [dxLocation.lon]);
 
   // ─── Timer ───
   useEffect(() => {

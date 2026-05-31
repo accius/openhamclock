@@ -22,6 +22,14 @@ export function DXLocalTime({ currentTime, timezone, solarTimezone }) {
   const effectiveTimezone = timezone ?? solarTimezone?.etcp;
   const isFallback = timezone == null && solarTimezone?.etcp != null;
 
+  const label = isFallback
+    ? isLocal
+      ? t('app.dxTime.showUtcFallback', 'Show UTC time at DX location (approximate solar time)')
+      : t('app.dxTime.showLocalFallback', 'Show approximate solar local time at DX location')
+    : isLocal
+      ? t('app.dxTime.showUtc', 'Show UTC time at DX location')
+      : t('app.dxTime.showLocal', 'Show local time at DX location');
+
   if (!effectiveTimezone) return null;
 
   const now = currentTime instanceof Date ? currentTime : new Date(currentTime);
@@ -44,22 +52,27 @@ export function DXLocalTime({ currentTime, timezone, solarTimezone }) {
   return (
     <div style={{ color: 'var(--accent-cyan)', fontSize: '13px', marginTop: '2px' }}>
       {isLocal ? localTime : utcTime}{' '}
-      <span
+      <button
+        type="button"
         onClick={() => setIsLocal((prev) => !prev)}
-        title={
-          isLocal
-            ? isFallback
-              ? t('app.dxTime.showUtcFallback', 'Show UTC time at DX location (approximate solar time)')
-              : t('app.dxTime.showUtc', 'Show UTC time at DX location')
-            : isFallback
-              ? t('app.dxTime.showLocalFallback', 'Show approximate solar local time at DX location')
-              : t('app.dxTime.showLocal', 'Show local time at DX location')
-        }
-        style={{ color: 'var(--text-muted)', fontSize: '11px', cursor: 'pointer', userSelect: 'none' }}
+        aria-label={label}
+        title={label}
+        style={{
+          background: 'none',
+          border: 'none',
+          padding: 0,
+          margin: 0,
+          color: 'var(--text-muted)',
+          fontSize: '11px',
+          cursor: 'pointer',
+          userSelect: 'none',
+          fontFamily: 'inherit',
+          lineHeight: 1,
+        }}
       >
         ({isLocal ? effectiveTimezone : 'UTC'})
         {isFallback ? <span style={{ color: 'var(--accent-amber)' }}> ⚠</span> : ''} ⇄
-      </span>
+      </button>
     </div>
   );
 }

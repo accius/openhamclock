@@ -313,11 +313,7 @@ export default function ModernLayout(props) {
           <DXCCSelect dxLocked={dxLocked} onDXChange={handleDXChange} style={{ margin: '5px 0 10px 0' }} />
         )}
         {dxLocation.lat != null && dxLocation.lon != null && (
-          <DXLocalTime
-            currentTime={currentTime}
-            timezone={dxTimezone}
-            solarTimezone={dxSolarFallback}
-          />
+          <DXLocalTime currentTime={currentTime} timezone={dxTimezone} solarTimezone={dxSolarFallback} />
         )}
         <div style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '8px' }}>
           {dxLocation.lat.toFixed(4)}°, {dxLocation.lon.toFixed(4)}°
