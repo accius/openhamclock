@@ -78,8 +78,9 @@ module.exports = {
       if (firstChar === 'H') {
         handle = line.slice(1).trim();
         console.log(`[SmartSDR] Session handle: ${handle}`);
-        // Subscribe to slice status updates
         sendCmd('sub slice all');
+        // Subscribe to transmit status so MOX/PTT changes are delivered
+        sendCmd('sub tx');
         return;
       }
 
@@ -94,22 +95,41 @@ module.exports = {
         return;
       }
 
-      // Status line: S<handle>|slice <idx> key=value key=value...
+      // Status line: S<handle>|<object> key=value key=value...
       if (firstChar === 'S') {
         const pipeIdx = line.indexOf('|');
         if (pipeIdx < 0) return;
         const payload = line.slice(pipeIdx + 1);
 
-        // We only care about slice status
+        // Transmit status — primary source for MOX/PTT state
+        const txMatch = payload.match(/^transmit\s+(.*)/);
+        if (txMatch) {
+          const kvPairs = txMatch[1].split(/\s+/);
+          for (const kv of kvPairs) {
+            const eqIdx = kv.indexOf('=');
+            if (eqIdx < 0) continue;
+            const key = kv.slice(0, eqIdx);
+            const val = kv.slice(eqIdx + 1);
+            if (key === 'mox') {
+              const ptt = val === '1';
+              if (state.ptt !== ptt) {
+                console.log(`[SmartSDR] PTT → ${ptt ? 'TX' : 'RX'} (mox)`);
+                updateState('ptt', ptt);
+              }
+            }
+          }
+          state.lastUpdate = Date.now();
+          return;
+        }
+
+        // Slice status — frequency and mode
         const sliceMatch = payload.match(/^slice (\d+)\s+(.*)/);
         if (!sliceMatch) return;
 
         const idx = parseInt(sliceMatch[1]);
         if (idx !== sliceIndex) return;
 
-        const kvStr = sliceMatch[2];
-        // Parse key=value pairs
-        const kvPairs = kvStr.split(/\s+/);
+        const kvPairs = sliceMatch[2].split(/\s+/);
         for (const kv of kvPairs) {
           const eqIdx = kv.indexOf('=');
           if (eqIdx < 0) continue;
@@ -130,9 +150,10 @@ module.exports = {
               updateState('mode', ohcMode);
             }
           } else if (key === 'tx') {
+            // Fallback: some firmware versions also report TX state on the slice
             const ptt = val === '1';
             if (state.ptt !== ptt) {
-              console.log(`[SmartSDR] PTT → ${ptt ? 'TX' : 'RX'}`);
+              console.log(`[SmartSDR] PTT → ${ptt ? 'TX' : 'RX'} (slice tx)`);
               updateState('ptt', ptt);
             }
           }
