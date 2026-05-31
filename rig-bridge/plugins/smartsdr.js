@@ -80,7 +80,7 @@ module.exports = {
         console.log(`[SmartSDR] Session handle: ${handle}`);
         sendCmd('sub slice all');
         // Subscribe to transmit status so MOX/PTT changes are delivered
-        sendCmd('sub tx');
+        sendCmd('sub tx all');
         return;
       }
 
