@@ -343,8 +343,6 @@
   "pskReporterPanel.wsjtx.udpAddress": "주소: 127.0.0.1 🟢 포트: {{port}}",
   "pskReporterPanel.wsjtx.udpPath": "WSJT-X에서: 설정 → 보고 → UDP 서버",
   "pskReporterPanel.wsjtx.waiting": "WSJT-X 대기 중…",
-  "showLocalFallback": "DX 위치의 약력 현지 시간 표시",
-  "showUtcFallback": "DX 위치의 UTC 시간 표시 (약력 태양시)",
   "station.settings.altitude": "고도 (m)",
   "station.settings.antenna": "안테나",
   "station.settings.button.save": "설정 저장",

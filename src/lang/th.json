@@ -343,8 +343,6 @@
   "pskReporterPanel.wsjtx.udpAddress": "Address: 127.0.0.1 🟢 Port: {{port}}",
   "pskReporterPanel.wsjtx.udpPath": "ใน WSJT-X: การตั้งค่า → Reporting → UDP Server",
   "pskReporterPanel.wsjtx.waiting": "รอ WSJT-X...",
-  "showLocalFallback": "แสดงเวลาท้องถิ่นตามดวงอาทิตย์โดยประมาณที่ตำแหน่ง DX",
-  "showUtcFallback": "แสดงเวลา UTC ที่ตำแหน่ง DX (เวลาตามดวงอาทิตย์โดยประมาณ)",
   "station.settings.altitude": "ความสูง [เมตร]",
   "station.settings.antenna": "เสาอากาศ",
   "station.settings.button.save": "บันทึกการตั้งค่า",

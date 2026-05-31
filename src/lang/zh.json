@@ -343,8 +343,6 @@
   "pskReporterPanel.wsjtx.udpAddress": "地址: 127.0.0.1 🟢 端口: {{port}}",
   "pskReporterPanel.wsjtx.udpPath": "WSJT-X 设置: Settings → Reporting → UDP Server",
   "pskReporterPanel.wsjtx.waiting": "等待 WSJT-X...",
-  "showLocalFallback": "显示 DX 地点的近似太阳当地时间",
-  "showUtcFallback": "显示 DX 地点的 UTC 时间（近似太阳时）",
   "station.settings.altitude": "海拔 (m)",
   "station.settings.antenna": "天线",
   "station.settings.button.save": "保存设置",

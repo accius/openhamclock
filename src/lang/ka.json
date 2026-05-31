@@ -343,8 +343,6 @@
   "pskReporterPanel.wsjtx.udpAddress": "მისამართი: 127.0.0.1 🟢 პორტი: {{port}}",
   "pskReporterPanel.wsjtx.udpPath": "WSJT-X-ში: Settings → Reporting → UDP Server",
   "pskReporterPanel.wsjtx.waiting": "WSJT-X-ის მოლოდინი...",
-  "showLocalFallback": "DX მდებარეობის დაახლოებითი ადგილობრივი ადგილობრივი დროის გამოჩენა",
-  "showUtcFallback": "DX მდებარეობის UTC დროის გამოჩენა (დაახლოებითი ადგილობრივი დრო)",
   "station.settings.altitude": "სიმაღლე (მ)",
   "station.settings.antenna": "ანტენა",
   "station.settings.button.save": "პარამეტრების შენახვა",

@@ -86,15 +86,12 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
       .then((data) => {
         if (data.timezone) {
           setDxTimezone(data.timezone);
-          //setDxTimezoneApiError(false);
         } else {
           setDxTimezone(null);
-          //setDxTimezoneApiError(true);
         }
       })
       .catch((err) => {
         setDxTimezone(null);
-        //setDxTimezoneApiError(true);
       });
 
     return () => {

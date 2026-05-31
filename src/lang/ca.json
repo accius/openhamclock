@@ -343,8 +343,6 @@
   "pskReporterPanel.wsjtx.udpAddress": "Adreça: 127.0.0.1 🟢 Port: {{port}}",
   "pskReporterPanel.wsjtx.udpPath": "A WSJT-X: Settings → Reporting → UDP Server",
   "pskReporterPanel.wsjtx.waiting": "Esperant WSJT-X...",
-  "showLocalFallback": "Mostra l'hora solar local aproximada a la ubicació DX",
-  "showUtcFallback": "Mostra l'hora UTC a la ubicació DX (hora solar aproximada)",
   "station.settings.altitude": "Altitud (m)",
   "station.settings.antenna": "Antena",
   "station.settings.button.save": "Desar configuració",

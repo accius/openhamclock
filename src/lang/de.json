@@ -343,8 +343,6 @@
   "pskReporterPanel.wsjtx.udpAddress": "Adresse: 127.0.0.1 🟢 Port: {{port}}",
   "pskReporterPanel.wsjtx.udpPath": "In WSJT-X: Einstellungen → Reporting → UDP Server",
   "pskReporterPanel.wsjtx.waiting": "Warten auf WSJT-X...",
-  "showLocalFallback": "Ungefähre Sonnenzeit am DX-Standort anzeigen",
-  "showUtcFallback": "UTC-Zeit am DX-Standort anzeigen (ungefährer Sonnenzeit)",
   "station.settings.altitude": "Höhe (m)",
   "station.settings.antenna": "Antenne",
   "station.settings.button.save": "Einstellungen Speichern",

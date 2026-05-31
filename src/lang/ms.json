@@ -343,8 +343,6 @@
   "pskReporterPanel.wsjtx.udpAddress": "Alamat: 127.0.0.1 🟢 Port: {{port}}",
   "pskReporterPanel.wsjtx.udpPath": "Dalam WSJT-X: Tetapan → Pelaporan → Pelayan UDP",
   "pskReporterPanel.wsjtx.waiting": "Menunggu WSJT-X…",
-  "showLocalFallback": "Paparkan waktu tempatan solar anggaran di lokasi DX",
-  "showUtcFallback": "Paparkan waktu UTC di lokasi DX (waktu solar anggaran)",
   "station.settings.altitude": "Ketinggian (m)",
   "station.settings.antenna": "Antena",
   "station.settings.button.save": "Simpan Tetapan",

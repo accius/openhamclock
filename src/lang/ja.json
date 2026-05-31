@@ -343,8 +343,6 @@
   "pskReporterPanel.wsjtx.udpAddress": "アドレス: 127.0.0.1 🟢 ポート: {{port}}",
   "pskReporterPanel.wsjtx.udpPath": "WSJT-Xで: 設定 → レポート → UDPサーバー",
   "pskReporterPanel.wsjtx.waiting": "WSJT-Xを待っています…",
-  "showLocalFallback": "DX場所の概算太陽現地時間を表示",
-  "showUtcFallback": "DX場所のUTC時間（概算太陽時間）を表示",
   "station.settings.altitude": "高度 (m)",
   "station.settings.antenna": "アンテナ",
   "station.settings.button.save": "設定を保存",
