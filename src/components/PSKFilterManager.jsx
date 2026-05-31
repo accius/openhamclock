@@ -2,7 +2,8 @@
  * PSKFilterManager Component
  * Filter modal for PSKReporter spots - Bands, Grids, Modes
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { ariaTabKeyDown } from '../utils/ariaTabKeyDown.js';
 
 const BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '8m', '6m', '4m', '2m', '70cm'];
 const MODES = [
@@ -84,6 +85,8 @@ const GRID_REGIONS = [
 ];
 
 export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose, callsign, locator }) => {
+  const PSK_FILTER_TABS = ['bands', 'grids', 'modes', 'map', 'source'];
+  const pskFilterTabRefs = useRef({});
   const [activeTab, setActiveTab] = useState('bands');
   const [customGrid, setCustomGrid] = useState('');
 
@@ -604,31 +607,82 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose, cal
 
         {/* Tabs */}
         <div
+          role="tablist"
+          aria-label="PSK Reporter filter tabs"
           style={{
             display: 'flex',
             borderBottom: '1px solid var(--border-color)',
             background: 'var(--bg-secondary)',
           }}
+          onKeyDown={(e) => ariaTabKeyDown(e, PSK_FILTER_TABS, activeTab, setActiveTab, pskFilterTabRefs)}
         >
-          <button onClick={() => setActiveTab('bands')} style={tabStyle(activeTab === 'bands')}>
+          <button
+            role="tab"
+            id="tab-pskfilter-bands"
+            aria-selected={activeTab === 'bands'}
+            aria-controls="panel-pskfilter-bands"
+            tabIndex={activeTab === 'bands' ? 0 : -1}
+            ref={(el) => (pskFilterTabRefs.current['bands'] = el)}
+            onClick={() => setActiveTab('bands')}
+            style={tabStyle(activeTab === 'bands')}
+          >
             Bands {filters?.bands?.length ? `(${filters.bands.length})` : ''}
           </button>
-          <button onClick={() => setActiveTab('grids')} style={tabStyle(activeTab === 'grids')}>
+          <button
+            role="tab"
+            id="tab-pskfilter-grids"
+            aria-selected={activeTab === 'grids'}
+            aria-controls="panel-pskfilter-grids"
+            tabIndex={activeTab === 'grids' ? 0 : -1}
+            ref={(el) => (pskFilterTabRefs.current['grids'] = el)}
+            onClick={() => setActiveTab('grids')}
+            style={tabStyle(activeTab === 'grids')}
+          >
             Grids {filters?.grids?.length ? `(${filters.grids.length})` : ''}
           </button>
-          <button onClick={() => setActiveTab('modes')} style={tabStyle(activeTab === 'modes')}>
+          <button
+            role="tab"
+            id="tab-pskfilter-modes"
+            aria-selected={activeTab === 'modes'}
+            aria-controls="panel-pskfilter-modes"
+            tabIndex={activeTab === 'modes' ? 0 : -1}
+            ref={(el) => (pskFilterTabRefs.current['modes'] = el)}
+            onClick={() => setActiveTab('modes')}
+            style={tabStyle(activeTab === 'modes')}
+          >
             Modes {filters?.modes?.length ? `(${filters.modes.length})` : ''}
           </button>
-          <button onClick={() => setActiveTab('map')} style={tabStyle(activeTab === 'map')}>
+          <button
+            role="tab"
+            id="tab-pskfilter-map"
+            aria-selected={activeTab === 'map'}
+            aria-controls="panel-pskfilter-map"
+            tabIndex={activeTab === 'map' ? 0 : -1}
+            ref={(el) => (pskFilterTabRefs.current['map'] = el)}
+            onClick={() => setActiveTab('map')}
+            style={tabStyle(activeTab === 'map')}
+          >
             Map {filters?.direction && filters.direction !== 'both' ? '(1)' : ''}
           </button>
-          <button onClick={() => setActiveTab('source')} style={tabStyle(activeTab === 'source')}>
+          <button
+            role="tab"
+            id="tab-pskfilter-source"
+            aria-selected={activeTab === 'source'}
+            aria-controls="panel-pskfilter-source"
+            tabIndex={activeTab === 'source' ? 0 : -1}
+            ref={(el) => (pskFilterTabRefs.current['source'] = el)}
+            onClick={() => setActiveTab('source')}
+            style={tabStyle(activeTab === 'source')}
+          >
             Source {filters?.filterMode === 'grid' ? '(⊞)' : ''}
           </button>
         </div>
 
         {/* Tab Content */}
         <div
+          role="tabpanel"
+          id={`panel-pskfilter-${activeTab}`}
+          aria-labelledby={`tab-pskfilter-${activeTab}`}
           style={{
             flex: 1,
             overflow: 'auto',

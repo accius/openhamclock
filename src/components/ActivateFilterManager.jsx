@@ -2,7 +2,8 @@
  * ActivateFilterManager Component
  * Filter modal for ActivatePanel type spots - Bands, Grids, Modes
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { ariaTabKeyDown } from '../utils/ariaTabKeyDown.js';
 
 const BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
 const MODES = [
@@ -84,6 +85,8 @@ const GRID_REGIONS = [
 ];
 
 export const ActivateFilterManager = ({ filters, onFilterChange, isOpen, onClose, name }) => {
+  const ACTIVATE_TABS = ['bands', 'grids', 'modes'];
+  const activateTabRefs = useRef({});
   const [activeTab, setActiveTab] = useState('bands');
   const [customGrid, setCustomGrid] = useState('');
 
@@ -415,25 +418,58 @@ export const ActivateFilterManager = ({ filters, onFilterChange, isOpen, onClose
 
         {/* Tabs */}
         <div
+          role="tablist"
+          aria-label={`${name} filter tabs`}
           style={{
             display: 'flex',
             borderBottom: '1px solid var(--border-color)',
             background: 'var(--bg-secondary)',
           }}
+          onKeyDown={(e) => ariaTabKeyDown(e, ACTIVATE_TABS, activeTab, setActiveTab, activateTabRefs)}
         >
-          <button onClick={() => setActiveTab('bands')} style={tabStyle(activeTab === 'bands')}>
+          <button
+            role="tab"
+            id="tab-activate-bands"
+            aria-selected={activeTab === 'bands'}
+            aria-controls="panel-activate-bands"
+            tabIndex={activeTab === 'bands' ? 0 : -1}
+            ref={(el) => (activateTabRefs.current['bands'] = el)}
+            onClick={() => setActiveTab('bands')}
+            style={tabStyle(activeTab === 'bands')}
+          >
             Bands {filters?.bands?.length ? `(${filters.bands.length})` : ''}
           </button>
-          <button onClick={() => setActiveTab('grids')} style={tabStyle(activeTab === 'grids')}>
+          <button
+            role="tab"
+            id="tab-activate-grids"
+            aria-selected={activeTab === 'grids'}
+            aria-controls="panel-activate-grids"
+            tabIndex={activeTab === 'grids' ? 0 : -1}
+            ref={(el) => (activateTabRefs.current['grids'] = el)}
+            onClick={() => setActiveTab('grids')}
+            style={tabStyle(activeTab === 'grids')}
+          >
             Grids {filters?.grids?.length ? `(${filters.grids.length})` : ''}
           </button>
-          <button onClick={() => setActiveTab('modes')} style={tabStyle(activeTab === 'modes')}>
+          <button
+            role="tab"
+            id="tab-activate-modes"
+            aria-selected={activeTab === 'modes'}
+            aria-controls="panel-activate-modes"
+            tabIndex={activeTab === 'modes' ? 0 : -1}
+            ref={(el) => (activateTabRefs.current['modes'] = el)}
+            onClick={() => setActiveTab('modes')}
+            style={tabStyle(activeTab === 'modes')}
+          >
             Modes {filters?.modes?.length ? `(${filters.modes.length})` : ''}
           </button>
         </div>
 
         {/* Tab Content */}
         <div
+          role="tabpanel"
+          id={`panel-activate-${activeTab}`}
+          aria-labelledby={`tab-activate-${activeTab}`}
           style={{
             flex: 1,
             overflow: 'auto',

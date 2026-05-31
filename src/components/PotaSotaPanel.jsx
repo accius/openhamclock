@@ -3,7 +3,8 @@
  * Tabbed panel that switches between POTA, WWFF, SOTA and WWBOTA views.
  * Used in Classic and Modern layouts. In Dockable layout, each is a separate panel.
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { ariaTabKeyDown } from '../utils/ariaTabKeyDown.js';
 import { POTAPanel } from './POTAPanel.jsx';
 import { WWFFPanel } from './WWFFPanel.jsx';
 import { SOTAPanel } from './SOTAPanel.jsx';
@@ -68,6 +69,7 @@ export const PotaSotaPanel = ({
   setShowWwbotaFilters,
   filteredWwbotaSpots,
 }) => {
+  const potaSotaTabRefs = useRef({});
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const saved = localStorage.getItem('openhamclock_potaSotaTab');
@@ -133,31 +135,70 @@ export const PotaSotaPanel = ({
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Tab bar */}
       <div
+        role="tablist"
+        aria-label="POTA/SOTA tabs"
         style={{
           display: 'flex',
           borderBottom: '1px solid var(--border-color)',
           flexShrink: 0,
         }}
+        onKeyDown={(e) => ariaTabKeyDown(e, TABS, activeTab, handleTabChange, potaSotaTabRefs)}
       >
-        <button style={tabStyle('pota')} onClick={() => handleTabChange('pota')}>
+        <button
+          role="tab"
+          id="tab-potasota-pota"
+          aria-selected={activeTab === 'pota'}
+          aria-controls="panel-potasota-pota"
+          tabIndex={activeTab === 'pota' ? 0 : -1}
+          ref={(el) => (potaSotaTabRefs.current['pota'] = el)}
+          style={tabStyle('pota')}
+          onClick={() => handleTabChange('pota')}
+        >
           {tabBadge('pota')} POTA {potaData?.length > 0 ? `(${potaData.length})` : ''}
           {potaStaleMin >= 5 && (
             <span style={{ color: potaStaleMin >= 10 ? '#ff4444' : '#ffaa00' }}>{staleWarning(potaStaleMin)}</span>
           )}
         </button>
-        <button style={tabStyle('wwff')} onClick={() => handleTabChange('wwff')}>
+        <button
+          role="tab"
+          id="tab-potasota-wwff"
+          aria-selected={activeTab === 'wwff'}
+          aria-controls="panel-potasota-wwff"
+          tabIndex={activeTab === 'wwff' ? 0 : -1}
+          ref={(el) => (potaSotaTabRefs.current['wwff'] = el)}
+          style={tabStyle('wwff')}
+          onClick={() => handleTabChange('wwff')}
+        >
           {tabBadge('wwff')} WWFF {wwffData?.length > 0 ? `(${wwffData.length})` : ''}
           {wwffStaleMin >= 5 && (
             <span style={{ color: wwffStaleMin >= 10 ? '#ff4444' : '#ffaa00' }}>{staleWarning(wwffStaleMin)}</span>
           )}
         </button>
-        <button style={tabStyle('sota')} onClick={() => handleTabChange('sota')}>
+        <button
+          role="tab"
+          id="tab-potasota-sota"
+          aria-selected={activeTab === 'sota'}
+          aria-controls="panel-potasota-sota"
+          tabIndex={activeTab === 'sota' ? 0 : -1}
+          ref={(el) => (potaSotaTabRefs.current['sota'] = el)}
+          style={tabStyle('sota')}
+          onClick={() => handleTabChange('sota')}
+        >
           {tabBadge('sota')} SOTA {sotaData?.length > 0 ? `(${sotaData.length})` : ''}
           {sotaStaleMin >= 5 && (
             <span style={{ color: sotaStaleMin >= 10 ? '#ff4444' : '#ffaa00' }}>{staleWarning(sotaStaleMin)}</span>
           )}
         </button>
-        <button style={tabStyle('wwbota')} onClick={() => handleTabChange('wwbota')}>
+        <button
+          role="tab"
+          id="tab-potasota-wwbota"
+          aria-selected={activeTab === 'wwbota'}
+          aria-controls="panel-potasota-wwbota"
+          tabIndex={activeTab === 'wwbota' ? 0 : -1}
+          ref={(el) => (potaSotaTabRefs.current['wwbota'] = el)}
+          style={tabStyle('wwbota')}
+          onClick={() => handleTabChange('wwbota')}
+        >
           {tabBadge('wwbota')} WWBOTA {wwbotaData?.length > 0 ? `(${wwbotaData.length})` : ''}
           <span style={{ color: wwbotaConnected ? '#44cc44' : '#ff4444', marginLeft: '4px' }}>
             {wwbotaConnected ? '' : '✗'}
@@ -167,71 +208,106 @@ export const PotaSotaPanel = ({
 
       {/* Active panel */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        {activeTab === 'pota' ? (
-          <POTAPanel
-            data={potaData}
-            loading={potaLoading}
-            lastUpdated={potaLastUpdated}
-            lastChecked={potaLastChecked}
-            showOnMap={showPOTA}
-            onToggleMap={onTogglePOTA}
-            onSpotClick={onPOTASpotClick}
-            onHoverSpot={onPOTAHoverSpot}
-            showLabelsOnMap={showPOTALabels}
-            onToggleLabelsOnMap={togglePOTALabels}
-            filters={potaFilters}
-            onOpenFilters={setShowPotaFilters}
-            filteredData={filteredPotaSpots}
-          />
-        ) : activeTab === 'sota' ? (
-          <SOTAPanel
-            data={sotaData}
-            loading={sotaLoading}
-            lastUpdated={sotaLastUpdated}
-            lastChecked={sotaLastChecked}
-            showOnMap={showSOTA}
-            onToggleMap={onToggleSOTA}
-            onSpotClick={onSOTASpotClick}
-            onHoverSpot={onSOTAHoverSpot}
-            showLabelsOnMap={showSOTALabels}
-            onToggleLabelsOnMap={toggleSOTALabels}
-            filters={sotaFilters}
-            onOpenFilters={setShowSotaFilters}
-            filteredData={filteredSotaSpots}
-          />
-        ) : activeTab === 'wwbota' ? (
-          <WWBOTAPanel
-            data={wwbotaData}
-            loading={wwbotaLoading}
-            lastUpdated={wwbotaLastUpdated}
-            connected={wwbotaConnected}
-            showOnMap={showWWBOTA}
-            onToggleMap={onToggleWWBOTA}
-            onSpotClick={onWWBOTASpotClick}
-            onHoverSpot={onWWBOTAHoverSpot}
-            showLabelsOnMap={showWWBOTALabels}
-            onToggleLabelsOnMap={toggleWWBOTALabels}
-            filters={wwbotaFilters}
-            onOpenFilters={setShowWwbotaFilters}
-            filteredData={filteredWwbotaSpots}
-          />
-        ) : (
-          <WWFFPanel
-            data={wwffData}
-            loading={wwffLoading}
-            lastUpdated={wwffLastUpdated}
-            lastChecked={wwffLastChecked}
-            showOnMap={showWWFF}
-            onToggleMap={onToggleWWFF}
-            onSpotClick={onWWFFSpotClick}
-            onHoverSpot={onWWFFHoverSpot}
-            showLabelsOnMap={showWWFFLabels}
-            onToggleLabelsOnMap={toggleWWFFLabels}
-            filters={wwffFilters}
-            onOpenFilters={setShowWwffFilters}
-            filteredData={filteredWwffSpots}
-          />
-        )}
+        <div
+          role="tabpanel"
+          id="panel-potasota-pota"
+          aria-labelledby="tab-potasota-pota"
+          hidden={activeTab !== 'pota'}
+          style={{ height: '100%' }}
+        >
+          {activeTab === 'pota' && (
+            <POTAPanel
+              data={potaData}
+              loading={potaLoading}
+              lastUpdated={potaLastUpdated}
+              lastChecked={potaLastChecked}
+              showOnMap={showPOTA}
+              onToggleMap={onTogglePOTA}
+              onSpotClick={onPOTASpotClick}
+              onHoverSpot={onPOTAHoverSpot}
+              showLabelsOnMap={showPOTALabels}
+              onToggleLabelsOnMap={togglePOTALabels}
+              filters={potaFilters}
+              onOpenFilters={setShowPotaFilters}
+              filteredData={filteredPotaSpots}
+            />
+          )}
+        </div>
+        <div
+          role="tabpanel"
+          id="panel-potasota-wwff"
+          aria-labelledby="tab-potasota-wwff"
+          hidden={activeTab !== 'wwff'}
+          style={{ height: '100%' }}
+        >
+          {activeTab === 'wwff' && (
+            <WWFFPanel
+              data={wwffData}
+              loading={wwffLoading}
+              lastUpdated={wwffLastUpdated}
+              lastChecked={wwffLastChecked}
+              showOnMap={showWWFF}
+              onToggleMap={onToggleWWFF}
+              onSpotClick={onWWFFSpotClick}
+              onHoverSpot={onWWFFHoverSpot}
+              showLabelsOnMap={showWWFFLabels}
+              onToggleLabelsOnMap={toggleWWFFLabels}
+              filters={wwffFilters}
+              onOpenFilters={setShowWwffFilters}
+              filteredData={filteredWwffSpots}
+            />
+          )}
+        </div>
+        <div
+          role="tabpanel"
+          id="panel-potasota-sota"
+          aria-labelledby="tab-potasota-sota"
+          hidden={activeTab !== 'sota'}
+          style={{ height: '100%' }}
+        >
+          {activeTab === 'sota' && (
+            <SOTAPanel
+              data={sotaData}
+              loading={sotaLoading}
+              lastUpdated={sotaLastUpdated}
+              lastChecked={sotaLastChecked}
+              showOnMap={showSOTA}
+              onToggleMap={onToggleSOTA}
+              onSpotClick={onSOTASpotClick}
+              onHoverSpot={onSOTAHoverSpot}
+              showLabelsOnMap={showSOTALabels}
+              onToggleLabelsOnMap={toggleSOTALabels}
+              filters={sotaFilters}
+              onOpenFilters={setShowSotaFilters}
+              filteredData={filteredSotaSpots}
+            />
+          )}
+        </div>
+        <div
+          role="tabpanel"
+          id="panel-potasota-wwbota"
+          aria-labelledby="tab-potasota-wwbota"
+          hidden={activeTab !== 'wwbota'}
+          style={{ height: '100%' }}
+        >
+          {activeTab === 'wwbota' && (
+            <WWBOTAPanel
+              data={wwbotaData}
+              loading={wwbotaLoading}
+              lastUpdated={wwbotaLastUpdated}
+              connected={wwbotaConnected}
+              showOnMap={showWWBOTA}
+              onToggleMap={onToggleWWBOTA}
+              onSpotClick={onWWBOTASpotClick}
+              onHoverSpot={onWWBOTAHoverSpot}
+              showLabelsOnMap={showWWBOTALabels}
+              onToggleLabelsOnMap={toggleWWBOTALabels}
+              filters={wwbotaFilters}
+              onOpenFilters={setShowWwbotaFilters}
+              filteredData={filteredWwbotaSpots}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

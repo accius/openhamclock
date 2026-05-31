@@ -2,9 +2,12 @@
  * DXFilterManager Component
  * Filter modal with tabs for Zones, Bands, Modes, Watchlist, Exclude, Settings
  */
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { ariaTabKeyDown } from '../utils/ariaTabKeyDown.js';
 
 export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onClearSpots }) => {
+  const DX_TABS = ['zones', 'bands', 'modes', 'watchlist', 'text', 'exclude', 'settings'];
+  const dxTabRefs = useRef({});
   const [activeTab, setActiveTab] = useState('zones');
   const [newWatchlistCall, setNewWatchlistCall] = useState('');
   const [newDXExcludeCall, setNewDXExcludeCall] = useState('');
@@ -1040,32 +1043,44 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onCl
         </div>
 
         {/* Tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}>
-          <button onClick={() => setActiveTab('zones')} style={tabStyle(activeTab === 'zones')}>
-            Zones
-          </button>
-          <button onClick={() => setActiveTab('bands')} style={tabStyle(activeTab === 'bands')}>
-            Bands
-          </button>
-          <button onClick={() => setActiveTab('modes')} style={tabStyle(activeTab === 'modes')}>
-            Modes
-          </button>
-          <button onClick={() => setActiveTab('watchlist')} style={tabStyle(activeTab === 'watchlist')}>
-            Watchlist
-          </button>
-          <button onClick={() => setActiveTab('text')} style={tabStyle(activeTab === 'text')}>
-            Text
-          </button>
-          <button onClick={() => setActiveTab('exclude')} style={tabStyle(activeTab === 'exclude')}>
-            Exclude
-          </button>
-          <button onClick={() => setActiveTab('settings')} style={tabStyle(activeTab === 'settings')}>
-            ⊙ Settings
-          </button>
+        <div
+          role="tablist"
+          aria-label="DX filter tabs"
+          style={{ display: 'flex', borderBottom: '1px solid var(--border-color)' }}
+          onKeyDown={(e) => ariaTabKeyDown(e, DX_TABS, activeTab, setActiveTab, dxTabRefs)}
+        >
+          {[
+            ['zones', 'Zones'],
+            ['bands', 'Bands'],
+            ['modes', 'Modes'],
+            ['watchlist', 'Watchlist'],
+            ['text', 'Text'],
+            ['exclude', 'Exclude'],
+            ['settings', '⊙ Settings'],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              role="tab"
+              id={`tab-dxfilter-${id}`}
+              aria-selected={activeTab === id}
+              aria-controls={`panel-dxfilter-${id}`}
+              tabIndex={activeTab === id ? 0 : -1}
+              ref={(el) => (dxTabRefs.current[id] = el)}
+              onClick={() => setActiveTab(id)}
+              style={tabStyle(activeTab === id)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Tab Content */}
-        <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+        <div
+          role="tabpanel"
+          id={`panel-dxfilter-${activeTab}`}
+          aria-labelledby={`tab-dxfilter-${activeTab}`}
+          style={{ padding: '20px', overflowY: 'auto', flex: 1 }}
+        >
           {activeTab === 'zones' && renderZonesTab()}
           {activeTab === 'bands' && renderBandsTab()}
           {activeTab === 'modes' && renderModesTab()}

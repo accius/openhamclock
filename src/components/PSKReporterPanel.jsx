@@ -7,9 +7,10 @@
  *   Row 2: Sub-tabs (Being Heard / Hearing  or  Decodes / QSOs)
  *   Content: Scrolling spot/decode list
  */
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBandColor } from '../utils/callsign.js';
+import { ariaTabKeyDown } from '../utils/ariaTabKeyDown.js';
 import { IconSearch, IconRefresh, IconMap, IconTrash } from './Icons.jsx';
 import CallsignLink from './CallsignLink.jsx';
 
@@ -51,6 +52,8 @@ const PSKReporterPanel = ({
       return 'psk';
     }
   });
+  const PSK_TABS = ['tx', 'rx'];
+  const pskTabRefs = useRef({});
   const [activeTab, setActiveTab] = useState(() => {
     try {
       const s = localStorage.getItem('openhamclock_pskActiveTab');
@@ -500,8 +503,19 @@ const PSKReporterPanel = ({
       {/* ── Row 2: Sub-tabs ── */}
       <div style={{ display: 'flex', gap: '4px', marginBottom: '5px', flexShrink: 0 }}>
         {panelMode === 'psk' ? (
-          <>
+          <div
+            role="tablist"
+            aria-label={t('pskReporterPanel.tabs.tablistLabel', 'PSK Reporter tabs')}
+            style={{ display: 'flex', gap: '4px' }}
+            onKeyDown={(e) => ariaTabKeyDown(e, PSK_TABS, activeTab, setActiveTabPersist, pskTabRefs)}
+          >
             <button
+              role="tab"
+              id="tab-psk-tx"
+              aria-selected={activeTab === 'tx'}
+              aria-controls="panel-psk-content"
+              tabIndex={activeTab === 'tx' ? 0 : -1}
+              ref={(el) => (pskTabRefs.current['tx'] = el)}
               onClick={() => setActiveTabPersist('tx')}
               style={subTabBtn(activeTab === 'tx', '#4ade80')}
               title={
@@ -516,6 +530,12 @@ const PSKReporterPanel = ({
                 : t('pskReporterPanel.tabs.heard', { count: pskFilterCount > 0 ? filteredTx.length : txCount })}
             </button>
             <button
+              role="tab"
+              id="tab-psk-rx"
+              aria-selected={activeTab === 'rx'}
+              aria-controls="panel-psk-content"
+              tabIndex={activeTab === 'rx' ? 0 : -1}
+              ref={(el) => (pskTabRefs.current['rx'] = el)}
               onClick={() => setActiveTabPersist('rx')}
               style={subTabBtn(activeTab === 'rx', '#60a5fa')}
               title={
@@ -529,7 +549,7 @@ const PSKReporterPanel = ({
                 ? `Rcvd (${pskFilterCount > 0 ? filteredRx.length : rxCount})`
                 : t('pskReporterPanel.tabs.hearing', { count: pskFilterCount > 0 ? filteredRx.length : rxCount })}
             </button>
-          </>
+          </div>
         ) : (
           <>
             <button
@@ -560,7 +580,12 @@ const PSKReporterPanel = ({
       </div>
 
       {/* ── Content area ── */}
-      <div style={{ flex: 1, overflow: 'auto', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>
+      <div
+        role={panelMode === 'psk' ? 'tabpanel' : undefined}
+        id={panelMode === 'psk' ? 'panel-psk-content' : undefined}
+        aria-labelledby={panelMode === 'psk' ? `tab-psk-${activeTab}` : undefined}
+        style={{ flex: 1, overflow: 'auto', fontSize: '11px', fontFamily: 'var(--font-mono)' }}
+      >
         {/* === PSKReporter content === */}
         {panelMode === 'psk' && (
           <>
