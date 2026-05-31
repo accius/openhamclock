@@ -62,6 +62,7 @@ const descriptor = {
     let stateChangeHandler = null;
     let lastPttState = null; // Track PTT separately to detect PTT-specific changes
     let serverReachable = false;
+    let credentialsInvalid = false; // Set permanently on 401/403 — stops all retry loops
     let totalPushed = 0;
     let totalCommands = 0;
     let totalDecodes = 0;
@@ -112,8 +113,43 @@ const descriptor = {
       req.end();
     }
 
+    // Called on 401/403 — permanently stops all relay loops so the user isn't
+    // spammed with auth errors. They must re-run "Connect Cloud Relay" in OHC
+    // Settings to generate fresh credentials.
+    function handleCredentialsInvalid(status, data) {
+      if (credentialsInvalid) return;
+      credentialsInvalid = true;
+      try {
+        const msg = JSON.parse(data)?.error || data;
+        console.error(`[CloudRelay] Authentication failed (${status}): ${msg}`);
+      } catch {
+        console.error(
+          `[CloudRelay] Authentication failed (${status}) — re-run Connect Cloud Relay in OHC Settings → Rig Bridge`,
+        );
+      }
+      console.error(
+        '[CloudRelay] Stopping relay — re-run Connect Cloud Relay in OHC Settings → Rig Bridge to get fresh credentials',
+      );
+      // Stop push timer
+      if (pushTimer) {
+        clearInterval(pushTimer);
+        pushTimer = null;
+      }
+      // Stop long-poll loop
+      pollAborted = true;
+      if (pollRetryTimer) {
+        clearTimeout(pollRetryTimer);
+        pollRetryTimer = null;
+      }
+      if (immediatePushTimer) {
+        clearTimeout(immediatePushTimer);
+        immediatePushTimer = null;
+      }
+    }
+
     // Push current rig state + batched decodes to cloud
     function pushState() {
+      if (credentialsInvalid) return;
       const currentState = {
         freq: state.freq,
         mode: state.mode,
@@ -169,12 +205,7 @@ const descriptor = {
             console.log(`[CloudRelay] Pushed state (${currentState.freq} Hz ${currentState.mode}${decodeInfo})`);
           }
         } else if (status === 401 || status === 403) {
-          try {
-            const msg = JSON.parse(data)?.error || data;
-            console.error(`[CloudRelay] Authentication failed (${status}): ${msg}`);
-          } catch {
-            console.error(`[CloudRelay] Authentication failed (${status}) — check relay API key and session`);
-          }
+          handleCredentialsInvalid(status, data);
         }
       });
     }
@@ -206,6 +237,9 @@ const descriptor = {
             } catch (e) {}
             // Restart immediately — no delay when things are healthy
             longPollCommands();
+          } else if (!err && (status === 401 || status === 403)) {
+            // Invalid credentials — stop permanently, no retry
+            handleCredentialsInvalid(status, data);
           } else {
             // Network error or unexpected status — back off 1 s before retry
             pollRetryTimer = setTimeout(longPollCommands, 1000);

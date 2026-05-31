@@ -63,6 +63,9 @@ module.exports = function (app, ctx) {
 
   // Per-IP long-poll connection counter — caps concurrent waiters to bound resource use.
   const MAX_LONG_POLL_PER_IP = 10;
+  // Rate-limit MeshCom ingest warnings to avoid spam when the ingest endpoint is down.
+  const MESHCOM_WARN_INTERVAL = 60 * 1000; // 1 minute per subtype
+  const meshcomWarnLastLogged = new Map(); // subtype → timestamp
   const relayPollCountByIP = new Map(); // ip → count
 
   // Issued relay tokens — sessionId → { token, lastUsed }.
@@ -189,6 +192,12 @@ module.exports = function (app, ctx) {
   }, 300000); // Every 5 minutes
 
   // ─── Relay Auth ───────────────────────────────────────────────────────
+  // Rate-limit auth failure warnings: log once immediately, then at most once
+  // per 5 minutes per sessionId. Prevents log spam when rig-bridge retries
+  // with stale credentials (e.g. after a server restart invalidates tokens).
+  const AUTH_WARN_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  const authWarnLastLogged = new Map(); // sessionId (or '(none)') → timestamp
+
   function requireRelayAuth(req, res, next) {
     if (!RIG_BRIDGE_RELAY_KEY) {
       return res.status(503).json({ error: 'Cloud relay not configured — set RIG_BRIDGE_RELAY_KEY in .env' });
@@ -197,10 +206,16 @@ module.exports = function (app, ctx) {
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
     const entry = sessionId ? relayIssuedTokens.get(sessionId) : undefined;
     if (!sessionId || !token || !entry || token !== entry.token) {
-      logWarn(
-        `[RigBridge] relay auth failed — sessionId: ${sessionId ? sessionId.slice(0, 8) + '…' : '(none)'}, ` +
-          `token ${token ? 'present' : 'missing'}, issued token ${entry ? 'found' : 'not found in store'}`,
-      );
+      const warnKey = sessionId ? sessionId.slice(0, 8) : '(none)';
+      const now = Date.now();
+      const lastLogged = authWarnLastLogged.get(warnKey) ?? 0;
+      if (now - lastLogged >= AUTH_WARN_INTERVAL) {
+        authWarnLastLogged.set(warnKey, now);
+        logWarn(
+          `[RigBridge] relay auth failed — sessionId: ${sessionId ? sessionId.slice(0, 8) + '…' : '(none)'}, ` +
+            `token ${token ? 'present' : 'missing'}, issued token ${entry ? 'found' : 'not found in store'}`,
+        );
+      }
       return res.status(401).json({
         error:
           'Invalid relay credentials — re-run Connect Cloud Relay in OHC Settings → Rig Bridge to generate fresh credentials',
@@ -306,11 +321,19 @@ module.exports = function (app, ctx) {
             })
             .then((r) => {
               if (!r.ok) {
-                logWarn(`[RigBridge] MeshCom ingest rejected subtype=${subtype} status=${r.status}`);
+                const now = Date.now();
+                if (now - (meshcomWarnLastLogged.get(subtype) ?? 0) >= MESHCOM_WARN_INTERVAL) {
+                  meshcomWarnLastLogged.set(subtype, now);
+                  logWarn(`[RigBridge] MeshCom ingest rejected subtype=${subtype} status=${r.status}`);
+                }
               }
             })
             .catch((e) => {
-              logWarn(`[RigBridge] MeshCom ingest forward failed subtype=${subtype}: ${e.message}`);
+              const now = Date.now();
+              if (now - (meshcomWarnLastLogged.get(subtype) ?? 0) >= MESHCOM_WARN_INTERVAL) {
+                meshcomWarnLastLogged.set(subtype, now);
+                logWarn(`[RigBridge] MeshCom ingest forward failed subtype=${subtype}: ${e.message}`);
+              }
             });
 
           // 2. Fan out to SSE stream clients — same { type:'plugin' } envelope
