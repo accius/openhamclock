@@ -10,8 +10,9 @@
  *
  * PTT/TX detection: the SmartSDR API reports live transmit state through the
  * interlock object (S0|interlock state=TRANSMITTING …), not through the
- * transmit settings object.  Subscribe with "sub interlock" and watch for
- * state=TRANSMITTING (PTT on) vs RECEIVE/READY/UNKEY_REQUESTED (PTT off).
+ * transmit settings object.  Interlock messages are part of the radio object
+ * and arrive via "sub radio all".  Watch for state=TRANSMITTING or
+ * PTT_REQUESTED (PTT on) vs RECEIVE/READY/UNKEY_REQUESTED (PTT off).
  */
 
 const net = require('net');
@@ -84,10 +85,11 @@ module.exports = {
         handle = line.slice(1).trim();
         console.log(`[SmartSDR] Session handle: ${handle}`);
         sendCmd('sub slice all');
-        // Subscribe to interlock so PTT/TX state changes are delivered.
-        // Live TX state comes from "S0|interlock state=TRANSMITTING", not from
-        // the transmit settings object (sub tx all) which carries config only.
-        sendCmd('sub interlock');
+        // Subscribe to radio-wide status so interlock (PTT/TX) state changes
+        // are delivered.  "sub interlock" does not exist as a standalone command;
+        // interlock messages (S0|interlock state=TRANSMITTING …) are part of the
+        // radio object and arrive via "sub radio all".
+        sendCmd('sub radio all');
         return;
       }
 
