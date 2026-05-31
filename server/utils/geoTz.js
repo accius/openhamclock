@@ -1,4 +1,4 @@
-const { find } = require('geo-tz/now');
+const { find } = require('geo-tz/all');
 
 /**
  * Get IANA timezone for a lat/lon coordinate.
