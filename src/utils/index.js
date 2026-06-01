@@ -35,6 +35,7 @@ export {
   replicatePoint,
   normalizeLon,
   calculateSolarTimezone,
+  formatGmtUtc,
   WORLD_COPY_OFFSETS,
 } from './geo.js';
 

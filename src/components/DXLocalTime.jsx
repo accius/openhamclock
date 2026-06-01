@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { formatGmtUtc } from '../utils';
 
 export function DXLocalTime({ currentTime, timezone, solarTimezone }) {
   const { t } = useTranslation();
@@ -19,8 +20,8 @@ export function DXLocalTime({ currentTime, timezone, solarTimezone }) {
   }, [isLocal]);
 
   // Prefer real IANA timezone; fall back to solar approximation.
-  const effectiveTimezone = timezone ?? solarTimezone?.etcp;
-  const isFallback = timezone == null && solarTimezone?.etcp != null;
+  const effectiveTimezone = timezone ?? solarTimezone?.tz;
+  const isFallback = timezone == null && solarTimezone?.tz != null;
 
   const label = isFallback
     ? isLocal
@@ -49,6 +50,8 @@ export function DXLocalTime({ currentTime, timezone, solarTimezone }) {
     timeZone: effectiveTimezone,
   }).format(now);
 
+  const fTz = formatGmtUtc(effectiveTimezone);
+
   return (
     <div style={{ color: 'var(--accent-cyan)', fontSize: '13px', marginTop: '2px' }}>
       {isLocal ? localTime : utcTime}{' '}
@@ -70,8 +73,7 @@ export function DXLocalTime({ currentTime, timezone, solarTimezone }) {
           lineHeight: 1,
         }}
       >
-        ({isLocal ? effectiveTimezone : 'UTC'})
-        {isFallback ? <span style={{ color: 'var(--accent-amber)' }}> ⚠</span> : ''} ⇄
+        ({isLocal ? fTz : 'UTC'}){isFallback ? <span style={{ color: 'var(--accent-amber)' }}> ⚠</span> : ''} ⇄
       </button>
     </div>
   );
