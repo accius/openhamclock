@@ -79,8 +79,15 @@
 #   The kiosk launcher (~openhamclock/kiosk.sh) is placed in
 #   ~/.config/autostart/ and runs on every desktop login.
 #
-#   At runtime kiosk.sh reads $XDG_SESSION_TYPE to choose the
-#   correct display path:
+#   The display server (X11 vs Wayland) is resolved at install time
+#   and baked into kiosk.sh as a constant. Order of precedence:
+#
+#     1. --session-type=x11|wayland on the setup-pi.sh CLI
+#     2. /etc/os-release codename (bookworm/bullseye → x11, trixie → wayland)
+#     3. $XDG_SESSION_TYPE from the installer's shell
+#     4. x11 as a last-resort default
+#
+#   The resolved SESSION_TYPE selects the display path:
 #
 #     Wayland  →  Chromium launched with --ozone-platform=wayland
 #                 xset / unclutter are NOT called (X11-only tools)
@@ -89,6 +96,10 @@
 #                 from the autostart context), then xset disables the
 #                 screensaver and unclutter hides the cursor
 #
+#   To switch the baked-in value after install without re-running setup,
+#   either edit the SESSION_TYPE= line in ~/openhamclock/kiosk.sh or set
+#   OPENHAMCLOCK_SESSION_TYPE=x11|wayland in /etc/environment.
+#
 #   If the OpenHamClock server does not respond within 60 seconds,
 #   kiosk.sh exits with an error rather than looping forever.
 #
@@ -96,10 +107,11 @@
 # USAGE
 # ═══════════════════════════════════════════════════════════════════
 #
-#   scripts/setup-pi.sh               # server only (no kiosk)
-#   scripts/setup-pi.sh --kiosk       # server + fullscreen kiosk on boot
-#   scripts/setup-pi.sh --server      # headless server, no GUI packages
-#   scripts/setup-pi.sh --help        # show option summary
+#   scripts/setup-pi.sh                            # server only (no kiosk)
+#   scripts/setup-pi.sh --kiosk                    # server + fullscreen kiosk on boot
+#   scripts/setup-pi.sh --kiosk --session-type=x11 # force X11 if auto-detect picks wrong
+#   scripts/setup-pi.sh --server                   # headless server, no GUI packages
+#   scripts/setup-pi.sh --help                     # show option summary
 #
 #   After installation, edit ~/openhamclock/.env to set your
 #   CALLSIGN and LOCATOR before (re)starting the service.
@@ -138,24 +150,76 @@ echo -e "${NC}"
 # Parse arguments
 KIOSK_MODE=false
 SERVER_MODE=false
+SESSION_TYPE_OVERRIDE=""
 
 while [[ "$#" -gt 0 ]]; do
     case $1 in
         --kiosk) KIOSK_MODE=true ;;
         --server) SERVER_MODE=true ;;
-        --help) 
+        --session-type=*) SESSION_TYPE_OVERRIDE="${1#*=}" ;;
+        --session-type)
+            SESSION_TYPE_OVERRIDE="$2"
+            shift
+            ;;
+        --help)
             echo "Usage: ./setup-pi.sh [OPTIONS]"
             echo ""
             echo "Options:"
-            echo "  --kiosk     Enable kiosk mode (fullscreen, auto-start)"
-            echo "  --server    Install as headless server only"
-            echo "  --help      Show this help message"
+            echo "  --kiosk                  Enable kiosk mode (fullscreen, auto-start)"
+            echo "  --server                 Install as headless server only"
+            echo "  --session-type=TYPE      Force kiosk display server: auto|x11|wayland"
+            echo "                           (default: auto — detected from OS release)"
+            echo "  --help                   Show this help message"
             exit 0
             ;;
         *) echo "Unknown option: $1"; exit 1 ;;
     esac
     shift
 done
+
+# Validate --session-type argument
+case "$SESSION_TYPE_OVERRIDE" in
+    ""|auto|x11|wayland) ;;
+    *)
+        echo "Error: --session-type must be one of: auto, x11, wayland (got: $SESSION_TYPE_OVERRIDE)"
+        exit 1
+        ;;
+esac
+
+# Resolve the display server type that will be baked into kiosk.sh.
+# Order of precedence:
+#   1. --session-type=x11|wayland on the CLI
+#   2. /etc/os-release codename (bookworm/bullseye → x11, trixie → wayland)
+#   3. $XDG_SESSION_TYPE from the current shell
+#   4. x11 (last-resort default — never silently pick wayland)
+#
+# Boot-time auto-detection was previously done inside kiosk.sh but proved
+# unreliable on Bookworm where stray WAYLAND_DISPLAY values caused it to
+# pick the wayland branch and produce a white screen at boot (#1026).
+# Resolving here, at install time, lets the user see and override the
+# choice up front, and bakes a single constant into kiosk.sh.
+resolve_session_type() {
+    if [ "$SESSION_TYPE_OVERRIDE" = "x11" ] || [ "$SESSION_TYPE_OVERRIDE" = "wayland" ]; then
+        echo "$SESSION_TYPE_OVERRIDE"
+        return
+    fi
+
+    if [ -r /etc/os-release ]; then
+        # shellcheck disable=SC1091
+        local codename
+        codename=$(. /etc/os-release && echo "${VERSION_CODENAME:-}")
+        case "$codename" in
+            bookworm|bullseye|buster) echo "x11"; return ;;
+            trixie) echo "wayland"; return ;;
+        esac
+    fi
+
+    case "${XDG_SESSION_TYPE:-}" in
+        x11|wayland) echo "$XDG_SESSION_TYPE"; return ;;
+    esac
+
+    echo "x11"
+}
 
 # Check if running on Raspberry Pi
 check_raspberry_pi() {
@@ -379,37 +443,41 @@ EOF
 # Setup kiosk mode
 setup_kiosk() {
     echo -e "${CYAN}>>> Configuring kiosk mode...${NC}"
-    
+
+    local resolved_session_type
+    resolved_session_type=$(resolve_session_type)
+    echo -e "${GREEN}✓ Kiosk display server: $resolved_session_type${NC}"
+    if [ -z "$SESSION_TYPE_OVERRIDE" ] || [ "$SESSION_TYPE_OVERRIDE" = "auto" ]; then
+        echo "  (override with --session-type=x11|wayland if this is wrong)"
+    fi
+
     # Disable screen blanking (0 = disable, 1 = enable — keep the screen on for kiosk)
     sudo raspi-config nonint do_blanking 0 2>/dev/null || true
-    
+
     # Create autostart directory
     mkdir -p "$HOME/.config/autostart"
-    
-    # Create kiosk launcher script
-    cat > "$INSTALL_DIR/kiosk.sh" << 'EOF'
+
+    # Create kiosk launcher script.
+    # First heredoc (unquoted) bakes in the resolved SESSION_TYPE so the
+    # launcher does no runtime detection — install-time resolution is more
+    # reliable than reading $XDG_SESSION_TYPE / $WAYLAND_DISPLAY at autostart
+    # (see #1026 for the boot-time false-wayland case on Bookworm).
+    cat > "$INSTALL_DIR/kiosk.sh" << EOF
 #!/bin/bash
 # OpenHamClock Kiosk Launcher
 # Supports Raspberry Pi OS Bookworm (X11) and Trixie (Wayland/labwc)
+#
+# SESSION_TYPE is baked in by setup-pi.sh at install time. To switch
+# without re-running setup, edit the line below or set
+# OPENHAMCLOCK_SESSION_TYPE=x11|wayland in /etc/environment.
+SESSION_TYPE="\${OPENHAMCLOCK_SESSION_TYPE:-$resolved_session_type}"
+EOF
+    cat >> "$INSTALL_DIR/kiosk.sh" << 'EOF'
 
 # Wait for the desktop environment to be ready
 sleep 5
 
-# ------------------------------------------------------------------
-# Detect display server: Wayland or X11
-# $XDG_SESSION_TYPE is set by the session manager on both Bookworm and Trixie.
-# Fall back to checking $WAYLAND_DISPLAY in case the variable isn't exported.
-# ------------------------------------------------------------------
-SESSION_TYPE="${XDG_SESSION_TYPE:-}"
-if [ -z "$SESSION_TYPE" ] && [ -n "$WAYLAND_DISPLAY" ]; then
-    SESSION_TYPE="wayland"
-fi
-if [ -z "$SESSION_TYPE" ]; then
-    # Last resort: default to x11 so the script always does something useful
-    SESSION_TYPE="x11"
-fi
-
-echo "OpenHamClock kiosk: detected session type = $SESSION_TYPE"
+echo "OpenHamClock kiosk: session type = $SESSION_TYPE"
 
 if [ "$SESSION_TYPE" = "wayland" ]; then
     # ------------------------------------------------------------------
