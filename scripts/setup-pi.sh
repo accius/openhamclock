@@ -199,7 +199,11 @@ esac
 # Resolving here, at install time, lets the user see and override the
 # choice up front, and bakes a single constant into kiosk.sh.
 resolve_session_type() {
+    # Diagnostic output goes to stderr so it shows in install logs without
+    # polluting the function's stdout (which is the resolved value). Useful
+    # while we're still ironing out why auto-detect picks wrong on some Pis.
     if [ "$SESSION_TYPE_OVERRIDE" = "x11" ] || [ "$SESSION_TYPE_OVERRIDE" = "wayland" ]; then
+        echo "  [session-detect] CLI override: $SESSION_TYPE_OVERRIDE" >&2
         echo "$SESSION_TYPE_OVERRIDE"
         return
     fi
@@ -208,16 +212,28 @@ resolve_session_type() {
         # shellcheck disable=SC1091
         local codename
         codename=$(. /etc/os-release && echo "${VERSION_CODENAME:-}")
+        echo "  [session-detect] /etc/os-release VERSION_CODENAME='$codename'" >&2
         case "$codename" in
-            bookworm|bullseye|buster) echo "x11"; return ;;
-            trixie) echo "wayland"; return ;;
+            bookworm|bullseye|buster)
+                echo "  [session-detect] codename matched debian X11 line, picking x11" >&2
+                echo "x11"; return ;;
+            trixie)
+                echo "  [session-detect] codename matched trixie, picking wayland" >&2
+                echo "wayland"; return ;;
         esac
+        echo "  [session-detect] codename '$codename' did not match any known release, falling through" >&2
+    else
+        echo "  [session-detect] /etc/os-release not readable, falling through" >&2
     fi
 
+    echo "  [session-detect] XDG_SESSION_TYPE='${XDG_SESSION_TYPE:-}'" >&2
     case "${XDG_SESSION_TYPE:-}" in
-        x11|wayland) echo "$XDG_SESSION_TYPE"; return ;;
+        x11|wayland)
+            echo "  [session-detect] falling back to XDG_SESSION_TYPE: $XDG_SESSION_TYPE" >&2
+            echo "$XDG_SESSION_TYPE"; return ;;
     esac
 
+    echo "  [session-detect] no signal matched, defaulting to x11" >&2
     echo "x11"
 }
 
