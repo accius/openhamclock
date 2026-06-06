@@ -7,7 +7,7 @@
     "dev": "npx vite",
     "electron": "electron .",
     "electron-builder": "electron-builder",
-    "prebuild": "bash scripts/fetch-wasm.sh",
+    "prebuild": "node scripts/fetch-wasm.js",
     "build": "npx vite build",
     "lang:check": "node scripts/lang-check-json-key-sort.js",
     "lang:sort": "node scripts/lang-json-key-sort.mjs",
