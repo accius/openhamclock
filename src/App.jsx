@@ -59,6 +59,7 @@ import WhatsNew from './components/WhatsNew.jsx';
 import { initCtyLookup } from './utils/ctyLookup.js';
 import { getAllLayers } from './plugins/layerRegistry.js';
 import ActivateFilterManager from './components/ActivateFilterManager.jsx';
+import { useLightningAnnouncements } from './hooks/app/useLightningAnnouncements';
 
 // Load DXCC entity database on app startup (non-blocking)
 initCtyLookup();
@@ -321,6 +322,8 @@ const App = () => {
     dxpeditions: dxpeditions.data?.dxpeditions,
     contests: contests.data,
   });
+
+  const { announcement: lightningAnnouncement } = useLightningAnnouncements();
 
   const propagation = usePropagation(config.location, dxLocation, config.propagation);
   const mySpots = useMySpots(config.callsign);
@@ -813,6 +816,10 @@ const App = () => {
       {/* Polite: satellite setting is informational */}
       <div className="visually-hidden" aria-live="polite" aria-atomic="true" data-testid="satellite-set-announcer">
         {satelliteSetAnnouncement}
+      </div>
+      {/* Assertive: lightning proximity is a safety alert — announce immediately */}
+      <div className="visually-hidden" aria-live="assertive" aria-atomic="true" data-testid="lightning-announcer">
+        {lightningAnnouncement}
       </div>
     </main>
   );
