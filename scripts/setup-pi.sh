@@ -83,8 +83,8 @@
 #   and baked into kiosk.sh as a constant. Order of precedence:
 #
 #     1. --session-type=x11|wayland on the setup-pi.sh CLI
-#     2. /etc/os-release codename (bookworm/bullseye → x11, trixie → wayland)
-#     3. $XDG_SESSION_TYPE from the installer's shell
+#     2. $XDG_SESSION_TYPE from the installer's shell (if x11 or wayland)
+#     3. /etc/os-release codename (bookworm/bullseye → x11, trixie → wayland)
 #     4. x11 as a last-resort default
 #
 #   The resolved SESSION_TYPE selects the display path:
@@ -189,8 +189,10 @@ esac
 # Resolve the display server type that will be baked into kiosk.sh.
 # Order of precedence:
 #   1. --session-type=x11|wayland on the CLI
-#   2. /etc/os-release codename (bookworm/bullseye → x11, trixie → wayland)
-#   3. $XDG_SESSION_TYPE from the current shell
+#   2. $XDG_SESSION_TYPE from the current shell (if x11 or wayland — what's
+#      actually running beats what the OS defaults to; e.g. Pi 3B+ users on
+#      Trixie often stay on X11 because labwc is slow on VideoCore IV)
+#   3. /etc/os-release codename (bookworm/bullseye → x11, trixie → wayland)
 #   4. x11 (last-resort default — never silently pick wayland)
 #
 # Boot-time auto-detection was previously done inside kiosk.sh but proved
@@ -207,6 +209,19 @@ resolve_session_type() {
         echo "$SESSION_TYPE_OVERRIDE"
         return
     fi
+
+    # XDG_SESSION_TYPE comes first because it reflects what's *actually*
+    # running. The codename heuristic only knows what the OS would default
+    # to; it gets this wrong on Trixie Pi 3B+ boxes that stay on X11
+    # because labwc is too slow on VideoCore IV (see #1026 follow-up).
+    # SSH installs report XDG=tty and fall through to codename, which is
+    # the right behaviour for headless first-installs.
+    echo "  [session-detect] XDG_SESSION_TYPE='${XDG_SESSION_TYPE:-}'" >&2
+    case "${XDG_SESSION_TYPE:-}" in
+        x11|wayland)
+            echo "  [session-detect] using XDG_SESSION_TYPE: $XDG_SESSION_TYPE" >&2
+            echo "$XDG_SESSION_TYPE"; return ;;
+    esac
 
     if [ -r /etc/os-release ]; then
         # shellcheck disable=SC1091
@@ -225,13 +240,6 @@ resolve_session_type() {
     else
         echo "  [session-detect] /etc/os-release not readable, falling through" >&2
     fi
-
-    echo "  [session-detect] XDG_SESSION_TYPE='${XDG_SESSION_TYPE:-}'" >&2
-    case "${XDG_SESSION_TYPE:-}" in
-        x11|wayland)
-            echo "  [session-detect] falling back to XDG_SESSION_TYPE: $XDG_SESSION_TYPE" >&2
-            echo "$XDG_SESSION_TYPE"; return ;;
-    esac
 
     echo "  [session-detect] no signal matched, defaulting to x11" >&2
     echo "x11"
