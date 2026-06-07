@@ -98,7 +98,7 @@ export const usePropagation = (deLocation, dxLocation, propagationConfig = {}) =
         // the WASM bundle land here on every refresh.
         console.warn(
           '[usePropagation] WASM engine unavailable, falling back to REST/EST. ' +
-            'Self-hosters: run "bash scripts/fetch-wasm.sh && npm run build" to install the WASM bundle. ' +
+            'Self-hosters: run "node scripts/fetch-wasm.js && npm run build" to install the WASM bundle. ' +
             `(${err.message})`,
         );
         if (rest) {

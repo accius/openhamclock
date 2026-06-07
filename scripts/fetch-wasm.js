@@ -32,6 +32,7 @@ function download(url, dest) {
       response.pipe(fileStream);
       fileStream.on('finish', () => fileStream.close(resolve));
       fileStream.on('error', reject);
+      response.on('error', reject);
     });
 
     request.on('error', reject);
@@ -50,19 +51,23 @@ async function sha256File(filePath) {
 
 async function verifyChecksum(destDir) {
   const checksumFile = path.join(destDir, 'p533.sha256');
-  const wasmFile = path.join(destDir, 'p533.wasm');
+  if (!fs.existsSync(checksumFile)) return;
 
-  if (!fs.existsSync(checksumFile) || !fs.existsSync(wasmFile)) {
-    return;
-  }
+  const lines = fs
+    .readFileSync(checksumFile, 'utf8')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
 
-  const raw = fs.readFileSync(checksumFile, 'utf8').trim();
-  const expected = raw.split(/\s+/)[0];
-  if (!expected) return;
-
-  const actual = await sha256File(wasmFile);
-  if (expected !== actual) {
-    throw new Error('sha256 mismatch on downloaded WASM');
+  for (const line of lines) {
+    const [expected, filename] = line.split(/\s+/);
+    if (!expected || !filename) continue;
+    const filePath = path.join(destDir, filename);
+    if (!fs.existsSync(filePath)) continue;
+    const actual = await sha256File(filePath);
+    if (expected !== actual) {
+      throw new Error(`sha256 mismatch on ${filename}`);
+    }
   }
 }
 
