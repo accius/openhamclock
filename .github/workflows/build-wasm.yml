@@ -17,6 +17,10 @@ on:
       - '.github/workflows/build-wasm.yml'
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: write # push builds upload p533.{mjs,wasm} to the wasm-latest release
 

@@ -28,6 +28,10 @@ on:
         default: 'true'
         type: boolean
 
+concurrency:
+  group: publish-p533-data
+  cancel-in-progress: false
+
 permissions:
   contents: write # needed to create/update releases
 
