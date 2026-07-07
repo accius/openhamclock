@@ -208,6 +208,12 @@ export const SettingsPanel = ({
   const [qrzTesting, setQrzTesting] = useState(false);
   const [qrzMessage, setQrzMessage] = useState(null); // { type: 'success'|'error', text }
 
+  // QRZ Logbook (worked grids) state — separate key from the XML API above
+  const [qrzLogbookKey, setQrzLogbookKey] = useState('');
+  const [qrzLogbookStatus, setQrzLogbookStatus] = useState(null); // { configured, source, gridCount, ... }
+  const [qrzLogbookTesting, setQrzLogbookTesting] = useState(false);
+  const [qrzLogbookMessage, setQrzLogbookMessage] = useState(null); // { type: 'success'|'error', text }
+
   const refreshProfiles = () => {
     setProfilesList(getProfiles());
     setActiveProfileName(getActiveProfile());
@@ -318,6 +324,10 @@ export const SettingsPanel = ({
         .then((r) => r.json())
         .then((data) => setQrzStatus(data))
         .catch(() => setQrzStatus(null));
+      fetch('/api/qrz-logbook/status')
+        .then((r) => r.json())
+        .then((data) => setQrzLogbookStatus(data))
+        .catch(() => setQrzLogbookStatus(null));
     }
   }, [isOpen, activeTab]);
 
@@ -3224,6 +3234,171 @@ export const SettingsPanel = ({
                           }}
                         >
                           {qrzMessage.type === 'success' ? '✓' : '✗'} {qrzMessage.text}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* QRZ Logbook API Key (Worked Grids map layer) */}
+                <div
+                  style={{
+                    borderTop: '1px solid rgba(255,255,255,0.08)',
+                    paddingTop: 12,
+                    marginTop: 14,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: 'var(--accent-amber)',
+                      marginBottom: '4px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                    }}
+                  >
+                    <span>🔲 QRZ Logbook — Worked Grids</span>
+                    {qrzLogbookStatus?.configured && (
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: '500',
+                          padding: '1px 6px',
+                          borderRadius: '3px',
+                          background: 'rgba(46, 204, 113, 0.15)',
+                          color: '#2ecc71',
+                        }}
+                      >
+                        ● Configured{qrzLogbookStatus.source === 'env' ? ' (env)' : ''}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.4 }}>
+                    Imports QSOs from your QRZ logbook to draw the <b>Worked Grids (QRZ Logbook)</b> heatmap in{' '}
+                    <b>Settings → Map Layers</b>. This is <b>not</b> your QRZ password — each logbook has its own API
+                    key, found at qrz.com → My Logbook → Settings.
+                  </div>
+                  {qrzLogbookStatus?.source === 'env' ? (
+                    <div
+                      style={{
+                        fontSize: '11px',
+                        color: 'var(--text-muted)',
+                        padding: '8px',
+                        background: 'var(--bg-primary)',
+                        borderRadius: '4px',
+                      }}
+                    >
+                      ✓ Key configured via{' '}
+                      <code style={{ background: 'var(--bg-tertiary)', padding: '1px 4px', borderRadius: '2px' }}>
+                        QRZ_LOGBOOK_API_KEY
+                      </code>{' '}
+                      in .env file
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                        <input
+                          disabled={!isLocalInstall}
+                          type="password"
+                          placeholder="Logbook API Key (XXXX-XXXX-XXXX-XXXX)"
+                          value={qrzLogbookKey}
+                          onChange={(e) => setQrzLogbookKey(e.target.value)}
+                          style={{
+                            flex: 1,
+                            padding: '8px 12px',
+                            background: 'var(--bg-primary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '4px',
+                            color: 'var(--text-primary)',
+                            fontSize: '12px',
+                            fontFamily: 'var(--font-mono)',
+                            boxSizing: 'border-box',
+                          }}
+                        />
+                        <button
+                          disabled={!isLocalInstall || qrzLogbookTesting || !qrzLogbookKey.trim()}
+                          onClick={async () => {
+                            setQrzLogbookTesting(true);
+                            setQrzLogbookMessage(null);
+                            try {
+                              const res = await fetch('/api/qrz-logbook/configure', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ key: qrzLogbookKey.trim() }),
+                              });
+                              const data = await res.json();
+                              if (data.success) {
+                                setQrzLogbookMessage({
+                                  type: 'success',
+                                  text: data.logbookQsos
+                                    ? `Connected — ${data.logbookQsos} QSOs in logbook`
+                                    : 'Connected to QRZ Logbook',
+                                });
+                                setQrzLogbookKey('');
+                                const st = await fetch('/api/qrz-logbook/status').then((r) => r.json());
+                                setQrzLogbookStatus(st);
+                              } else {
+                                setQrzLogbookMessage({ type: 'error', text: data.error || 'Validation failed' });
+                              }
+                            } catch (e) {
+                              setQrzLogbookMessage({ type: 'error', text: 'Connection error' });
+                            }
+                            setQrzLogbookTesting(false);
+                          }}
+                          style={{
+                            padding: '6px 14px',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            borderRadius: '4px',
+                            border: 'none',
+                            cursor: qrzLogbookTesting || !qrzLogbookKey.trim() ? 'not-allowed' : 'pointer',
+                            background: 'var(--accent-amber)',
+                            color: '#000',
+                            opacity: qrzLogbookTesting || !qrzLogbookKey.trim() ? 0.5 : 1,
+                          }}
+                        >
+                          {qrzLogbookTesting ? 'Testing...' : 'Save & Test'}
+                        </button>
+                        {qrzLogbookStatus?.configured && qrzLogbookStatus.source !== 'env' && (
+                          <button
+                            onClick={async () => {
+                              await fetch('/api/qrz-logbook/remove', { method: 'POST' });
+                              setQrzLogbookKey('');
+                              setQrzLogbookMessage(null);
+                              const st = await fetch('/api/qrz-logbook/status').then((r) => r.json());
+                              setQrzLogbookStatus(st);
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '11px',
+                              borderRadius: '4px',
+                              border: '1px solid var(--border-color)',
+                              cursor: 'pointer',
+                              background: 'transparent',
+                              color: 'var(--text-muted)',
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </div>
+                      {qrzLogbookMessage && (
+                        <div
+                          style={{
+                            marginTop: '6px',
+                            fontSize: '11px',
+                            padding: '6px 10px',
+                            borderRadius: '4px',
+                            background:
+                              qrzLogbookMessage.type === 'success'
+                                ? 'rgba(46, 204, 113, 0.1)'
+                                : 'rgba(231, 76, 60, 0.1)',
+                            color: qrzLogbookMessage.type === 'success' ? '#2ecc71' : '#e74c3c',
+                          }}
+                        >
+                          {qrzLogbookMessage.type === 'success' ? '✓' : '✗'} {qrzLogbookMessage.text}
                         </div>
                       )}
                     </>

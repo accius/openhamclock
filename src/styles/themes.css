@@ -37,6 +37,12 @@
   --color-aprs-rf: #4ade80;
   --bg-row-alt: rgba(255, 255, 255, 0.04);
   --map-ocean: #0a0e14;
+  /* Worked Grids heatmap (hex only — interpolated in JS by the map layer) */
+  --grid-heat-cold: #142342;
+  --grid-heat-mid: #5805bb;
+  --grid-heat-hot: #9001c2;
+  --grid-unconfirmed-fill: #3a3a3a;
+  --grid-unconfirmed-border: #0a0a0a;
   /* --scanline-opacity: 0.02; */
 }
 
@@ -63,6 +69,12 @@
   --color-aprs-rf: #16a34a;
   --bg-row-alt: rgba(0, 0, 0, 0.04);
   --map-ocean: #f0f4f8;
+  /* Worked Grids heatmap — light map, so hotter = deeper blue (border/accent-blue family) */
+  --grid-heat-cold: #cfe0f4;
+  --grid-heat-mid: #2266cc;
+  --grid-heat-hot: #0a2a66;
+  --grid-unconfirmed-fill: #c8ced6;
+  --grid-unconfirmed-border: #7a8a9a;
   /* --scanline-opacity: 0; */
 }
 
@@ -89,6 +101,12 @@
   --color-aprs-rf: #00ff00;
   --bg-row-alt: rgba(0, 255, 0, 0.06);
   --map-ocean: #000008;
+  /* Worked Grids heatmap — monochrome green phosphor, hotter = brighter */
+  --grid-heat-cold: #052905;
+  --grid-heat-mid: #00bb00;
+  --grid-heat-hot: #00ff00;
+  --grid-unconfirmed-fill: #1a1a1a;
+  --grid-unconfirmed-border: #005500;
   /* --scanline-opacity: 0.05; */
 }
 
@@ -119,5 +137,11 @@
   --title-bar: linear-gradient(90deg, #000080, #1084d0);
   --title-bar-text: #ffffff;
   --map-ocean: #000080;
+  /* Worked Grids heatmap — classic VGA primaries: navy → purple → red */
+  --grid-heat-cold: #000080;
+  --grid-heat-mid: #800080;
+  --grid-heat-hot: #ff0000;
+  --grid-unconfirmed-fill: #808080;
+  --grid-unconfirmed-border: #404040;
   /* --scanline-opacity: 0; */
 }

@@ -257,6 +257,7 @@ require('./server/routes/p533-data')(app, ctx);
 require('./server/routes/winlink')(app, ctx);
 
 require('./server/routes/contests')(app, ctx);
+require('./server/routes/qrz-logbook')(app, ctx);
 require('./server/routes/aprs')(app, ctx);
 require('./server/routes/wsjtx')(app, ctx);
 require('./server/routes/n1mm')(app, ctx);

@@ -22,7 +22,10 @@ export function readCssVariables() {
 /* Apply a theme object to :root */
 export function applyCustomTheme(themeVars) {
   Object.entries(themeVars).forEach(([key, value]) => {
-    document.documentElement.style.setProperty(key, value);
+    // Heal { r, g, b, a } picker objects that older versions stored raw —
+    // setProperty would stringify them to "[object Object]" (invalid CSS)
+    const css = value && typeof value === 'object' ? `rgba(${value.r},${value.g},${value.b},${value.a})` : value;
+    document.documentElement.style.setProperty(key, css);
   });
 }
 

@@ -22,6 +22,11 @@ const COLOR_DESCRIPTIONS = {
   '--accent-blue': 'Links, info badges, secondary highlights',
   '--accent-cyan': 'UTC clock, SFI/SSN values, frequency displays',
   '--accent-purple': 'Special tags, VHF indicators, unique highlights',
+  '--grid-heat-cold': 'Worked Grids map layer: fewest QSOs in a confirmed grid',
+  '--grid-heat-mid': 'Worked Grids map layer: midpoint of the heat gradient',
+  '--grid-heat-hot': 'Worked Grids map layer: most QSOs in a confirmed grid',
+  '--grid-unconfirmed-fill': 'Worked Grids map layer: grids with no confirmed QSO',
+  '--grid-unconfirmed-border': 'Worked Grids map layer: outline on unconfirmed grids',
 };
 
 // Group colors by category
@@ -41,6 +46,17 @@ const COLOR_GROUPS = [
       '--accent-blue',
       '--accent-cyan',
       '--accent-purple',
+    ],
+  },
+  {
+    label: 'Worked Grids Heatmap',
+    icon: '🔲',
+    keys: [
+      '--grid-heat-cold',
+      '--grid-heat-mid',
+      '--grid-heat-hot',
+      '--grid-unconfirmed-fill',
+      '--grid-unconfirmed-border',
     ],
   },
 ];
@@ -64,6 +80,29 @@ function colorToCSS(color) {
   if (!color) return '#000';
   if (typeof color === 'string') return color;
   return `rgba(${color.r},${color.g},${color.b},${color.a})`;
+}
+
+// Parse a CSS color string into the { r, g, b, a } object RgbaColorPicker expects.
+// Handles rgb()/rgba() (comma and space/slash syntax) and #rgb/#rrggbb/#rrggbbaa hex.
+function cssToRgba(color) {
+  if (!color) return { r: 0, g: 0, b: 0, a: 1 };
+  if (typeof color === 'object') return color;
+  const rgba = color.match(/rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)(?:\s*[,/]\s*([\d.]+))?\s*\)/i);
+  if (rgba) {
+    return { r: +rgba[1], g: +rgba[2], b: +rgba[3], a: rgba[4] !== undefined ? +rgba[4] : 1 };
+  }
+  const hex = color.match(/^#([0-9a-f]{3,8})$/i);
+  if (hex) {
+    let h = hex[1];
+    if (h.length <= 4) h = [...h].map((ch) => ch + ch).join('');
+    return {
+      r: parseInt(h.slice(0, 2), 16),
+      g: parseInt(h.slice(2, 4), 16),
+      b: parseInt(h.slice(4, 6), 16),
+      a: h.length === 8 ? parseInt(h.slice(6, 8), 16) / 255 : 1,
+    };
+  }
+  return { r: 0, g: 0, b: 0, a: 1 };
 }
 
 // ── Live mockup that renders a mini dashboard using the current custom theme colors ──
@@ -491,8 +530,8 @@ export default function CustomThemeEditor({ id, customTheme, updateCustomVar }) 
                     <div style={{ padding: '0 10px 10px 10px' }}>
                       <div style={{ display: 'flex', justifyContent: 'center' }}>
                         <Picker
-                          color={color}
-                          onChange={(c) => updateCustomVar(key, c)}
+                          color={cfg.alpha ? cssToRgba(color) : colorToCSS(color)}
+                          onChange={(c) => updateCustomVar(key, colorToCSS(c))}
                           style={{ width: '100%', maxWidth: '240px' }}
                         />
                       </div>

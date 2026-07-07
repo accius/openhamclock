@@ -14,6 +14,16 @@ export function useTheme() {
       const defaults = readCssVariables(); // from dark theme
       saveConfig({ theme: 'dark', customTheme: defaults });
       setCustomTheme(defaults);
+    } else {
+      // Backfill variables added after this custom theme was saved
+      // (e.g. the Worked Grids heatmap colors) with the current defaults
+      const defaults = readCssVariables();
+      const missing = Object.keys(defaults).filter((k) => !(k in config.customTheme));
+      if (missing.length > 0) {
+        const merged = { ...defaults, ...config.customTheme };
+        saveConfig({ customTheme: merged });
+        setCustomTheme(merged);
+      }
     }
 
     if (theme === 'custom' && customTheme) {

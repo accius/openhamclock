@@ -16,6 +16,12 @@ export const THEME_COLOR_CONFIG = {
   '--accent-blue': { alpha: false, hueRestrict: 240 },
   '--accent-cyan': { alpha: false, hueRestrict: 180 },
   '--accent-purple': { alpha: false, hueRestrict: 277 },
+  // Worked Grids heatmap (map layer) — hex only, the layer interpolates these in JS
+  '--grid-heat-cold': { alpha: false, hueRestrict: null },
+  '--grid-heat-mid': { alpha: false, hueRestrict: null },
+  '--grid-heat-hot': { alpha: false, hueRestrict: null },
+  '--grid-unconfirmed-fill': { alpha: false, hueRestrict: null },
+  '--grid-unconfirmed-border': { alpha: false, hueRestrict: null },
 };
 
 export const THEME_VARS = Object.keys(THEME_COLOR_CONFIG);

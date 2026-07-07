@@ -40,6 +40,7 @@ coverage/
 .env.*.local
 *.env
 .qrz-credentials
+.qrz-logbook-key
 
 # Editor directories and files
 .idea/

@@ -165,6 +165,7 @@ const CONFIG = {
   _openWeatherApiKey: process.env.OPENWEATHER_API_KEY || '',
   _qrzUsername: process.env.QRZ_USERNAME || '',
   _qrzPassword: process.env.QRZ_PASSWORD || '',
+  _qrzLogbookApiKey: process.env.QRZ_LOGBOOK_API_KEY || '',
 };
 
 // Check if required config is missing
