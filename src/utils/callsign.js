@@ -43,7 +43,7 @@ export const CONTINENTS = [
 /**
  * Digital/Voice Modes
  */
-export const MODES = ['CW', 'SSB', 'FT8', 'FT4', 'RTTY', 'PSK', 'AM', 'FM'];
+export const MODES = ['CW', 'SSB', 'FT8', 'FT4', 'FT2', 'RTTY', 'PSK', 'AM', 'FM'];
 
 /**
  * Get band from frequency (in kHz)
@@ -93,6 +93,7 @@ export const detectMode = (comment, freq) => {
     const upper = comment.toUpperCase();
     if (upper.includes('FT8')) return 'FT8';
     if (upper.includes('FT4')) return 'FT4';
+    if (upper.includes('FT2')) return 'FT2';
     if (upper.includes('CW')) return 'CW';
     if (upper.includes('SSB') || upper.includes('LSB') || upper.includes('USB')) return 'SSB';
     if (upper.includes('RTTY')) return 'RTTY';
@@ -126,6 +127,17 @@ export const detectMode = (comment, freq) => {
     { mhz: 24.915, mode: 'FT8' },
     { mhz: 28.074, mode: 'FT8' },
     { mhz: 50.313, mode: 'FT8' },
+    // FT2 calling frequencies
+    { mhz: 1.842, mode: 'FT2' },
+    { mhz: 3.577, mode: 'FT2' },
+    { mhz: 7.077, mode: 'FT2' },
+    { mhz: 10.141, mode: 'FT2' },
+    { mhz: 14.077, mode: 'FT2' },
+    { mhz: 18.107, mode: 'FT2' },
+    { mhz: 21.077, mode: 'FT2' },
+    { mhz: 24.92, mode: 'FT2' },
+    { mhz: 28.077, mode: 'FT2' },
+    { mhz: 50.317, mode: 'FT2' },
     // FT4 calling frequencies
     { mhz: 3.575, mode: 'FT4' },
     { mhz: 7.0475, mode: 'FT4' },

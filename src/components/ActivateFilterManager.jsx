@@ -22,6 +22,7 @@ const MODES = [
   'FST4',
   'FST4W',
   'FST4W-90',
+  'FT2',
   'FT4',
   'FT8',
   'HELL',

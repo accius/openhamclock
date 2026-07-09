@@ -213,7 +213,7 @@ export function useLayer({ map, enabled, opacity, locator }) {
           .map((g) => `<option value="${g}" ${g === gridSize ? 'selected' : ''}>${g}°</option>`)
           .join('');
 
-        const modeOptions = ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'AM', 'FM']
+        const modeOptions = ['SSB', 'CW', 'FT8', 'FT4', 'FT2', 'RTTY', 'AM', 'FM']
           .map((m) => `<option value="${m}" ${m === propMode ? 'selected' : ''}>${m}</option>`)
           .join('');
 
