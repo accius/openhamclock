@@ -74,7 +74,7 @@ export const mapModeToRig = (mode, freq) => {
   if (m === 'DATA-USB' || m === 'DATA-LSB') return m;
 
   // Digital/data modes → DATA-USB or DATA-LSB based on band convention
-  const digitalModes = ['DATA', 'FT8', 'FT4', 'JS8', 'WSPR', 'JT65', 'JT9', 'PSK31', 'PSK63', 'RTTY', 'PKT'];
+  const digitalModes = ['DATA', 'FT8', 'FT4', 'FT2', 'JS8', 'WSPR', 'JT65', 'JT9', 'PSK31', 'PSK63', 'RTTY', 'PKT'];
   if (digitalModes.includes(m)) {
     return sb === 'USB' ? 'DATA-USB' : 'DATA-LSB';
   }

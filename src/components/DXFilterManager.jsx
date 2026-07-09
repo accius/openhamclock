@@ -45,7 +45,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onCl
     '2m',
     '70cm',
   ];
-  const modes = ['CW', 'SSB', 'FT8', 'FT4', 'RTTY', 'PSK', 'JT65', 'JS8', 'SSTV', 'AM', 'FM'];
+  const modes = ['CW', 'SSB', 'FT8', 'FT4', 'FT2', 'RTTY', 'PSK', 'JT65', 'JS8', 'SSTV', 'AM', 'FM'];
 
   // noinspection DuplicatedCode
   const toggleArrayItem = (key, item) => {
