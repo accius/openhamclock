@@ -62,6 +62,17 @@ const ISLANDS = [
   { mhz: 21.074, mode: 'FT8' },
   { mhz: 24.915, mode: 'FT8' },
   { mhz: 28.074, mode: 'FT8' },
+  // FT2
+  { mhz: 1.843, mode: 'FT2' },
+  { mhz: 3.578, mode: 'FT2' },
+  { mhz: 5.36, mode: 'FT2' },
+  { mhz: 7.052, mode: 'FT2' },
+  { mhz: 10.144, mode: 'FT2' },
+  { mhz: 14.084, mode: 'FT2' },
+  { mhz: 18.108, mode: 'FT2' },
+  { mhz: 21.144, mode: 'FT2' },
+  { mhz: 24.923, mode: 'FT2' },
+  { mhz: 28.184, mode: 'FT2' },
   // FT4
   { mhz: 3.575, mode: 'FT4' },
   { mhz: 7.0475, mode: 'FT4' },
