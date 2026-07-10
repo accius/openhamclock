@@ -114,7 +114,6 @@ export const detectMode = (comment, freq) => {
   // DX cluster spots may report slightly off-frequency depending on the spotter's
   // rig readout or the audio offset of the specific signal they clicked on.
   // 3 kHz was too tight — 24.911 for 12m FT8 (dial 24.915) was being missed.
-  const TOLERANCE = 0.005;
   const DIGITAL_ISLANDS = [
     // FT8 calling frequencies
     { mhz: 1.84, mode: 'FT8' },
@@ -157,9 +156,8 @@ export const detectMode = (comment, freq) => {
   ];
 
   for (const island of DIGITAL_ISLANDS) {
-    if (Math.abs(mhz - island.mhz) <= TOLERANCE) {
-      return island.mode;
-    }
+    const offset = mhz - island.mhz;
+    if (offset >= -0.0005 && offset <= 0.0031) return island.mode;
   }
 
   // Band plan segments — CW vs SSB by frequency range
