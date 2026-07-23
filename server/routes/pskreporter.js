@@ -206,6 +206,27 @@ module.exports = function (app, ctx) {
     });
   });
 
+  // Band activity — counts of recent spots per band.
+  // Reads directly from pskMqtt.recentSpots (no cache needed — in-memory iteration).
+  app.get('/api/pskreporter/band-activity', (req, res) => {
+    const minutes = parseInt(req.query.minutes) || 15;
+    const cutoff = Date.now() - minutes * 60 * 1000;
+    const counts = {};
+
+    for (const [, spots] of pskMqtt.recentSpots) {
+      for (const spot of spots) {
+        if (spot.timestamp < cutoff) continue;
+        const band = spot.band;
+        if (!band || band === 'Unknown') continue;
+        counts[band] = (counts[band] || 0) + 1;
+      }
+    }
+
+    const bands = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+    res.json({ bands, minutes, timestamp: new Date().toISOString() });
+  });
+
   // Combined endpoint - returns stream info (live spots via SSE, no HTTP backfill)
   app.get('/api/pskreporter/:callsign', async (req, res) => {
     const callsign = req.params.callsign.toUpperCase();

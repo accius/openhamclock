@@ -96,6 +96,20 @@ export const usePSKReporter = (callsign, options = {}) => {
       if (txChanged || rxChanged) {
         setLastUpdate(new Date());
       }
+
+      // Compute band counts filtered by the user's time window and broadcast
+      const now = Date.now();
+      const cutoff = now - minutes * 60 * 1000;
+      const counts = {};
+      const allReports = [...txReportsRef.current, ...rxReportsRef.current].filter((r) => r.timestamp > cutoff);
+      for (const report of allReports) {
+        const band = report.band;
+        if (!band || band === 'Unknown') continue;
+        counts[band] = (counts[band] || 0) + 1;
+      }
+      const bands = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      const total = bands.reduce((sum, [, c]) => sum + c, 0);
+      window.dispatchEvent(new CustomEvent('psk-band-activity-changed', { detail: { bands, total } }));
     },
     [identifier, minutes, maxSpots, cleanOldSpots],
   );

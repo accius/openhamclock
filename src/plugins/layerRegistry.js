@@ -30,6 +30,7 @@ import * as IBPLayerPlugin from './layers/useIBPLayer.js';
 import * as WinlinkGatewaysPlugin from './layers/useWinlinkGateways.js';
 import * as AircraftPlugin from './layers/useAircraft.js';
 import * as ATCSectorsPlugin from './layers/useATCSectors.js';
+import * as PSKReporterBandActivityPlugin from './layers/usePSKReporterBandActivity.js';
 
 // Auto-discover local/custom plugins (gitignored — survive updates)
 const localPluginModules = import.meta.glob('./local/*.js', { eager: true });
@@ -73,6 +74,7 @@ const layerPlugins = [
   WinlinkGatewaysPlugin,
   AircraftPlugin,
   ATCSectorsPlugin,
+  PSKReporterBandActivityPlugin,
   ...localPlugins,
 ];
 
@@ -105,6 +107,7 @@ const PINNED_SHORTCUTS = {
   'winlink-gateways': 'k',
   aircraft: 'x',
   'atc-sectors': 'z',
+  'psk-band-activity': 'b',
 };
 
 export function getAllLayers() {
