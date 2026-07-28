@@ -1044,7 +1044,7 @@ module.exports = function (app, ctx) {
     const other = [];
     for (const p of paths) {
       const c = String(p.comment || '').toUpperCase();
-      if (/\bFT[84]\b/.test(c)) ft8ft4.push(p);
+      if (/\bFT[842]\b/.test(c)) ft8ft4.push(p);
       else if (/\b(CW|RTTY|PSK)/.test(c)) other.push(p);
       else voice.push(p); // voice keywords or no mode marker — human spots
     }
