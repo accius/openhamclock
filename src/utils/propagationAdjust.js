@@ -13,6 +13,7 @@ export const MODE_ADVANTAGE_DB = {
   PSK31: 10,
   FT8: 34,
   FT4: 30,
+  FT2: 32,
   WSPR: 41,
   JS8: 37,
   OLIVIA: 20,
