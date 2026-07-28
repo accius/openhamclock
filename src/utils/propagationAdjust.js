@@ -13,7 +13,10 @@ export const MODE_ADVANTAGE_DB = {
   PSK31: 10,
   FT8: 34,
   FT4: 30,
-  FT2: 32,
+  // FT2 trades sensitivity for speed: decode threshold is -12/-13 dB vs
+  // FT4's -17.5 and FT8's -21 (ft2.it technical document) — the LEAST
+  // sensitive of the FTx modes despite being the fastest.
+  FT2: 25,
   WSPR: 41,
   JS8: 37,
   OLIVIA: 20,

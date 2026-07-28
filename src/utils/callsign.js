@@ -110,10 +110,14 @@ export const detectMode = (comment, freq) => {
   // Normalize to MHz (spots may arrive in kHz or MHz)
   const mhz = f > 1000 ? f / 1000 : f;
 
-  // Digital islands — narrow ±5 kHz windows around known calling frequencies
-  // DX cluster spots may report slightly off-frequency depending on the spotter's
-  // rig readout or the audio offset of the specific signal they clicked on.
-  // 3 kHz was too tight — 24.911 for 12m FT8 (dial 24.915) was being missed.
+  // Digital islands — asymmetric windows around known calling (dial) frequencies.
+  // FTx signals occupy dial + 0–3 kHz (audio passband sits ABOVE the dial), so
+  // legitimate spots land in [dial, dial + ~3.1 kHz]; the small negative
+  // allowance covers rounded-down spot frequencies. A symmetric window cannot
+  // work here: FT2 dials sit only 4 kHz above FT4's, so ±5 kHz would swallow
+  // the neighbouring island. (An old note here defended ±5 kHz because a
+  // "24.911 FT8" spot was being missed — that was a busted spot; real FTx
+  // signals are never below the dial.)
   const DIGITAL_ISLANDS = [
     // FT8 calling frequencies
     { mhz: 1.84, mode: 'FT8' },
@@ -126,7 +130,13 @@ export const detectMode = (comment, freq) => {
     { mhz: 24.915, mode: 'FT8' },
     { mhz: 28.074, mode: 'FT8' },
     { mhz: 50.313, mode: 'FT8' },
-    // FT2 calling frequencies
+    // FT2 calling frequencies (tentative community QRGs — experimental mode,
+    // Decodium / WSJT-X Improved, not official WSJT-X)
+    // 160m: 1.843 sits exactly at the top of FT8 1.840's passband. FT8 is
+    // checked first, so a bare spot at exactly 1.8430 classifies as FT8 —
+    // inherent to the frequency plan. Real FT2 auto-spots carry "FT2" in the
+    // comment (matched before the islands) and audio offsets that push them
+    // past 1.8431, so only comment-less dial quotes hit the ambiguity.
     { mhz: 1.843, mode: 'FT2' },
     { mhz: 3.578, mode: 'FT2' },
     { mhz: 5.36, mode: 'FT2' },
