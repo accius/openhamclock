@@ -1111,11 +1111,21 @@ The DX Spider Proxy is a standalone microservice (in the `dxspider-proxy/` direc
 **Cluster nodes (tried in order of priority):**
 
 1. `dxspider.co.uk:7300` — Operated by Keith, G6NHU (primary, UK)
-2. `dxc.nc7j.com:7373` — NC7J
-3. `dxc.ai9t.com:7373` — AI9T
-4. `dxc.w6cua.org:7300` — W6CUA
+2. `dxc.ai9t.com:7373` — AI9T
 
 If the primary node is down, the proxy automatically tries the next one.
+
+> **Do not add `dxc.nc7j.com` (NC7J/NG7M) to any node list.** It runs ArcConnect, which
+> rejects SSID logins, and it was removed at the sysop's request. If you deployed your own
+> proxy from an older release, update it (or set a valid `CALLSIGN`) — pre-v26.4 proxies
+> default to the invalid login `OPENHAMCLOCK-56` and hammer nodes with `sh/dx` retries.
+
+**Remote kill switch:** both the app's cluster connections and the proxy consult
+`cluster-status.json` (fetched from this repo's Staging branch) before dialing any cluster
+node, and re-check every 15 minutes. If a release misbehaves against cluster nodes, flipping
+`"enabled": false` — or raising `"minAppVersion"` / `"minProxyVersion"` — remotely stops all
+up-to-date installs from dialing. The check fails open, so GitHub being unreachable never
+breaks cluster features. Override the flag URL with the `CLUSTER_STATUS_URL` env var.
 
 **SSID management:** Every DX Spider connection requires a unique callsign-SSID combination. OpenHamClock uses:
 

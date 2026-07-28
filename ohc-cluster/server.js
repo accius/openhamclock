@@ -4,8 +4,9 @@
  * Born 2026-06-10 after the NC7J sysop suggested we "build our own cluster".
  * OK. Done.
  *
- * Ingest:  RBN skimmer feeds (CW/RTTY + FT8/FT4), HamQTH human spots,
- *          user submissions (telnet `dx` command + HTTP POST).
+ * Ingest:  RBN skimmer feeds (CW/RTTY + FT8/FT4), human spots from HamQTH,
+ *          POTA, SOTA, WWFF, Parks n Peaks, DX Summit and our dxspider-proxy
+ *          node, plus user submissions (telnet `dx` command + HTTP POST).
  * Serve:   classic telnet cluster on :7300, HTTP API on :3002.
  *
  * Environment:
@@ -17,12 +18,25 @@
  *   NODE_CALL     node callsign shown to telnet users     (default K0CJH-2)
  *   RBN_ENABLED   set to '0' to disable RBN ingest
  *   HAMQTH_ENABLED set to '0' to disable HamQTH ingest
+ *   POTA_ENABLED / SOTA_ENABLED / DXSUMMIT_ENABLED / DXSPIDER_ENABLED /
+ *   WWFF_ENABLED / PNP_ENABLED
+ *                 set to '0' to disable the matching human-spot poller
+ *   DXSPIDER_PROXY_URL  our proxy's base URL (defaults to production)
  *   LOG_LEVEL     debug | info | warn   (default info)
  */
 
 const { SpotStore } = require('./lib/store.js');
 const { RbnFeed } = require('./lib/rbn.js');
 const { HamqthPoller } = require('./lib/hamqth.js');
+const {
+  JsonPoller,
+  parsePotaSpots,
+  parseSotaSpots,
+  parseDxSummitSpots,
+  parseDxSpiderSpots,
+  parseWwffSpots,
+  parsePnpSpots,
+} = require('./lib/pollers.js');
 const { TelnetClusterServer } = require('./lib/telnetServer.js');
 const { buildHttpApi } = require('./lib/httpApi.js');
 const { isValidCallsign } = require('./lib/callsign.js');
@@ -97,6 +111,43 @@ if (process.env.HAMQTH_ENABLED !== '0') {
   hamqth.start();
 }
 
+// Additional human-spot pollers — the SSB supply (RBN can't decode phone)
+const DXSPIDER_PROXY_URL = (process.env.DXSPIDER_PROXY_URL || 'https://spider-production-1ec7.up.railway.app')
+  .trim()
+  .replace(/\/+$/, '');
+const pollerDefs = [
+  { flag: 'POTA_ENABLED', name: 'pota', url: 'https://api.pota.app/spot/activator', parse: parsePotaSpots },
+  { flag: 'SOTA_ENABLED', name: 'sota', url: 'https://api2.sota.org.uk/api/spots/60/all', parse: parseSotaSpots },
+  {
+    flag: 'DXSUMMIT_ENABLED',
+    name: 'dxsummit',
+    url: 'http://www.dxsummit.fi/api/v1/spots?limit=50',
+    parse: parseDxSummitSpots,
+  },
+  {
+    flag: 'DXSPIDER_ENABLED',
+    name: 'dxspider',
+    url: `${DXSPIDER_PROXY_URL}/api/dxcluster/spots?limit=50`,
+    parse: parseDxSpiderSpots,
+  },
+  { flag: 'WWFF_ENABLED', name: 'wwff', url: 'https://spots.wwff.co/static/spots.json', parse: parseWwffSpots },
+  { flag: 'PNP_ENABLED', name: 'parksnpeaks', url: 'https://www.parksnpeaks.org/api/ALL', parse: parsePnpSpots },
+];
+const pollers = [];
+for (const def of pollerDefs) {
+  if (process.env[def.flag] === '0') continue;
+  const poller = new JsonPoller({
+    name: def.name,
+    url: def.url,
+    parse: def.parse,
+    store,
+    log,
+    appVersion: pkg.version,
+  });
+  poller.start();
+  pollers.push(poller);
+}
+
 // ── Serve ─────────────────────────────────────────────────────────────
 const telnetServer = new TelnetClusterServer({
   port: TELNET_PORT,
@@ -107,7 +158,7 @@ const telnetServer = new TelnetClusterServer({
 });
 telnetServer.start();
 
-const app = buildHttpApi({ store, feeds, telnetServer, hamqth, log, startTime, nodeCall: NODE_CALL });
+const app = buildHttpApi({ store, feeds, telnetServer, hamqth, pollers, log, startTime, nodeCall: NODE_CALL });
 app.listen(HTTP_PORT, () => {
   log('START', `OHC-Cluster v${pkg.version} — HTTP :${HTTP_PORT}, telnet :${TELNET_PORT}, node call ${NODE_CALL}`);
 });
@@ -117,6 +168,7 @@ const shutdown = () => {
   log('START', 'Shutting down');
   for (const feed of feeds) feed.stop();
   hamqth?.stop();
+  for (const poller of pollers) poller.stop();
   telnetServer.stop();
   process.exit(0);
 };

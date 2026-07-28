@@ -19,6 +19,11 @@ try {
 
 const CTY_URL = 'https://www.country-files.com/bigcty/cty.dat';
 const REFRESH_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
+// Retry backoff for transient fetch failures (slow DNS, momentary server lag,
+// container boot race with the network). Without this a single failed startup
+// fetch strands the app on the built-in fallback prefix table for 24h.
+const CTY_RETRY_ATTEMPTS = 3;
+const CTY_RETRY_BASE_DELAY_MS = 5000; // 5s, 10s, 20s
 
 let ctyCache = null; // { prefixes: {}, exact: {}, entities: [], timestamp }
 let fetchTimer = null;
@@ -179,14 +184,16 @@ function parseCtyDat(text) {
 }
 
 /**
- * Fetch and parse cty.dat from country-files.com
+ * Fetch and parse cty.dat from country-files.com.
+ * @param {function} [fetchImpl] - injectable fetch for testing
  */
-async function fetchAndParse() {
+async function fetchAndParse(fetchImpl) {
+  const doFetch = fetchImpl || fetch;
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000);
 
-    const response = await fetch(CTY_URL, {
+    const response = await doFetch(CTY_URL, {
       signal: controller.signal,
       headers: { 'User-Agent': 'OpenHamClock' },
     });
@@ -212,14 +219,39 @@ async function fetchAndParse() {
 }
 
 /**
+ * Retry fetchAndParse with exponential backoff so a transient failure
+ * (timeout, slow DNS, container boot race) self-heals within seconds
+ * instead of waiting 24h for the next scheduled refresh.
+ * @param {object} [opts]
+ * @param {number} [opts.maxAttempts=CTY_RETRY_ATTEMPTS]
+ * @param {number} [opts.baseDelayMs=CTY_RETRY_BASE_DELAY_MS]
+ * @param {function} [opts.fetchImpl] - injectable fetch for testing
+ * @returns {Promise<boolean>} true if the fetch succeeded
+ */
+async function fetchWithRetry(opts = {}) {
+  const maxAttempts = opts.maxAttempts ?? CTY_RETRY_ATTEMPTS;
+  const baseDelayMs = opts.baseDelayMs ?? CTY_RETRY_BASE_DELAY_MS;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const ok = await fetchAndParse(opts.fetchImpl);
+    if (ok) return true;
+    if (attempt < maxAttempts) {
+      const delay = baseDelayMs * Math.pow(2, attempt - 1);
+      console.warn(`[CTY] Retrying in ${delay / 1000}s (attempt ${attempt}/${maxAttempts})`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  return false;
+}
+
+/**
  * Initialize: fetch on startup and schedule periodic refresh
  */
 async function initCtyData() {
-  await fetchAndParse();
+  await fetchWithRetry();
 
   // Refresh every 24 hours
   if (fetchTimer) clearInterval(fetchTimer);
-  fetchTimer = setInterval(fetchAndParse, REFRESH_INTERVAL);
+  fetchTimer = setInterval(() => fetchWithRetry(), REFRESH_INTERVAL);
 }
 
 /**
@@ -276,4 +308,4 @@ function lookupCall(call) {
   return null;
 }
 
-module.exports = { initCtyData, getCtyData, lookupCall, parseCtyDat };
+module.exports = { initCtyData, getCtyData, lookupCall, parseCtyDat, fetchWithRetry };

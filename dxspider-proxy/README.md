@@ -22,13 +22,34 @@ Many cloud hosting platforms (including Railway) don't support outbound telnet c
 
 ## Environment Variables
 
-| Variable   | Default | Description                                                         |
-| ---------- | ------- | ------------------------------------------------------------------- |
-| `PORT`     | 3001    | HTTP server port                                                    |
-| `CALLSIGN` | K0CJH   | Callsign for DX Spider login — **must be a valid amateur callsign** |
+| Variable             | Default                            | Description                                                         |
+| -------------------- | ---------------------------------- | ------------------------------------------------------------------- |
+| `PORT`               | 3001                               | HTTP server port                                                    |
+| `CALLSIGN`           | K0CJH                              | Callsign for DX Spider login — **must be a valid amateur callsign** |
+| `CLUSTER_STATUS_URL` | repo raw `cluster-status.json` URL | Remote kill-switch flag file (see below)                            |
 
 > The proxy refuses to connect if `CALLSIGN` is not a valid amateur callsign
 > (e.g. the old `OPENHAMCLOCK` default), rather than spamming nodes with junk logins.
+
+## Remote Kill Switch
+
+Before the first dial and every 15 minutes after, the proxy fetches
+`cluster-status.json` from the OpenHamClock repo (Staging branch). Setting
+`"enabled": false` — or raising `"minProxyVersion"` above this deployment's
+version — makes every deployment disconnect and stop dialing cluster nodes
+within one refresh interval. This exists because pre-v26.4 deployments hammered
+NC7J for months with no way to reach them; from v1.1.0 on, the fleet can be
+stopped remotely if a release misbehaves. The check **fails open**: an
+unreachable flag file never disables anything.
+
+## Stale-Client Nudge
+
+Requests from OpenHamClock installs older than the good-neighbour fixes
+(`User-Agent: OpenHamClock/<version>` below 26.5.1) get a synthetic
+`UPDATE-OHC` spot prepended to spot responses, telling the operator to update —
+rendered right in their DX cluster panel. `GET /api/clients` lists every client
+seen in the last 7 days (IP, User-Agent, version, stale flag) so stale installs
+can be counted and cross-referenced against sysop abuse reports.
 
 ## API Endpoints
 

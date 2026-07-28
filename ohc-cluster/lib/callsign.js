@@ -40,6 +40,27 @@ function isValidCallsign(raw) {
   return parts.every((p) => /^[A-Z0-9]{1,8}$/i.test(p));
 }
 
+// Busted-call filter for SPOTTED calls (skimmer decode errors, human typos,
+// junk like a literal "CQ" in an aggregated feed). Deliberately wider than the
+// login validation above: special-event calls have long suffixes (YR50NADIA),
+// year-marker bodies (DL2026T), and 1x1 shapes (K0C) that CORE_RE rejects.
+// Calibrated against 561 live production calls: the only rejects were genuine
+// busts (NATZR — dropped digit, TM113TDFBK — CW "BK" prosign decoded into the
+// call, a literal "CQ").
+const DX_CORE_RE = /^[A-Z0-9]{1,5}\d[A-Z]{1,5}$/i;
+
+function isPlausibleDxCall(raw) {
+  if (typeof raw !== 'string') return false;
+  const call = raw.trim().toUpperCase();
+  if (call.length < 3 || call.length > 14) return false;
+  if (call.includes('-')) return false; // SSIDs belong to nodes, not DX calls
+  if (!/\d/.test(call) || !/[A-Z]/.test(call)) return false;
+  const parts = call.split('/');
+  if (parts.length > 3) return false;
+  if (!parts.every((p) => /^[A-Z0-9]{1,9}$/.test(p))) return false;
+  return parts.some((p) => DX_CORE_RE.test(p));
+}
+
 // Strip SSID and portable decorations down to the base call (for rate keys)
 function baseCallsign(raw) {
   const call = String(raw || '')
@@ -59,4 +80,4 @@ function sanitizeLine(raw) {
     .trim();
 }
 
-module.exports = { isValidCallsign, baseCallsign, sanitizeLine };
+module.exports = { isValidCallsign, isPlausibleDxCall, baseCallsign, sanitizeLine };

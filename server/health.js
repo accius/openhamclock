@@ -20,6 +20,7 @@ const SATELLITES_CACHE_DURATION_MS = 24 * 60 * 60 * 1000; // mirrors OMM_CACHE_D
 
 const subsystems = {
   fletcher: { status: 'unknown', lastChecked: null, detail: null },
+  'ohc-cluster': { status: 'unknown', lastChecked: null, detail: null },
   rbn: { status: 'unknown', lastChecked: null, detail: null },
   satellites: { status: 'unknown', lastChecked: null, detail: null },
   propagation: { status: 'unknown', lastChecked: null, detail: null },
@@ -53,6 +54,22 @@ async function checkFletcher(ctx) {
     return { status: 'unknown', detail: 'FLETCHER_URL/TLE_FETCHER_URL unset (direct upstream mode)' };
   }
   const result = await probeHttp(`${base}/health`, 'fletcher');
+  if (result.ok) return { status: 'ok', detail: `${result.status} from ${base}/health` };
+  return {
+    status: 'down',
+    detail: result.error ? `probe failed: ${result.error}` : `HTTP ${result.status}`,
+  };
+}
+
+async function checkOhcCluster() {
+  // Same normalization as the dxcluster route: prepend http:// when the
+  // scheme is missing so a schemeless Railway env var still probes.
+  let base = (process.env.OHC_CLUSTER_URL || '').trim().replace(/\/+$/, '');
+  if (base && !/^https?:\/\//i.test(base)) base = `http://${base}`;
+  if (!base) {
+    return { status: 'unknown', detail: 'OHC_CLUSTER_URL unset (node not deployed)' };
+  }
+  const result = await probeHttp(`${base}/health`, 'ohc-cluster');
   if (result.ok) return { status: 'ok', detail: `${result.status} from ${base}/health` };
   return {
     status: 'down',
@@ -101,13 +118,15 @@ async function checkPropagation(ctx) {
 
 async function refreshAll(ctx) {
   const now = Date.now();
-  const [fletcher, rbn, satellites, propagation] = await Promise.all([
+  const [fletcher, ohcCluster, rbn, satellites, propagation] = await Promise.all([
     checkFletcher(ctx),
+    checkOhcCluster(),
     Promise.resolve(checkRbn(ctx)),
     Promise.resolve(checkSatellites(ctx)),
     checkPropagation(ctx),
   ]);
   subsystems.fletcher = { ...fletcher, lastChecked: now };
+  subsystems['ohc-cluster'] = { ...ohcCluster, lastChecked: now };
   subsystems.rbn = { ...rbn, lastChecked: now };
   subsystems.satellites = { ...satellites, lastChecked: now };
   subsystems.propagation = { ...propagation, lastChecked: now };

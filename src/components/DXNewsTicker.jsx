@@ -7,6 +7,12 @@
  * D-11: Dynamic per-source label that rotates as items scroll (min 5s dwell)
  * D-12: Source label opens current source's homepage in a new tab
  * D-13: Hover pauses scroll (CSS-driven); click on item opens article in new tab
+ *
+ * Reduced motion: when the OS/browser reports prefers-reduced-motion, the
+ * infinite scroll is replaced by a discrete rotation — one headline at a
+ * time, swapped every 10 s with no animation — so reduced-motion users
+ * still see every item instead of a frozen strip (main.css halts the
+ * scroll keyframes for them).
  */
 import React, { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -39,7 +45,20 @@ export const DXNewsTicker = ({ sidebar = false }) => {
   const [currentSourceIndex, setCurrentSourceIndex] = useState(0);
   // D-13: hovered state mirrored in React for testability (CSS drives actual animation pause)
   const [hovered, setHovered] = useState(false);
+  // Reduced motion: discrete headline rotation instead of the scroll animation
+  const [reducedMotion, setReducedMotion] = useState(
+    () => typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches,
+  );
   const { t } = useTranslation();
+
+  // Track OS-level motion preference changes live (no reload needed)
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    if (!mq?.addEventListener) return;
+    const onChange = (e) => setReducedMotion(e.matches);
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   // Text scale persisted in localStorage (0.7 – 2.0, default 1.0)
   const [textScale, setTextScale] = useState(() => {
@@ -122,14 +141,16 @@ export const DXNewsTicker = ({ sidebar = false }) => {
 
   // D-11: Rotate currentSourceIndex through items at min 5-second dwell
   // so the label doesn't flicker when adjacent items are from different sources.
+  // In reduced-motion mode this same index drives the discrete headline
+  // rotation, at a fixed 10-second reading pace.
   useEffect(() => {
     if (news.length === 0) return;
-    const dwellMs = Math.max(5000, (animDuration * 1000) / news.length);
+    const dwellMs = reducedMotion ? 10000 : Math.max(5000, (animDuration * 1000) / news.length);
     const id = setInterval(() => {
       setCurrentSourceIndex((i) => (i + 1) % news.length);
     }, dwellMs);
     return () => clearInterval(id);
-  }, [news, animDuration]);
+  }, [news, animDuration, reducedMotion]);
 
   // Defensive: clamp index if news array shrinks after a refresh
   useEffect(() => {
@@ -228,143 +249,217 @@ export const DXNewsTicker = ({ sidebar = false }) => {
         📰 {currentSource}
       </a>
 
-      {/* Scrolling content */}
-      <div
-        style={{
-          flex: 1,
-          overflow: 'hidden',
-          position: 'relative',
-          height: '100%',
-          maskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)',
-          WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)',
-        }}
-      >
-        {/* D-13: Hover-pause via CSS (.dxnews-scroll-content:hover rule injected above).
-            React state mirrors hover for testability (data-hovered attribute).
-            onClick removed — click is now per-item navigation, not pause-toggle. */}
+      {/* Reduced motion: one headline at a time, swapped every 10 s — no animation */}
+      {reducedMotion ? (
         <div
-          ref={contentRef}
-          className="dxnews-scroll-content"
-          data-testid="dxnews-scroll"
-          data-hovered={hovered}
-          onMouseEnter={() => setHovered(true)}
-          onMouseLeave={() => setHovered(false)}
+          data-testid="dxnews-static"
           style={{
-            display: 'inline-flex',
-            alignItems: 'center',
+            flex: 1,
+            overflow: 'hidden',
             height: '100%',
-            whiteSpace: 'nowrap',
-            animationName: 'dxnews-scroll',
-            animationDuration: `${animDuration}s`,
-            animationTimingFunction: 'linear',
-            animationIterationCount: 'infinite',
-            animationPlayState: 'running',
-            paddingLeft: '100%',
-            willChange: 'transform',
+            display: 'flex',
+            alignItems: 'center',
+            padding: '0 10px',
+            minWidth: 0,
           }}
         >
-          {/* D-13: Each item is an anchor — click opens article in new tab */}
-          {tickerItems.map((item, i) => (
-            <a
-              key={i}
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-testid="dxnews-item"
-              data-item-index={i}
-              data-item-url={item.url}
-              title={t('app.dxNews.openInNewTab', { defaultValue: 'Open article in new tab' })}
+          <a
+            href={current?.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            data-testid="dxnews-item"
+            data-item-index={currentSourceIndex}
+            data-item-url={current?.url}
+            title={t('app.dxNews.openInNewTab', { defaultValue: 'Open article in new tab' })}
+            style={{
+              display: 'flex',
+              alignItems: 'baseline',
+              textDecoration: 'none',
+              color: 'inherit',
+              minWidth: 0,
+              width: '100%',
+            }}
+          >
+            <span
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                textDecoration: 'none',
-                color: 'inherit',
+                color: '#ff8800',
+                fontWeight: '700',
+                fontSize: `${BASE_TEXT_SIZE * textScale}px`,
+                fontFamily: 'var(--font-mono)',
+                marginRight: '8px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
               }}
             >
-              <span
-                style={{
-                  color: '#ff8800',
-                  fontWeight: '700',
-                  fontSize: `${BASE_TEXT_SIZE * textScale}px`,
-                  fontFamily: 'var(--font-mono)',
-                  marginRight: '6px',
-                }}
-              >
-                {item.title}
-              </span>
-              <span
-                style={{
-                  color: '#aaa',
-                  fontSize: `${BASE_TEXT_SIZE * textScale}px`,
-                  fontFamily: 'var(--font-mono)',
-                  marginRight: '12px',
-                }}
-              >
-                {item.desc}
-              </span>
-              <span
-                style={{
-                  color: '#555',
-                  fontSize: `${BASE_LABEL_SIZE * textScale}px`,
-                  marginRight: '12px',
-                }}
-              >
-                ◆
-              </span>
-            </a>
-          ))}
-          {/* Duplicate for seamless infinite-scroll loop */}
-          {tickerItems.map((item, i) => (
-            <a
-              key={`dup-${i}`}
-              href={item.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              data-testid="dxnews-item"
-              data-item-index={i}
-              data-item-url={item.url}
-              title={t('app.dxNews.openInNewTab', { defaultValue: 'Open article in new tab' })}
+              {current?.title}
+            </span>
+            <span
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                textDecoration: 'none',
-                color: 'inherit',
+                color: '#aaa',
+                fontSize: `${BASE_TEXT_SIZE * textScale}px`,
+                fontFamily: 'var(--font-mono)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                minWidth: 0,
               }}
             >
-              <span
-                style={{
-                  color: '#ff8800',
-                  fontWeight: '700',
-                  fontSize: `${BASE_TEXT_SIZE * textScale}px`,
-                  fontFamily: 'var(--font-mono)',
-                  marginRight: '6px',
-                }}
-              >
-                {item.title}
-              </span>
-              <span
-                style={{
-                  color: '#aaa',
-                  fontSize: `${BASE_TEXT_SIZE * textScale}px`,
-                  fontFamily: 'var(--font-mono)',
-                  marginRight: '12px',
-                }}
-              >
-                {item.desc}
-              </span>
-              <span
-                style={{
-                  color: '#555',
-                  fontSize: `${BASE_LABEL_SIZE * textScale}px`,
-                  marginRight: '12px',
-                }}
-              >
-                ◆
-              </span>
-            </a>
-          ))}
+              {current?.description}
+            </span>
+            <span
+              style={{
+                color: '#555',
+                fontSize: `${BASE_LABEL_SIZE * textScale}px`,
+                marginLeft: '10px',
+                whiteSpace: 'nowrap',
+                flexShrink: 0,
+              }}
+            >
+              {currentSourceIndex + 1}/{news.length}
+            </span>
+          </a>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* Scrolling content */}
+          <div
+            style={{
+              flex: 1,
+              overflow: 'hidden',
+              position: 'relative',
+              height: '100%',
+              maskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)',
+              WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)',
+            }}
+          >
+            {/* D-13: Hover-pause via CSS (.dxnews-scroll-content:hover rule injected above).
+            React state mirrors hover for testability (data-hovered attribute).
+            onClick removed — click is now per-item navigation, not pause-toggle. */}
+            <div
+              ref={contentRef}
+              className="dxnews-scroll-content"
+              data-testid="dxnews-scroll"
+              data-hovered={hovered}
+              onMouseEnter={() => setHovered(true)}
+              onMouseLeave={() => setHovered(false)}
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                height: '100%',
+                whiteSpace: 'nowrap',
+                animationName: 'dxnews-scroll',
+                animationDuration: `${animDuration}s`,
+                animationTimingFunction: 'linear',
+                animationIterationCount: 'infinite',
+                animationPlayState: 'running',
+                paddingLeft: '100%',
+                willChange: 'transform',
+              }}
+            >
+              {/* D-13: Each item is an anchor — click opens article in new tab */}
+              {tickerItems.map((item, i) => (
+                <a
+                  key={i}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="dxnews-item"
+                  data-item-index={i}
+                  data-item-url={item.url}
+                  title={t('app.dxNews.openInNewTab', { defaultValue: 'Open article in new tab' })}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
+                >
+                  <span
+                    style={{
+                      color: '#ff8800',
+                      fontWeight: '700',
+                      fontSize: `${BASE_TEXT_SIZE * textScale}px`,
+                      fontFamily: 'var(--font-mono)',
+                      marginRight: '6px',
+                    }}
+                  >
+                    {item.title}
+                  </span>
+                  <span
+                    style={{
+                      color: '#aaa',
+                      fontSize: `${BASE_TEXT_SIZE * textScale}px`,
+                      fontFamily: 'var(--font-mono)',
+                      marginRight: '12px',
+                    }}
+                  >
+                    {item.desc}
+                  </span>
+                  <span
+                    style={{
+                      color: '#555',
+                      fontSize: `${BASE_LABEL_SIZE * textScale}px`,
+                      marginRight: '12px',
+                    }}
+                  >
+                    ◆
+                  </span>
+                </a>
+              ))}
+              {/* Duplicate for seamless infinite-scroll loop */}
+              {tickerItems.map((item, i) => (
+                <a
+                  key={`dup-${i}`}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid="dxnews-item"
+                  data-item-index={i}
+                  data-item-url={item.url}
+                  title={t('app.dxNews.openInNewTab', { defaultValue: 'Open article in new tab' })}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    textDecoration: 'none',
+                    color: 'inherit',
+                  }}
+                >
+                  <span
+                    style={{
+                      color: '#ff8800',
+                      fontWeight: '700',
+                      fontSize: `${BASE_TEXT_SIZE * textScale}px`,
+                      fontFamily: 'var(--font-mono)',
+                      marginRight: '6px',
+                    }}
+                  >
+                    {item.title}
+                  </span>
+                  <span
+                    style={{
+                      color: '#aaa',
+                      fontSize: `${BASE_TEXT_SIZE * textScale}px`,
+                      fontFamily: 'var(--font-mono)',
+                      marginRight: '12px',
+                    }}
+                  >
+                    {item.desc}
+                  </span>
+                  <span
+                    style={{
+                      color: '#555',
+                      fontSize: `${BASE_LABEL_SIZE * textScale}px`,
+                      marginRight: '12px',
+                    }}
+                  >
+                    ◆
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Text size controls */}
       <div

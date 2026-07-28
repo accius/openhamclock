@@ -245,4 +245,58 @@ describe('DXNewsTicker', () => {
     expect(scroll.onclick).toBeNull();
     teardown(container, root);
   });
+
+  // ─── Reduced motion ───────────────────────────────────────────────────────
+
+  it('reduced motion: discrete headline rotation replaces the scroll animation', async () => {
+    // Pretend the OS asked for reduced motion (Windows "animation effects" off)
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    });
+
+    try {
+      const items = [
+        makeItem({ id: 'a', title: 'First headline', url: 'https://example.com/a', source: 'DXNEWS' }),
+        makeItem({ id: 'b', title: 'Second headline', url: 'https://example.com/b', source: 'NG3K' }),
+      ];
+      const { container, root } = setup(items);
+      await act(async () => {
+        await renderAndFlush(root);
+        await Promise.resolve();
+      });
+
+      // Static mode renders; the animated scroller does not
+      expect(container.querySelector('[data-testid="dxnews-static"]')).not.toBeNull();
+      expect(container.querySelector('[data-testid="dxnews-scroll"]')).toBeNull();
+
+      // Shows exactly one headline (the first), as a click-through anchor
+      expect(container.textContent).toContain('First headline');
+      expect(container.textContent).not.toContain('Second headline');
+      const item = container.querySelector('[data-testid="dxnews-item"]');
+      expect(item.getAttribute('href')).toBe('https://example.com/a');
+
+      // Position indicator shows where we are in the list
+      expect(container.textContent).toContain('1/2');
+
+      // After the 10 s dwell, the next headline replaces it (no animation involved)
+      await act(async () => {
+        vi.advanceTimersByTime(10001);
+        await Promise.resolve();
+      });
+      expect(container.textContent).toContain('Second headline');
+      expect(container.textContent).not.toContain('First headline');
+      expect(container.textContent).toContain('2/2');
+
+      // The source label follows the rotation too (D-11 parity)
+      const label = container.querySelector('[data-testid="dxnews-source-label"]');
+      expect(label.getAttribute('data-source')).toBe('NG3K');
+
+      teardown(container, root);
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
 });

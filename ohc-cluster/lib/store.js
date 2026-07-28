@@ -14,12 +14,19 @@
  */
 
 const { bandForKhz, toHHMMz } = require('./format.js');
+const { isPlausibleDxCall } = require('./callsign.js');
 
 const DEFAULTS = {
-  retentionMs: 30 * 60 * 1000, // drop spots older than 30 min
-  maxSpots: 2000, // hard cap across all sources
+  // A full hour of history so mode-filtered queries (?mode=SSB) have real
+  // depth — SSB-only traffic is sparse and a 30-min window left users with a
+  // handful of results. New-aggregate rate runs ~4700/hour (measured), so the
+  // cap needs headroom above that or eviction silently undercuts retention.
+  retentionMs: 60 * 60 * 1000,
+  maxSpots: 8000, // hard cap across all sources
   humanDedupWindowMs: 2 * 60 * 1000, // same spotter+call+freq within 2 min = dupe
   skimmerRebroadcastMs: 10 * 60 * 1000, // re-announce a busy station at most every 10 min
+  humanReserveShare: 0.25, // slice of the default query window held for human spots
+  ft8Ft4CapShare: 0.5, // max slice of the default query window FT8/FT4 may take
 };
 
 class SpotStore {
@@ -28,7 +35,7 @@ class SpotStore {
     this.spots = []; // newest first
     this.skimmerIndex = new Map(); // call|band|mode -> spot ref
     this.listeners = new Set();
-    this.counters = { received: 0, stored: 0, collapsed: 0, dropped: 0 };
+    this.counters = { received: 0, stored: 0, collapsed: 0, dropped: 0, busted: 0 };
   }
 
   onSpot(fn) {
@@ -55,6 +62,13 @@ class SpotStore {
     const freqKhz = parseFloat(raw.freqKhz);
     if (!raw.spotter || !raw.call || !Number.isFinite(freqKhz) || freqKhz <= 0) {
       this.counters.dropped++;
+      return null;
+    }
+
+    // Busted-call filter: skimmer decode errors and human typos produce calls
+    // no licensing authority would issue. One choke point covers every feed.
+    if (!isPlausibleDxCall(raw.call)) {
+      this.counters.busted++;
       return null;
     }
 
@@ -148,17 +162,59 @@ class SpotStore {
     if (this.skimmerIndex.get(key) === spot) this.skimmerIndex.delete(key);
   }
 
-  /** Most recent spots, optionally filtered. */
+  /**
+   * Most recent spots, optionally filtered.
+   *
+   * The default (no mode/humanOnly) window is mode-balanced: FT8/FT4 churn
+   * creates new aggregates so fast that pure recency fills the whole window
+   * with digital spots and users conclude nothing else is on the air. Human
+   * spots — the only source of SSB, since RBN skimmers can't decode phone —
+   * get a reserved slice, FT8/FT4 gets a capped one, and slots either group
+   * doesn't use flow back to the general pool.
+   */
   query({ limit = 50, source = null, band = null, mode = null, humanOnly = false } = {}) {
-    const out = [];
+    const matches = [];
     for (const s of this.spots) {
       if (source && s.source !== source) continue;
       if (band && s.band !== band) continue;
       if (mode && s.mode !== mode) continue;
       if (humanOnly && s.skimmerCount > 0) continue;
-      out.push(s);
-      if (out.length >= limit) break;
+      matches.push(s);
     }
+    // Skimmer refreshes update timestamps in place without reordering the
+    // array, so rank by activity rather than insertion.
+    matches.sort((a, b) => b.timestamp - a.timestamp);
+
+    // A caller asking for a specific mode slice gets exactly that slice.
+    if (mode || humanOnly) return matches.slice(0, limit);
+
+    const humans = [];
+    const ft8ft4 = [];
+    const other = [];
+    for (const s of matches) {
+      if (!s.skimmerCount) humans.push(s);
+      else if (s.mode === 'FT8' || s.mode === 'FT4') ft8ft4.push(s);
+      else other.push(s);
+    }
+
+    const humanReserve = Math.ceil(limit * this.opts.humanReserveShare);
+    const out = humans.slice(0, humanReserve);
+    const ft8Cap = Math.min(Math.ceil(limit * this.opts.ft8Ft4CapShare), limit - out.length);
+    out.push(...ft8ft4.slice(0, ft8Cap));
+    out.push(...other.slice(0, limit - out.length));
+
+    // If any group ran short, backfill with the freshest leftovers — a quiet
+    // night should still fill the window even if it's all FT8.
+    if (out.length < limit && out.length < matches.length) {
+      const chosen = new Set(out);
+      for (const s of matches) {
+        if (chosen.has(s)) continue;
+        out.push(s);
+        if (out.length >= limit) break;
+      }
+    }
+
+    out.sort((a, b) => b.timestamp - a.timestamp);
     return out;
   }
 

@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-import { applyDXFilters } from '../utils/dxClusterFilters';
+import { applyDXFilters, balanceSpotWindow, collapseDuplicateSpots } from '../utils/dxClusterFilters';
 import { useVisibilityRefresh } from './useVisibilityRefresh';
 import { apiFetch } from '../utils/apiFetch';
 
@@ -93,13 +93,20 @@ export const useDXClusterData = (filters = {}, config = {}) => {
               (item) => now - (item.timestamp || now) < effectiveRetentionMs,
             );
 
-            // Sort by timestamp (newest first) and limit. DXpedition-tagged
-            // spots are rare and exempt from the cap — under RBN skimmer
-            // volume 200 spots span minutes, which would evict them long
-            // before their retention expires.
-            const sorted = validItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+            // Sort by timestamp (newest first), collapse re-spots of the
+            // same station (accumulator keys include the spotter, so each
+            // extra spotter would otherwise show as a duplicate row), and
+            // cap. The accumulator is what mode filters draw from, so it
+            // holds an hour of history (600 spots) and evicts mode-balanced
+            // — a plain newest-N cap would let FT8/FT4 skimmer churn flush
+            // out the sparse SSB history within minutes. DXpedition-tagged
+            // spots are rare and exempt from the cap entirely.
+            const sorted = collapseDuplicateSpots(validItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
             const dxpeditions = sorted.filter((item) => item.isDXpedition);
-            const regular = sorted.filter((item) => !item.isDXpedition).slice(0, 200);
+            const regular = balanceSpotWindow(
+              sorted.filter((item) => !item.isDXpedition),
+              config.lowMemoryMode ? 200 : 600,
+            );
             return [...dxpeditions, ...regular].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
           });
 

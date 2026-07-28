@@ -160,6 +160,24 @@ async function gunzip(bytes) {
   return new Uint8Array(ab);
 }
 
+// crypto.subtle only exists in secure contexts (HTTPS or localhost). A
+// self-hosted instance reached over plain HTTP (http://192.168.x.x:3001)
+// doesn't have it — skip the integrity check there instead of killing the
+// whole engine (issue #1129: the failure surfaced as "WASM engine
+// unavailable" even though the wasm bundle was fine). gzip's own CRC still
+// catches corruption, and the bytes come from our own same-origin proxy.
+let warnedNoSubtle = false;
+function canVerifyIntegrity() {
+  if (globalThis.crypto?.subtle) return true;
+  if (!warnedNoSubtle) {
+    warnedNoSubtle = true;
+    console.warn(
+      '[p533] crypto.subtle unavailable (page not served over HTTPS/localhost) — skipping data integrity checks',
+    );
+  }
+  return false;
+}
+
 async function fetchAndDecompress(asset) {
   const url = urlFor(asset);
   const res = await fetch(url);
@@ -167,7 +185,7 @@ async function fetchAndDecompress(asset) {
     throw new Error(`p533 fetch ${asset} failed: ${res.status} ${res.statusText}`);
   }
   const gz = new Uint8Array(await res.arrayBuffer());
-  const expected = await expectedSha256For(asset);
+  const expected = canVerifyIntegrity() ? await expectedSha256For(asset) : null;
   if (expected) {
     const actual = await sha256Hex(gz);
     if (actual !== expected) {
@@ -254,4 +272,9 @@ export const __internal = {
   padMonth,
   gunzip,
   sha256Hex,
+  canVerifyIntegrity,
+  fetchAndDecompress,
+  resetIntegrityWarning: () => {
+    warnedNoSubtle = false;
+  },
 };

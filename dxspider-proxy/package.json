@@ -1,6 +1,6 @@
 {
   "name": "dxspider-proxy",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "DX Spider Telnet to HTTP Proxy - Maintains persistent telnet connection and serves spots via REST API",
   "main": "server.js",
   "scripts": {

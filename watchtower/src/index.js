@@ -7,8 +7,8 @@
  * goes down is useless. CF runs the prober outside Railway's blast radius.
  *
  * Probes (every 1 min):
- *   - openhamclock.com /api/health  (also reads subsystems: fletcher, rbn,
- *                                    satellites, propagation)
+ *   - openhamclock.com /api/health  (also reads subsystems: fletcher,
+ *                                    ohc-cluster, rbn, satellites, propagation)
  *   - proppy-production.up.railway.app /api/version
  *   - spider-production.up.railway.app /health
  *
@@ -42,13 +42,11 @@ const RAILWAY_ENV_IDS = {
 const SERVICES = [
   {
     name: 'openhamclock',
-    // Probe Staging for now: it has Phase A (subsystems block) and the
-    // rate-limit skip on /api/health. Prod gets both with the next release,
-    // at which point this flips to https://openhamclock.up.railway.app or
-    // https://openhamclock.com once CF Bot Fight stops 429ing the worker.
-    url: 'https://openhamclock-staging.up.railway.app/api/health',
+    // Probe PRODUCTION via the Railway-direct URL — openhamclock.com sits
+    // behind CF Bot Fight, which 429s worker-to-worker fetches.
+    url: 'https://openhamclock.up.railway.app/api/health',
     parse: parseOpenHamClock, // returns { aggregate, subsystems: {fletcher, rbn, ...} }
-    railwayEnv: 'staging',
+    railwayEnv: 'production',
   },
   {
     name: 'proppy',
@@ -59,6 +57,23 @@ const SERVICES = [
   {
     name: 'spider',
     url: 'https://spider-production-1ec7.up.railway.app/health',
+    parse: parseSimple200,
+    railwayEnv: 'production',
+  },
+  // Direct probes for fletcher + the OHC Cluster node: the /api/health
+  // subsystem checks above cover the private-network path the app uses,
+  // but these keep alerting even when the main app itself is down.
+  {
+    name: 'fletcher',
+    url: 'https://fletcher-production.up.railway.app/health',
+    parse: parseSimple200,
+    railwayEnv: 'production',
+  },
+  {
+    name: 'ohc-cluster',
+    // NOTE: the domain's target port must be 3002 (the HTTP API) — telnet
+    // (7300) is exposed separately via the Railway TCP proxy.
+    url: 'https://ohc-cluster-production.up.railway.app/health',
     parse: parseSimple200,
     railwayEnv: 'production',
   },
@@ -117,7 +132,7 @@ function parseOpenHamClock(body) {
   });
 
   const subs = data.subsystems || {};
-  for (const key of ['fletcher', 'rbn', 'satellites', 'propagation']) {
+  for (const key of ['fletcher', 'ohc-cluster', 'rbn', 'satellites', 'propagation']) {
     const s = subs[key];
     if (!s) continue;
     out.push({

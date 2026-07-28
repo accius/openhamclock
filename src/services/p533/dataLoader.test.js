@@ -88,6 +88,35 @@ describe('sha256Hex', () => {
   });
 });
 
+describe('insecure context (no crypto.subtle)', () => {
+  // Plain-HTTP self-hosted instances have no crypto.subtle (issue #1129) —
+  // the integrity check must step aside instead of killing the engine.
+  it('skips the integrity check and still delivers data', async () => {
+    __internal.resetIntegrityWarning();
+    vi.stubGlobal('crypto', {}); // secure-context API absent
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    expect(__internal.canVerifyIntegrity()).toBe(false);
+
+    const payload = new TextEncoder().encode('fake-decile-payload');
+    stubFetch(async (url) => {
+      if (url.includes('P1239-3-Decile-Factors.txt.gz')) return new Response(gz(payload));
+      // Manifest with a WRONG hash — it must not even be consulted
+      if (url.includes('manifest.json'))
+        return new Response(makeManifest([{ name: 'P1239-3-Decile-Factors.txt.gz', sha256: 'f'.repeat(64) }]));
+      return null;
+    });
+
+    const out = await __internal.fetchAndDecompress('P1239-3-Decile-Factors.txt.gz');
+    expect(Array.from(out)).toEqual(Array.from(payload));
+    expect(warn).toHaveBeenCalledTimes(1); // warned once, not per asset
+
+    await __internal.fetchAndDecompress('P1239-3-Decile-Factors.txt.gz');
+    expect(warn).toHaveBeenCalledTimes(1);
+    warn.mockRestore();
+  });
+});
+
 describe('getMonthFiles', () => {
   it('fetches both ionos + COEFF for the requested month', async () => {
     const ionos = new TextEncoder().encode('fake-ionos-payload');

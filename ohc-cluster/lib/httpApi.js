@@ -17,7 +17,7 @@ const SUBMIT_WINDOW_MS = 60 * 1000;
 const SUBMIT_MAX_PER_WINDOW = 10; // per IP — an OHC instance may proxy a few users
 const submitTimesByIp = new Map();
 
-function buildHttpApi({ store, feeds, telnetServer, hamqth, log, startTime, nodeCall }) {
+function buildHttpApi({ store, feeds, telnetServer, hamqth, pollers = [], log, startTime, nodeCall }) {
   const app = express();
   app.use(cors());
   app.use(express.json({ limit: '8kb' }));
@@ -44,6 +44,7 @@ function buildHttpApi({ store, feeds, telnetServer, hamqth, log, startTime, node
       spots: stats.activeSpots,
       feeds: feeds.map((f) => f.status()),
       hamqth: hamqth ? hamqth.status() : null,
+      pollers: pollers.map((p) => p.status()),
       telnet: telnetServer ? telnetServer.status() : null,
     });
   });
@@ -53,12 +54,13 @@ function buildHttpApi({ store, feeds, telnetServer, hamqth, log, startTime, node
       store: store.stats(),
       feeds: feeds.map((f) => f.status()),
       hamqth: hamqth ? hamqth.status() : null,
+      pollers: pollers.map((p) => p.status()),
       telnet: telnetServer ? telnetServer.status() : null,
     });
   });
 
   app.get('/api/dxcluster/spots', (req, res) => {
-    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 500);
     const spots = store.query({
       limit,
       band: req.query.band || null,

@@ -6,6 +6,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBandColor } from '../utils/callsign.js';
 import { matchesDXSpotPath } from '../utils/dxClusterSpotMatcher';
+import { balanceSpotWindow } from '../utils/dxClusterFilters';
 import { IconSearch, IconMap, IconGlobe } from './Icons.jsx';
 import CallsignLink from './CallsignLink.jsx';
 import { useCallsignPopup } from './CallsignPopupManager.jsx';
@@ -212,8 +213,11 @@ export const DXClusterPanel = ({
   };
 
   const spots = useMemo(() => {
-    if (sortField === 'time') return rawSpots;
-    const copy = [...rawSpots];
+    // Pick the display window before sorting so mode balance survives: a raw
+    // "newest 50" slice is all FT8/FT4 skimmer churn and SSB never shows.
+    const windowed = balanceSpotWindow(rawSpots, 50);
+    if (sortField === 'time') return windowed;
+    const copy = [...windowed];
     if (sortField === 'freq') {
       copy.sort((a, b) => freqToMHz(a) - freqToMHz(b));
     } else if (sortField === 'call') {
@@ -516,7 +520,7 @@ export const DXClusterPanel = ({
             {showSpotter && <span role="columnheader">Spotter</span>}
             <span role="columnheader">Age</span>
           </div>
-          {spots.slice(0, 25).map((spot, i) => {
+          {spots.map((spot, i) => {
             // Frequency can be in MHz (string like "14.070") or kHz (number like 14070)
             let freqDisplay = '?';
             let freqMHz = 0;

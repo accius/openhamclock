@@ -788,13 +788,11 @@ module.exports = function (app, ctx) {
         // whether fletcher/rbn/satellites/propagation are healthy through one probe.
         // Snapshot is refreshed every 30s by server/health.js; reads here are cache hits.
         subsystemStatus: subsystems?.aggregate ?? 'unknown',
+        // Echo every subsystem health.js tracks — hardcoding the keys here
+        // hid new subsystems (ohc-cluster) while they still drove the
+        // aggregate, producing "down" with all visible subsystems ok.
         subsystems: subsystems
-          ? {
-              fletcher: subsystems.fletcher,
-              rbn: subsystems.rbn,
-              satellites: subsystems.satellites,
-              propagation: subsystems.propagation,
-            }
+          ? Object.fromEntries(Object.entries(subsystems).filter(([key]) => key !== 'aggregate'))
           : null,
 
         // SECURITY: Only expose file paths and detailed internals to authenticated requests

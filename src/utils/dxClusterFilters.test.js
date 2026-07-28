@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { applyDXFilters, filterDXPaths } from '../utils/dxClusterFilters.js';
+import { applyDXFilters, filterDXPaths, balanceSpotWindow, collapseDuplicateSpots } from '../utils/dxClusterFilters.js';
 
 describe('dxClusterFilters', () => {
   let mockSpot;
@@ -742,6 +742,145 @@ describe('dxClusterFilters', () => {
         excludeDXCallList: ['4U1UN', '4X6TU'],
       };
       expect(applyDXFilters(beaconSpot, filters)).toBe(false);
+    });
+  });
+
+  describe('balanceSpotWindow', () => {
+    // Spots in the shape the panel actually receives via useDXClusterData:
+    // the paths endpoint drops mode/source and strips the -# skimmer suffix,
+    // so comment + frequency are the only mode signals available.
+    const ft8Spot = (i) => ({
+      call: `F${i}T8`,
+      spotter: 'KM3T',
+      freq: '14.074',
+      comment: 'FT8 -12 dB CQ',
+      source: 'DXCluster',
+    });
+    const cwSpot = (i) => ({
+      call: `C${i}W`,
+      spotter: 'W3OA',
+      freq: '14.025',
+      comment: 'CW 20 dB 22 WPM CQ',
+      source: 'DXCluster',
+    });
+    const ssbSpot = (i) => ({
+      call: `S${i}SB`,
+      spotter: 'K0CJH',
+      freq: '14.2',
+      comment: '59 tnx',
+      source: 'DXCluster',
+    });
+
+    it('returns the list untouched when it fits the window', () => {
+      const spots = [ft8Spot(0), ssbSpot(0)];
+      expect(balanceSpotWindow(spots, 50)).toEqual(spots);
+    });
+
+    it('keeps SSB spots buried deep behind skimmer churn', () => {
+      // 100 fresh FT8 spots ahead of 10 aging SSB spots — a plain
+      // newest-50 slice would show zero SSB
+      const spots = [
+        ...Array.from({ length: 100 }, (_, i) => ft8Spot(i)),
+        ...Array.from({ length: 10 }, (_, i) => ssbSpot(i)),
+      ];
+      const windowed = balanceSpotWindow(spots, 50);
+      expect(windowed).toHaveLength(50);
+      expect(windowed.filter((s) => s.spotter === 'K0CJH')).toHaveLength(10);
+    });
+
+    it('caps FT8/FT4 so other modes survive', () => {
+      const spots = [];
+      for (let i = 0; i < 60; i++) spots.push(ft8Spot(i));
+      for (let i = 0; i < 60; i++) spots.push(cwSpot(i));
+      const windowed = balanceSpotWindow(spots, 40);
+      expect(windowed).toHaveLength(40);
+      expect(windowed.filter((s) => s.comment.startsWith('FT8')).length).toBeLessThanOrEqual(20);
+      expect(windowed.filter((s) => s.comment.startsWith('CW')).length).toBeGreaterThanOrEqual(20);
+    });
+
+    it('backfills the window when only FT8 is on the air', () => {
+      const spots = Array.from({ length: 80 }, (_, i) => ft8Spot(i));
+      expect(balanceSpotWindow(spots, 50)).toHaveLength(50);
+    });
+
+    it('preserves feed order in the output', () => {
+      const spots = [...Array.from({ length: 60 }, (_, i) => ft8Spot(i)), ssbSpot(0)];
+      const windowed = balanceSpotWindow(spots, 50);
+      const idx = (call) => spots.findIndex((s) => s.call === call);
+      for (let i = 1; i < windowed.length; i++) {
+        expect(idx(windowed[i].call)).toBeGreaterThan(idx(windowed[i - 1].call));
+      }
+    });
+
+    it('prefers an explicit mode field over comment/frequency inference', () => {
+      // OHC spots-endpoint shape carries mode; a "SSB" mode on an odd
+      // frequency must still land in the voice reserve
+      const spots = [
+        ...Array.from({ length: 60 }, (_, i) => ft8Spot(i)),
+        { call: 'PY6RT', spotter: 'K0CJH', freq: '14.347', comment: '', mode: 'SSB' },
+      ];
+      const windowed = balanceSpotWindow(spots, 50);
+      expect(windowed.some((s) => s.call === 'PY6RT')).toBe(true);
+    });
+
+    it('treats mode-unknown spots as voice so human spots are never starved', () => {
+      const spots = [
+        ...Array.from({ length: 60 }, (_, i) => ft8Spot(i)),
+        { call: 'ZL1XYZ', spotter: 'K0CJH', freq: '14.100', comment: 'loud', source: 'DXCluster' },
+      ];
+      const windowed = balanceSpotWindow(spots, 50);
+      expect(windowed.some((s) => s.call === 'ZL1XYZ')).toBe(true);
+    });
+  });
+
+  describe('collapseDuplicateSpots', () => {
+    const spot = (over = {}) => ({
+      dxCall: 'NX9T',
+      spotter: 'K0CJH',
+      freq: '7.225',
+      comment: 'POTA US-1502',
+      timestamp: 1000,
+      ...over,
+    });
+
+    it('collapses re-spots of the same station by different spotters, keeping the newest', () => {
+      // newest-first input, as the accumulator provides
+      const spots = [
+        spot({ spotter: 'W1AW', comment: 'POTA US-1502 59 OH', timestamp: 3000 }),
+        spot({ spotter: 'K2ABC', timestamp: 2000 }),
+        spot({ timestamp: 1000 }),
+      ];
+      const out = collapseDuplicateSpots(spots);
+      expect(out).toHaveLength(1);
+      expect(out[0].spotter).toBe('W1AW');
+    });
+
+    it('collapses slightly-off frequencies (within 2 kHz) of the same call', () => {
+      const spots = [spot({ freq: '14.208' }), spot({ freq: '14.2085', spotter: 'W2XYZ' })];
+      expect(collapseDuplicateSpots(spots)).toHaveLength(1);
+    });
+
+    it('keeps a real QSY as a separate row', () => {
+      const spots = [spot({ freq: '14.208' }), spot({ freq: '14.288', spotter: 'W2XYZ' })];
+      expect(collapseDuplicateSpots(spots)).toHaveLength(2);
+    });
+
+    it('keeps different stations on the same frequency', () => {
+      const spots = [spot(), spot({ dxCall: 'K2LT', spotter: 'W2XYZ' })];
+      expect(collapseDuplicateSpots(spots)).toHaveLength(2);
+    });
+
+    it('handles the legacy call field and kHz frequencies', () => {
+      const spots = [
+        { call: 'ZF2OO', spotter: 'A1AA', freq: 14208, comment: '' },
+        { call: 'ZF2OO', spotter: 'B2BB', freq: 14208.5, comment: '' },
+      ];
+      expect(collapseDuplicateSpots(spots)).toHaveLength(1);
+    });
+
+    it('passes through rows it cannot key', () => {
+      const spots = [spot({ dxCall: '', call: '' }), spot({ freq: 'garbage', dxCall: 'W9XYZ' })];
+      expect(collapseDuplicateSpots(spots)).toHaveLength(2);
     });
   });
 });

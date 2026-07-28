@@ -277,7 +277,7 @@ export function useLayer({
           mySpots.map(async (spot) => {
             if (spot.grid && spot.skimmerLat != null && spot.skimmerLon != null) return spot;
             try {
-              const locationResponse = await fetch(`/api/rbn/location/${spot.callsign}`);
+              const locationResponse = await fetch(`/api/rbn/location/${encodeURIComponent(spot.callsign)}`);
               if (locationResponse.ok) {
                 const loc = await locationResponse.json();
                 return {

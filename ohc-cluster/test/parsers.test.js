@@ -3,7 +3,7 @@ const assert = require('node:assert');
 
 const { parseRbnLine } = require('../lib/rbn.js');
 const { parseHamqthCsv, parseHamqthTimestamp } = require('../lib/hamqth.js');
-const { isValidCallsign, baseCallsign, sanitizeLine } = require('../lib/callsign.js');
+const { isValidCallsign, isPlausibleDxCall, baseCallsign, sanitizeLine } = require('../lib/callsign.js');
 const { bandForKhz, formatSpotLine } = require('../lib/format.js');
 
 test('parseRbnLine: CW spot with WPM', () => {
@@ -52,6 +52,44 @@ test('parseHamqthCsv: parses caret-separated rows', () => {
 test('parseHamqthTimestamp: HHMM YYYY-MM-DD to UTC epoch', () => {
   const ts = parseHamqthTimestamp('2149 2025-05-27');
   assert.equal(new Date(ts).toISOString(), '2025-05-27T21:49:00.000Z');
+});
+
+test('isPlausibleDxCall: accepts real spotted-call shapes, incl. special events', () => {
+  for (const call of [
+    'W1AW',
+    'K0C', // 1x1 special event
+    'YR50NADIA', // long special-event suffix
+    'GB100RSGB',
+    'DL2026T', // year-marker body
+    'TM113TDF',
+    'PJ2/W9WI',
+    'N2BTD/VE3',
+    'JK1XOQ/1',
+    'VP2EA/QRP',
+    '9A1A',
+    '3DA0RU',
+  ]) {
+    assert.ok(isPlausibleDxCall(call), `${call} should be plausible`);
+  }
+});
+
+test('isPlausibleDxCall: rejects busted calls and junk', () => {
+  for (const call of [
+    'NATZR', // dropped digit (live bust)
+    'TM113TDFBK', // CW BK prosign decoded into the call (live bust)
+    'CQ', // literal junk from an aggregated feed (live)
+    'QRZ',
+    'TEST',
+    '12345',
+    'W1AW-5', // SSIDs belong to nodes
+    'A/B/C/D',
+    'DX',
+    'FT8',
+    '',
+    null,
+  ]) {
+    assert.ok(!isPlausibleDxCall(call), `${call} should be rejected`);
+  }
 });
 
 test('isValidCallsign: accepts real shapes', () => {

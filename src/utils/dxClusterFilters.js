@@ -320,6 +320,92 @@ export const applyDXFilters = (item, filters) => {
 };
 
 /**
+ * Pick a mode-balanced display window from a spot list.
+ *
+ * The cluster feed is dominated by RBN skimmer spots, and FT8/FT4 churn keeps
+ * the newest entries almost exclusively digital — a plain "newest N" slice
+ * shows no SSB at all, because SSB only exists as human spots (skimmers can't
+ * decode phone) and those age past the window within minutes. Mirrors the
+ * server-side balancing in ohc-cluster/lib/store.js: reserve a slice of the
+ * window for voice-mode spots, cap FT8/FT4, give unused slots back to the
+ * pool. Returns spots in their original (newest-first) feed order.
+ *
+ * Classification goes through detectMode (comment keywords, then band-plan
+ * frequency inference) rather than source/spotter markers: the paths endpoint
+ * strips the -# skimmer suffix and drops the mode/source fields, so comment
+ * and frequency are the only signals that survive every feed shape.
+ */
+export const balanceSpotWindow = (spots, limit, { voiceReserveShare = 0.25, ft8Ft4CapShare = 0.5 } = {}) => {
+  if (!Array.isArray(spots) || spots.length <= limit) return spots || [];
+
+  const voice = [];
+  const ft8ft4 = [];
+  const other = [];
+  spots.forEach((spot, i) => {
+    const entry = [spot, i];
+    const mode = spot.mode || detectMode(spot.comment, spot.freq);
+    if (mode === 'FT8' || mode === 'FT4') {
+      ft8ft4.push(entry);
+    } else if (mode === 'SSB' || mode === 'AM' || mode === 'FM' || !mode) {
+      // Voice modes and mode-unknown spots — the human-spotted traffic that
+      // skimmer churn otherwise pushes out of the window
+      voice.push(entry);
+    } else {
+      other.push(entry);
+    }
+  });
+
+  const voiceReserve = Math.ceil(limit * voiceReserveShare);
+  const out = voice.slice(0, voiceReserve);
+  out.push(...ft8ft4.slice(0, Math.min(Math.ceil(limit * ft8Ft4CapShare), limit - out.length)));
+  out.push(...other.slice(0, limit - out.length));
+
+  // Backfill with the remaining freshest spots if any group ran short
+  if (out.length < limit) {
+    const chosen = new Set(out.map(([, i]) => i));
+    for (let i = 0; i < spots.length && out.length < limit; i++) {
+      if (!chosen.has(i)) out.push([spots[i], i]);
+    }
+  }
+
+  return out.sort((a, b) => a[1] - b[1]).map(([spot]) => spot);
+};
+
+/**
+ * Collapse re-spots of the same station into one row: same call within
+ * ~2 kHz keeps only the first (newest, given newest-first input) occurrence.
+ * Accumulator dedupe keys on spotter, so every extra spotter of a POTA
+ * activator otherwise produces another visible row. A larger QSY stays a
+ * separate row — the station moving is real information. Mirrors the
+ * server-side collapseDuplicateDXPaths in utils/dxClusterPathIdentity.js.
+ */
+export const collapseDuplicateSpots = (spots) => {
+  if (!Array.isArray(spots)) return spots || [];
+  const kept = [];
+  const freqsByCall = new Map();
+  for (const s of spots) {
+    const call = String(s.dxCall || s.call || '')
+      .trim()
+      .toUpperCase();
+    const f = parseFloat(s.freq);
+    const khz = Number.isFinite(f) ? (f > 1000 ? f : f * 1000) : NaN;
+    if (!call || !Number.isFinite(khz)) {
+      kept.push(s);
+      continue;
+    }
+    const freqs = freqsByCall.get(call);
+    if (freqs) {
+      if (freqs.some((k) => Math.abs(k - khz) < 2)) continue;
+      freqs.push(khz);
+    } else {
+      freqsByCall.set(call, [khz]);
+    }
+    kept.push(s);
+  }
+  return kept;
+};
+
+/**
  * Filter an array of DX spots/paths
  * Wrapper around applyDXFilters for filtering arrays
  */
