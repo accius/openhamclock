@@ -27,6 +27,7 @@ export { SolarPanel } from './SolarPanel.jsx';
 export { PropagationPanel } from './PropagationPanel.jsx';
 export { DXpeditionPanel } from './DXpeditionPanel.jsx';
 export { PSKReporterPanel } from './PSKReporterPanel.jsx';
+export { default as PSKReporterBandActivityPanel } from './PSKReporterBandActivityPanel.jsx';
 export { DXNewsTicker } from './DXNewsTicker.jsx';
 export { WeatherPanel } from './WeatherPanel.jsx';
 export { AnalogClockPanel } from './AnalogClockPanel.jsx';

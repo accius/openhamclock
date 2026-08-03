@@ -22,6 +22,7 @@ import {
   RotatorPanel,
   DXpeditionPanel,
   PSKReporterPanel,
+  PSKReporterBandActivityPanel,
   APRSPanel,
   MapDataListView,
   MeshComPanel,
@@ -442,7 +443,8 @@ export const DockableApp = ({
       'propagation-bars': { name: 'VOACAP Bars', icon: '📊', group: 'Propagation' },
       'band-conditions': { name: 'Band Conditions', icon: '📶', group: 'Propagation' },
       'band-health': { name: 'Band Health', icon: '📶' },
-      'band-activity': { name: 'Band Activity', icon: '🔥' },
+      'band-activity': { name: 'Band Activity (Continent)', icon: '🔥' },
+      'psk-bands': { name: 'Band Activity (PSKR)', icon: '📡' },
       ibp: { name: 'IBP Beacons', icon: '📡', group: 'Propagation' },
       'dx-cluster': { name: 'DX Cluster', icon: '📻' },
       'psk-reporter': { name: 'PSK Reporter', icon: '📡' },
@@ -902,6 +904,10 @@ export const DockableApp = ({
 
         case 'band-activity':
           content = <BandActivityHeatmap dxSpots={dxClusterData.spots} userCallsign={config.callsign} />;
+          break;
+
+        case 'psk-bands':
+          content = <PSKReporterBandActivityPanel pskReporter={pskReporter} />;
           break;
 
         case 'dx-cluster':
