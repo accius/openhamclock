@@ -7,7 +7,6 @@ services:
         required: false
     build: .
     image: ghcr.io/accius/openhamclock:latest
-    container_name: openhamclock
     ports:
       - '3000:3000' # HTTP
       - '2237:2237/udp' # WSJT-X UDP — point WSJT-X to 127.0.0.1:2237
