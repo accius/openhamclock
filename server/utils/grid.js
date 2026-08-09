@@ -140,10 +140,26 @@ const latLonToMaidenhead = ({ lat, lon }, precision = 6) => {
 };
 
 /**
+ * Normalize MHz, kHz, or Hz input to MHz.
+ */
+function normalizeFrequencyToMHz(value) {
+  const f = parseFloat(value);
+  if (!Number.isFinite(f) || f <= 0) return null;
+  if (f >= 472000 && f <= 479000) return f / 1000000;
+  if (f >= 472 && f <= 479) return f / 1000;
+  if (f >= 1000000) return f / 1000000;
+  if (f >= 1000) return f / 1000;
+  return f;
+}
+
+/**
  * Get amateur radio band name from frequency in Hz.
  */
 function getBandFromHz(freqHz) {
-  const freq = freqHz / 1000000;
+  const raw = parseFloat(freqHz);
+  if (!Number.isFinite(raw) || raw <= 0) return 'Unknown';
+  if (raw >= 472000 && raw <= 479000) return '630m';
+  const freq = raw / 1000000;
   if (freq >= 1.8 && freq <= 2) return '160m';
   if (freq >= 3.5 && freq <= 4) return '80m';
   if (freq >= 5.3 && freq <= 5.4) return '60m';
@@ -188,6 +204,7 @@ module.exports = {
   maidenheadToLatLon,
   latLonToMaidenhead,
   maidenheadToBoundingBox,
+  normalizeFrequencyToMHz,
   getBandFromHz,
   getBandFromKHz,
   haversineDistance,

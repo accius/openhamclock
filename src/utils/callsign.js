@@ -9,6 +9,7 @@ import { ctyLookup } from './ctyLookup.js';
  * HF Amateur Bands
  */
 export const HF_BANDS = [
+  '630m',
   '160m',
   '80m',
   '60m',
@@ -46,12 +47,29 @@ export const CONTINENTS = [
 export const MODES = ['CW', 'SSB', 'FT8', 'FT4', 'FT2', 'RTTY', 'PSK', 'AM', 'FM'];
 
 /**
- * Get band from frequency (in kHz)
+ * Normalize MHz, kHz, or Hz input to MHz.
+ *
+ * The 472-479 and 472000-479000 ranges are unambiguous 630m
+ * representations in kHz and Hz.
+ */
+export const normalizeFrequencyToMHz = (freq) => {
+  const f = parseFloat(freq);
+  if (!Number.isFinite(f) || f <= 0) return null;
+  if (f >= 472000 && f <= 479000) return f / 1000000;
+  if (f >= 472 && f <= 479) return f / 1000;
+  if (f >= 1000000) return f / 1000000;
+  if (f >= 1000) return f / 1000;
+  return f;
+};
+
+/**
+ * Get band from frequency in MHz, kHz, or Hz.
  */
 export const getBandFromFreq = (freq) => {
-  const f = parseFloat(freq);
-  // Handle MHz input (convert to kHz)
-  const freqKhz = f < 1000 ? f * 1000 : f;
+  const mhz = normalizeFrequencyToMHz(freq);
+  if (mhz == null) return 'other';
+  const freqKhz = mhz * 1000;
+  if (freqKhz >= 472 && freqKhz <= 479) return '630m';
   if (freqKhz >= 1800 && freqKhz <= 2000) return '160m';
   if (freqKhz >= 3500 && freqKhz <= 4000) return '80m';
   if (freqKhz >= 5330 && freqKhz <= 5405) return '60m';
@@ -105,10 +123,8 @@ export const detectMode = (comment, freq) => {
 
   // 2) Frequency-based fallback
   if (freq == null) return null;
-  const f = parseFloat(freq);
-  if (!Number.isFinite(f) || f <= 0) return null;
-  // Normalize to MHz (spots may arrive in kHz or MHz)
-  const mhz = f > 1000 ? f / 1000 : f;
+  const mhz = normalizeFrequencyToMHz(freq);
+  if (mhz == null) return null;
 
   // Digital islands — asymmetric windows around known calling (dial) frequencies.
   // FTx signals occupy dial + 0–3 kHz (audio passband sits ABOVE the dial), so
@@ -450,6 +466,7 @@ export default {
   HF_BANDS,
   CONTINENTS,
   MODES,
+  normalizeFrequencyToMHz,
   getBandFromFreq,
   getBandColor,
   detectMode,

@@ -7,6 +7,7 @@ export const BAND_COLOR_STORAGE_KEY = 'openhamclock_bandColors';
 export const BAND_COLORS_CHANGE_EVENT = 'openhamclock-band-colors-change';
 
 export const BAND_LEGEND_ORDER = [
+  '630m',
   '160m',
   '80m',
   '40m',
@@ -24,6 +25,7 @@ export const BAND_LEGEND_ORDER = [
 ];
 
 export const DEFAULT_BAND_COLORS = {
+  '630m': '#cc4455',
   '160m': '#ff6666',
   '80m': '#ff9966',
   '60m': '#ffcc66',
@@ -43,6 +45,7 @@ export const DEFAULT_BAND_COLORS = {
 };
 
 const BAND_RANGES_MHZ = [
+  { min: 0.472, max: 0.479001, band: '630m' },
   { min: 1.8, max: 2, band: '160m' },
   { min: 3.5, max: 4, band: '80m' },
   { min: 5.3, max: 5.5, band: '60m' },
@@ -152,9 +155,13 @@ export const getBandColorForFreq = (freqMHz, palette) => {
   const raw = parseFloat(freqMHz);
   if (Number.isNaN(raw)) return DEFAULT_FALLBACK_COLOR;
 
-  // Accept MHz, kHz, or Hz input transparently.
+  // Accept MHz, kHz, or Hz input transparently, including 630m.
   let f = raw;
-  if (f >= 1000000) {
+  if (f >= 472000 && f <= 479000) {
+    f = f / 1000000;
+  } else if (f >= 472 && f <= 479) {
+    f = f / 1000;
+  } else if (f >= 1000000) {
     f = f / 1000000;
   } else if (f >= 1000) {
     f = f / 1000;

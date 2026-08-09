@@ -32,6 +32,7 @@ import { CallsignWeatherOverlay } from './CallsignWeatherOverlay.jsx';
 import { getCallsignWeather } from '../utils/callsignWeather.js';
 import { filterDXPaths } from '../utils';
 import { useCallsignPopup } from '../components/CallsignPopupManager.jsx';
+import { use630mBandEnabled } from '../hooks/use630mBandEnabled.js';
 
 // SECURITY: Escape HTML to prevent XSS in Leaflet popups/tooltips
 // DX cluster data, POTA/SOTA spots, and WSJT-X decodes come from external sources
@@ -149,6 +150,7 @@ export const WorldMap = ({
   const { t, i18n } = useTranslation();
   const mapLang = i18n.language?.split('-')[0] || 'en'; // e.g. 'de', 'ja', 'en'
   const { showPopup } = useCallsignPopup();
+  const [band630mEnabled] = use630mBandEnabled();
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const tileLayerRef = useRef(null);
@@ -403,6 +405,11 @@ export const WorldMap = ({
   const clearMapBandFilter = useCallback(() => {
     writeMapBandFilter([]);
   }, [writeMapBandFilter]);
+
+  useEffect(() => {
+    if (band630mEnabled || !selectedMapBands.has('630m')) return;
+    writeMapBandFilter(Array.from(selectedMapBands).filter((band) => band !== '630m'));
+  }, [band630mEnabled, selectedMapBands, writeMapBandFilter]);
 
   // Expose DE location to window for plugins (e.g., RBN)
   useEffect(() => {
@@ -694,6 +701,10 @@ export const WorldMap = ({
   // loaded by the time this component mounts, we poll and flip this flag to retry.
   const [leafletReady, setLeafletReady] = useState(() => typeof window.L !== 'undefined');
   const effectiveBandColors = useMemo(() => getEffectiveBandColors(bandColorOverrides), [bandColorOverrides]);
+  const visibleBandLegendOrder = useMemo(
+    () => (band630mEnabled ? BAND_LEGEND_ORDER : BAND_LEGEND_ORDER.filter((band) => band !== '630m')),
+    [band630mEnabled],
+  );
 
   const getScaledZoomLevel = (inverseMultiplier) => {
     // Ensure the input stays within 1–100
@@ -3025,7 +3036,7 @@ export const WorldMap = ({
             >
               ALL
             </button>
-            {BAND_LEGEND_ORDER.map((band) => {
+            {visibleBandLegendOrder.map((band) => {
               const bg = getBandColorForBand(band, effectiveBandColors);
               const fg = getBandTextColor(bg);
               const isEditing = editingBand === band;

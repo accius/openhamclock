@@ -5,7 +5,7 @@
 
 const dgram = require('dgram');
 const net = require('net');
-const { maidenheadToLatLon } = require('../utils/grid.js');
+const { maidenheadToLatLon, normalizeFrequencyToMHz } = require('../utils/grid.js');
 const { areDXPathsDuplicate, collapseDuplicateDXPaths } = require('../utils/dxClusterPathIdentity');
 const { isPrivateIP, validateCustomHost } = require('../utils/ssrf');
 const clusterStatus = require('../utils/clusterStatus');
@@ -1154,11 +1154,7 @@ module.exports = function (app, ctx) {
   }
 
   function parseFreqToMHz(value) {
-    const v = parseFloat(value);
-    if (!Number.isFinite(v) || v <= 0) return null;
-    if (v >= 1000000) return v / 1000000;
-    if (v >= 30000) return v / 1000;
-    return v;
+    return normalizeFrequencyToMHz(value);
   }
 
   function maybeExtractGrid(value) {

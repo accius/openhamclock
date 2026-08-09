@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getBandFromFreq, getCallsignInfo } from '../utils/callsign.js';
+import { use630mBandEnabled } from '../hooks/use630mBandEnabled.js';
 
 const CONTINENTS = ['EU', 'NA', 'SA', 'AS', 'AF', 'OC'];
 
 // Bands shown top→bottom, matching the DX-Heat layout (shortest wavelength at top).
-const BANDS = ['6m', '10m', '12m', '15m', '17m', '20m', '30m', '40m', '80m', '160m'];
+const BASE_BANDS = ['6m', '10m', '12m', '15m', '17m', '20m', '30m', '40m', '80m', '160m'];
 
 const WINDOW_OPTIONS = [
   { value: 15, label: '15m' },
@@ -56,10 +57,13 @@ const CELL_H = 28;
 const LEFT_GUTTER = 32;
 const TOP_GUTTER = 18;
 const MATRIX_W = LEFT_GUTTER + CELL_W * CONTINENTS.length;
-const MATRIX_H = TOP_GUTTER + CELL_H * BANDS.length;
 const BLOB_R = 18;
 
 export default function BandActivityHeatmap({ dxSpots = [], userCallsign = '' }) {
+  const [band630mEnabled] = use630mBandEnabled();
+  const bands = useMemo(() => (band630mEnabled ? [...BASE_BANDS, '630m'] : BASE_BANDS), [band630mEnabled]);
+  const matrixHeight = TOP_GUTTER + CELL_H * bands.length;
+
   const defaultPerspective = useMemo(() => {
     const info = getCallsignInfo(userCallsign);
     return info?.continent && CONTINENTS.includes(info.continent) ? info.continent : 'EU';
@@ -97,7 +101,7 @@ export default function BandActivityHeatmap({ dxSpots = [], userCallsign = '' })
   const matrix = useMemo(() => {
     const cutoff = Date.now() - windowMin * 60 * 1000;
     const m = {};
-    BANDS.forEach((b) => {
+    bands.forEach((b) => {
       m[b] = {};
       CONTINENTS.forEach((c) => {
         m[b][c] = 0;
@@ -108,7 +112,7 @@ export default function BandActivityHeatmap({ dxSpots = [], userCallsign = '' })
       if (!spot) continue;
       if (spot.timestamp && spot.timestamp < cutoff) continue;
       const band = getBandFromFreq(spot.freq);
-      if (!band || !BANDS.includes(band)) continue;
+      if (!band || !bands.includes(band)) continue;
 
       // Spot list shape from useDXClusterData uses `call` for the DX side;
       // accept `dxCall` too in case the panel is fed from a different source.
@@ -130,13 +134,13 @@ export default function BandActivityHeatmap({ dxSpots = [], userCallsign = '' })
       if (otherCont) m[band][otherCont]++;
     }
     return m;
-  }, [dxSpots, perspective, windowMin]);
+  }, [dxSpots, perspective, windowMin, bands]);
 
   const totalSpotsInView = useMemo(() => {
     let n = 0;
-    for (const band of BANDS) for (const cont of CONTINENTS) n += matrix[band][cont];
+    for (const band of bands) for (const cont of CONTINENTS) n += matrix[band][cont];
     return n;
-  }, [matrix]);
+  }, [matrix, bands]);
 
   const continentName = {
     EU: 'Europe',
@@ -208,7 +212,7 @@ export default function BandActivityHeatmap({ dxSpots = [], userCallsign = '' })
         <svg
           width="100%"
           height="100%"
-          viewBox={`0 0 ${MATRIX_W} ${MATRIX_H}`}
+          viewBox={`0 0 ${MATRIX_W} ${matrixHeight}`}
           preserveAspectRatio="xMidYMid meet"
           style={{ maxWidth: '360px' }}
         >
@@ -232,7 +236,7 @@ export default function BandActivityHeatmap({ dxSpots = [], userCallsign = '' })
             </text>
           ))}
 
-          {BANDS.map((band, j) => (
+          {bands.map((band, j) => (
             <text
               key={`row-${band}`}
               x={LEFT_GUTTER - 4}
@@ -246,7 +250,7 @@ export default function BandActivityHeatmap({ dxSpots = [], userCallsign = '' })
           ))}
 
           <g filter="url(#heatBlur)">
-            {BANDS.flatMap((band, j) =>
+            {bands.flatMap((band, j) =>
               CONTINENTS.map((cont, i) => {
                 const count = matrix[band][cont];
                 if (count < COLOR_MIN_COUNT) return null;
@@ -269,12 +273,12 @@ export default function BandActivityHeatmap({ dxSpots = [], userCallsign = '' })
               x1={LEFT_GUTTER + i * CELL_W}
               y1={TOP_GUTTER}
               x2={LEFT_GUTTER + i * CELL_W}
-              y2={TOP_GUTTER + CELL_H * BANDS.length}
+              y2={TOP_GUTTER + CELL_H * bands.length}
               stroke="var(--border-color)"
               strokeWidth="1"
             />
           ))}
-          {[...Array(BANDS.length + 1).keys()].map((j) => (
+          {[...Array(bands.length + 1).keys()].map((j) => (
             <line
               key={`h${j}`}
               x1={LEFT_GUTTER}
@@ -286,7 +290,7 @@ export default function BandActivityHeatmap({ dxSpots = [], userCallsign = '' })
             />
           ))}
 
-          {BANDS.flatMap((band, j) =>
+          {bands.flatMap((band, j) =>
             CONTINENTS.map((cont, i) => {
               const count = matrix[band][cont];
               if (count < COLOR_MIN_COUNT) return null;

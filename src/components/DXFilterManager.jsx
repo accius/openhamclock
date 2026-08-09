@@ -2,9 +2,10 @@
  * DXFilterManager Component
  * Filter modal with tabs for Zones, Bands, Modes, Watchlist, Exclude, Settings
  */
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ariaTabKeyDown } from '../utils/ariaTabKeyDown.js';
 import { CONTEST_PRESETS } from '../utils/dxClusterFilters.js';
+import { use630mBandEnabled } from '../hooks/use630mBandEnabled.js';
 
 export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onClearSpots }) => {
   const DX_TABS = ['zones', 'bands', 'modes', 'watchlist', 'contest', 'text', 'exclude', 'settings'];
@@ -14,6 +15,13 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onCl
   const [newDXExcludeCall, setNewDXExcludeCall] = useState('');
   const [newDEExcludeCall, setNewDEExcludeCall] = useState('');
   const [newCommentKeyword, setNewCommentKeyword] = useState('');
+  const [band630mEnabled] = use630mBandEnabled();
+
+  useEffect(() => {
+    if (band630mEnabled || !filters?.bands?.includes('630m')) return;
+    const nextBands = filters.bands.filter((band) => band !== '630m');
+    onFilterChange({ ...filters, bands: nextBands.length ? nextBands : undefined });
+  }, [band630mEnabled, filters, onFilterChange]);
 
   if (!isOpen) return null;
 
@@ -28,6 +36,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onCl
   ];
 
   const bands = [
+    ...(band630mEnabled ? ['630m'] : []),
     '160m',
     '80m',
     '60m',

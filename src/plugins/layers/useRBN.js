@@ -3,6 +3,8 @@ import { esc } from '../../utils/escapeHtml.js';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { makeDraggable } from './makeDraggable.js';
 import { maidenheadToLatLon } from '../../utils/geo.js';
+import { getBandFromFreq } from '../../utils/callsign.js';
+import { use630mBandEnabled } from '../../hooks/use630mBandEnabled.js';
 
 /**
  * Reverse Beacon Network (RBN) Plugin v1.0.0
@@ -165,23 +167,9 @@ function getGreatCirclePath(lat1, lon1, lat2, lon2, numPoints = 30) {
   return [path];
 }
 
-// Convert frequency to band
+// Convert MHz, kHz, or Hz input to an OpenHamClock band.
 function freqToBand(freq) {
-  freq = freq / 1000; // Convert to MHz
-  if (freq >= 1.8 && freq < 2.0) return '160m';
-  if (freq >= 3.5 && freq < 4.0) return '80m';
-  if (freq >= 5.3 && freq < 5.4) return '60m';
-  if (freq >= 7.0 && freq < 7.3) return '40m';
-  if (freq >= 10.1 && freq < 10.15) return '30m';
-  if (freq >= 14.0 && freq < 14.35) return '20m';
-  if (freq >= 18.068 && freq < 18.168) return '17m';
-  if (freq >= 21.0 && freq < 21.45) return '15m';
-  if (freq >= 24.89 && freq < 24.99) return '12m';
-  if (freq >= 28.0 && freq < 29.7) return '10m';
-  if (freq >= 40.0 && freq < 42.0) return '8m';
-  if (freq >= 50.0 && freq < 54.0) return '6m';
-  if (freq >= 70.0 && freq < 70.5) return '4m';
-  return 'Other';
+  return getBandFromFreq(freq);
 }
 
 function normalizeBandKey(band) {
@@ -203,6 +191,7 @@ export function useLayer({
 }) {
   const [spots, setSpots] = useState([]);
   const [selectedBand, setSelectedBand] = useState('all');
+  const [band630mEnabled, setBand630mEnabled] = use630mBandEnabled();
   const [timeWindow, setTimeWindow] = useState(lowMemoryMode ? 2 : 5); // minutes - shorter in low memory
   const [minSNR, setMinSNR] = useState(-10);
   const [showPaths, setShowPaths] = useState(true);
@@ -242,7 +231,7 @@ export function useLayer({
     try {
       // Server filters by callsign and enriches with locations — no client-side firehose scanning
       const response = await fetch(
-        `/api/rbn/spots?callsign=${encodeURIComponent(queryCallsign)}&minutes=${Math.ceil(timeWindow)}&mode=${queryModeParam}`,
+        `/api/rbn/spots?callsign=${encodeURIComponent(queryCallsign)}&minutes=${Math.ceil(timeWindow)}&mode=${queryModeParam}&include630m=${band630mEnabled ? 'true' : 'false'}`,
         { headers: { Accept: 'application/json' } },
       );
 
@@ -337,7 +326,7 @@ export function useLayer({
         clearInterval(updateIntervalRef.current);
       }
     };
-  }, [enabled, callsign, timeWindow, queryMode, spotterFilter]);
+  }, [enabled, callsign, timeWindow, queryMode, spotterFilter, band630mEnabled]);
 
   // Render markers and paths
   useEffect(() => {
@@ -386,7 +375,8 @@ export function useLayer({
       }
 
       // Band filter
-      if (selectedBand !== 'all' && selectedBand !== 'All' && band !== selectedBand) return false;
+      if (!band630mEnabled && normalizedBand === '630m') return false;
+      if (selectedBand !== 'all' && selectedBand !== 'All' && normalizedBand !== selectedBand) return false;
       if (hasMapBandFilter && (!normalizedBand || !selectedMapBands.has(normalizedBand))) return false;
 
       // SNR filter
@@ -547,6 +537,7 @@ export function useLayer({
     mapBandFilter,
     spotterFilter,
     queryMode,
+    band630mEnabled,
   ]);
 
   // Create control panel
@@ -576,6 +567,13 @@ export function useLayer({
             <option value="spotter">What does a skimmer hear?</option>
           </select>
         </div>
+        <div style="margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border-color);">
+          <label style="display: flex; align-items: center; cursor: pointer;">
+            <input type="checkbox" id="rbn-enable-630m" ${band630mEnabled ? 'checked' : ''} style="margin-right: 5px;">
+            Enable 630m WSPR/RBN
+          </label>
+          <div style="font-size: 9px; color: var(--text-muted);">Adds 472-479 kHz and the 630m map chip.</div>
+        </div>
         <div id="rbn-spotter-section" style="margin-bottom: 6px;">
           <label id="rbn-spotter-label">Spotter:</label>
           <input type="text" id="rbn-spotter-filter" placeholder="e.g. NU4F, W3LPL" style="width: 100%; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 4px; font-size: 12px; box-sizing: border-box;">
@@ -585,6 +583,7 @@ export function useLayer({
           <label>Band:</label>
           <select id="rbn-band-select" style="width: 100%; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); padding: 4px;">
             <option value="all">All Bands</option>
+            ${band630mEnabled ? '<option value="630m">630m</option>' : ''}
             <option value="160m">160m</option>
             <option value="80m">80m</option>
             <option value="40m">40m</option>
@@ -625,6 +624,7 @@ export function useLayer({
           const spotterLabel = document.getElementById('rbn-spotter-label');
           const spotterHint = document.getElementById('rbn-spotter-hint');
           const bandSelect = document.getElementById('rbn-band-select');
+          const enable630mCheck = document.getElementById('rbn-enable-630m');
           const timeSlider = document.getElementById('rbn-time-slider');
           const timeValue = document.getElementById('rbn-time-value');
           const snrSlider = document.getElementById('rbn-snr-slider');
@@ -663,6 +663,9 @@ export function useLayer({
             });
           }
 
+          if (enable630mCheck) {
+            enable630mCheck.addEventListener('change', (e) => setBand630mEnabled(e.target.checked));
+          }
           if (bandSelect) {
             bandSelect.value = selectedBand;
             bandSelect.addEventListener('change', (e) => setSelectedBand(e.target.value));
@@ -750,6 +753,27 @@ export function useLayer({
       }
     };
   }, [map, enabled, callsign]); // Only recreate when map, enabled, or callsign changes — mode switch updates labels via DOM
+
+  useEffect(() => {
+    const checkbox = document.getElementById('rbn-enable-630m');
+    const bandSelect = document.getElementById('rbn-band-select');
+    if (checkbox) checkbox.checked = band630mEnabled;
+    if (!bandSelect) return;
+
+    const existing = bandSelect.querySelector('option[value="630m"]');
+    if (band630mEnabled && !existing) {
+      const option = document.createElement('option');
+      option.value = '630m';
+      option.textContent = '630m';
+      bandSelect.insertBefore(option, bandSelect.querySelector('option[value="160m"]'));
+    } else if (!band630mEnabled && existing) {
+      if (selectedBand === '630m') {
+        setSelectedBand('all');
+        bandSelect.value = 'all';
+      }
+      existing.remove();
+    }
+  }, [band630mEnabled, selectedBand]);
 
   // Separate effect to update stats display without recreating the entire control
   useEffect(() => {

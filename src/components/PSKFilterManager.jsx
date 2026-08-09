@@ -2,10 +2,27 @@
  * PSKFilterManager Component
  * Filter modal for PSKReporter spots - Bands, Grids, Modes
  */
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { ariaTabKeyDown } from '../utils/ariaTabKeyDown.js';
+import { use630mBandEnabled } from '../hooks/use630mBandEnabled.js';
 
-const BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '8m', '6m', '4m', '2m', '70cm'];
+const BASE_BANDS = [
+  '160m',
+  '80m',
+  '60m',
+  '40m',
+  '30m',
+  '20m',
+  '17m',
+  '15m',
+  '12m',
+  '10m',
+  '8m',
+  '6m',
+  '4m',
+  '2m',
+  '70cm',
+];
 const MODES = [
   '-FT8',
   'AM',
@@ -90,6 +107,14 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose, cal
   const pskFilterTabRefs = useRef({});
   const [activeTab, setActiveTab] = useState('bands');
   const [customGrid, setCustomGrid] = useState('');
+  const [band630mEnabled] = use630mBandEnabled();
+  const bands = band630mEnabled ? ['630m', ...BASE_BANDS] : BASE_BANDS;
+
+  useEffect(() => {
+    if (band630mEnabled || !filters?.bands?.includes('630m')) return;
+    const nextBands = filters.bands.filter((band) => band !== '630m');
+    onFilterChange({ ...filters, bands: nextBands.length ? nextBands : undefined });
+  }, [band630mEnabled, filters, onFilterChange]);
 
   if (!isOpen) return null;
 
@@ -352,7 +377,7 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose, cal
         <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)' }}>Filter by Band</span>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
-            onClick={() => selectAll('bands', BANDS)}
+            onClick={() => selectAll('bands', bands)}
             style={{
               background: 'none',
               border: 'none',
@@ -378,7 +403,7 @@ export const PSKFilterManager = ({ filters, onFilterChange, isOpen, onClose, cal
         </div>
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {BANDS.map((band) => (
+        {bands.map((band) => (
           <button
             key={band}
             onClick={() => toggleArrayItem('bands', band)}

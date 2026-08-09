@@ -62,6 +62,7 @@ module.exports = function (app, ctx) {
 
   // Helper function to convert frequency to band
   function freqToBandKHz(freqKHz) {
+    if (freqKHz >= 472 && freqKHz <= 479) return '630m';
     if (freqKHz >= 1800 && freqKHz < 2000) return '160m';
     if (freqKHz >= 3500 && freqKHz < 4000) return '80m';
     if (freqKHz >= 7000 && freqKHz < 7300) return '40m';
@@ -451,6 +452,7 @@ module.exports = function (app, ctx) {
   // GET /api/rbn/spots?callsigns=4U1UN,VE8AT,...&minutes=5  — bulk dx lookup (IBP cross-reference)
   app.get('/api/rbn/spots', async (req, res) => {
     const minutes = Math.min(parseInt(req.query.minutes) || 15, 30);
+    const include630m = req.query.include630m === 'true';
 
     // ── Multi-callsign bulk path (IBP beacon cross-reference) ──────────────
     if (req.query.callsigns) {
@@ -466,7 +468,7 @@ module.exports = function (app, ctx) {
 
       // Process callsigns sequentially to avoid concurrent location-lookup races
       for (const cs of callsigns) {
-        const cacheKey = `dx:${cs}`;
+        const cacheKey = `dx:${cs}:${include630m ? '630m' : 'standard'}`;
         const cached = rbnApiCaches.get(cacheKey);
         if (cached && now - cached.timestamp < RBN_API_CACHE_TTL) {
           results[cs] = { count: cached.data.count, spots: cached.data.spots };
@@ -474,7 +476,9 @@ module.exports = function (app, ctx) {
         }
 
         const rawSpots = rbnSpotsByDX.get(cs) || [];
-        const recentSpots = rawSpots.filter((spot) => spot.timestampMs > cutoff);
+        const recentSpots = rawSpots.filter(
+          (spot) => spot.timestampMs > cutoff && (include630m || spot.band !== '630m'),
+        );
         const enrichedSpots = [];
         for (const spot of recentSpots) {
           enrichedSpots.push(await enrichSpotWithLocation(spot));
@@ -514,7 +518,7 @@ module.exports = function (app, ctx) {
     const now = Date.now();
 
     // Check per-callsign+mode cache
-    const cacheKey = `${mode}:${callsign}`;
+    const cacheKey = `${mode}:${callsign}:${include630m ? '630m' : 'standard'}`;
     const cached = rbnApiCaches.get(cacheKey);
     if (cached && now - cached.timestamp < RBN_API_CACHE_TTL) {
       return res.json(cached.data);
@@ -524,7 +528,7 @@ module.exports = function (app, ctx) {
 
     // Direct O(1) lookup — by DX callsign or by spotter callsign
     const rawSpots = mode === 'spotter' ? rbnSpotsBySpotter.get(callsign) || [] : rbnSpotsByDX.get(callsign) || [];
-    const recentSpots = rawSpots.filter((spot) => spot.timestampMs > cutoff);
+    const recentSpots = rawSpots.filter((spot) => spot.timestampMs > cutoff && (include630m || spot.band !== '630m'));
 
     // Enrich with locations — process sequentially to avoid
     // concurrent lookup race conditions that can mix up locations
@@ -624,8 +628,168 @@ module.exports = function (app, ctx) {
   // WSPR heatmap endpoint - gets global propagation data
   // Uses PSK Reporter to fetch WSPR mode spots from the last N minutes
   let wsprCache = { data: null, timestamp: 0 };
-  const WSPR_CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache - be kind to PSKReporter
+  const WSPR_CACHE_TTL = 10 * 60 * 1000; // 10 minutes cache - be kind to upstream services
   const WSPR_STALE_TTL = 60 * 60 * 1000; // Serve stale data up to 1 hour
+
+  // WSPR.live is the canonical WSPRnet mirror and includes both WSPR and FST4W.
+  // Its band=0 partition is MF (474.2 kHz nominal), which covers the 630m allocation.
+  async function fetchWsprLive630m(minutes) {
+    const safeMinutes = Math.max(1, Math.min(parseInt(minutes) || 30, 24 * 60));
+    // WSPR.live can occasionally ingest the MF feed behind real time. Query at
+    // least six hours so short OpenHamClock windows can fall back to the newest
+    // available MF interval without widening the requested window itself.
+    const queryMinutes = Math.max(safeMinutes, 360);
+    const query = `
+      SELECT
+        id,
+        toUnixTimestamp(time) AS epoch,
+        rx_sign,
+        rx_lat,
+        rx_lon,
+        rx_loc,
+        tx_sign,
+        tx_lat,
+        tx_lon,
+        tx_loc,
+        distance,
+        azimuth,
+        rx_azimuth,
+        frequency,
+        power,
+        snr,
+        drift,
+        code
+      FROM wspr.rx
+      WHERE time > subtractMinutes(now(), ${queryMinutes})
+        AND band = 0
+        AND frequency BETWEEN 472000 AND 479000
+      ORDER BY time DESC
+      LIMIT 2000
+      FORMAT JSON
+    `
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    const url = `https://db1.wspr.live/?query=${encodeURIComponent(query)}`;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) {
+        const backoffSecs = upstream.recordFailure('wspr630m', response.status);
+        throw new Error(`WSPR.live HTTP ${response.status} — backing off for ${backoffSecs}s`);
+      }
+
+      const payload = await response.json();
+      const rows = Array.isArray(payload?.data) ? payload.data : [];
+      upstream.recordSuccess('wspr630m');
+
+      const modeByCode = {
+        1: 'WSPR-2',
+        2: 'WSPR-15',
+        3: 'FST4W-120',
+        4: 'FST4W-300',
+        5: 'FST4W-900',
+        8: 'FST4W-1800',
+        16: 'FST4W-900',
+      };
+
+      const parsedSpots = rows
+        .map((row) => {
+          const frequency = Number(row.frequency);
+          const powerDbm = Number(row.power);
+          const epoch = Number(row.epoch);
+          const senderLat = Number(row.tx_lat);
+          const senderLon = Number(row.tx_lon);
+          const receiverLat = Number(row.rx_lat);
+          const receiverLon = Number(row.rx_lon);
+
+          if (
+            !Number.isFinite(frequency) ||
+            frequency < 472000 ||
+            frequency > 479000 ||
+            !row.tx_sign ||
+            !row.rx_sign ||
+            !row.tx_loc ||
+            !row.rx_loc ||
+            !Number.isFinite(senderLat) ||
+            !Number.isFinite(senderLon) ||
+            !Number.isFinite(receiverLat) ||
+            !Number.isFinite(receiverLon)
+          ) {
+            return null;
+          }
+
+          const powerWatts = Number.isFinite(powerDbm) ? Math.pow(10, (powerDbm - 30) / 10) : null;
+          const timestamp = Number.isFinite(epoch) ? epoch * 1000 : Date.now();
+
+          return {
+            sender: String(row.tx_sign).toUpperCase(),
+            senderGrid: String(row.tx_loc).toUpperCase(),
+            senderLat,
+            senderLon,
+            receiver: String(row.rx_sign).toUpperCase(),
+            receiverGrid: String(row.rx_loc).toUpperCase(),
+            receiverLat,
+            receiverLon,
+            freq: frequency,
+            freqMHz: (frequency / 1000000).toFixed(6),
+            band: '630m',
+            mode: modeByCode[Number(row.code)] || 'WSPR/FST4W',
+            snr: Number.isFinite(Number(row.snr)) ? Number(row.snr) : null,
+            power: powerWatts,
+            powerDbm: Number.isFinite(powerDbm) ? powerDbm : null,
+            distance: Number.isFinite(Number(row.distance)) ? Number(row.distance) : null,
+            senderAz: Number.isFinite(Number(row.azimuth)) ? Number(row.azimuth) : null,
+            receiverAz: Number.isFinite(Number(row.rx_azimuth)) ? Number(row.rx_azimuth) : null,
+            drift: Number.isFinite(Number(row.drift)) ? Number(row.drift) : null,
+            kPerW:
+              Number.isFinite(Number(row.distance)) && powerWatts && powerWatts > 0
+                ? Math.round(Number(row.distance) / powerWatts)
+                : null,
+            timestamp,
+            age: Math.max(0, Math.floor((Date.now() - timestamp) / 60000)),
+            source: 'wspr.live',
+          };
+        })
+        .filter(Boolean);
+
+      if (parsedSpots.length === 0) {
+        return {
+          spots: [],
+          sourceLatestTimestamp: null,
+          sourceLagMinutes: null,
+          sourceWindowShifted: false,
+        };
+      }
+
+      const nowMs = Date.now();
+      const requestedCutoff = nowMs - safeMinutes * 60 * 1000;
+      const currentSpots = parsedSpots.filter((spot) => spot.timestamp >= requestedCutoff);
+      const sourceLatestTimestamp = Math.max(...parsedSpots.map((spot) => spot.timestamp));
+      const sourceLagMinutes = Math.max(0, Math.floor((nowMs - sourceLatestTimestamp) / 60000));
+
+      if (currentSpots.length > 0) {
+        return {
+          spots: currentSpots,
+          sourceLatestTimestamp,
+          sourceLagMinutes,
+          sourceWindowShifted: false,
+        };
+      }
+
+      const shiftedCutoff = sourceLatestTimestamp - safeMinutes * 60 * 1000;
+      return {
+        spots: parsedSpots.filter((spot) => spot.timestamp >= shiftedCutoff && spot.timestamp <= sourceLatestTimestamp),
+        sourceLatestTimestamp,
+        sourceLagMinutes,
+        sourceWindowShifted: true,
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
 
   // Aggregate WSPR spots by 4-character grid square for bandwidth efficiency
   // Reduces payload from ~2MB to ~50KB while preserving heatmap visualization
@@ -686,9 +850,13 @@ module.exports = function (app, ctx) {
         if (spot.receiver) g.stations.add(spot.receiver);
       }
 
-      // Track paths between grid squares
+      // Track paths per band. A grid pair can be active on several bands;
+      // keeping each band separate lets the map legend filter render the
+      // correct propagation lines instead of assigning the whole pair to
+      // whichever band happened to dominate the aggregate.
       if (senderGrid4 && receiverGrid4 && senderGrid4 !== receiverGrid4) {
-        const pathKey = `${senderGrid4}-${receiverGrid4}`;
+        const pathBand = spot.band || 'Unknown';
+        const pathKey = `${senderGrid4}-${receiverGrid4}-${pathBand}`;
         if (!paths.has(pathKey)) {
           paths.set(pathKey, {
             from: senderGrid4,
@@ -697,6 +865,7 @@ module.exports = function (app, ctx) {
             fromLon: spot.senderLon,
             toLat: spot.receiverLat,
             toLon: spot.receiverLon,
+            band: pathBand,
             count: 0,
             snrSum: 0,
             snrCount: 0,
@@ -709,7 +878,7 @@ module.exports = function (app, ctx) {
           p.snrSum += spot.snr;
           p.snrCount++;
         }
-        p.bands[spot.band] = (p.bands[spot.band] || 0) + 1;
+        p.bands[pathBand] = (p.bands[pathBand] || 0) + 1;
       }
     }
 
@@ -738,6 +907,7 @@ module.exports = function (app, ctx) {
         fromLon: p.fromLon,
         toLat: p.toLat,
         toLon: p.toLon,
+        band: p.band,
         count: p.count,
         avgSnr: p.snrCount > 0 ? Math.round(p.snrSum / p.snrCount) : null,
         bands: p.bands,
@@ -767,18 +937,27 @@ module.exports = function (app, ctx) {
     const minutes = parseInt(req.query.minutes) || 30;
     const band = req.query.band || 'all';
     const raw = req.query.raw === 'true';
+    const include630m = req.query.include630m === 'true';
+    const wants630mSource = band === '630m' || (band === 'all' && include630m);
+    const wantsPskSource = band !== '630m';
     const now = Date.now();
 
-    // Cache key for this exact query
-    const cacheKey = `wspr:${minutes}:${band}:${raw ? 'raw' : 'agg'}`;
+    // Keep default and opt-in responses in separate cache entries.
+    const cacheKey = `wspr:${minutes}:${band}:${include630m ? '630m' : 'standard'}:${raw ? 'raw' : 'agg'}`;
 
     // 1. Fresh cache hit — serve immediately
     if (wsprCache.data && wsprCache.data.cacheKey === cacheKey && now - wsprCache.timestamp < WSPR_CACHE_TTL) {
       return res.json({ ...wsprCache.data.result, cached: true });
     }
 
-    // 2. Backoff active (WSPR HTTP endpoint has its own backoff, separate from MQTT PSKReporter)
-    if (upstream.isBackedOff('wspr')) {
+    // 2. Backoff is tracked per source. If one source is unavailable, the
+    // other can still supply data (for example normal bands while WSPR.live
+    // is backing off, or 630m while PSK Reporter is backing off).
+    const pskBackedOff = wantsPskSource && upstream.isBackedOff('wspr');
+    const mfBackedOff = wants630mSource && upstream.isBackedOff('wspr630m');
+    const hasAvailableSource = (wantsPskSource && !pskBackedOff) || (wants630mSource && !mfBackedOff);
+
+    if (!hasAvailableSource) {
       if (wsprCache.data && wsprCache.data.cacheKey === cacheKey) {
         return res.json({ ...wsprCache.data.result, cached: true, stale: true });
       }
@@ -801,95 +980,138 @@ module.exports = function (app, ctx) {
     const doFetch = () =>
       upstream.fetch(cacheKey, async () => {
         const flowStartSeconds = -Math.abs(minutes * 60);
-        const url = `https://retrieve.pskreporter.info/query?mode=WSPR&flowStartSeconds=${flowStartSeconds}&rronly=1&nolocator=0&appcontact=openhamclock&rptlimit=2000`;
+        const baseUrl = `https://retrieve.pskreporter.info/query?mode=WSPR&flowStartSeconds=${flowStartSeconds}&rronly=1&nolocator=0&appcontact=openhamclock&rptlimit=2000`;
 
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 20000);
+        const spots = [];
+        const seenSpots = new Set();
+        const sourceWarnings = [];
+        let sourceLatestTimestamp = null;
+        let sourceLagMinutes = null;
+        let sourceWindowShifted = false;
 
-        const response = await fetch(url, {
-          headers: {
-            'User-Agent': 'OpenHamClock/15.2.12 (Amateur Radio Dashboard)',
-            Accept: '*/*',
-          },
-          signal: controller.signal,
-        });
-        clearTimeout(timeout);
+        // Preserve the existing PSK Reporter path for every normal band.
+        // 630m is deliberately sourced from WSPR.live below because WSPR.live
+        // carries the WSPRnet WSPR + FST4W MF feed, while mode=WSPR excludes FST4W.
+        if (wantsPskSource && !pskBackedOff) {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 20000);
 
-        if (!response.ok) {
-          const backoffSecs = upstream.recordFailure('wspr', response.status);
-          throw new Error(`HTTP ${response.status} — backing off for ${backoffSecs}s`);
+          try {
+            const response = await fetch(baseUrl, {
+              headers: {
+                'User-Agent': 'OpenHamClock/15.2.12 (Amateur Radio Dashboard)',
+                Accept: '*/*',
+              },
+              signal: controller.signal,
+            });
+
+            if (!response.ok) {
+              const backoffSecs = upstream.recordFailure('wspr', response.status);
+              throw new Error(`HTTP ${response.status} — backing off for ${backoffSecs}s`);
+            }
+
+            const xml = await response.text();
+            const reportRegex = /<receptionReport[^>]*>/g;
+            let match;
+
+            while ((match = reportRegex.exec(xml)) !== null) {
+              const report = match[0];
+              const getAttr = (name) => {
+                const m = report.match(new RegExp(`${name}="([^"]*)"`));
+                return m ? m[1] : null;
+              };
+
+              const receiverCallsign = getAttr('receiverCallsign');
+              const receiverLocator = getAttr('receiverLocator');
+              const senderCallsign = getAttr('senderCallsign');
+              const senderLocator = getAttr('senderLocator');
+              const frequency = getAttr('frequency');
+              const mode = getAttr('mode');
+              const flowStartSecs = getAttr('flowStartSeconds');
+              const sNR = getAttr('sNR');
+              const power = getAttr('senderPower');
+              const distance = getAttr('senderDistance');
+              const senderAz = getAttr('senderAzimuth');
+              const receiverAz = getAttr('receiverAzimuth');
+              const drift = getAttr('drift');
+
+              if (receiverCallsign && senderCallsign && senderLocator && receiverLocator) {
+                const freq = frequency ? parseInt(frequency) : null;
+                const spotBand = freq ? getBandFromHz(freq) : 'Unknown';
+
+                if (spotBand === '630m') continue;
+                if (band !== 'all' && spotBand !== band) continue;
+
+                const senderLoc = maidenheadToLatLon(senderLocator);
+                const receiverLoc = maidenheadToLatLon(receiverLocator);
+
+                if (senderLoc && receiverLoc) {
+                  const spotKey = `${senderCallsign}|${receiverCallsign}|${freq}|${flowStartSecs || ''}`;
+                  if (seenSpots.has(spotKey)) continue;
+                  seenSpots.add(spotKey);
+
+                  const powerWatts = power ? parseFloat(power) : null;
+                  const powerDbm = powerWatts ? (10 * Math.log10(powerWatts * 1000)).toFixed(0) : null;
+                  const dist = distance ? parseInt(distance) : null;
+                  const kPerW = dist && powerWatts && powerWatts > 0 ? Math.round(dist / powerWatts) : null;
+
+                  spots.push({
+                    sender: senderCallsign,
+                    senderGrid: senderLocator,
+                    senderLat: senderLoc.lat,
+                    senderLon: senderLoc.lon,
+                    receiver: receiverCallsign,
+                    receiverGrid: receiverLocator,
+                    receiverLat: receiverLoc.lat,
+                    receiverLon: receiverLoc.lon,
+                    freq,
+                    freqMHz: freq ? (freq / 1000000).toFixed(6) : null,
+                    band: spotBand,
+                    mode,
+                    snr: sNR ? parseInt(sNR) : null,
+                    power: powerWatts,
+                    powerDbm,
+                    distance: dist,
+                    senderAz: senderAz ? parseInt(senderAz) : null,
+                    receiverAz: receiverAz ? parseInt(receiverAz) : null,
+                    drift: drift ? parseInt(drift) : null,
+                    kPerW,
+                    timestamp: flowStartSecs ? parseInt(flowStartSecs) * 1000 : Date.now(),
+                    age: flowStartSecs ? Math.floor((Date.now() / 1000 - parseInt(flowStartSecs)) / 60) : 0,
+                    source: 'pskreporter',
+                  });
+                }
+              }
+            }
+
+            upstream.recordSuccess('wspr');
+          } catch (error) {
+            if (!wants630mSource) throw error;
+            sourceWarnings.push(`PSK Reporter: ${error.message}`);
+          } finally {
+            clearTimeout(timeout);
+          }
         }
 
-        const xml = await response.text();
-        const spots = [];
-
-        const reportRegex = /<receptionReport[^>]*>/g;
-        let match;
-        while ((match = reportRegex.exec(xml)) !== null) {
-          const report = match[0];
-          const getAttr = (name) => {
-            const m = report.match(new RegExp(`${name}="([^"]*)"`));
-            return m ? m[1] : null;
-          };
-
-          const receiverCallsign = getAttr('receiverCallsign');
-          const receiverLocator = getAttr('receiverLocator');
-          const senderCallsign = getAttr('senderCallsign');
-          const senderLocator = getAttr('senderLocator');
-          const frequency = getAttr('frequency');
-          const mode = getAttr('mode');
-          const flowStartSecs = getAttr('flowStartSeconds');
-          const sNR = getAttr('sNR');
-          const power = getAttr('senderPower');
-          const distance = getAttr('senderDistance');
-          const senderAz = getAttr('senderAzimuth');
-          const receiverAz = getAttr('receiverAzimuth');
-          const drift = getAttr('drift');
-
-          if (receiverCallsign && senderCallsign && senderLocator && receiverLocator) {
-            const freq = frequency ? parseInt(frequency) : null;
-            const spotBand = freq ? getBandFromHz(freq) : 'Unknown';
-
-            if (band !== 'all' && spotBand !== band) continue;
-
-            const senderLoc = maidenheadToLatLon(senderLocator);
-            const receiverLoc = maidenheadToLatLon(receiverLocator);
-
-            if (senderLoc && receiverLoc) {
-              const powerWatts = power ? parseFloat(power) : null;
-              const powerDbm = powerWatts ? (10 * Math.log10(powerWatts * 1000)).toFixed(0) : null;
-              const dist = distance ? parseInt(distance) : null;
-              const kPerW = dist && powerWatts && powerWatts > 0 ? Math.round(dist / powerWatts) : null;
-
-              spots.push({
-                sender: senderCallsign,
-                senderGrid: senderLocator,
-                senderLat: senderLoc.lat,
-                senderLon: senderLoc.lon,
-                receiver: receiverCallsign,
-                receiverGrid: receiverLocator,
-                receiverLat: receiverLoc.lat,
-                receiverLon: receiverLoc.lon,
-                freq: freq,
-                freqMHz: freq ? (freq / 1000000).toFixed(6) : null,
-                band: spotBand,
-                snr: sNR ? parseInt(sNR) : null,
-                power: powerWatts,
-                powerDbm: powerDbm,
-                distance: dist,
-                senderAz: senderAz ? parseInt(senderAz) : null,
-                receiverAz: receiverAz ? parseInt(receiverAz) : null,
-                drift: drift ? parseInt(drift) : null,
-                kPerW: kPerW,
-                timestamp: flowStartSecs ? parseInt(flowStartSecs) * 1000 : Date.now(),
-                age: flowStartSecs ? Math.floor((Date.now() / 1000 - parseInt(flowStartSecs)) / 60) : 0,
-              });
+        if (wants630mSource && !mfBackedOff) {
+          try {
+            const mfResult = await fetchWsprLive630m(minutes);
+            sourceLatestTimestamp = mfResult.sourceLatestTimestamp;
+            sourceLagMinutes = mfResult.sourceLagMinutes;
+            sourceWindowShifted = mfResult.sourceWindowShifted;
+            for (const spot of mfResult.spots) {
+              const spotKey = `${spot.sender}|${spot.receiver}|${spot.freq}|${spot.timestamp}`;
+              if (seenSpots.has(spotKey)) continue;
+              seenSpots.add(spotKey);
+              spots.push(spot);
             }
+          } catch (error) {
+            if (band === '630m' || spots.length === 0) throw error;
+            sourceWarnings.push(`WSPR.live: ${error.message}`);
           }
         }
 
         spots.sort((a, b) => b.timestamp - a.timestamp);
-        upstream.recordSuccess('wspr');
 
         let result;
         if (raw) {
@@ -899,7 +1121,11 @@ module.exports = function (app, ctx) {
             minutes,
             band,
             timestamp: new Date().toISOString(),
-            source: 'pskreporter',
+            source: band === '630m' ? 'wspr.live' : wants630mSource ? 'pskreporter+wspr.live' : 'pskreporter',
+            sourceLatestTimestamp,
+            sourceLagMinutes,
+            sourceWindowShifted,
+            warnings: sourceWarnings,
             format: 'raw',
           };
           logDebug(`[WSPR Heatmap] Returning ${spots.length} raw spots (${minutes}min, band: ${band})`);
@@ -910,7 +1136,11 @@ module.exports = function (app, ctx) {
             minutes,
             band,
             timestamp: new Date().toISOString(),
-            source: 'pskreporter',
+            source: band === '630m' ? 'wspr.live' : wants630mSource ? 'pskreporter+wspr.live' : 'pskreporter',
+            sourceLatestTimestamp,
+            sourceLagMinutes,
+            sourceWindowShifted,
+            warnings: sourceWarnings,
             format: 'aggregated',
           };
           logDebug(
