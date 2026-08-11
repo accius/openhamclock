@@ -216,6 +216,7 @@ module.exports = function (app, ctx) {
       padding: 20px;
       text-align: center;
       transition: all 0.3s ease;
+      container-type: inline-size;
     }
     .stat-card:hover {
       border-color: rgba(0, 255, 136, 0.3);
@@ -230,6 +231,10 @@ module.exports = function (app, ctx) {
       margin-bottom: 4px;
     }
     .stat-value.amber { color: #ffb347; }
+    .stat-value.all-time-visitors {
+      font-size: clamp(1.25rem, 10cqi, 2rem);
+      overflow-wrap: anywhere;
+    }
     .stat-value.green { color: #00ff88; }
     .stat-value.purple { color: #a78bfa; }
     .stat-label {
@@ -446,7 +451,7 @@ module.exports = function (app, ctx) {
       </div>
       <div class="stat-card">
         <div class="stat-icon">🌍</div>
-        <div class="stat-value amber">${visitorStats.allTimeVisitors.toLocaleString()}</div>
+        <div class="stat-value amber all-time-visitors">${visitorStats.allTimeVisitors.toLocaleString()}</div>
         <div class="stat-label">All-Time Visitors</div>
       </div>
       <div class="stat-card">
