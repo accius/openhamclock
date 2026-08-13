@@ -973,7 +973,7 @@ Works on Linux, macOS, and Windows. Requires Node.js 18+ (22 LTS recommended) an
 **One-line install (Linux / macOS):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-linux.sh | bash
+curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-unix.sh | bash
 ```
 
 This clones the repo, installs dependencies, builds the frontend, creates a `.env` config file, and generates a `run.sh` launcher. After install, edit `~/openhamclock/.env` to set your `CALLSIGN` and `LOCATOR`, then start with `~/openhamclock/run.sh`.
@@ -981,7 +981,7 @@ This clones the repo, installs dependencies, builds the frontend, creates a `.en
 **Auto-start on boot (Linux with systemd — Ubuntu, Debian, Fedora, etc.):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-linux.sh | bash -s -- --service
+curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-unix.sh | bash -s -- --service
 ```
 
 This does everything above plus creates a `systemd` service that starts OpenHamClock automatically on boot. Manage it with:
@@ -1307,7 +1307,7 @@ openhamclock/
 ├── electron/                 # Electron desktop app wrapper (experimental)
 ├── scripts/                  # Setup and update scripts
 │   ├── setup-pi.sh               # Raspberry Pi one-line installer
-│   ├── setup-linux.sh            # Linux / macOS installer (--service for systemd)
+│   ├── setup-unix.sh             # Linux / macOS / FreeBSD installer (--service for systemd)
 │   ├── setup-windows.ps1         # Windows PowerShell installer
 │   ├── update.ps1                # Windows update script (backup → pull → rebuild → restore)
 │   └── update.sh                 # Linux/Pi update script (backup → pull → rebuild → restore)

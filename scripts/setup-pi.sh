@@ -46,7 +46,7 @@
 #   • Headless-only Pi Zero / Pi Zero 2 W in kiosk mode
 #     (--server mode works; --kiosk requires a display)
 #   • Windows / macOS / generic x86-64 Linux
-#     (see scripts/setup-linux.sh for Linux desktop installs)
+#     (see scripts/setup-unix.sh for Linux desktop installs)
 #
 # ═══════════════════════════════════════════════════════════════════
 # PREREQUISITES

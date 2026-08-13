@@ -42,16 +42,16 @@
 # ═══════════════════════════════════════════════════════════════════
 #
 #   Quick install (pipe to bash):
-#     curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-linux.sh | bash
+#     curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-unix.sh | bash
 #
 #   With systemd service:
-#     curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-linux.sh | bash -s -- --service
+#     curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-unix.sh | bash -s -- --service
 #
 #   Manual:
-#     chmod +x setup-linux.sh
-#     ./setup-linux.sh                # install only
-#     ./setup-linux.sh --service      # install + systemd service
-#     ./setup-linux.sh --help         # show option summary
+#     chmod +x setup-unix.sh
+#     ./setup-unix.sh                # install only
+#     ./setup-unix.sh --service      # install + systemd service
+#     ./setup-unix.sh --help         # show option summary
 #
 #   After installation, edit ~/openhamclock/.env to set your
 #   CALLSIGN and LOCATOR before (re)starting.
@@ -78,7 +78,7 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         --service) INSTALL_SERVICE=true ;;
         --help)
-            echo "Usage: ./setup-linux.sh [OPTIONS]"
+            echo "Usage: ./setup-unix.sh [OPTIONS]"
             echo ""
             echo "Options:"
             echo "  --service   Create a systemd service for auto-start on boot (Linux only)"
@@ -351,7 +351,7 @@ print_summary() {
         if [ "$IS_LINUX" = true ] && [ "$HAS_SYSTEMD" = true ]; then
             echo ""
             echo -e "  ${YELLOW}Tip:${NC} Re-run with --service to auto-start on boot:"
-            echo "    ./scripts/setup-linux.sh --service"
+            echo "    ./scripts/setup-unix.sh --service"
         fi
     fi
 
