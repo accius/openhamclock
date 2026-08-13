@@ -93,6 +93,7 @@ done
 # Detect OS
 IS_MACOS=false
 IS_LINUX=false
+IS_FREEBSD=false
 HAS_SYSTEMD=false
 
 detect_platform() {
@@ -114,6 +115,10 @@ detect_platform() {
                 HAS_SYSTEMD=true
             fi
             ;;
+        FreeBSD)
+            IS_FREEBSD=true
+            echo -e "${GREEN}✓ Detected: FreeBSD $(uname -r)${NC}"
+            ;;
         *)
             echo -e "${YELLOW}⚠ Unknown OS: $(uname -s). Proceeding anyway...${NC}"
             IS_LINUX=true
@@ -132,7 +137,7 @@ echo "║  ██║   ██║██╔═══╝ ██╔══╝  ██
 echo "║  ╚██████╔╝██║     ███████╗██║ ╚████║                      ║"
 echo "║   ╚═════╝ ╚═╝     ╚══════╝╚═╝  ╚═══╝  HAM CLOCK           ║"
 echo "║                                                           ║"
-echo "║   Linux / macOS Setup Script                              ║"
+echo "║   Linux / macOS / FreeBSD Setup Script                    ║"
 echo "║                                                           ║"
 echo "╚═══════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
@@ -148,6 +153,7 @@ check_node() {
         echo "    Ubuntu:   curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs"
         echo "    Fedora:   sudo dnf install nodejs"
         echo "    Arch:     sudo pacman -S nodejs npm"
+        echo "    FreeBSD:  sudo pkg install node22 npm git"
         echo ""
         exit 1
     fi
@@ -222,8 +228,8 @@ setup_env() {
         if [ -f .env.example ]; then
             cp .env.example .env
             # Switch to the production port (example defaults to 3001 for dev)
-            if [ "$IS_MACOS" = true ]; then
-                # macOS sed requires an extension argument with -i
+            if [ "$IS_MACOS" = true ] || [ "$IS_FREEBSD" = true ]; then
+                # macOS / BSD sed requires an extension argument with -i
                 sed -i '' 's/^PORT=3001$/PORT=3000/' .env
             else
                 sed -i 's/^PORT=3001$/PORT=3000/' .env
@@ -269,6 +275,12 @@ create_service() {
     if [ "$IS_MACOS" = true ]; then
         echo -e "${YELLOW}⚠ systemd is not available on macOS.${NC}"
         echo -e "${YELLOW}  Use $INSTALL_DIR/run.sh to start manually, or create a launchd plist.${NC}"
+        return
+    fi
+
+    if [ "$IS_FREEBSD" = true ]; then
+        echo -e "${YELLOW}⚠ systemd is not available on FreeBSD.${NC}"
+        echo -e "${YELLOW}  Use $INSTALL_DIR/run.sh to start manually, or create an rc.d script.${NC}"
         return
     fi
 
