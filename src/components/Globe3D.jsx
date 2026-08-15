@@ -140,9 +140,9 @@ const EARTH_VERT = /* glsl */ `
 
 const EARTH_FRAG = /* glsl */ `
   uniform sampler2D uMap;
-  uniform vec3 uSunDir;       // in view space
-  uniform float uNightMix;    // 0 = terminator off
-  uniform float uBrightness;  // lift for dark basemaps
+  uniform vec3 uSunDir;         // in view space
+  uniform float uNightDarkness; // 0..1, same meaning as the flat map's overlay opacity
+  uniform float uBrightness;    // lift for dark basemaps
   varying vec2 vUv;
   varying vec3 vNormal;
 
@@ -151,8 +151,11 @@ const EARTH_FRAG = /* glsl */ `
     float d = dot(normalize(vNormal), normalize(uSunDir));
     // Soft band across the terminator rather than a hard edge.
     float day = smoothstep(-0.14, 0.14, d);
-    vec3 night = tex * 0.38 + vec3(0.0, 0.015, 0.05);
-    vec3 col = mix(night, tex, mix(1.0, day, uNightMix));
+    // Flat mode paints a near-black polygon at fillOpacity over the night side,
+    // which resolves to tex * (1 - opacity); match that so the slider means the
+    // same thing in both projections.
+    vec3 night = tex * (1.0 - uNightDarkness) + vec3(0.0, 0.01, 0.035) * uNightDarkness;
+    vec3 col = mix(night, tex, day);
     gl_FragColor = vec4(col, 1.0);
   }
 `;
@@ -200,10 +203,15 @@ export default function Globe3D({
   hideUi = false,
   tileStyle = 'dark',
   lowMemoryMode = false,
+  nightDarkness = 60,
+  onNightDarknessChange,
 }) {
   const { t } = useTranslation();
   const containerRef = useRef(null);
   const gl = useRef({}); // three.js objects, kept off React state
+  // Mirrors the nightDarkness prop so a scene rebuild seeds the shader uniform
+  // with the current value instead of snapping back to the material default.
+  const nightDarknessRef = useRef(nightDarkness);
   const [textureLoading, setTextureLoading] = useState(true);
   const [textureProgress, setTextureProgress] = useState(0);
   const [tooltip, setTooltip] = useState(null);
@@ -412,7 +420,7 @@ export default function Globe3D({
       uniforms: {
         uMap: { value: new THREE.CanvasTexture(placeholder) },
         uSunDir: { value: new THREE.Vector3(1, 0, 0) },
-        uNightMix: { value: 1 },
+        uNightDarkness: { value: THREE.MathUtils.clamp(nightDarknessRef.current / 100, 0, 1) },
         uBrightness: { value: 1 },
       },
       vertexShader: EARTH_VERT,
@@ -509,6 +517,14 @@ export default function Globe3D({
       gl.current = {};
     };
   }, [lowMemoryMode]);
+
+  // ── Night overlay darkness ───────────────────────────────
+  useEffect(() => {
+    nightDarknessRef.current = nightDarkness;
+    const s = gl.current;
+    if (!s.earthMat) return;
+    s.earthMat.uniforms.uNightDarkness.value = THREE.MathUtils.clamp(nightDarkness / 100, 0, 1);
+  }, [nightDarkness]);
 
   // ── Auto-rotate toggle ───────────────────────────────────
   useEffect(() => {
@@ -839,9 +855,11 @@ export default function Globe3D({
     color: '#00ffcc',
     border: '1px solid #444',
     borderRadius: '4px',
-    padding: '4px 7px',
+    width: '30px',
+    padding: '4px 0',
     fontSize: '10px',
     fontFamily: 'var(--font-mono)',
+    textAlign: 'center',
     cursor: 'pointer',
   };
 
@@ -889,6 +907,9 @@ export default function Globe3D({
             zIndex: 1100,
             display: 'flex',
             flexDirection: 'column',
+            // Keep buttons at their own width so the readout below can be wider
+            // without stretching them.
+            alignItems: 'flex-start',
             gap: '5px',
           }}
         >
@@ -914,38 +935,70 @@ export default function Globe3D({
           >
             ↻
           </button>
-        </div>
-      )}
 
-      {/* Station / DX readout */}
-      {!hideUi && (
-        <div
-          style={{
-            position: 'absolute',
-            // Below the control column — the bottom of the panel belongs to
-            // WorldMap's band legend and DX ticker.
-            top: '124px',
-            left: '10px',
-            color: '#8899aa',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '10px',
-            background: 'rgba(0,0,0,0.6)',
-            padding: '4px 8px',
-            borderRadius: '4px',
-            pointerEvents: 'none',
-            lineHeight: 1.5,
-          }}
-        >
-          <div>
-            <span style={{ color: '#4488ff' }}>DE</span> {callsign || 'N0CALL'} · {lat0.toFixed(2)}°, {lon0.toFixed(2)}°
-          </div>
-          {dxInfo && (
-            <div>
-              <span style={{ color: '#00aaff' }}>DX</span> {dxInfo.bearing.toFixed(0)}° · {dxInfo.distance.toFixed(0)}{' '}
-              km
+          {/* Night overlay darkness — shares state with the flat map's slider */}
+          {onNightDarknessChange && (
+            <div
+              title="Adjust night overlay darkness"
+              style={{
+                marginTop: '4px',
+                width: '30px',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '5px',
+                color: '#999',
+                fontSize: '12px',
+                fontFamily: 'var(--font-mono)',
+                textAlign: 'center',
+              }}
+            >
+              <span>{nightDarkness}%</span>
+              <input
+                type="range"
+                min="0"
+                max="90"
+                value={nightDarkness}
+                onChange={(e) => onNightDarknessChange(parseInt(e.target.value, 10))}
+                style={{
+                  cursor: 'pointer',
+                  margin: 0,
+                  writingMode: 'vertical-lr',
+                  WebkitAppearance: 'slider-vertical',
+                  transform: 'rotate(180deg)',
+                }}
+              />
             </div>
           )}
-          <div style={{ opacity: 0.6 }}>drag to rotate · scroll to zoom · click to set DX</div>
+
+          {/* Station / DX readout — last item in the column so it can never
+              collide with the controls above it. */}
+          <div
+            style={{
+              marginTop: '4px',
+              color: '#8899aa',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '10px',
+              background: 'rgba(0,0,0,0.6)',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              pointerEvents: 'none',
+              lineHeight: 1.5,
+              whiteSpace: 'nowrap',
+            }}
+          >
+            <div>
+              <span style={{ color: '#4488ff' }}>DE</span> {callsign || 'N0CALL'} · {lat0.toFixed(2)}°,{' '}
+              {lon0.toFixed(2)}°
+            </div>
+            {dxInfo && (
+              <div>
+                <span style={{ color: '#00aaff' }}>DX</span> {dxInfo.bearing.toFixed(0)}° · {dxInfo.distance.toFixed(0)}{' '}
+                km
+              </div>
+            )}
+            <div style={{ opacity: 0.6 }}>drag to rotate · scroll to zoom · click to set DX</div>
+          </div>
         </div>
       )}
 

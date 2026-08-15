@@ -2460,6 +2460,8 @@ export const WorldMap = ({
               hideUi={mapUiHidden}
               tileStyle={mapStyle}
               lowMemoryMode={lowMemoryMode}
+              nightDarkness={nightDarkness}
+              onNightDarknessChange={setNightDarkness}
             />
           </React.Suspense>
         </AzimuthalErrorBoundary>
