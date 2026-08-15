@@ -27,6 +27,8 @@ import { getAprsSymbolIcon } from '../utils/aprs-symbols.js';
 import { getAllLayers } from '../plugins/layerRegistry.js';
 import PluginLayer from './PluginLayer.jsx';
 import AzimuthalMap from './AzimuthalMap.jsx';
+// three.js is ~600 kB — load it only when the operator actually opens 3D mode.
+const Globe3D = React.lazy(() => import('./Globe3D.jsx'));
 import { DXNewsTicker } from './DXNewsTicker.jsx';
 import { CallsignWeatherOverlay } from './CallsignWeatherOverlay.jsx';
 import { getCallsignWeather } from '../utils/callsignWeather.js';
@@ -38,8 +40,8 @@ import { useCallsignPopup } from '../components/CallsignPopupManager.jsx';
 // and could contain malicious HTML/script tags in callsigns, comments, or park names.
 import { esc } from '../utils/escapeHtml.js';
 
-// Lightweight error boundary for the azimuthal map — falls back to Mercator
-// instead of crashing the entire dashboard.
+// Lightweight error boundary for the non-Leaflet projections (azimuthal canvas,
+// 3D globe) — falls back to Mercator instead of crashing the entire dashboard.
 class AzimuthalErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
@@ -49,7 +51,7 @@ class AzimuthalErrorBoundary extends React.Component {
     return { hasError: true };
   }
   componentDidCatch(error, info) {
-    console.error('[AzimuthalMap] Render crash, falling back to Mercator:', error, info);
+    console.error(`[${this.props.label || 'AzimuthalMap'}] Render crash, falling back to Mercator:`, error, info);
     if (this.props.onFallback) this.props.onFallback();
   }
   render() {
@@ -598,6 +600,9 @@ export const WorldMap = ({
   const [mapRotationMenuActivity, setMapRotationMenuActivity] = useState(0);
   const [mapProjection, setMapProjection] = useState(initialProjection);
   const isAzimuthal = mapProjection === 'azimuthal';
+  const isGlobe3D = mapProjection === 'globe3d';
+  // Both non-Leaflet projections hide the Mercator map and its dock.
+  const isLeafletHidden = isAzimuthal || isGlobe3D;
 
   const availableBaseMapIds = useMemo(
     () => Object.keys(MAP_STYLES).filter((id) => MAP_STYLES[id] && !MAP_STYLES[id].legacy),
@@ -2408,6 +2413,58 @@ export const WorldMap = ({
         </AzimuthalErrorBoundary>
       )}
 
+      {/* 3D globe (three.js / WebGL) */}
+      {isGlobe3D && (
+        <AzimuthalErrorBoundary label="Globe3D" onFallback={() => setMapProjection('mercator')}>
+          <React.Suspense
+            fallback={
+              <div
+                style={{
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#00ffcc',
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '11px',
+                  background: 'radial-gradient(circle at 50% 45%, #0a1424 0%, #04070d 70%)',
+                  borderRadius: '8px',
+                }}
+              >
+                Loading 3D engine…
+              </div>
+            }
+          >
+            <Globe3D
+              deLocation={deLocation}
+              dxLocation={dxLocation}
+              onDXChange={onDXChange}
+              dxLocked={dxLocked}
+              potaSpots={potaSpots}
+              wwffSpots={wwffSpots}
+              sotaSpots={sotaSpots}
+              wwbotaSpots={wwbotaSpots}
+              dxPaths={dxPaths}
+              mapBandFilter={mapBandFilter}
+              pskReporterSpots={pskReporterSpots}
+              wsjtxSpots={wsjtxSpots}
+              showDXPaths={showDXPaths}
+              showPOTA={showPOTA}
+              showWWFF={showWWFF}
+              showSOTA={showSOTA}
+              showWWBOTA={showWWBOTA}
+              showPSKReporter={showPSKReporter}
+              showWSJTX={showWSJTX}
+              onSpotClick={onSpotClick}
+              callsign={callsign}
+              hideUi={mapUiHidden}
+              tileStyle={mapStyle}
+              lowMemoryMode={lowMemoryMode}
+            />
+          </React.Suspense>
+        </AzimuthalErrorBoundary>
+      )}
+
       <div
         ref={mapRef}
         style={{
@@ -2415,7 +2472,7 @@ export const WorldMap = ({
           width: '100%',
           borderRadius: '8px',
           background: mapStyle === 'countries' ? '#4a90d9' : undefined,
-          display: isAzimuthal ? 'none' : undefined,
+          display: isLeafletHidden ? 'none' : undefined,
         }}
       />
 
@@ -2423,47 +2480,50 @@ export const WorldMap = ({
       {/* Key includes projection so hooks fully remount when map instance changes.
           This resets internal refs (layerGroupRef, controlRef) that are bound to a
           specific Leaflet map — without this, layers stay on the hidden old map. */}
-      {getAllLayers().map((layerDef) => {
-        // Merge location config into satellite layer to keep config access consistent
-        const layerConfig = pluginLayerStates[layerDef.id]?.config ?? layerDef.config;
-        const finalConfig =
-          layerDef.id === 'satellites' && deLocation
-            ? {
-                ...layerConfig,
-                location: {
-                  lat: deLocation.lat,
-                  lon: deLocation.lon,
-                  stationAlt: parseInt(deLocation.stationAlt) || 100,
-                },
-                satellite: {
-                  minElev: config?.satellite?.minElev ?? layerConfig?.satellite?.minElev ?? 5,
-                },
-              }
-            : layerConfig;
+      {/* Plugin layers attach to a Leaflet map instance, so they cannot render on
+          the 3D globe — skip them entirely rather than binding to a hidden map. */}
+      {!isGlobe3D &&
+        getAllLayers().map((layerDef) => {
+          // Merge location config into satellite layer to keep config access consistent
+          const layerConfig = pluginLayerStates[layerDef.id]?.config ?? layerDef.config;
+          const finalConfig =
+            layerDef.id === 'satellites' && deLocation
+              ? {
+                  ...layerConfig,
+                  location: {
+                    lat: deLocation.lat,
+                    lon: deLocation.lon,
+                    stationAlt: parseInt(deLocation.stationAlt) || 100,
+                  },
+                  satellite: {
+                    minElev: config?.satellite?.minElev ?? layerConfig?.satellite?.minElev ?? 5,
+                  },
+                }
+              : layerConfig;
 
-        return (
-          <PluginLayer
-            key={`${layerDef.id}-${isAzimuthal ? 'az' : 'merc'}`}
-            plugin={layerDef}
-            enabled={pluginLayerStates[layerDef.id]?.enabled ?? layerDef.defaultEnabled}
-            opacity={pluginLayerStates[layerDef.id]?.opacity ?? layerDef.defaultOpacity}
-            onDXChange={onDXChange}
-            mapBandFilter={mapBandFilter}
-            config={finalConfig}
-            map={isAzimuthal ? azimuthalMapRef.current : mapInstanceRef.current}
-            satellites={satellites}
-            allUnits={allUnits}
-            callsign={callsign}
-            locator={deLocator}
-            deLat={deLocation?.lat ?? null}
-            deLon={deLocation?.lon ?? null}
-            lowMemoryMode={lowMemoryMode}
-          />
-        );
-      })}
+          return (
+            <PluginLayer
+              key={`${layerDef.id}-${isAzimuthal ? 'az' : 'merc'}`}
+              plugin={layerDef}
+              enabled={pluginLayerStates[layerDef.id]?.enabled ?? layerDef.defaultEnabled}
+              opacity={pluginLayerStates[layerDef.id]?.opacity ?? layerDef.defaultOpacity}
+              onDXChange={onDXChange}
+              mapBandFilter={mapBandFilter}
+              config={finalConfig}
+              map={isAzimuthal ? azimuthalMapRef.current : mapInstanceRef.current}
+              satellites={satellites}
+              allUnits={allUnits}
+              callsign={callsign}
+              locator={deLocator}
+              deLat={deLocation?.lat ?? null}
+              deLon={deLocation?.lon ?? null}
+              lowMemoryMode={lowMemoryMode}
+            />
+          );
+        })}
 
       {/* Unified map control dock */}
-      {!isAzimuthal && (
+      {!isLeafletHidden && (
         <div
           style={{
             position: 'absolute',
@@ -2689,6 +2749,7 @@ export const WorldMap = ({
             {[
               { key: 'mercator', label: 'Flat' },
               { key: 'azimuthal', label: 'Azimuthal' },
+              { key: 'globe3d', label: '3D' },
             ].map(({ key, label }) => (
               <button
                 key={key}

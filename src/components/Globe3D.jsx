@@ -1,0 +1,979 @@
+/**
+ * Globe3D Component
+ * WebGL globe (three.js) rendering the station's world view on a real sphere.
+ *
+ * Unlike the Mercator and azimuthal views this one is not backed by Leaflet, so
+ * great circles are drawn as true 3D arcs (slerp between unit vectors) and the
+ * day/night terminator is a shader on the sphere rather than a canvas overlay.
+ *
+ * Consequence: Leaflet-bound plugin layers (satellites, aurora, lightning) are
+ * not available here — WorldMap suppresses them while this projection is active.
+ */
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
+import { getSunPosition, calculateBearing, calculateDistance } from '../utils/geo.js';
+import { MAP_STYLES } from '../utils/config.js';
+import { buildGlobeTexture, chooseGlobeTileZoom } from '../utils/globeTexture.js';
+
+const DEG = Math.PI / 180;
+const EARTH_R = 1;
+
+// ── Geometry helpers ───────────────────────────────────────
+// Matches THREE.SphereGeometry's UV layout: u=0 at lon -180, v=1 at lat +90.
+function latLonToVec3(lat, lon, r = EARTH_R, target = new THREE.Vector3()) {
+  const theta = (90 - lat) * DEG;
+  const phi = (lon + 180) * DEG;
+  const sinT = Math.sin(theta);
+  return target.set(-r * Math.cos(phi) * sinT, r * Math.cos(theta), r * Math.sin(phi) * sinT);
+}
+
+function vec3ToLatLon(v) {
+  const n = v.clone().normalize();
+  const lat = 90 - Math.acos(THREE.MathUtils.clamp(n.y, -1, 1)) / DEG;
+  let lon = Math.atan2(n.z, -n.x) / DEG - 180;
+  lon = ((lon + 540) % 360) - 180;
+  return { lat, lon };
+}
+
+/**
+ * Great circle arc as 3D points, bowed outward so it reads above the surface.
+ * Longer paths arc higher, which keeps antipodal hops legible.
+ */
+function greatCircleArc(lat1, lon1, lat2, lon2, segments = 64) {
+  const a = latLonToVec3(lat1, lon1, 1);
+  const b = latLonToVec3(lat2, lon2, 1);
+  const angle = a.angleTo(b);
+  const pts = [];
+
+  if (angle < 1e-6) return [a.clone().multiplyScalar(EARTH_R * 1.002)];
+
+  const lift = 0.16 * (angle / Math.PI);
+  const sinAngle = Math.sin(angle);
+
+  for (let i = 0; i <= segments; i++) {
+    const t = i / segments;
+    // Spherical linear interpolation — the true great circle between a and b.
+    const w1 = Math.sin((1 - t) * angle) / sinAngle;
+    const w2 = Math.sin(t * angle) / sinAngle;
+    const p = new THREE.Vector3(a.x * w1 + b.x * w2, a.y * w1 + b.y * w2, a.z * w1 + b.z * w2);
+    p.normalize().multiplyScalar(EARTH_R * (1.004 + lift * Math.sin(t * Math.PI)));
+    pts.push(p);
+  }
+  return pts;
+}
+
+// ── Band helpers (mirrors AzimuthalMap) ────────────────────
+const normalizeBandKey = (band) => {
+  if (band == null) return null;
+  const raw = String(band).trim().toLowerCase();
+  if (!raw || raw === 'other') return null;
+  if (raw.endsWith('cm') || raw.endsWith('m')) return raw;
+  if (/^\d+(\.\d+)?$/.test(raw)) return `${raw}m`;
+  return raw;
+};
+
+const bandFromAnyFrequency = (freq) => {
+  if (freq == null || freq === '') return null;
+  const n = parseFloat(freq);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return normalizeBandKey(getBandFromFreq(n));
+};
+
+// ── Round sprite for spot markers ──────────────────────────
+function makeDotTexture() {
+  const size = 64;
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.55, 'rgba(255,255,255,1)');
+  g.addColorStop(0.72, 'rgba(255,255,255,0.85)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = g;
+  ctx.beginPath();
+  ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
+  ctx.fill();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeStarfield(count = 1800) {
+  const positions = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) {
+    // Uniform points on a large sphere shell.
+    const u = Math.random() * 2 - 1;
+    const phi = Math.random() * Math.PI * 2;
+    const s = Math.sqrt(1 - u * u);
+    const r = 22 + Math.random() * 12;
+    positions[i * 3] = r * s * Math.cos(phi);
+    positions[i * 3 + 1] = r * u;
+    positions[i * 3 + 2] = r * s * Math.sin(phi);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  const mat = new THREE.PointsMaterial({
+    color: 0xffffff,
+    size: 0.11,
+    sizeAttenuation: true,
+    transparent: true,
+    opacity: 0.75,
+    depthWrite: false,
+  });
+  return new THREE.Points(geo, mat);
+}
+
+// ── Earth shader: texture + day/night terminator ───────────
+const EARTH_VERT = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vNormal;
+  void main() {
+    vUv = uv;
+    vNormal = normalize(normalMatrix * normal);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const EARTH_FRAG = /* glsl */ `
+  uniform sampler2D uMap;
+  uniform vec3 uSunDir;       // in view space
+  uniform float uNightMix;    // 0 = terminator off
+  uniform float uBrightness;  // lift for dark basemaps
+  varying vec2 vUv;
+  varying vec3 vNormal;
+
+  void main() {
+    vec3 tex = texture2D(uMap, vUv).rgb * uBrightness;
+    float d = dot(normalize(vNormal), normalize(uSunDir));
+    // Soft band across the terminator rather than a hard edge.
+    float day = smoothstep(-0.14, 0.14, d);
+    vec3 night = tex * 0.38 + vec3(0.0, 0.015, 0.05);
+    vec3 col = mix(night, tex, mix(1.0, day, uNightMix));
+    gl_FragColor = vec4(col, 1.0);
+  }
+`;
+
+const ATMO_VERT = /* glsl */ `
+  varying vec3 vNormal;
+  void main() {
+    vNormal = normalize(normalMatrix * normal);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const ATMO_FRAG = /* glsl */ `
+  varying vec3 vNormal;
+  void main() {
+    // Rim brightest at grazing angles — cheap atmospheric limb.
+    float intensity = pow(0.62 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.4);
+    gl_FragColor = vec4(0.25, 0.65, 1.0, 1.0) * intensity;
+  }
+`;
+
+// ── Component ──────────────────────────────────────────────
+export default function Globe3D({
+  deLocation,
+  dxLocation,
+  onDXChange,
+  dxLocked,
+  potaSpots,
+  wwffSpots,
+  sotaSpots,
+  wwbotaSpots,
+  dxPaths,
+  mapBandFilter,
+  pskReporterSpots,
+  wsjtxSpots,
+  showDXPaths,
+  showPOTA,
+  showWWFF,
+  showSOTA,
+  showWWBOTA,
+  showPSKReporter,
+  showWSJTX,
+  onSpotClick,
+  callsign,
+  hideUi = false,
+  tileStyle = 'dark',
+  lowMemoryMode = false,
+}) {
+  const { t } = useTranslation();
+  const containerRef = useRef(null);
+  const gl = useRef({}); // three.js objects, kept off React state
+  const [textureLoading, setTextureLoading] = useState(true);
+  const [textureProgress, setTextureProgress] = useState(0);
+  const [tooltip, setTooltip] = useState(null);
+  const [autoRotate, setAutoRotate] = useState(false);
+
+  const lat0 = Number.isFinite(deLocation?.lat) ? deLocation.lat : 0;
+  const lon0 = Number.isFinite(deLocation?.lon) ? deLocation.lon : 0;
+
+  // mapBandFilter is an array of selected bands; empty means "all bands".
+  const selectedMapBands = useMemo(
+    () =>
+      Array.isArray(mapBandFilter) ? new Set(mapBandFilter.map((b) => normalizeBandKey(b)).filter(Boolean)) : new Set(),
+    [mapBandFilter],
+  );
+
+  const bandPassesMapFilter = useCallback(
+    (band) => {
+      if (selectedMapBands.size === 0) return true;
+      const key = normalizeBandKey(band);
+      return !!key && selectedMapBands.has(key);
+    },
+    [selectedMapBands],
+  );
+
+  // ── Collect every marker into one flat list ──────────────
+  const markers = useMemo(() => {
+    const out = [];
+
+    const pushSimple = (spots, color, kind) => {
+      if (!spots?.length) return;
+      spots.forEach((s) => {
+        if (!Number.isFinite(s.lat) || !Number.isFinite(s.lon)) return;
+        const band = normalizeBandKey(s.band) || bandFromAnyFrequency(s.freq);
+        if (!bandPassesMapFilter(band)) return;
+        out.push({
+          lat: s.lat,
+          lon: s.lon,
+          color,
+          size: 0.026,
+          kind,
+          label: s.call || s.callsign || s.activator || kind,
+          detail: [s.ref || s.reference, band, s.freq ? `${s.freq} MHz` : null, s.mode, s.name]
+            .filter(Boolean)
+            .join(' · '),
+          raw: s,
+        });
+      });
+    };
+
+    if (showPOTA) pushSimple(potaSpots, '#44cc44', 'POTA');
+    if (showWWFF) pushSimple(wwffSpots, '#22bb88', 'WWFF');
+    if (showSOTA) pushSimple(sotaSpots, '#ddaa33', 'SOTA');
+    if (showWWBOTA) pushSimple(wwbotaSpots, '#cc66dd', 'WWBOTA');
+
+    if (showDXPaths && dxPaths?.length) {
+      dxPaths.forEach((p) => {
+        if (!Number.isFinite(p.dxLat) || !Number.isFinite(p.dxLon)) return;
+        const band = bandFromAnyFrequency(p.freq);
+        if (!bandPassesMapFilter(band)) return;
+        out.push({
+          lat: p.dxLat,
+          lon: p.dxLon,
+          color: getBandColor(parseFloat(p.freq)) || '#ffcc00',
+          size: 0.03,
+          kind: 'DX',
+          label: p.dxCall || p.callsign || 'DX',
+          detail: [p.freq ? `${p.freq} MHz` : null, band, p.spotter ? `de ${p.spotter}` : null]
+            .filter(Boolean)
+            .join(' · '),
+          raw: p,
+        });
+      });
+    }
+
+    if (showPSKReporter && pskReporterSpots?.length) {
+      pskReporterSpots.forEach((s) => {
+        const lat = parseFloat(s.lat);
+        const lon = parseFloat(s.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        // PSKReporter reports freq in Hz; freqMHz is the pre-converted variant.
+        const freqMHz = s.freqMHz || (s.freq ? s.freq / 1e6 : null);
+        const band = normalizeBandKey(s.band) || bandFromAnyFrequency(freqMHz || s.freq);
+        if (!bandPassesMapFilter(band)) return;
+        const isRx = s.direction === 'rx';
+        out.push({
+          lat,
+          lon,
+          color: isRx ? '#ff44aa' : '#aa66ff',
+          size: 0.022,
+          kind: isRx ? 'PSK RX' : 'PSK TX',
+          label: (isRx ? s.sender : s.receiver || s.sender) || 'PSK',
+          detail: [band, s.mode].filter(Boolean).join(' · '),
+          raw: s,
+        });
+      });
+    }
+
+    if (showWSJTX && wsjtxSpots?.length) {
+      wsjtxSpots.forEach((s) => {
+        if (!Number.isFinite(s.lat) || !Number.isFinite(s.lon)) return;
+        const band = normalizeBandKey(s.band) || bandFromAnyFrequency(s.freq);
+        if (!bandPassesMapFilter(band)) return;
+        out.push({
+          lat: s.lat,
+          lon: s.lon,
+          color: '#00ddff',
+          size: 0.024,
+          kind: 'WSJT-X',
+          label: s.dxCall || s.call || s.callsign || 'WSJT-X',
+          detail: [band, s.mode, s.snr != null ? `${s.snr} dB` : null].filter(Boolean).join(' · '),
+          raw: s,
+        });
+      });
+    }
+
+    return out;
+  }, [
+    potaSpots,
+    wwffSpots,
+    sotaSpots,
+    wwbotaSpots,
+    dxPaths,
+    pskReporterSpots,
+    wsjtxSpots,
+    showPOTA,
+    showWWFF,
+    showSOTA,
+    showWWBOTA,
+    showDXPaths,
+    showPSKReporter,
+    showWSJTX,
+    bandPassesMapFilter,
+  ]);
+
+  // Spotter → DX arcs, plus the DE → DX path.
+  const arcs = useMemo(() => {
+    const out = [];
+
+    if (showDXPaths && dxPaths?.length) {
+      dxPaths.forEach((p) => {
+        if (!Number.isFinite(p.dxLat) || !Number.isFinite(p.dxLon)) return;
+        if (!Number.isFinite(p.spotterLat) || !Number.isFinite(p.spotterLon)) return;
+        const band = bandFromAnyFrequency(p.freq);
+        if (!bandPassesMapFilter(band)) return;
+        out.push({
+          from: [p.spotterLat, p.spotterLon],
+          to: [p.dxLat, p.dxLon],
+          color: getBandColor(parseFloat(p.freq)) || '#ffcc00',
+          opacity: 0.45,
+        });
+      });
+    }
+
+    if (Number.isFinite(dxLocation?.lat) && Number.isFinite(dxLocation?.lon)) {
+      out.push({
+        from: [lat0, lon0],
+        to: [dxLocation.lat, dxLocation.lon],
+        color: '#00aaff',
+        opacity: 1,
+      });
+    }
+
+    return out;
+  }, [dxPaths, showDXPaths, bandPassesMapFilter, dxLocation, lat0, lon0]);
+
+  // ── Scene setup (once) ───────────────────────────────────
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return undefined;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
+    camera.position.set(0, 0, 3.2);
+
+    let renderer;
+    try {
+      renderer = new THREE.WebGLRenderer({ antialias: !lowMemoryMode, alpha: true });
+    } catch (e) {
+      console.error('[Globe3D] WebGL unavailable:', e);
+      return undefined;
+    }
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowMemoryMode ? 1 : 2));
+    renderer.setSize(container.clientWidth || 300, container.clientHeight || 300);
+    container.appendChild(renderer.domElement);
+    renderer.domElement.style.display = 'block';
+    renderer.domElement.style.borderRadius = '8px';
+    renderer.domElement.style.cursor = 'grab';
+
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.rotateSpeed = 0.45;
+    controls.zoomSpeed = 0.7;
+    controls.enablePan = false;
+    controls.minDistance = 1.25;
+    controls.maxDistance = 8;
+
+    // Placeholder texture until the tiles land.
+    const placeholder = document.createElement('canvas');
+    placeholder.width = placeholder.height = 2;
+    const pctx = placeholder.getContext('2d');
+    pctx.fillStyle = '#0b1a2b';
+    pctx.fillRect(0, 0, 2, 2);
+
+    const earthMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uMap: { value: new THREE.CanvasTexture(placeholder) },
+        uSunDir: { value: new THREE.Vector3(1, 0, 0) },
+        uNightMix: { value: 1 },
+        uBrightness: { value: 1 },
+      },
+      vertexShader: EARTH_VERT,
+      fragmentShader: EARTH_FRAG,
+    });
+
+    const earth = new THREE.Mesh(new THREE.SphereGeometry(EARTH_R, 96, 64), earthMat);
+    scene.add(earth);
+
+    const atmosphere = new THREE.Mesh(
+      new THREE.SphereGeometry(EARTH_R * 1.02, 64, 48),
+      new THREE.ShaderMaterial({
+        vertexShader: ATMO_VERT,
+        fragmentShader: ATMO_FRAG,
+        blending: THREE.AdditiveBlending,
+        side: THREE.BackSide,
+        transparent: true,
+        depthWrite: false,
+      }),
+    );
+    scene.add(atmosphere);
+
+    const stars = lowMemoryMode ? null : makeStarfield();
+    if (stars) scene.add(stars);
+
+    const overlayGroup = new THREE.Group();
+    scene.add(overlayGroup);
+
+    const raycaster = new THREE.Raycaster();
+    raycaster.params.Points.threshold = 0.02;
+    const pointer = new THREE.Vector2();
+
+    gl.current = {
+      scene,
+      camera,
+      renderer,
+      controls,
+      earth,
+      earthMat,
+      atmosphere,
+      stars,
+      overlayGroup,
+      raycaster,
+      pointer,
+      dotTexture: makeDotTexture(),
+      markerData: [],
+      disposables: [],
+    };
+
+    // ── Render loop ────────────────────────────────────────
+    let raf = 0;
+    const tick = () => {
+      raf = requestAnimationFrame(tick);
+      const s = gl.current;
+      if (!s.renderer) return;
+      s.controls.update();
+      // Sun direction is fixed in world space; convert to view space per frame.
+      if (s.sunWorld) {
+        s.earthMat.uniforms.uSunDir.value.copy(s.sunWorld).transformDirection(s.camera.matrixWorldInverse);
+      }
+      s.renderer.render(s.scene, s.camera);
+    };
+    tick();
+
+    // ── Resize ─────────────────────────────────────────────
+    const ro = new ResizeObserver(() => {
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (!w || !h) return;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+    ro.observe(container);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+      controls.dispose();
+      const s = gl.current;
+      s.disposables?.forEach((d) => d.dispose?.());
+      earth.geometry.dispose();
+      earthMat.uniforms.uMap.value?.dispose?.();
+      earthMat.dispose();
+      atmosphere.geometry.dispose();
+      atmosphere.material.dispose();
+      if (stars) {
+        stars.geometry.dispose();
+        stars.material.dispose();
+      }
+      s.dotTexture?.dispose?.();
+      renderer.dispose();
+      if (renderer.domElement.parentNode === container) container.removeChild(renderer.domElement);
+      gl.current = {};
+    };
+  }, [lowMemoryMode]);
+
+  // ── Auto-rotate toggle ───────────────────────────────────
+  useEffect(() => {
+    const s = gl.current;
+    if (!s.controls) return;
+    s.controls.autoRotate = autoRotate;
+    s.controls.autoRotateSpeed = 0.45;
+  }, [autoRotate]);
+
+  // ── Texture: rebuild when the map style changes ──────────
+  useEffect(() => {
+    const style = MAP_STYLES[tileStyle]?.url ? tileStyle : 'dark';
+    const template = MAP_STYLES[style].url;
+    if (!template) return undefined;
+
+    const ac = new AbortController();
+    setTextureLoading(true);
+    setTextureProgress(0);
+
+    buildGlobeTexture({
+      tileUrlTemplate: template,
+      tileZoom: chooseGlobeTileZoom({ lowMemory: lowMemoryMode, pixelRatio: window.devicePixelRatio || 1 }),
+      onProgress: (p) => setTextureProgress(p),
+      signal: ac.signal,
+    })
+      .then(({ canvas, meanLuma }) => {
+        if (ac.signal.aborted) return;
+        const s = gl.current;
+        if (!s.earthMat) return;
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = s.renderer?.capabilities.getMaxAnisotropy?.() ?? 1;
+        tex.wrapS = THREE.RepeatWrapping;
+        const old = s.earthMat.uniforms.uMap.value;
+        s.earthMat.uniforms.uMap.value = tex;
+        old?.dispose?.();
+        // Dark basemaps read as a black ball on a sphere; lift them toward the
+        // brightness satellite imagery already has (mean luma ≈ 0.30) while
+        // leaving anything that bright untouched — the clamp floor of 1 means
+        // this only ever brightens.
+        s.earthMat.uniforms.uBrightness.value = THREE.MathUtils.clamp(0.3 / Math.max(meanLuma, 0.001), 1, 4);
+        setTextureLoading(false);
+      })
+      .catch((e) => {
+        if (!ac.signal.aborted) {
+          console.warn('[Globe3D] texture build failed:', e);
+          setTextureLoading(false);
+        }
+      });
+
+    return () => ac.abort();
+  }, [tileStyle, lowMemoryMode]);
+
+  // ── Terminator: track the subsolar point ─────────────────
+  useEffect(() => {
+    const update = () => {
+      const s = gl.current;
+      if (!s.earthMat) return;
+      const sun = getSunPosition(new Date());
+      s.sunWorld = latLonToVec3(sun.lat, sun.lon, 1).normalize();
+    };
+    update();
+    const id = setInterval(update, 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  // ── Markers + arcs ───────────────────────────────────────
+  useEffect(() => {
+    const s = gl.current;
+    if (!s.overlayGroup) return;
+
+    // Clear previous frame's overlay objects.
+    while (s.overlayGroup.children.length) {
+      const child = s.overlayGroup.children.pop();
+      child.geometry?.dispose?.();
+      if (Array.isArray(child.material)) child.material.forEach((m) => m.dispose());
+      else child.material?.dispose?.();
+    }
+
+    // Spot markers as a single Points cloud.
+    if (markers.length) {
+      const positions = new Float32Array(markers.length * 3);
+      const colors = new Float32Array(markers.length * 3);
+      const sizes = new Float32Array(markers.length);
+      const v = new THREE.Vector3();
+      const c = new THREE.Color();
+
+      markers.forEach((m, i) => {
+        latLonToVec3(m.lat, m.lon, EARTH_R * 1.012, v);
+        positions[i * 3] = v.x;
+        positions[i * 3 + 1] = v.y;
+        positions[i * 3 + 2] = v.z;
+        c.set(m.color);
+        colors[i * 3] = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+        sizes[i] = m.size;
+      });
+
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+      const mat = new THREE.ShaderMaterial({
+        uniforms: { uTex: { value: s.dotTexture } },
+        vertexShader: /* glsl */ `
+          attribute float size;
+          varying vec3 vColor;
+          void main() {
+            vColor = color;
+            vec4 mv = modelViewMatrix * vec4(position, 1.0);
+            // Scale with distance, but keep markers clickable when zoomed out
+            // and from swallowing the globe when zoomed in.
+            gl_PointSize = clamp(size * 800.0 / -mv.z, 4.0, 24.0);
+            gl_Position = projectionMatrix * mv;
+          }
+        `,
+        fragmentShader: /* glsl */ `
+          uniform sampler2D uTex;
+          varying vec3 vColor;
+          void main() {
+            vec4 t = texture2D(uTex, gl_PointCoord);
+            if (t.a < 0.15) discard;
+            gl_FragColor = vec4(vColor, t.a);
+          }
+        `,
+        transparent: true,
+        vertexColors: true,
+        depthWrite: false,
+      });
+
+      const points = new THREE.Points(geo, mat);
+      points.name = 'spots';
+      s.overlayGroup.add(points);
+      s.markerData = markers;
+    } else {
+      s.markerData = [];
+    }
+
+    // Arcs — one merged LineSegments per opacity bucket keeps draw calls low.
+    const buckets = new Map();
+    arcs.forEach((a) => {
+      const key = a.opacity;
+      if (!buckets.has(key)) buckets.set(key, []);
+      buckets.get(key).push(a);
+    });
+
+    buckets.forEach((list, opacity) => {
+      const verts = [];
+      const cols = [];
+      const c = new THREE.Color();
+      list.forEach((a) => {
+        const pts = greatCircleArc(a.from[0], a.from[1], a.to[0], a.to[1], 48);
+        c.set(a.color);
+        for (let i = 0; i < pts.length - 1; i++) {
+          verts.push(pts[i].x, pts[i].y, pts[i].z, pts[i + 1].x, pts[i + 1].y, pts[i + 1].z);
+          cols.push(c.r, c.g, c.b, c.r, c.g, c.b);
+        }
+      });
+      if (!verts.length) return;
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(verts), 3));
+      geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(cols), 3));
+      const mat = new THREE.LineBasicMaterial({
+        vertexColors: true,
+        transparent: true,
+        opacity,
+        depthWrite: false,
+      });
+      s.overlayGroup.add(new THREE.LineSegments(geo, mat));
+    });
+
+    // DE marker — station QTH.
+    const deVec = latLonToVec3(lat0, lon0, EARTH_R * 1.012);
+    const deDot = new THREE.Mesh(
+      new THREE.SphereGeometry(0.018, 16, 12),
+      new THREE.MeshBasicMaterial({ color: 0x4488ff }),
+    );
+    deDot.position.copy(deVec);
+    s.overlayGroup.add(deDot);
+
+    const deRing = new THREE.Mesh(
+      new THREE.RingGeometry(0.03, 0.038, 32),
+      new THREE.MeshBasicMaterial({ color: 0x4488ff, side: THREE.DoubleSide, transparent: true, opacity: 0.8 }),
+    );
+    deRing.position.copy(deVec);
+    deRing.lookAt(0, 0, 0);
+    s.overlayGroup.add(deRing);
+
+    // DX marker — current target.
+    if (Number.isFinite(dxLocation?.lat) && Number.isFinite(dxLocation?.lon)) {
+      const dxVec = latLonToVec3(dxLocation.lat, dxLocation.lon, EARTH_R * 1.012);
+      const dxRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.032, 0.045, 32),
+        new THREE.MeshBasicMaterial({ color: 0x00aaff, side: THREE.DoubleSide }),
+      );
+      dxRing.position.copy(dxVec);
+      dxRing.lookAt(0, 0, 0);
+      s.overlayGroup.add(dxRing);
+
+      const dxDot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.014, 16, 12),
+        new THREE.MeshBasicMaterial({ color: 0x00ddff }),
+      );
+      dxDot.position.copy(dxVec);
+      s.overlayGroup.add(dxDot);
+    }
+  }, [markers, arcs, lat0, lon0, dxLocation]);
+
+  // ── Pointer interaction: hover tooltip + click ───────────
+  useEffect(() => {
+    const s = gl.current;
+    const el = s.renderer?.domElement;
+    if (!el) return undefined;
+
+    const toPointer = (ev) => {
+      const rect = el.getBoundingClientRect();
+      s.pointer.set(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
+      return rect;
+    };
+
+    // Distinguish a click from the tail of an orbit drag.
+    let downAt = null;
+
+    const onDown = (ev) => {
+      downAt = { x: ev.clientX, y: ev.clientY };
+      el.style.cursor = 'grabbing';
+    };
+
+    const onMove = (ev) => {
+      const rect = toPointer(ev);
+      s.raycaster.setFromCamera(s.pointer, s.camera);
+      const spots = s.overlayGroup?.children.find((c) => c.name === 'spots');
+      const hits = spots ? s.raycaster.intersectObject(spots, false) : [];
+
+      if (hits.length && s.markerData[hits[0].index]) {
+        const m = s.markerData[hits[0].index];
+        el.style.cursor = 'pointer';
+        setTooltip({
+          x: ev.clientX - rect.left,
+          y: ev.clientY - rect.top,
+          label: m.label,
+          kind: m.kind,
+          detail: m.detail,
+          color: m.color,
+        });
+        return;
+      }
+
+      el.style.cursor = downAt ? 'grabbing' : 'grab';
+      setTooltip(null);
+    };
+
+    const onUp = (ev) => {
+      el.style.cursor = 'grab';
+      const start = downAt;
+      downAt = null;
+      if (!start) return;
+      const moved = Math.hypot(ev.clientX - start.x, ev.clientY - start.y);
+      if (moved > 4) return; // it was a drag, not a click
+
+      toPointer(ev);
+      s.raycaster.setFromCamera(s.pointer, s.camera);
+
+      // A spot under the cursor wins over the globe surface.
+      const spots = s.overlayGroup?.children.find((c) => c.name === 'spots');
+      const spotHits = spots ? s.raycaster.intersectObject(spots, false) : [];
+      if (spotHits.length && s.markerData[spotHits[0].index]) {
+        const m = s.markerData[spotHits[0].index];
+        if (onSpotClick) onSpotClick(m.raw);
+        else if (onDXChange && !dxLocked) onDXChange({ lat: m.lat, lon: m.lon });
+        return;
+      }
+
+      const earthHits = s.raycaster.intersectObject(s.earth, false);
+      if (earthHits.length && onDXChange && !dxLocked) {
+        const { lat, lon } = vec3ToLatLon(earthHits[0].point);
+        onDXChange({ lat, lon });
+      }
+    };
+
+    const onLeave = () => {
+      setTooltip(null);
+      downAt = null;
+      el.style.cursor = 'grab';
+    };
+
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointerleave', onLeave);
+
+    return () => {
+      el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointerleave', onLeave);
+    };
+  }, [onDXChange, dxLocked, onSpotClick, markers]);
+
+  // ── View helpers ─────────────────────────────────────────
+  const centerOn = useCallback((lat, lon) => {
+    const s = gl.current;
+    if (!s.camera || !s.controls) return;
+    const dist = s.camera.position.length();
+    latLonToVec3(lat, lon, dist, s.camera.position);
+    s.controls.update();
+  }, []);
+
+  const resetView = useCallback(() => {
+    const s = gl.current;
+    if (!s.camera || !s.controls) return;
+    s.camera.position.set(0, 0, 3.2);
+    s.controls.update();
+  }, []);
+
+  const dxInfo = useMemo(() => {
+    if (!Number.isFinite(dxLocation?.lat) || !Number.isFinite(dxLocation?.lon)) return null;
+    return {
+      bearing: calculateBearing(lat0, lon0, dxLocation.lat, dxLocation.lon),
+      distance: calculateDistance(lat0, lon0, dxLocation.lat, dxLocation.lon),
+    };
+  }, [dxLocation, lat0, lon0]);
+
+  const btnStyle = {
+    background: 'rgba(0,0,0,0.75)',
+    color: '#00ffcc',
+    border: '1px solid #444',
+    borderRadius: '4px',
+    padding: '4px 7px',
+    fontSize: '10px',
+    fontFamily: 'var(--font-mono)',
+    cursor: 'pointer',
+  };
+
+  return (
+    <div style={{ position: 'relative', height: '100%', width: '100%' }}>
+      <div
+        ref={containerRef}
+        style={{
+          height: '100%',
+          width: '100%',
+          borderRadius: '8px',
+          background: 'radial-gradient(circle at 50% 45%, #0a1424 0%, #04070d 70%)',
+          overflow: 'hidden',
+        }}
+      />
+
+      {/* Texture loading progress */}
+      {textureLoading && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            color: '#00ffcc',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '11px',
+            background: 'rgba(0,0,0,0.6)',
+            padding: '6px 12px',
+            borderRadius: '4px',
+            pointerEvents: 'none',
+          }}
+        >
+          {t('map.loadingTiles', 'Loading globe')} {Math.round(textureProgress * 100)}%
+        </div>
+      )}
+
+      {/* Controls */}
+      {!hideUi && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '10px',
+            left: '10px',
+            zIndex: 1100,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '5px',
+          }}
+        >
+          <button style={btnStyle} onClick={() => centerOn(lat0, lon0)} title="Center on your QTH">
+            DE
+          </button>
+          {dxLocation && (
+            <button style={btnStyle} onClick={() => centerOn(dxLocation.lat, dxLocation.lon)} title="Center on DX">
+              DX
+            </button>
+          )}
+          <button style={btnStyle} onClick={resetView} title="Reset view">
+            ⟲
+          </button>
+          <button
+            style={{
+              ...btnStyle,
+              color: autoRotate ? '#000' : '#00ffcc',
+              background: autoRotate ? '#00ffcc' : btnStyle.background,
+            }}
+            onClick={() => setAutoRotate((v) => !v)}
+            title="Auto-rotate"
+          >
+            ↻
+          </button>
+        </div>
+      )}
+
+      {/* Station / DX readout */}
+      {!hideUi && (
+        <div
+          style={{
+            position: 'absolute',
+            // Below the control column — the bottom of the panel belongs to
+            // WorldMap's band legend and DX ticker.
+            top: '124px',
+            left: '10px',
+            color: '#8899aa',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '10px',
+            background: 'rgba(0,0,0,0.6)',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            pointerEvents: 'none',
+            lineHeight: 1.5,
+          }}
+        >
+          <div>
+            <span style={{ color: '#4488ff' }}>DE</span> {callsign || 'N0CALL'} · {lat0.toFixed(2)}°, {lon0.toFixed(2)}°
+          </div>
+          {dxInfo && (
+            <div>
+              <span style={{ color: '#00aaff' }}>DX</span> {dxInfo.bearing.toFixed(0)}° · {dxInfo.distance.toFixed(0)}{' '}
+              km
+            </div>
+          )}
+          <div style={{ opacity: 0.6 }}>drag to rotate · scroll to zoom · click to set DX</div>
+        </div>
+      )}
+
+      {/* Hover tooltip */}
+      {tooltip && (
+        <div
+          style={{
+            position: 'absolute',
+            left: `${tooltip.x + 14}px`,
+            top: `${tooltip.y + 14}px`,
+            background: 'rgba(0,0,0,0.88)',
+            border: `1px solid ${tooltip.color}`,
+            borderRadius: '4px',
+            padding: '4px 8px',
+            color: '#eee',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '10px',
+            pointerEvents: 'none',
+            zIndex: 1200,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <div style={{ color: tooltip.color, fontWeight: 'bold' }}>
+            {tooltip.kind} · {tooltip.label}
+          </div>
+          {tooltip.detail && <div style={{ opacity: 0.8 }}>{tooltip.detail}</div>}
+        </div>
+      )}
+    </div>
+  );
+}

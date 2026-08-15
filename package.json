@@ -46,6 +46,7 @@
     "react-i18next": "^16.5.4",
     "rss-parser": "^3.13.0",
     "satellite.js": "^6.0.0",
+    "three": "^0.185.1",
     "tough-cookie": "^6.0.1",
     "ws": "^8.14.2"
   },
