@@ -29,6 +29,8 @@ const DEFAULT_CAM_DISTANCE = 3.2;
 const NARROW_PANEL_PX = 480;
 const CONTROLS_TOP_WIDE = '10px';
 const CONTROLS_TOP_NARROW = '52px';
+const AUTOROTATE_KEY = 'ohc_globe_autorotate';
+const AUTOROTATE_SPEED = 1.2;
 
 // ── Geometry helpers ───────────────────────────────────────
 // Matches THREE.SphereGeometry's UV layout: u=0 at lon -180, v=1 at lat +90.
@@ -289,7 +291,16 @@ export default function Globe3D({
   const [textureLoading, setTextureLoading] = useState(true);
   const [textureProgress, setTextureProgress] = useState(0);
   const [tooltip, setTooltip] = useState(null);
-  const [autoRotate, setAutoRotate] = useState(false);
+  // On by default, but remembered — otherwise switching it off would not
+  // survive a reload and the toggle would feel broken.
+  const [autoRotate, setAutoRotate] = useState(() => {
+    try {
+      const saved = localStorage.getItem(AUTOROTATE_KEY);
+      return saved === null ? true : saved === 'true';
+    } catch {
+      return true;
+    }
+  });
   const [narrowPanel, setNarrowPanel] = useState(false);
 
   const hasDE = Number.isFinite(deLocation?.lat) && Number.isFinite(deLocation?.lon);
@@ -668,7 +679,12 @@ export default function Globe3D({
     const s = gl.current;
     if (!s.controls) return;
     s.controls.autoRotate = autoRotate;
-    s.controls.autoRotateSpeed = 0.45;
+    // ~90s per revolution once damping is taken into account: visibly turning
+    // without being distracting on a dashboard left running all day.
+    s.controls.autoRotateSpeed = AUTOROTATE_SPEED;
+    try {
+      localStorage.setItem(AUTOROTATE_KEY, String(autoRotate));
+    } catch {}
   }, [autoRotate]);
 
   // ── Texture: rebuild when the map style changes ──────────
