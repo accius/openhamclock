@@ -24,6 +24,11 @@ import { IconRefresh, IconQth } from './Icons.jsx';
 const DEG = Math.PI / 180;
 const EARTH_R = 1;
 const DEFAULT_CAM_DISTANCE = 3.2;
+// Below this panel width WorldMap's projection toggle wraps across the top of
+// the map, so the globe's own controls have to move out from under it.
+const NARROW_PANEL_PX = 480;
+const CONTROLS_TOP_WIDE = '10px';
+const CONTROLS_TOP_NARROW = '52px';
 
 // ── Geometry helpers ───────────────────────────────────────
 // Matches THREE.SphereGeometry's UV layout: u=0 at lon -180, v=1 at lat +90.
@@ -126,6 +131,36 @@ function cssColorLuma(color) {
   const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
   return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
 }
+
+/**
+ * Resolve a CSS custom property to a colour string.
+ * WebGL materials cannot reference var(), so theme colours have to be read out
+ * and handed to THREE.Color; the fallback covers a missing/renamed variable.
+ */
+function cssVarColor(name, fallback) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return v || fallback;
+}
+
+/**
+ * Activity-type marker palette.
+ *
+ * Deliberately not themed: these identify what a spot *is*, and a POTA marker
+ * has to read identically in Flat, Azimuthal and 3D. WorldMap and AzimuthalMap
+ * use these same values, so re-theming them here would desynchronise the
+ * projections. Band colours are centralised in bandColors.js for the same
+ * reason. Station accents (DE/DX) and all UI chrome do follow the theme.
+ */
+const ACTIVITY_COLORS = {
+  pota: '#44cc44',
+  wwff: '#22bb88',
+  sota: '#ddaa33',
+  wwbota: '#cc66dd',
+  pskRx: '#ff44aa',
+  pskTx: '#aa66ff',
+  wsjtx: '#00ddff',
+  bandFallback: '#ffcc00',
+};
 
 // Stars and the atmospheric limb only read against a dark backdrop; on the
 // Light and Retro themes they turn into grey noise around the globe.
@@ -255,6 +290,7 @@ export default function Globe3D({
   const [textureProgress, setTextureProgress] = useState(0);
   const [tooltip, setTooltip] = useState(null);
   const [autoRotate, setAutoRotate] = useState(false);
+  const [narrowPanel, setNarrowPanel] = useState(false);
 
   const hasDE = Number.isFinite(deLocation?.lat) && Number.isFinite(deLocation?.lon);
   const lat0 = hasDE ? deLocation.lat : 0;
@@ -275,8 +311,14 @@ export default function Globe3D({
   // theme editor writes CSS variables onto the root element's style attribute,
   // so both have to be watched.
   const [isDarkBackdrop, setIsDarkBackdrop] = useState(() => backdropIsDark());
+  // Bumped on every theme change so the WebGL overlays — whose colours were
+  // resolved from CSS variables at build time — get rebuilt with the new ones.
+  const [themeTick, setThemeTick] = useState(0);
   useEffect(() => {
-    const update = () => setIsDarkBackdrop(backdropIsDark());
+    const update = () => {
+      setIsDarkBackdrop(backdropIsDark());
+      setThemeTick((n) => n + 1);
+    };
     update();
     const mo = new MutationObserver(update);
     mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style'] });
@@ -324,10 +366,10 @@ export default function Globe3D({
       });
     };
 
-    if (showPOTA) pushSimple(potaSpots, '#44cc44', 'POTA');
-    if (showWWFF) pushSimple(wwffSpots, '#22bb88', 'WWFF');
-    if (showSOTA) pushSimple(sotaSpots, '#ddaa33', 'SOTA');
-    if (showWWBOTA) pushSimple(wwbotaSpots, '#cc66dd', 'WWBOTA');
+    if (showPOTA) pushSimple(potaSpots, ACTIVITY_COLORS.pota, 'POTA');
+    if (showWWFF) pushSimple(wwffSpots, ACTIVITY_COLORS.wwff, 'WWFF');
+    if (showSOTA) pushSimple(sotaSpots, ACTIVITY_COLORS.sota, 'SOTA');
+    if (showWWBOTA) pushSimple(wwbotaSpots, ACTIVITY_COLORS.wwbota, 'WWBOTA');
 
     if (showDXPaths && dxPaths?.length) {
       dxPaths.forEach((p) => {
@@ -337,7 +379,7 @@ export default function Globe3D({
         out.push({
           lat: p.dxLat,
           lon: p.dxLon,
-          color: getBandColor(parseFloat(p.freq)) || '#ffcc00',
+          color: getBandColor(parseFloat(p.freq)) || ACTIVITY_COLORS.bandFallback,
           size: 0.03,
           kind: 'DX',
           label: p.dxCall || p.callsign || 'DX',
@@ -362,7 +404,7 @@ export default function Globe3D({
         out.push({
           lat,
           lon,
-          color: isRx ? '#ff44aa' : '#aa66ff',
+          color: isRx ? ACTIVITY_COLORS.pskRx : ACTIVITY_COLORS.pskTx,
           size: 0.022,
           kind: isRx ? 'PSK RX' : 'PSK TX',
           label: (isRx ? s.sender : s.receiver || s.sender) || 'PSK',
@@ -380,7 +422,7 @@ export default function Globe3D({
         out.push({
           lat: s.lat,
           lon: s.lon,
-          color: '#00ddff',
+          color: ACTIVITY_COLORS.wsjtx,
           size: 0.024,
           kind: 'WSJT-X',
           label: s.dxCall || s.call || s.callsign || 'WSJT-X',
@@ -422,7 +464,7 @@ export default function Globe3D({
         out.push({
           from: [p.spotterLat, p.spotterLon],
           to: [p.dxLat, p.dxLon],
-          color: getBandColor(parseFloat(p.freq)) || '#ffcc00',
+          color: getBandColor(parseFloat(p.freq)) || ACTIVITY_COLORS.bandFallback,
           opacity: 0.45,
         });
       });
@@ -432,13 +474,14 @@ export default function Globe3D({
       out.push({
         from: [lat0, lon0],
         to: [dxLocation.lat, dxLocation.lon],
-        color: '#00aaff',
+        color: cssVarColor('--accent-cyan', '#00ddff'),
         opacity: 1,
       });
     }
 
     return out;
-  }, [dxPaths, showDXPaths, bandPassesMapFilter, dxLocation, lat0, lon0]);
+    // themeTick: the DE→DX arc colour is read from a CSS variable.
+  }, [dxPaths, showDXPaths, bandPassesMapFilter, dxLocation, lat0, lon0, themeTick]);
 
   // ── Scene setup (once) ───────────────────────────────────
   useEffect(() => {
@@ -454,6 +497,10 @@ export default function Globe3D({
     } else {
       camera.position.set(0, 0, DEFAULT_CAM_DISTANCE);
     }
+
+    // Seed from the mount-time width: the ResizeObserver's first callback can
+    // land while the panel still measures zero and take the early return.
+    if (container.clientWidth) setNarrowPanel(container.clientWidth < NARROW_PANEL_PX);
 
     let renderer;
     try {
@@ -573,6 +620,9 @@ export default function Globe3D({
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      // On a narrow panel WorldMap's projection toggle spans the full width and
+      // would sit on top of our control column, so the column drops below it.
+      setNarrowPanel(w < NARROW_PANEL_PX);
     });
     ro.observe(container);
 
@@ -795,14 +845,19 @@ export default function Globe3D({
     const deVec = latLonToVec3(lat0, lon0, EARTH_R * 1.012);
     const deDot = new THREE.Mesh(
       new THREE.SphereGeometry(0.018, 16, 12),
-      new THREE.MeshBasicMaterial({ color: 0x4488ff }),
+      new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-blue', '#4488ff') }),
     );
     deDot.position.copy(deVec);
     s.overlayGroup.add(deDot);
 
     const deRing = new THREE.Mesh(
       new THREE.RingGeometry(0.03, 0.038, 32),
-      new THREE.MeshBasicMaterial({ color: 0x4488ff, side: THREE.DoubleSide, transparent: true, opacity: 0.8 }),
+      new THREE.MeshBasicMaterial({
+        color: cssVarColor('--accent-blue', '#4488ff'),
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.8,
+      }),
     );
     deRing.position.copy(deVec);
     deRing.lookAt(0, 0, 0);
@@ -813,7 +868,7 @@ export default function Globe3D({
       const dxVec = latLonToVec3(dxLocation.lat, dxLocation.lon, EARTH_R * 1.012);
       const dxRing = new THREE.Mesh(
         new THREE.RingGeometry(0.032, 0.045, 32),
-        new THREE.MeshBasicMaterial({ color: 0x00aaff, side: THREE.DoubleSide }),
+        new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-cyan', '#00ddff'), side: THREE.DoubleSide }),
       );
       dxRing.position.copy(dxVec);
       dxRing.lookAt(0, 0, 0);
@@ -821,12 +876,13 @@ export default function Globe3D({
 
       const dxDot = new THREE.Mesh(
         new THREE.SphereGeometry(0.014, 16, 12),
-        new THREE.MeshBasicMaterial({ color: 0x00ddff }),
+        new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-cyan', '#00ddff') }),
       );
       dxDot.position.copy(dxVec);
       s.overlayGroup.add(dxDot);
     }
-  }, [markers, arcs, lat0, lon0, dxLocation]);
+    // themeTick: DE/DX marker materials are built from CSS variables.
+  }, [markers, arcs, lat0, lon0, dxLocation, themeTick]);
 
   // ── Pointer interaction: hover tooltip + click ───────────
   useEffect(() => {
@@ -959,9 +1015,9 @@ export default function Globe3D({
   }, [dxLocation, lat0, lon0]);
 
   const btnStyle = {
-    background: 'rgba(0,0,0,0.75)',
-    color: '#00ffcc',
-    border: '1px solid #444',
+    background: 'var(--bg-panel)',
+    color: 'var(--accent-cyan)',
+    border: '1px solid var(--border-color)',
     borderRadius: '4px',
     width: '30px',
     height: '24px',
@@ -1006,10 +1062,10 @@ export default function Globe3D({
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            color: '#00ffcc',
+            color: 'var(--accent-cyan)',
             fontFamily: 'var(--font-mono)',
             fontSize: '11px',
-            background: 'rgba(0,0,0,0.6)',
+            background: 'var(--bg-panel)',
             padding: '6px 12px',
             borderRadius: '4px',
             pointerEvents: 'none',
@@ -1024,7 +1080,7 @@ export default function Globe3D({
         <div
           style={{
             position: 'absolute',
-            top: '10px',
+            top: narrowPanel ? CONTROLS_TOP_NARROW : CONTROLS_TOP_WIDE,
             left: '10px',
             zIndex: 1100,
             display: 'flex',
@@ -1049,8 +1105,8 @@ export default function Globe3D({
           <button
             style={{
               ...btnStyle,
-              color: autoRotate ? '#000' : '#00ffcc',
-              background: autoRotate ? '#00ffcc' : btnStyle.background,
+              color: autoRotate ? 'var(--bg-primary)' : 'var(--accent-cyan)',
+              background: autoRotate ? 'var(--accent-cyan)' : btnStyle.background,
             }}
             onClick={() => setAutoRotate((v) => !v)}
             title={autoRotate ? 'Stop auto-rotate' : 'Auto-rotate'}
@@ -1069,7 +1125,7 @@ export default function Globe3D({
                 flexDirection: 'column',
                 alignItems: 'center',
                 gap: '5px',
-                color: '#999',
+                color: 'var(--text-secondary)',
                 fontSize: '12px',
                 fontFamily: 'var(--font-mono)',
                 textAlign: 'center',
@@ -1094,33 +1150,37 @@ export default function Globe3D({
           )}
 
           {/* Station / DX readout — last item in the column so it can never
-              collide with the controls above it. */}
-          <div
-            style={{
-              marginTop: '4px',
-              color: '#8899aa',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '10px',
-              background: 'rgba(0,0,0,0.6)',
-              padding: '4px 8px',
-              borderRadius: '4px',
-              pointerEvents: 'none',
-              lineHeight: 1.5,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            <div>
-              <span style={{ color: '#4488ff' }}>DE</span> {callsign || 'N0CALL'} · {lat0.toFixed(2)}°,{' '}
-              {lon0.toFixed(2)}°
-            </div>
-            {dxInfo && (
+              collide with the controls above it. Dropped on a narrow panel,
+              where the column is tall enough to reach the band legend and the
+              same figures are already shown in the DE/DX side panels. */}
+          {!narrowPanel && (
+            <div
+              style={{
+                marginTop: '4px',
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '10px',
+                background: 'var(--bg-panel)',
+                padding: '4px 8px',
+                borderRadius: '4px',
+                pointerEvents: 'none',
+                lineHeight: 1.5,
+                whiteSpace: 'nowrap',
+              }}
+            >
               <div>
-                <span style={{ color: '#00aaff' }}>DX</span> {dxInfo.bearing.toFixed(0)}° · {dxInfo.distance.toFixed(0)}{' '}
-                km
+                <span style={{ color: 'var(--accent-blue)' }}>DE</span> {callsign || 'N0CALL'} · {lat0.toFixed(2)}°,{' '}
+                {lon0.toFixed(2)}°
               </div>
-            )}
-            <div style={{ opacity: 0.6 }}>drag to rotate · scroll to zoom · click to set DX</div>
-          </div>
+              {dxInfo && (
+                <div>
+                  <span style={{ color: 'var(--accent-cyan)' }}>DX</span> {dxInfo.bearing.toFixed(0)}° ·{' '}
+                  {dxInfo.distance.toFixed(0)} km
+                </div>
+              )}
+              <div style={{ opacity: 0.6 }}>drag to rotate · scroll to zoom · click to set DX</div>
+            </div>
+          )}
         </div>
       )}
 
@@ -1131,11 +1191,11 @@ export default function Globe3D({
             position: 'absolute',
             left: `${tooltip.x + 14}px`,
             top: `${tooltip.y + 14}px`,
-            background: 'rgba(0,0,0,0.88)',
+            background: 'var(--bg-panel)',
             border: `1px solid ${tooltip.color}`,
             borderRadius: '4px',
             padding: '4px 8px',
-            color: '#eee',
+            color: 'var(--text-primary)',
             fontFamily: 'var(--font-mono)',
             fontSize: '10px',
             pointerEvents: 'none',
