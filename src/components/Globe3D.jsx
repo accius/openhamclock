@@ -980,7 +980,7 @@ export default function Globe3D({
             </button>
           )}
           <button style={btnStyle} onClick={resetView} title="Reset view to your QTH">
-            <IconRefresh size={15} />
+            <IconGlobe size={15} />
           </button>
           <button
             style={{
@@ -991,7 +991,7 @@ export default function Globe3D({
             onClick={() => setAutoRotate((v) => !v)}
             title={autoRotate ? 'Stop auto-rotate' : 'Auto-rotate'}
           >
-            <IconGlobe size={15} />
+            <IconRefresh size={15} />
           </button>
 
           {/* Night overlay darkness — shares state with the flat map's slider */}
