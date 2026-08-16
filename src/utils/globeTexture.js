@@ -11,6 +11,7 @@
 
 const DEG = Math.PI / 180;
 const MAX_MERCATOR_LAT = 85.0511287798066;
+const MAX_CONCURRENT = 6;
 
 const subdomains = ['a', 'b', 'c'];
 let subIdx = 0;
@@ -58,7 +59,7 @@ function loadTile(url, signal) {
  * @param {AbortSignal} [opts.signal]     - Cancels in-flight work
  * @returns {Promise<HTMLCanvasElement>}  - 2:1 equirectangular canvas
  */
-export async function buildGlobeTexture({ tileUrlTemplate, tileZoom = 3, lang, onProgress, signal }) {
+export async function buildGlobeTexture({ tileUrlTemplate, tileZoom = 3, lang, baseColor, onProgress, signal }) {
   const numTiles = Math.pow(2, tileZoom);
   const dim = numTiles * 256;
 
@@ -68,37 +69,43 @@ export async function buildGlobeTexture({ tileUrlTemplate, tileZoom = 3, lang, o
   merc.height = dim;
   const mctx = merc.getContext('2d');
 
-  // Neutral ocean fill so failed tiles read as sea rather than transparent holes.
-  mctx.fillStyle = '#0b1a2b';
+  // Backdrop for failed tiles, and for styles whose tiles are a transparent
+  // overlay (e.g. Countries) rather than a full basemap — those would otherwise
+  // be nothing but holes.
+  mctx.fillStyle = baseColor || '#0b1a2b';
   mctx.fillRect(0, 0, dim, dim);
 
-  let loaded = 0;
-  const total = numTiles * numTiles;
-  const jobs = [];
-
+  const queue = [];
   for (let ty = 0; ty < numTiles; ty++) {
     for (let tx = 0; tx < numTiles; tx++) {
-      const url = resolveTileUrl(tileUrlTemplate, tileZoom, tx, ty, lang);
-      const px = tx * 256;
-      const py = ty * 256;
-      jobs.push(
-        loadTile(url, signal)
-          .then((img) => {
-            if (signal?.aborted) return;
-            mctx.drawImage(img, px, py, 256, 256);
-          })
-          .catch(() => {
-            // Missing tile — the ocean fill already covers it.
-          })
-          .finally(() => {
-            loaded++;
-            if (onProgress) onProgress(loaded / total);
-          }),
-      );
+      queue.push({ tx, ty });
     }
   }
 
-  await Promise.all(jobs);
+  let loaded = 0;
+  const total = queue.length;
+  let next = 0;
+
+  // Firing all 64-256 tile requests at once gets us rate-limited (HTTP 429) by
+  // the tile providers, and a throttled tile is a hole in the texture. Match
+  // the concurrency tileReproject.js settled on.
+  async function worker() {
+    while (next < queue.length) {
+      if (signal?.aborted) return;
+      const { tx, ty } = queue[next++];
+      const url = resolveTileUrl(tileUrlTemplate, tileZoom, tx, ty, lang);
+      try {
+        const img = await loadTile(url, signal);
+        if (!signal?.aborted) mctx.drawImage(img, tx * 256, ty * 256, 256, 256);
+      } catch {
+        // Missing tile — the base fill already covers it.
+      }
+      loaded++;
+      if (onProgress) onProgress(loaded / total);
+    }
+  }
+
+  await Promise.all(Array.from({ length: MAX_CONCURRENT }, worker));
   if (signal?.aborted) throw new Error('aborted');
 
   // Stage 2 — remap Mercator rows to equirectangular.

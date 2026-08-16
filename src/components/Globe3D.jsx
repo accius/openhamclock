@@ -157,6 +157,11 @@ const EARTH_FRAG = /* glsl */ `
     vec3 night = tex * (1.0 - uNightDarkness) + vec3(0.0, 0.01, 0.035) * uNightDarkness;
     vec3 col = mix(night, tex, day);
     gl_FragColor = vec4(col, 1.0);
+
+    // Sampling an sRGB texture yields linear values; without this the linear
+    // numbers are written as if they were already sRGB and everything renders
+    // far too dark. Built-in materials include this chunk for us.
+    #include <colorspace_fragment>
   }
 `;
 
@@ -174,6 +179,7 @@ const ATMO_FRAG = /* glsl */ `
     // Rim brightest at grazing angles — cheap atmospheric limb.
     float intensity = pow(0.62 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 2.4);
     gl_FragColor = vec4(0.25, 0.65, 1.0, 1.0) * intensity;
+    #include <colorspace_fragment>
   }
 `;
 
@@ -547,6 +553,9 @@ export default function Globe3D({
     buildGlobeTexture({
       tileUrlTemplate: template,
       tileZoom: chooseGlobeTileZoom({ lowMemory: lowMemoryMode, pixelRatio: window.devicePixelRatio || 1 }),
+      // Countries ships transparent overlay tiles; flat mode paints this same
+      // blue behind them via the map div's background.
+      baseColor: MAP_STYLES[style].countriesOverlay ? '#4a90d9' : undefined,
       onProgress: (p) => setTextureProgress(p),
       signal: ac.signal,
     })
@@ -649,7 +658,10 @@ export default function Globe3D({
           void main() {
             vec4 t = texture2D(uTex, gl_PointCoord);
             if (t.a < 0.15) discard;
+            // THREE.Color.set() converts hex strings to linear, so band colours
+            // need the same output transform as the globe texture.
             gl_FragColor = vec4(vColor, t.a);
+            #include <colorspace_fragment>
           }
         `,
         transparent: true,
