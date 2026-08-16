@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
-import { getSunPosition, calculateBearing, calculateDistance } from '../utils/geo.js';
+import { getSunPosition } from '../utils/geo.js';
 import { MAP_STYLES } from '../utils/config.js';
 import { buildGlobeTexture, chooseGlobeTileZoom } from '../utils/globeTexture.js';
 // Project icon set — exists because bare glyphs/emoji render inconsistently
@@ -301,7 +301,11 @@ export default function Globe3D({
       return true;
     }
   });
-  const [narrowPanel, setNarrowPanel] = useState(false);
+  const [panelWidth, setPanelWidth] = useState(0);
+  // Set once the operator drags or zooms — the usage hint has served its
+  // purpose by then and only adds clutter.
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const narrowPanel = panelWidth > 0 && panelWidth < NARROW_PANEL_PX;
 
   const hasDE = Number.isFinite(deLocation?.lat) && Number.isFinite(deLocation?.lon);
   const lat0 = hasDE ? deLocation.lat : 0;
@@ -511,7 +515,7 @@ export default function Globe3D({
 
     // Seed from the mount-time width: the ResizeObserver's first callback can
     // land while the panel still measures zero and take the early return.
-    if (container.clientWidth) setNarrowPanel(container.clientWidth < NARROW_PANEL_PX);
+    if (container.clientWidth) setPanelWidth(container.clientWidth);
 
     let renderer;
     try {
@@ -539,6 +543,7 @@ export default function Globe3D({
     // controls.update() calls do not trigger it.
     controls.addEventListener('start', () => {
       userMovedRef.current = true;
+      setHasInteracted(true);
     });
 
     // Placeholder texture until the tiles land.
@@ -633,7 +638,7 @@ export default function Globe3D({
       renderer.setSize(w, h);
       // On a narrow panel WorldMap's projection toggle spans the full width and
       // would sit on top of our control column, so the column drops below it.
-      setNarrowPanel(w < NARROW_PANEL_PX);
+      setPanelWidth(w);
     });
     ro.observe(container);
 
@@ -1022,14 +1027,6 @@ export default function Globe3D({
     s.controls.update();
   }, [hasDE, lat0, lon0]);
 
-  const dxInfo = useMemo(() => {
-    if (!Number.isFinite(dxLocation?.lat) || !Number.isFinite(dxLocation?.lon)) return null;
-    return {
-      bearing: calculateBearing(lat0, lon0, dxLocation.lat, dxLocation.lon),
-      distance: calculateDistance(lat0, lon0, dxLocation.lat, dxLocation.lon),
-    };
-  }, [dxLocation, lat0, lon0]);
-
   const btnStyle = {
     background: 'var(--bg-panel)',
     color: 'var(--accent-cyan)',
@@ -1165,11 +1162,11 @@ export default function Globe3D({
             </div>
           )}
 
-          {/* Station / DX readout — last item in the column so it can never
-              collide with the controls above it. Dropped on a narrow panel,
-              where the column is tall enough to reach the band legend and the
-              same figures are already shown in the DE/DX side panels. */}
-          {!narrowPanel && (
+          {/* Usage hint only. The DE/DX figures that used to sit here duplicate
+              the DE and DX side panels, and as an opaque box on top of the
+              globe they cost more than they gave. This disappears for good once
+              the operator has actually used the controls. */}
+          {!hasInteracted && (
             <div
               style={{
                 marginTop: '4px',
@@ -1182,19 +1179,10 @@ export default function Globe3D({
                 pointerEvents: 'none',
                 lineHeight: 1.5,
                 whiteSpace: 'nowrap',
+                opacity: 0.75,
               }}
             >
-              <div>
-                <span style={{ color: 'var(--accent-blue)' }}>DE</span> {callsign || 'N0CALL'} · {lat0.toFixed(2)}°,{' '}
-                {lon0.toFixed(2)}°
-              </div>
-              {dxInfo && (
-                <div>
-                  <span style={{ color: 'var(--accent-cyan)' }}>DX</span> {dxInfo.bearing.toFixed(0)}° ·{' '}
-                  {dxInfo.distance.toFixed(0)} km
-                </div>
-              )}
-              <div style={{ opacity: 0.6 }}>drag to rotate · scroll to zoom · click to set DX</div>
+              drag to rotate · scroll to zoom · click to set DX
             </div>
           )}
         </div>
