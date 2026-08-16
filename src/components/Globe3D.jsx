@@ -276,6 +276,7 @@ export default function Globe3D({
   showWSJTX,
   onSpotClick,
   callsign,
+  showDeDxMarkers = true,
   hideUi = false,
   tileStyle = 'dark',
   lowMemoryMode = false,
@@ -862,48 +863,52 @@ export default function Globe3D({
       s.overlayGroup.add(new THREE.LineSegments(geo, mat));
     });
 
-    // DE marker — station QTH.
-    const deVec = latLonToVec3(lat0, lon0, EARTH_R * 1.012);
-    const deDot = new THREE.Mesh(
-      new THREE.SphereGeometry(0.018, 16, 12),
-      new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-blue', '#4488ff') }),
-    );
-    deDot.position.copy(deVec);
-    s.overlayGroup.add(deDot);
-
-    const deRing = new THREE.Mesh(
-      new THREE.RingGeometry(0.03, 0.038, 32),
-      new THREE.MeshBasicMaterial({
-        color: cssVarColor('--accent-blue', '#4488ff'),
-        side: THREE.DoubleSide,
-        transparent: true,
-        opacity: 0.8,
-      }),
-    );
-    deRing.position.copy(deVec);
-    deRing.lookAt(0, 0, 0);
-    s.overlayGroup.add(deRing);
-
-    // DX marker — current target.
-    if (Number.isFinite(dxLocation?.lat) && Number.isFinite(dxLocation?.lon)) {
-      const dxVec = latLonToVec3(dxLocation.lat, dxLocation.lon, EARTH_R * 1.012);
-      const dxRing = new THREE.Mesh(
-        new THREE.RingGeometry(0.032, 0.045, 32),
-        new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-cyan', '#00ddff'), side: THREE.DoubleSide }),
+    // DE / DX markers — hidden by the Settings toggle. Matches the flat map,
+    // which gates only the markers themselves and leaves paths alone.
+    if (showDeDxMarkers) {
+      // DE marker — station QTH.
+      const deVec = latLonToVec3(lat0, lon0, EARTH_R * 1.012);
+      const deDot = new THREE.Mesh(
+        new THREE.SphereGeometry(0.018, 16, 12),
+        new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-blue', '#4488ff') }),
       );
-      dxRing.position.copy(dxVec);
-      dxRing.lookAt(0, 0, 0);
-      s.overlayGroup.add(dxRing);
+      deDot.position.copy(deVec);
+      s.overlayGroup.add(deDot);
 
-      const dxDot = new THREE.Mesh(
-        new THREE.SphereGeometry(0.014, 16, 12),
-        new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-cyan', '#00ddff') }),
+      const deRing = new THREE.Mesh(
+        new THREE.RingGeometry(0.03, 0.038, 32),
+        new THREE.MeshBasicMaterial({
+          color: cssVarColor('--accent-blue', '#4488ff'),
+          side: THREE.DoubleSide,
+          transparent: true,
+          opacity: 0.8,
+        }),
       );
-      dxDot.position.copy(dxVec);
-      s.overlayGroup.add(dxDot);
+      deRing.position.copy(deVec);
+      deRing.lookAt(0, 0, 0);
+      s.overlayGroup.add(deRing);
+
+      // DX marker — current target.
+      if (Number.isFinite(dxLocation?.lat) && Number.isFinite(dxLocation?.lon)) {
+        const dxVec = latLonToVec3(dxLocation.lat, dxLocation.lon, EARTH_R * 1.012);
+        const dxRing = new THREE.Mesh(
+          new THREE.RingGeometry(0.032, 0.045, 32),
+          new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-cyan', '#00ddff'), side: THREE.DoubleSide }),
+        );
+        dxRing.position.copy(dxVec);
+        dxRing.lookAt(0, 0, 0);
+        s.overlayGroup.add(dxRing);
+
+        const dxDot = new THREE.Mesh(
+          new THREE.SphereGeometry(0.014, 16, 12),
+          new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-cyan', '#00ddff') }),
+        );
+        dxDot.position.copy(dxVec);
+        s.overlayGroup.add(dxDot);
+      }
     }
     // themeTick: DE/DX marker materials are built from CSS variables.
-  }, [markers, arcs, lat0, lon0, dxLocation, themeTick]);
+  }, [markers, arcs, lat0, lon0, dxLocation, themeTick, showDeDxMarkers]);
 
   // ── Pointer interaction: hover tooltip + click ───────────
   useEffect(() => {

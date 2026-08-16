@@ -2459,6 +2459,7 @@ export const WorldMap = ({
               showWSJTX={showWSJTX}
               onSpotClick={onSpotClick}
               callsign={callsign}
+              showDeDxMarkers={showDeDxMarkers}
               hideUi={mapUiHidden}
               tileStyle={mapStyle}
               lowMemoryMode={lowMemoryMode}
