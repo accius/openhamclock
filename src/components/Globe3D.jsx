@@ -19,7 +19,7 @@ import { MAP_STYLES } from '../utils/config.js';
 import { buildGlobeTexture, chooseGlobeTileZoom } from '../utils/globeTexture.js';
 // Project icon set — exists because bare glyphs/emoji render inconsistently
 // (or as tofu) depending on the platform's font coverage.
-import { IconRefresh, IconGlobe } from './Icons.jsx';
+import { IconRefresh, IconQth } from './Icons.jsx';
 
 const DEG = Math.PI / 180;
 const EARTH_R = 1;
@@ -980,7 +980,7 @@ export default function Globe3D({
             </button>
           )}
           <button style={btnStyle} onClick={resetView} title="Reset view to your QTH">
-            <IconGlobe size={15} />
+            <IconQth size={15} />
           </button>
           <button
             style={{
