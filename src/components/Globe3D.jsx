@@ -289,6 +289,9 @@ export default function Globe3D({
   // Mirrors the nightDarkness prop so a scene rebuild seeds the shader uniform
   // with the current value instead of snapping back to the material default.
   const nightDarknessRef = useRef(nightDarkness);
+  // Same reason: a rebuilt OrbitControls starts with autoRotate off, and the
+  // toggle's effect will not re-run because the state did not change.
+  const autoRotateRef = useRef(true);
   const [textureLoading, setTextureLoading] = useState(true);
   const [textureProgress, setTextureProgress] = useState(0);
   const [tooltip, setTooltip] = useState(null);
@@ -302,6 +305,9 @@ export default function Globe3D({
       return true;
     }
   });
+  // config.lowMemoryMode arrives asynchronously as undefined then false;
+  // normalising stops that flip from rebuilding the entire WebGL scene.
+  const lowMem = !!lowMemoryMode;
   const [panelWidth, setPanelWidth] = useState(0);
   // Set once the operator drags or zooms — the usage hint has served its
   // purpose by then and only adds clutter.
@@ -520,12 +526,12 @@ export default function Globe3D({
 
     let renderer;
     try {
-      renderer = new THREE.WebGLRenderer({ antialias: !lowMemoryMode, alpha: true });
+      renderer = new THREE.WebGLRenderer({ antialias: !lowMem, alpha: true });
     } catch (e) {
       console.error('[Globe3D] WebGL unavailable:', e);
       return undefined;
     }
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowMemoryMode ? 1 : 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowMem ? 1 : 2));
     renderer.setSize(container.clientWidth || 300, container.clientHeight || 300);
     container.appendChild(renderer.domElement);
     renderer.domElement.style.display = 'block';
@@ -540,6 +546,8 @@ export default function Globe3D({
     controls.enablePan = false;
     controls.minDistance = 1.25;
     controls.maxDistance = 8;
+    controls.autoRotate = autoRotateRef.current;
+    controls.autoRotateSpeed = AUTOROTATE_SPEED;
     // Fires on pointer-down / wheel, i.e. genuine user gestures — programmatic
     // controls.update() calls do not trigger it.
     controls.addEventListener('start', () => {
@@ -581,7 +589,7 @@ export default function Globe3D({
     );
     scene.add(atmosphere);
 
-    const stars = lowMemoryMode ? null : makeStarfield();
+    const stars = lowMem ? null : makeStarfield();
     if (stars) {
       // Seed visibility so a light theme never flashes a starfield on mount;
       // the dedicated effect below owns it from here on.
@@ -663,7 +671,7 @@ export default function Globe3D({
       if (renderer.domElement.parentNode === container) container.removeChild(renderer.domElement);
       gl.current = {};
     };
-  }, [lowMemoryMode]);
+  }, [lowMem]);
 
   // ── Night overlay darkness ───────────────────────────────
   useEffect(() => {
@@ -684,6 +692,7 @@ export default function Globe3D({
   useEffect(() => {
     const s = gl.current;
     if (!s.controls) return;
+    autoRotateRef.current = autoRotate;
     s.controls.autoRotate = autoRotate;
     // ~90s per revolution once damping is taken into account: visibly turning
     // without being distracting on a dashboard left running all day.
@@ -705,7 +714,7 @@ export default function Globe3D({
 
     buildGlobeTexture({
       tileUrlTemplate: template,
-      tileZoom: chooseGlobeTileZoom({ lowMemory: lowMemoryMode, pixelRatio: window.devicePixelRatio || 1 }),
+      tileZoom: chooseGlobeTileZoom({ lowMemory: lowMem, pixelRatio: window.devicePixelRatio || 1 }),
       // Countries ships transparent overlay tiles; flat mode paints this same
       // blue behind them via the map div's background.
       baseColor: MAP_STYLES[style].countriesOverlay ? '#4a90d9' : undefined,
@@ -738,7 +747,7 @@ export default function Globe3D({
       });
 
     return () => ac.abort();
-  }, [tileStyle, lowMemoryMode]);
+  }, [tileStyle, lowMem]);
 
   // ── Terminator: track the subsolar point ─────────────────
   useEffect(() => {
