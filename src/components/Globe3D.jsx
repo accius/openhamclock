@@ -975,6 +975,12 @@ export default function Globe3D({
     cursor: 'pointer',
   };
 
+  // The Retro theme forces `padding: 4px 12px !important` on every button,
+  // which leaves a 6px content box inside a 30px border-box — enough to squash
+  // a flex-item icon down to ~5px wide. Refusing to shrink keeps the icon at
+  // its real size; it simply overflows into the padding, still centred.
+  const iconStyle = { flexShrink: 0 };
+
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       <div
@@ -1038,7 +1044,7 @@ export default function Globe3D({
             </button>
           )}
           <button style={btnStyle} onClick={resetView} title="Reset view to your QTH">
-            <IconQth size={15} />
+            <IconQth size={15} style={iconStyle} />
           </button>
           <button
             style={{
@@ -1049,7 +1055,7 @@ export default function Globe3D({
             onClick={() => setAutoRotate((v) => !v)}
             title={autoRotate ? 'Stop auto-rotate' : 'Auto-rotate'}
           >
-            <IconRefresh size={15} />
+            <IconRefresh size={15} style={iconStyle} />
           </button>
 
           {/* Night overlay darkness — shares state with the flat map's slider */}
