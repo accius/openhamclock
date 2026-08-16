@@ -20,6 +20,7 @@ import { buildGlobeTexture, chooseGlobeTileZoom } from '../utils/globeTexture.js
 
 const DEG = Math.PI / 180;
 const EARTH_R = 1;
+const DEFAULT_CAM_DISTANCE = 3.2;
 
 // ── Geometry helpers ───────────────────────────────────────
 // Matches THREE.SphereGeometry's UV layout: u=0 at lon -180, v=1 at lat +90.
@@ -223,8 +224,16 @@ export default function Globe3D({
   const [tooltip, setTooltip] = useState(null);
   const [autoRotate, setAutoRotate] = useState(false);
 
-  const lat0 = Number.isFinite(deLocation?.lat) ? deLocation.lat : 0;
-  const lon0 = Number.isFinite(deLocation?.lon) ? deLocation.lon : 0;
+  const hasDE = Number.isFinite(deLocation?.lat) && Number.isFinite(deLocation?.lon);
+  const lat0 = hasDE ? deLocation.lat : 0;
+  const lon0 = hasDE ? deLocation.lon : 0;
+
+  // Latest QTH, readable from callbacks and the scene-setup effect without
+  // making them depend on it (a DE change must not rebuild the scene).
+  const deRef = useRef({ has: hasDE, lat: lat0, lon: lon0 });
+  useEffect(() => {
+    deRef.current = { has: hasDE, lat: lat0, lon: lon0 };
+  }, [hasDE, lat0, lon0]);
 
   // mapBandFilter is an array of selected bands; empty means "all bands".
   const selectedMapBands = useMemo(
@@ -390,7 +399,13 @@ export default function Globe3D({
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100);
-    camera.position.set(0, 0, 3.2);
+    // Open looking straight down on the operator's QTH. If the location has not
+    // arrived yet, an effect below re-centres once it does.
+    if (deRef.current.has) {
+      latLonToVec3(deRef.current.lat, deRef.current.lon, DEFAULT_CAM_DISTANCE, camera.position);
+    } else {
+      camera.position.set(0, 0, DEFAULT_CAM_DISTANCE);
+    }
 
     let renderer;
     try {
@@ -460,6 +475,9 @@ export default function Globe3D({
     const pointer = new THREE.Vector2();
 
     gl.current = {
+      // Whether the camera already framed the QTH; false means the location
+      // was not known yet and an effect still owes us a re-centre.
+      initialCentered: deRef.current.has,
       scene,
       camera,
       renderer,
@@ -847,12 +865,26 @@ export default function Globe3D({
     s.controls.update();
   }, []);
 
+  // Reset returns to the default distance looking straight down on the
+  // operator's QTH — the same view the globe opens with.
   const resetView = useCallback(() => {
     const s = gl.current;
     if (!s.camera || !s.controls) return;
-    s.camera.position.set(0, 0, 3.2);
+    const { has, lat, lon } = deRef.current;
+    if (has) latLonToVec3(lat, lon, DEFAULT_CAM_DISTANCE, s.camera.position);
+    else s.camera.position.set(0, 0, DEFAULT_CAM_DISTANCE);
     s.controls.update();
   }, []);
+
+  // The QTH often resolves after the scene is built (config load, geolocation).
+  // Frame it once when it lands; afterwards the view belongs to the operator.
+  useEffect(() => {
+    const s = gl.current;
+    if (!s.camera || !s.controls || s.initialCentered || !hasDE) return;
+    latLonToVec3(lat0, lon0, DEFAULT_CAM_DISTANCE, s.camera.position);
+    s.controls.update();
+    s.initialCentered = true;
+  }, [hasDE, lat0, lon0]);
 
   const dxInfo = useMemo(() => {
     if (!Number.isFinite(dxLocation?.lat) || !Number.isFinite(dxLocation?.lon)) return null;
