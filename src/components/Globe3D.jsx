@@ -106,6 +106,35 @@ function makeDotTexture() {
   return tex;
 }
 
+/**
+ * Relative luminance of any CSS colour string, resolved by letting canvas do
+ * the parsing. Composited over black so the theme's translucent panel colours
+ * resolve the way they actually appear.
+ */
+function cssColorLuma(color) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 1;
+  const ctx = c.getContext('2d', { willReadFrequently: true });
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, 1, 1);
+  try {
+    ctx.fillStyle = color;
+  } catch {
+    return 0;
+  }
+  ctx.fillRect(0, 0, 1, 1);
+  const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data;
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+// Stars and the atmospheric limb only read against a dark backdrop; on the
+// Light and Retro themes they turn into grey noise around the globe.
+function backdropIsDark() {
+  const v = getComputedStyle(document.documentElement).getPropertyValue('--bg-panel').trim();
+  if (!v) return true;
+  return cssColorLuma(v) < 0.4;
+}
+
 function makeStarfield(count = 1800) {
   const positions = new Float32Array(count * 3);
   for (let i = 0; i < count; i++) {
@@ -241,6 +270,18 @@ export default function Globe3D({
   // Set once the operator drags or zooms; from then on the view is theirs and
   // nothing re-frames it behind their back.
   const userMovedRef = useRef(false);
+
+  // Follow the active theme. Prebuilt themes swap [data-theme]; the custom
+  // theme editor writes CSS variables onto the root element's style attribute,
+  // so both have to be watched.
+  const [isDarkBackdrop, setIsDarkBackdrop] = useState(() => backdropIsDark());
+  useEffect(() => {
+    const update = () => setIsDarkBackdrop(backdropIsDark());
+    update();
+    const mo = new MutationObserver(update);
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'style'] });
+    return () => mo.disconnect();
+  }, []);
 
   // mapBandFilter is an array of selected bands; empty means "all bands".
   const selectedMapBands = useMemo(
@@ -477,7 +518,13 @@ export default function Globe3D({
     scene.add(atmosphere);
 
     const stars = lowMemoryMode ? null : makeStarfield();
-    if (stars) scene.add(stars);
+    if (stars) {
+      // Seed visibility so a light theme never flashes a starfield on mount;
+      // the dedicated effect below owns it from here on.
+      stars.visible = isDarkBackdrop;
+      scene.add(stars);
+    }
+    atmosphere.visible = isDarkBackdrop;
 
     const overlayGroup = new THREE.Group();
     scene.add(overlayGroup);
@@ -558,6 +605,13 @@ export default function Globe3D({
     if (!s.earthMat) return;
     s.earthMat.uniforms.uNightDarkness.value = THREE.MathUtils.clamp(nightDarkness / 100, 0, 1);
   }, [nightDarkness]);
+
+  // ── Starfield / atmosphere follow the backdrop ───────────
+  useEffect(() => {
+    const s = gl.current;
+    if (s.stars) s.stars.visible = isDarkBackdrop;
+    if (s.atmosphere) s.atmosphere.visible = isDarkBackdrop;
+  }, [isDarkBackdrop]);
 
   // ── Auto-rotate toggle ───────────────────────────────────
   useEffect(() => {
@@ -929,7 +983,11 @@ export default function Globe3D({
           height: '100%',
           width: '100%',
           borderRadius: '8px',
-          background: 'radial-gradient(circle at 50% 45%, #0a1424 0%, #04070d 70%)',
+          // Backdrop follows the active theme (white on Light, grey on Retro),
+          // with a theme-agnostic vignette over it for a little depth. The
+          // WebGL canvas is alpha:true, so this shows through behind the globe.
+          background:
+            'radial-gradient(circle at 50% 45%, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.12) 75%), var(--bg-panel)',
           overflow: 'hidden',
         }}
       />

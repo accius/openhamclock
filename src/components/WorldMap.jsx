@@ -2424,10 +2424,12 @@ export const WorldMap = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#00ffcc',
+                  color: 'var(--text-secondary)',
                   fontFamily: 'var(--font-mono)',
                   fontSize: '11px',
-                  background: 'radial-gradient(circle at 50% 45%, #0a1424 0%, #04070d 70%)',
+                  // Matches Globe3D's own backdrop so the handover is seamless.
+                  background:
+                    'radial-gradient(circle at 50% 45%, rgba(255,255,255,0.05) 0%, rgba(0,0,0,0.12) 75%), var(--bg-panel)',
                   borderRadius: '8px',
                 }}
               >
