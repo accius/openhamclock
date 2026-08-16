@@ -17,6 +17,9 @@ import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
 import { getSunPosition, calculateBearing, calculateDistance } from '../utils/geo.js';
 import { MAP_STYLES } from '../utils/config.js';
 import { buildGlobeTexture, chooseGlobeTileZoom } from '../utils/globeTexture.js';
+// Project icon set — exists because bare glyphs/emoji render inconsistently
+// (or as tofu) depending on the platform's font coverage.
+import { IconRefresh, IconGlobe } from './Icons.jsx';
 
 const DEG = Math.PI / 180;
 const EARTH_R = 1;
@@ -235,6 +238,10 @@ export default function Globe3D({
     deRef.current = { has: hasDE, lat: lat0, lon: lon0 };
   }, [hasDE, lat0, lon0]);
 
+  // Set once the operator drags or zooms; from then on the view is theirs and
+  // nothing re-frames it behind their back.
+  const userMovedRef = useRef(false);
+
   // mapBandFilter is an array of selected bands; empty means "all bands".
   const selectedMapBands = useMemo(
     () =>
@@ -429,6 +436,11 @@ export default function Globe3D({
     controls.enablePan = false;
     controls.minDistance = 1.25;
     controls.maxDistance = 8;
+    // Fires on pointer-down / wheel, i.e. genuine user gestures — programmatic
+    // controls.update() calls do not trigger it.
+    controls.addEventListener('start', () => {
+      userMovedRef.current = true;
+    });
 
     // Placeholder texture until the tiles land.
     const placeholder = document.createElement('canvas');
@@ -475,9 +487,6 @@ export default function Globe3D({
     const pointer = new THREE.Vector2();
 
     gl.current = {
-      // Whether the camera already framed the QTH; false means the location
-      // was not known yet and an effect still owes us a re-centre.
-      initialCentered: deRef.current.has,
       scene,
       camera,
       renderer,
@@ -876,14 +885,15 @@ export default function Globe3D({
     s.controls.update();
   }, []);
 
-  // The QTH often resolves after the scene is built (config load, geolocation).
-  // Frame it once when it lands; afterwards the view belongs to the operator.
+  // deLocation first arrives as the config default (N0CALL @ 41.5, -73) and is
+  // replaced when the operator's real QTH loads. Latching onto the first finite
+  // value therefore parks the globe over the wrong continent, so keep following
+  // the QTH until the operator takes control of the view.
   useEffect(() => {
     const s = gl.current;
-    if (!s.camera || !s.controls || s.initialCentered || !hasDE) return;
+    if (!s.camera || !s.controls || !hasDE || userMovedRef.current) return;
     latLonToVec3(lat0, lon0, DEFAULT_CAM_DISTANCE, s.camera.position);
     s.controls.update();
-    s.initialCentered = true;
   }, [hasDE, lat0, lon0]);
 
   const dxInfo = useMemo(() => {
@@ -900,10 +910,14 @@ export default function Globe3D({
     border: '1px solid #444',
     borderRadius: '4px',
     width: '30px',
-    padding: '4px 0',
+    height: '24px',
+    padding: 0,
     fontSize: '10px',
     fontFamily: 'var(--font-mono)',
-    textAlign: 'center',
+    // Flex centring so the SVG icons sit dead centre, same as the text labels.
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
     cursor: 'pointer',
   };
 
@@ -965,8 +979,8 @@ export default function Globe3D({
               DX
             </button>
           )}
-          <button style={btnStyle} onClick={resetView} title="Reset view">
-            ⟲
+          <button style={btnStyle} onClick={resetView} title="Reset view to your QTH">
+            <IconRefresh size={15} />
           </button>
           <button
             style={{
@@ -975,9 +989,9 @@ export default function Globe3D({
               background: autoRotate ? '#00ffcc' : btnStyle.background,
             }}
             onClick={() => setAutoRotate((v) => !v)}
-            title="Auto-rotate"
+            title={autoRotate ? 'Stop auto-rotate' : 'Auto-rotate'}
           >
-            ↻
+            <IconGlobe size={15} />
           </button>
 
           {/* Night overlay darkness — shares state with the flat map's slider */}
