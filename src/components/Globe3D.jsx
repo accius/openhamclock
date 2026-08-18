@@ -169,6 +169,46 @@ const ACTIVITY_COLORS = {
   bandFallback: '#ffcc00',
 };
 
+// Same sessionStorage key the Leaflet satellite layer uses, so a satellite
+// selected in Flat mode stays selected when switching to 3D and back.
+const SAT_SELECTED_KEY = 'selected_satellites';
+
+function readSelectedSats() {
+  try {
+    const raw = sessionStorage.getItem(SAT_SELECTED_KEY);
+    const arr = raw ? JSON.parse(raw) : [];
+    return Array.isArray(arr) ? arr : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Circle of points on the sphere at a given angular radius around a centre —
+ * the satellite's footprint (the region that can hear it).
+ */
+function footprintRingPoints(lat, lon, angularRadius, r, segments = 72) {
+  const n = latLonToVec3(lat, lon, 1);
+  // Any vector not parallel to n gives a tangent basis.
+  const ref = Math.abs(n.y) < 0.99 ? new THREE.Vector3(0, 1, 0) : new THREE.Vector3(1, 0, 0);
+  const e1 = new THREE.Vector3().crossVectors(n, ref).normalize();
+  const e2 = new THREE.Vector3().crossVectors(n, e1).normalize();
+  const cosT = Math.cos(angularRadius);
+  const sinT = Math.sin(angularRadius);
+  const pts = [];
+  for (let i = 0; i < segments; i++) {
+    const phi = (i / segments) * Math.PI * 2;
+    pts.push(
+      new THREE.Vector3(
+        cosT * n.x + sinT * (Math.cos(phi) * e1.x + Math.sin(phi) * e2.x),
+        cosT * n.y + sinT * (Math.cos(phi) * e1.y + Math.sin(phi) * e2.y),
+        cosT * n.z + sinT * (Math.cos(phi) * e1.z + Math.sin(phi) * e2.z),
+      ).multiplyScalar(r),
+    );
+  }
+  return pts;
+}
+
 // Stars and the atmospheric limb only read against a dark backdrop; on the
 // Light and Retro themes they turn into grey noise around the globe.
 function backdropIsDark() {
@@ -282,6 +322,8 @@ export default function Globe3D({
   onSpotClick,
   callsign,
   showDeDxMarkers = true,
+  satellites,
+  satellitesEnabled = true,
   hideUi = false,
   tileStyle = 'dark',
   lowMemoryMode = false,
@@ -314,6 +356,17 @@ export default function Globe3D({
   // normalising stops that flip from rebuilding the entire WebGL scene.
   const lowMem = !!lowMemoryMode;
   const [panelWidth, setPanelWidth] = useState(0);
+  // Satellite selection, shared with the Leaflet layer via sessionStorage.
+  const [selectedSats, setSelectedSats] = useState(readSelectedSats);
+  const toggleSatSelection = useCallback((name) => {
+    setSelectedSats((prev) => {
+      const next = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name];
+      try {
+        sessionStorage.setItem(SAT_SELECTED_KEY, JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  }, []);
   // Set once the operator drags or zooms — the usage hint has served its
   // purpose by then and only adds clutter.
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -606,6 +659,11 @@ export default function Globe3D({
     const overlayGroup = new THREE.Group();
     scene.add(overlayGroup);
 
+    // Satellites live in their own group: they refresh every 5 s and must not
+    // force the spot cloud and arcs to rebuild with them.
+    const satGroup = new THREE.Group();
+    scene.add(satGroup);
+
     const raycaster = new THREE.Raycaster();
     raycaster.params.Points.threshold = 0.02;
     const pointer = new THREE.Vector2();
@@ -620,6 +678,7 @@ export default function Globe3D({
       atmosphere,
       stars,
       overlayGroup,
+      satGroup,
       raycaster,
       pointer,
       dotTexture: makeDotTexture(),
@@ -947,6 +1006,178 @@ export default function Globe3D({
     // themeTick: DE/DX marker materials are built from CSS variables.
   }, [markers, arcs, lat0, lon0, dxLocation, themeTick, showDeDxMarkers, isDarkBackdrop]);
 
+  // ── Satellites ───────────────────────────────────────────
+  // Rendered from the same position/track data the Leaflet layer consumes, so
+  // both projections agree. The one thing 3D adds for free is honesty about
+  // altitude: dots sit at the satellite's true height above the sphere, with a
+  // faint nadir line down to the ground point the tracks are drawn through.
+  useEffect(() => {
+    const s = gl.current;
+    if (!s.satGroup) return;
+
+    while (s.satGroup.children.length) {
+      const child = s.satGroup.children.pop();
+      child.geometry?.dispose?.();
+      if (Array.isArray(child.material)) child.material.forEach((m) => m.dispose());
+      else child.material?.dispose?.();
+    }
+    s.satData = [];
+
+    if (!satellitesEnabled || !satellites?.length) return;
+
+    const accentCyan = cssVarColor('--accent-cyan', '#00ddff');
+    const accentGreen = cssVarColor('--accent-green', '#00ff88');
+    const accentAmber = cssVarColor('--accent-amber', '#ffb432');
+    const blending = isDarkBackdrop ? THREE.AdditiveBlending : THREE.NormalBlending;
+    const sats = satellites.filter((sat) => Number.isFinite(sat?.lat) && Number.isFinite(sat?.lon));
+    if (!sats.length) return;
+
+    // Dots at true altitude, constant screen size like the spot markers.
+    const positions = new Float32Array(sats.length * 3);
+    const colors = new Float32Array(sats.length * 3);
+    const sizes = new Float32Array(sats.length);
+    const v = new THREE.Vector3();
+    const c = new THREE.Color();
+
+    sats.forEach((sat, i) => {
+      const altR = 1 + (Number.isFinite(sat.alt) ? sat.alt : 0) / 6371;
+      latLonToVec3(sat.lat, sat.lon, EARTH_R * Math.max(altR, MARKER_ALT), v);
+      positions[i * 3] = v.x;
+      positions[i * 3 + 1] = v.y;
+      positions[i * 3 + 2] = v.z;
+      c.set(sat.color || accentCyan);
+      colors[i * 3] = c.r;
+      colors[i * 3 + 1] = c.g;
+      colors[i * 3 + 2] = c.b;
+      sizes[i] = selectedSats.includes(sat.name) ? 13 : 8;
+    });
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTex: { value: s.dotTexture },
+        uPixelRatio: { value: s.renderer?.getPixelRatio?.() ?? 1 },
+      },
+      vertexShader: /* glsl */ `
+        attribute float size;
+        uniform float uPixelRatio;
+        varying vec3 vColor;
+        void main() {
+          vColor = color;
+          gl_PointSize = size * uPixelRatio;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: /* glsl */ `
+        uniform sampler2D uTex;
+        varying vec3 vColor;
+        void main() {
+          vec4 t = texture2D(uTex, gl_PointCoord);
+          if (t.a < 0.5) discard;
+          gl_FragColor = vec4(vColor, t.a);
+        }
+      `,
+      transparent: true,
+      vertexColors: true,
+      depthWrite: false,
+    });
+
+    const points = new THREE.Points(geo, mat);
+    points.name = 'sats';
+    points.frustumCulled = false;
+    s.satGroup.add(points);
+    s.satData = sats;
+
+    sats.forEach((sat) => {
+      const isSelected = selectedSats.includes(sat.name);
+      const altR = Math.max(1 + (Number.isFinite(sat.alt) ? sat.alt : 0) / 6371, MARKER_ALT);
+
+      // Nadir line — makes the altitude legible against the ground track.
+      const satPos = latLonToVec3(sat.lat, sat.lon, EARTH_R * altR);
+      const ground = latLonToVec3(sat.lat, sat.lon, EARTH_R * 1.002);
+      const nadirGeo = new THREE.BufferGeometry().setFromPoints([satPos, ground]);
+      s.satGroup.add(
+        new THREE.Line(
+          nadirGeo,
+          new THREE.LineBasicMaterial({
+            color: sat.color || accentCyan,
+            transparent: true,
+            opacity: isSelected ? 0.5 : 0.2,
+            depthWrite: false,
+          }),
+        ),
+      );
+
+      // Ground track: past half solid (fading in toward now), future half
+      // dashed amber — the same reading as the flat map's track + lead track.
+      if (Array.isArray(sat.track) && sat.track.length > 2) {
+        const mid = Math.floor(sat.track.length / 2);
+        const toVec = (pt) => latLonToVec3(pt[0], pt[1], EARTH_R * 1.004);
+
+        const pastPts = sat.track.slice(0, mid + 1).map(toVec);
+        const pastGeo = new THREE.BufferGeometry().setFromPoints(pastPts);
+        const fade = new Float32Array(pastPts.length * 3);
+        const base = new THREE.Color(isSelected ? '#ffffff' : accentCyan);
+        for (let i = 0; i < pastPts.length; i++) {
+          const k = (i / (pastPts.length - 1)) * 0.9 + 0.1;
+          fade[i * 3] = base.r * k;
+          fade[i * 3 + 1] = base.g * k;
+          fade[i * 3 + 2] = base.b * k;
+        }
+        pastGeo.setAttribute('color', new THREE.BufferAttribute(fade, 3));
+        s.satGroup.add(
+          new THREE.Line(
+            pastGeo,
+            new THREE.LineBasicMaterial({
+              vertexColors: true,
+              transparent: true,
+              opacity: isSelected ? 0.9 : 0.25,
+              blending,
+              depthWrite: false,
+            }),
+          ),
+        );
+
+        const leadPts = sat.track.slice(mid).map(toVec);
+        const leadGeo = new THREE.BufferGeometry().setFromPoints(leadPts);
+        const lead = new THREE.Line(
+          leadGeo,
+          new THREE.LineDashedMaterial({
+            color: isSelected ? accentAmber : accentCyan,
+            dashSize: 0.025,
+            gapSize: 0.035,
+            transparent: true,
+            opacity: isSelected ? 0.85 : 0.2,
+            depthWrite: false,
+          }),
+        );
+        lead.computeLineDistances();
+        s.satGroup.add(lead);
+      }
+
+      // Footprint ring for selected satellites — green when workable from DE.
+      if (isSelected && Number.isFinite(sat.footprintRadius) && sat.footprintRadius > 0) {
+        const ringPts = footprintRingPoints(sat.lat, sat.lon, sat.footprintRadius / 6371, EARTH_R * 1.003);
+        const ringGeo = new THREE.BufferGeometry().setFromPoints(ringPts);
+        s.satGroup.add(
+          new THREE.LineLoop(
+            ringGeo,
+            new THREE.LineBasicMaterial({
+              color: sat.isVisible ? accentGreen : accentCyan,
+              transparent: true,
+              opacity: 0.8,
+              depthWrite: false,
+            }),
+          ),
+        );
+      }
+    });
+  }, [satellites, satellitesEnabled, selectedSats, themeTick, isDarkBackdrop]);
+
   // ── Pointer interaction: hover tooltip + click ───────────
   useEffect(() => {
     const s = gl.current;
@@ -970,6 +1201,30 @@ export default function Globe3D({
     const onMove = (ev) => {
       const rect = toPointer(ev);
       s.raycaster.setFromCamera(s.pointer, s.camera);
+
+      // Satellites sit above the surface, so test them before the spot cloud.
+      const satsObj = s.satGroup?.children.find((c) => c.name === 'sats');
+      const satHits = satsObj ? s.raycaster.intersectObject(satsObj, false) : [];
+      if (satHits.length && s.satData?.[satHits[0].index]) {
+        const sat = s.satData[satHits[0].index];
+        el.style.cursor = 'pointer';
+        setTooltip({
+          x: ev.clientX - rect.left,
+          y: ev.clientY - rect.top,
+          label: sat.name,
+          kind: '🛰',
+          detail: [
+            Number.isFinite(sat.alt) ? `${Math.round(sat.alt)} km` : null,
+            sat.isVisible ? `az ${sat.azimuth}° · el ${sat.elevation}°` : null,
+            sat.mode && sat.mode !== 'Unknown' ? sat.mode : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+          color: sat.color || '#00ddff',
+        });
+        return;
+      }
+
       const spots = s.overlayGroup?.children.find((c) => c.name === 'spots');
       const hits = spots ? s.raycaster.intersectObject(spots, false) : [];
 
@@ -1001,6 +1256,15 @@ export default function Globe3D({
 
       toPointer(ev);
       s.raycaster.setFromCamera(s.pointer, s.camera);
+
+      // Clicking a satellite toggles its selection (footprint + bright track),
+      // the same gesture as the Leaflet layer — it does not set DX.
+      const satsObj = s.satGroup?.children.find((c) => c.name === 'sats');
+      const satHits = satsObj ? s.raycaster.intersectObject(satsObj, false) : [];
+      if (satHits.length && s.satData?.[satHits[0].index]) {
+        toggleSatSelection(s.satData[satHits[0].index].name);
+        return;
+      }
 
       // A spot under the cursor wins over the globe surface.
       const spots = s.overlayGroup?.children.find((c) => c.name === 'spots');
@@ -1036,7 +1300,7 @@ export default function Globe3D({
       el.removeEventListener('pointerup', onUp);
       el.removeEventListener('pointerleave', onLeave);
     };
-  }, [onDXChange, dxLocked, onSpotClick, markers]);
+  }, [onDXChange, dxLocked, onSpotClick, markers, toggleSatSelection]);
 
   // ── View helpers ─────────────────────────────────────────
   const centerOn = useCallback((lat, lon) => {
