@@ -30,7 +30,7 @@ const NARROW_PANEL_PX = 480;
 const CONTROLS_TOP_WIDE = '10px';
 const CONTROLS_TOP_NARROW = '52px';
 const AUTOROTATE_KEY = 'ohc_globe_autorotate';
-const AUTOROTATE_SPEED = 1.2;
+const AUTOROTATE_SPEED = 0.6;
 
 // ── Geometry helpers ───────────────────────────────────────
 // Matches THREE.SphereGeometry's UV layout: u=0 at lon -180, v=1 at lat +90.
@@ -63,7 +63,7 @@ function greatCircleArc(lat1, lon1, lat2, lon2, segments = 64) {
 
   // Matches the QSO plotter's profile: a floor so short hops still stand off
   // the surface, ramping to a high arc by ~18000 km.
-  const lift = 0.06 + 0.3 * Math.min(1, (angle * 6371) / 18000);
+  const lift = 0.03 + 0.15 * Math.min(1, (angle * 6371) / 18000);
   const sinAngle = Math.sin(angle);
 
   for (let i = 0; i <= segments; i++) {
@@ -631,6 +631,12 @@ export default function Globe3D({
       const s = gl.current;
       if (!s.renderer) return;
       s.controls.update();
+      // Counter-scale the station markers so they hold a constant apparent
+      // size, matching the spot dots instead of swelling as you zoom in.
+      if (s.stationMarkers?.length) {
+        const k = s.camera.position.length() / DEFAULT_CAM_DISTANCE;
+        for (let i = 0; i < s.stationMarkers.length; i++) s.stationMarkers[i].scale.setScalar(k);
+      }
       // Sun direction is fixed in world space; convert to view space per frame.
       if (s.sunWorld) {
         s.earthMat.uniforms.uSunDir.value.copy(s.sunWorld).transformDirection(s.camera.matrixWorldInverse);
@@ -888,6 +894,7 @@ export default function Globe3D({
 
     // DE / DX markers — hidden by the Settings toggle. Matches the flat map,
     // which gates only the markers themselves and leaves paths alone.
+    s.stationMarkers = [];
     if (showDeDxMarkers) {
       // DE marker — station QTH.
       const deVec = latLonToVec3(lat0, lon0, EARTH_R * 1.012);
@@ -897,6 +904,7 @@ export default function Globe3D({
       );
       deDot.position.copy(deVec);
       s.overlayGroup.add(deDot);
+      s.stationMarkers.push(deDot);
 
       const deRing = new THREE.Mesh(
         new THREE.RingGeometry(0.03, 0.038, 32),
@@ -910,6 +918,7 @@ export default function Globe3D({
       deRing.position.copy(deVec);
       deRing.lookAt(0, 0, 0);
       s.overlayGroup.add(deRing);
+      s.stationMarkers.push(deRing);
 
       // DX marker — current target.
       if (Number.isFinite(dxLocation?.lat) && Number.isFinite(dxLocation?.lon)) {
@@ -921,6 +930,7 @@ export default function Globe3D({
         dxRing.position.copy(dxVec);
         dxRing.lookAt(0, 0, 0);
         s.overlayGroup.add(dxRing);
+        s.stationMarkers.push(dxRing);
 
         const dxDot = new THREE.Mesh(
           new THREE.SphereGeometry(0.014, 16, 12),
@@ -928,6 +938,7 @@ export default function Globe3D({
         );
         dxDot.position.copy(dxVec);
         s.overlayGroup.add(dxDot);
+        s.stationMarkers.push(dxDot);
       }
     }
     // themeTick: DE/DX marker materials are built from CSS variables.
