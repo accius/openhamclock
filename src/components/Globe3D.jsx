@@ -1112,11 +1112,14 @@ export default function Globe3D({
         ),
       );
 
-      // Ground track: past half solid (fading in toward now), future half
+      // Orbit track: past half solid (fading in toward now), future half
       // dashed amber — the same reading as the flat map's track + lead track.
+      // Drawn at the satellite's current altitude rather than on the surface,
+      // so it reads as the orbit itself. The data is a ground track, so this
+      // is exact for circular orbits and a close approximation otherwise.
       if (Array.isArray(sat.track) && sat.track.length > 2) {
         const mid = Math.floor(sat.track.length / 2);
-        const toVec = (pt) => latLonToVec3(pt[0], pt[1], EARTH_R * 1.004);
+        const toVec = (pt) => latLonToVec3(pt[0], pt[1], EARTH_R * altR);
 
         const pastPts = sat.track.slice(0, mid + 1).map(toVec);
         const pastGeo = new THREE.BufferGeometry().setFromPoints(pastPts);
