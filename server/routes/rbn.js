@@ -692,7 +692,6 @@ module.exports = function (app, ctx) {
         4: 'FST4W-300',
         5: 'FST4W-900',
         8: 'FST4W-1800',
-        16: 'FST4W-900',
       };
 
       const parsedSpots = rows

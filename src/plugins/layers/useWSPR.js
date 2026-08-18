@@ -188,10 +188,11 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
   const [markerLayers, setMarkerLayers] = useState([]);
   const [heatmapLayer, setHeatmapLayer] = useState(null);
   const [wsprData, setWsprData] = useState([]);
-  const [filterByGrid, setFilterByGrid] = useState(false); // Match the unchecked UI default
+  const [filterByGrid, setFilterByGrid] = useState(true); // Default ON - shows activity in your grid area
   const [gridFilter, setGridFilter] = useState('');
 
   // v1.2.0 - Advanced Filters
+  const [bandFilter, setBandFilter] = useState('all');
   const [band630mEnabled, setBand630mEnabled] = use630mBandEnabled();
   const [timeWindow, setTimeWindow] = useState(lowMemoryMode ? 15 : 30); // minutes - shorter in low memory
   const [snrThreshold, setSNRThreshold] = useState(-30); // dB
@@ -205,9 +206,16 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
   const [pathOpacity, setPathOpacity] = useState(0.7);
   const [heatmapOpacity, setHeatmapOpacity] = useState(0.6);
 
-  // Single combined WSPR control (activity, legend, band activity, and filters)
+  // UI Controls (refs to avoid recreation)
+  const legendControlRef = useRef(null);
+  const statsControlRef = useRef(null);
   const filterControlRef = useRef(null);
+  const chartControlRef = useRef(null);
+
+  const [_legendControl, setLegendControl] = useState(null);
+  const [_statsControl, setStatsControl] = useState(null);
   const [_filterControl, setFilterControl] = useState(null);
+  const [_chartControl, setChartControl] = useState(null);
 
   // Fetch WSPR data with dynamic time window and band filter
 
@@ -225,14 +233,20 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
 
   useEffect(() => {
     if (band630mEnabled) return;
-    setWsprData((current) =>
-      current.filter((spot) => {
+    if (bandFilter === '630m') setBandFilter('all');
+    setWsprData((current) => {
+      const filtered = current.filter((spot) => {
         const spotBand =
           normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freqMHz || spot.freq || spot.frequency);
         return spotBand !== '630m';
-      }),
-    );
-  }, [band630mEnabled]);
+      });
+      if (current.bandActivity) filtered.bandActivity = current.bandActivity;
+      filtered.sourceLatestTimestamp = current.sourceLatestTimestamp ?? null;
+      filtered.sourceLagMinutes = current.sourceLagMinutes ?? null;
+      filtered.sourceWindowShifted = current.sourceWindowShifted ?? false;
+      return filtered;
+    });
+  }, [band630mEnabled, bandFilter]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -242,7 +256,7 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
         const timestamp = new Date().toLocaleTimeString();
         console.debug(`[WSPR] Fetching data at ${timestamp}...`);
         const response = await fetch(
-          `/api/wspr/heatmap?minutes=${timeWindow}&band=all&include630m=${band630mEnabled ? 'true' : 'false'}`,
+          `/api/wspr/heatmap?minutes=${timeWindow}&band=${bandFilter}&include630m=${band630mEnabled ? 'true' : 'false'}`,
         );
         if (response.ok) {
           const data = await response.json();
@@ -305,6 +319,9 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
             if (data.bandActivity) {
               virtualSpots.bandActivity = data.bandActivity;
             }
+            virtualSpots.sourceLatestTimestamp = data.sourceLatestTimestamp ?? null;
+            virtualSpots.sourceLagMinutes = data.sourceLagMinutes ?? null;
+            virtualSpots.sourceWindowShifted = data.sourceWindowShifted ?? false;
 
             setWsprData(virtualSpots);
             return;
@@ -364,8 +381,11 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
             return updated;
           });
 
+          spots.sourceLatestTimestamp = data.sourceLatestTimestamp ?? null;
+          spots.sourceLagMinutes = data.sourceLagMinutes ?? null;
+          spots.sourceWindowShifted = data.sourceWindowShifted ?? false;
           setWsprData(spots);
-          console.info(`[WSPR Plugin] Loaded ${spots.length} raw spots (${timeWindow}min; map legend controls bands)`);
+          console.info(`[WSPR Plugin] Loaded ${spots.length} raw spots (${timeWindow}min, band: ${bandFilter})`);
         }
       } catch (err) {
         console.error('WSPR data fetch error:', err);
@@ -376,108 +396,111 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
     const interval = setInterval(fetchWSPR, 300000); // Poll every 5 minutes (server caches for 10)
 
     return () => clearInterval(interval);
-  }, [enabled, band630mEnabled, timeWindow, callsign, filterByGrid]);
+  }, [enabled, bandFilter, band630mEnabled, timeWindow, callsign, filterByGrid]);
 
-  // Create one combined WSPR panel. The previous implementation used four
-  // independent Leaflet controls; keeping all WSPR information in one pane
-  // reduces map clutter and gives the layer one drag/minimize target.
+  // Create UI controls once (v1.2.0+)
   useEffect(() => {
     if (!enabled || !map) return;
-    if (filterControlRef.current) return;
+    if (filterControlRef.current || statsControlRef.current || legendControlRef.current || chartControlRef.current)
+      return;
 
-    const WSPRControl = L.Control.extend({
+    const FilterControl = L.Control.extend({
       options: { position: 'topright' },
       onAdd: function () {
         const panelWrapper = L.DomUtil.create('div', 'panel-wrapper');
-        const container = L.DomUtil.create('div', 'wspr-filter-control wspr-combined-control', panelWrapper);
-        container.style.minWidth = '258px';
-        container.style.maxWidth = '286px';
-        container.style.maxHeight = 'calc(100vh - 72px)';
-        container.style.overflowY = 'auto';
-
-        const fieldStyle =
-          'width: 100%; box-sizing: border-box; padding: 3px 5px; background: var(--bg-tertiary); ' +
-          'color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px;';
-        const compactLabel = 'display: block; margin-bottom: 2px; font-size: 10px; color: var(--text-secondary);';
+        const container = L.DomUtil.create('div', 'wspr-filter-control', panelWrapper);
 
         container.innerHTML = `
-          <div class="floating-panel-header">📡 WSPR</div>
-          <div class="wspr-panel-content">
-            <div class="wspr-stats-body" style="margin-bottom: 6px;">Initializing...</div>
+          <div class="floating-panel-header">🎛️ Filters</div>
 
-            <div style="padding: 5px 0; border-top: 1px solid var(--border-color);">
-              <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
-                <span style="font-weight: bold; color: var(--accent-cyan);">Band Activity</span>
-                <span style="font-size: 9px; color: var(--text-muted);">WSPR / FST4W</span>
-              </div>
-              <div class="wspr-chart-body" style="opacity: 0.7;">Loading...</div>
-            </div>
+          <div style="margin-bottom: 8px;">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+              <input type="checkbox" id="wspr-enable-630m" ${band630mEnabled ? 'checked' : ''} style="margin-right: 5px;" />
+              <span>Enable 630m WSPR/RBN</span>
+            </label>
+          </div>
 
-            <details open style="border-top: 1px solid var(--border-color); padding-top: 5px;">
-              <summary style="cursor: pointer; font-weight: bold; color: var(--accent-cyan); margin-bottom: 6px;">Filters</summary>
+          <div style="margin-bottom: 8px;">
+            <label style="display: block; margin-bottom: 3px;">Band:</label>
+            <select id="wspr-band-filter" style="width: 100%; padding: 4px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px;">
+              <option value="all">All Bands</option>
+              <option value="630m" ${band630mEnabled ? '' : 'hidden disabled'}>630m</option>
+              <option value="160m">160m</option>
+              <option value="80m">80m</option>
+              <option value="60m">60m</option>
+              <option value="40m">40m</option>
+              <option value="30m">30m</option>
+              <option value="20m">20m</option>
+              <option value="17m">17m</option>
+              <option value="15m">15m</option>
+              <option value="12m">12m</option>
+              <option value="10m">10m</option>
+              <option value="8m">8m</option>
+              <option value="6m">6m</option>
+              <option value="4m">4m</option>
+            </select>
+          </div>
 
-              <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 5px;">
-                <input type="checkbox" id="wspr-enable-630m" ${band630mEnabled ? 'checked' : ''} style="margin-right: 5px;" />
-                <span>630m WSPR/RBN</span>
-              </label>
+          <div style="margin-bottom: 8px;">
+            <label style="display: block; margin-bottom: 3px;">Time Window:</label>
+            <select id="wspr-time-filter" style="width: 100%; padding: 4px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px;">
+              <option value="15">15 minutes</option>
+              <option value="30" selected>30 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="120">2 hours</option>
+              <option value="360">6 hours</option>
+            </select>
+          </div>
 
-              <div style="margin-bottom: 6px;">
-                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px;">
-                  <label style="${compactLabel}; margin-bottom: 0;">Window</label>
-                  <span style="font-size: 9px; color: var(--text-muted);">Bands: map legend</span>
-                </div>
-                <select id="wspr-time-filter" style="${fieldStyle}">
-                  <option value="15" ${timeWindow === 15 ? 'selected' : ''}>15 min</option>
-                  <option value="30" ${timeWindow === 30 ? 'selected' : ''}>30 min</option>
-                  <option value="60" ${timeWindow === 60 ? 'selected' : ''}>1 hour</option>
-                  <option value="120" ${timeWindow === 120 ? 'selected' : ''}>2 hours</option>
-                  <option value="360" ${timeWindow === 360 ? 'selected' : ''}>6 hours</option>
-                </select>
-              </div>
+          <div style="margin-bottom: 8px;">
+            <label style="display: block; margin-bottom: 3px;">Min SNR: <span id="snr-value">-30</span> dB</label>
+            <input type="range" id="wspr-snr-filter" min="-30" max="10" value="-30" step="5"
+              style="width: 100%;" />
+          </div>
 
-              <div style="margin-bottom: 5px;">
-                <label style="${compactLabel}">Min SNR <span id="snr-value">${snrThreshold}</span> dB</label>
-                <input type="range" id="wspr-snr-filter" min="-30" max="10" value="${snrThreshold}" step="5" style="width: 100%;" />
-              </div>
+          <div style="margin-bottom: 8px; padding-top: 8px; border-top: 1px solid #555;">
+            <label style="display: block; margin-bottom: 3px;">Path Opacity: <span id="path-opacity-value">70</span>%</label>
+            <input type="range" id="wspr-path-opacity" min="10" max="100" value="70" step="5"
+              style="width: 100%;" />
+          </div>
 
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 5px;">
-                <div>
-                  <label style="${compactLabel}">Paths <span id="path-opacity-value">${Math.round(pathOpacity * 100)}</span>%</label>
-                  <input type="range" id="wspr-path-opacity" min="10" max="100" value="${Math.round(pathOpacity * 100)}" step="5" style="width: 100%;" />
-                </div>
-                <div>
-                  <label style="${compactLabel}">Heatmap <span id="heatmap-opacity-value">${Math.round(heatmapOpacity * 100)}</span>%</label>
-                  <input type="range" id="wspr-heatmap-opacity" min="10" max="100" value="${Math.round(heatmapOpacity * 100)}" step="5" style="width: 100%;" />
-                </div>
-              </div>
+          <div style="margin-bottom: 8px;">
+            <label style="display: block; margin-bottom: 3px;">Heatmap Opacity: <span id="heatmap-opacity-value">60</span>%</label>
+            <input type="range" id="wspr-heatmap-opacity" min="10" max="100" value="60" step="5"
+              style="width: 100%;" />
+          </div>
 
-              <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 5px;">
-                <label style="cursor: pointer;"><input type="checkbox" id="wspr-animation" ${showAnimation ? 'checked' : ''} /> Animate</label>
-                <label style="cursor: pointer;"><input type="checkbox" id="wspr-heatmap" ${showHeatmap ? 'checked' : ''} /> Heatmap</label>
-              </div>
+          <div style="margin-bottom: 8px; padding-top: 8px; border-top: 1px solid #555;">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+              <input type="checkbox" id="wspr-animation" checked style="margin-right: 5px;" />
+              <span>Animate Paths</span>
+            </label>
+          </div>
 
-              <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 4px;">
-                <input type="checkbox" id="wspr-grid-filter" ${filterByGrid ? 'checked' : ''} style="margin-right: 5px;" />
-                <span>Grid filter</span>
-              </label>
-              <input type="text" id="wspr-grid-input"
-                placeholder="${gridFilter || 'e.g. FN03'}"
-                value="${gridFilter || ''}"
-                maxlength="6"
-                style="${fieldStyle} font-family: var(--font-mono); text-transform: uppercase;" />
-            </details>
+          <div style="margin-bottom: 8px;">
+            <label style="display: flex; align-items: center; cursor: pointer;">
+              <input type="checkbox" id="wspr-heatmap" style="margin-right: 5px;" />
+              <span>Show Heatmap</span>
+            </label>
+          </div>
 
-            <div style="margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--border-color); font-size: 9px; color: var(--text-muted); line-height: 1.35;">
-              SNR <span style="color: var(--accent-green);">●</span> &gt;5
-              <span style="color: var(--accent-green-dim);">●</span> 0…5
-              <span style="color: var(--accent-amber);">●</span> -10…0
-              <span style="color: var(--accent-amber-dim);">●</span> -20…-10
-              <span style="color: var(--accent-red);">●</span> &lt;-20
-              · <span style="color: var(--accent-cyan);">●</span> best DX
+          <div style="margin-bottom: 8px; padding-top: 8px; border-top: 1px solid #555;">
+            <label style="display: flex; align-items: center; cursor: pointer; margin-bottom: 5px;">
+              <input type="checkbox" id="wspr-grid-filter" style="margin-right: 5px;" />
+              <span>Filter by Grid Square</span>
+            </label>
+            <input type="text" id="wspr-grid-input"
+              placeholder="${gridFilter || 'e.g. FN03'}"
+              value="${gridFilter || ''}"
+              maxlength="6"
+              style="width: 100%; padding: 4px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px; font-family: var(--font-mono); text-transform: uppercase;" />
+            <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">
+              Prefix match: FN matches FN03, FN21, etc.
             </div>
           </div>
         `;
 
+        // Prevent map events from propagating
         L.DomEvent.disableClickPropagation(container);
         L.DomEvent.disableScrollPropagation(container);
 
@@ -485,14 +508,16 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
       },
     });
 
-    const control = new WSPRControl();
+    const control = new FilterControl();
     map.addControl(control);
     filterControlRef.current = control;
     setFilterControl(control);
 
+    // Make control draggable after it's added to DOM
     setTimeout(() => {
       const container = document.querySelector('.wspr-filter-control');
       if (container) {
+        // Apply saved position IMMEDIATELY before making draggable
         const saved = localStorage.getItem('wspr-filter-position');
         if (saved) {
           try {
@@ -513,8 +538,10 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
       }
     }, 150);
 
+    // Add event listeners after control is added
     setTimeout(() => {
       const enable630mCheck = document.getElementById('wspr-enable-630m');
+      const bandSelect = document.getElementById('wspr-band-filter');
       const timeSelect = document.getElementById('wspr-time-filter');
       const snrSlider = document.getElementById('wspr-snr-filter');
       const snrValue = document.getElementById('snr-value');
@@ -527,9 +554,8 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
       const gridFilterCheck = document.getElementById('wspr-grid-filter');
       const gridInput = document.getElementById('wspr-grid-input');
 
-      if (enable630mCheck) {
-        enable630mCheck.addEventListener('change', (e) => setBand630mEnabled(e.target.checked));
-      }
+      if (enable630mCheck) enable630mCheck.addEventListener('change', (e) => setBand630mEnabled(e.target.checked));
+      if (bandSelect) bandSelect.addEventListener('change', (e) => setBandFilter(e.target.value));
       if (timeSelect) timeSelect.addEventListener('change', (e) => setTimeWindow(parseInt(e.target.value)));
       if (snrSlider) {
         snrSlider.addEventListener('input', (e) => {
@@ -552,23 +578,197 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
         });
       }
       if (animCheck) animCheck.addEventListener('change', (e) => setShowAnimation(e.target.checked));
-      if (heatCheck) heatCheck.addEventListener('change', (e) => setShowHeatmap(e.target.checked));
-      if (gridFilterCheck) gridFilterCheck.addEventListener('change', (e) => setFilterByGrid(e.target.checked));
+      if (heatCheck)
+        heatCheck.addEventListener('change', (e) => {
+          console.debug('[WSPR] Heatmap toggle:', e.target.checked);
+          setShowHeatmap(e.target.checked);
+        });
+      if (gridFilterCheck)
+        gridFilterCheck.addEventListener('change', (e) => {
+          setFilterByGrid(e.target.checked);
+          console.debug('[WSPR] Grid filter toggle:', e.target.checked);
+        });
       if (gridInput) {
         gridInput.addEventListener('input', (e) => {
           const value = e.target.value.toUpperCase().substring(0, 6);
           e.target.value = value;
           setGridFilter(value);
+          console.debug('[WSPR] Grid filter value:', value);
         });
       }
     }, 100);
 
-    console.debug('[WSPR] Combined control created');
+    // Create stats control
+    const StatsControl = L.Control.extend({
+      options: { position: 'topleft' },
+      onAdd: function () {
+        const panelWrapper = L.DomUtil.create('div', 'panel-wrapper');
+        const div = L.DomUtil.create('div', 'wspr-stats', panelWrapper);
+
+        div.innerHTML = `
+          <div class="floating-panel-header">📊 WSPR Activity</div>
+
+          <div style="margin-bottom: 8px; padding: 6px; background: var(--bg-tertiary); border-radius: 3px;">
+            <div style="font-size: 10px; opacity: 0.8; margin-bottom: 2px;">Propagation Score</div>
+            <div style="font-size: 18px; font-weight: bold; color: var(--text-muted);">--/100</div>
+          </div>
+          <div>Paths: <span style="color: var(--accent-cyan);">0</span></div>
+          <div>TX Stations: <span style="color: var(--accent-amber);">0</span></div>
+          <div>RX Stations: <span style="color: var(--accent-blue);">0</span></div>
+          <div>Total: <span style="color: var(--accent-green);">0</span></div>
+          <div style="margin-top: 6px; font-size: 10px; opacity: 0.7;">Initializing...</div>
+        `;
+
+        // Prevent map interaction when clicking/dragging on this control
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+
+        return panelWrapper;
+      },
+    });
+
+    const stats = new StatsControl();
+    map.addControl(stats);
+    statsControlRef.current = stats;
+    setStatsControl(stats);
+
+    setTimeout(() => {
+      const container = document.querySelector('.wspr-stats');
+      if (container) {
+        // Apply saved position IMMEDIATELY before making draggable
+        const saved = localStorage.getItem('wspr-stats-position');
+        if (saved) {
+          try {
+            const { top, left } = JSON.parse(saved);
+            container.style.position = 'fixed';
+            container.style.top = top + 'px';
+            container.style.left = left + 'px';
+            container.style.right = 'auto';
+            container.style.bottom = 'auto';
+          } catch (e) {}
+        }
+
+        makeDraggable(container, 'wspr-stats-position', { snap: 5 });
+        addMinimizeToggle(container, 'wspr-stats-position', {
+          contentClassName: 'wspr-panel-content',
+          buttonClassName: 'wspr-minimize-btn',
+        });
+      }
+    }, 150);
+
+    // Create legend control
+    const LegendControl = L.Control.extend({
+      options: { position: 'bottomright' },
+      onAdd: function () {
+        const panelWrapper = L.DomUtil.create('div', 'panel-wrapper');
+        const div = L.DomUtil.create('div', 'wspr-legend', panelWrapper);
+
+        div.innerHTML = `
+          <div class="floating-panel-header">📡 Signal Strength</div>
+
+          <div><span style="color: var(--accent-green);">●</span> Excellent (&gt; 5 dB)</div>
+          <div><span style="color: var(--accent-green-dim);">●</span> Good (0 to 5 dB)</div>
+          <div><span style="color: var(--accent-amber);">●</span> Moderate (-10 to 0 dB)</div>
+          <div><span style="color: var(--accent-amber-dim);">●</span> Weak (-20 to -10 dB)</div>
+          <div><span style="color: var(--accent-red);">●</span> Very Weak (&lt; -20 dB)</div>
+          <div style="margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--border-color);">
+            <span style="color: var(--accent-cyan);">●</span> Best DX Paths
+          </div>
+        `;
+        return panelWrapper;
+      },
+    });
+
+    const legend = new LegendControl();
+    map.addControl(legend);
+    legendControlRef.current = legend;
+    setLegendControl(legend);
+
+    setTimeout(() => {
+      const container = document.querySelector('.wspr-legend');
+      if (container) {
+        // Apply saved position IMMEDIATELY before making draggable
+        const saved = localStorage.getItem('wspr-legend-position');
+        if (saved) {
+          try {
+            const { top, left } = JSON.parse(saved);
+            container.style.position = 'fixed';
+            container.style.top = top + 'px';
+            container.style.left = left + 'px';
+            container.style.right = 'auto';
+            container.style.bottom = 'auto';
+          } catch (e) {}
+        }
+
+        makeDraggable(container, 'wspr-legend-position', { snap: 5 });
+        addMinimizeToggle(container, 'wspr-legend-position', {
+          contentClassName: 'wspr-panel-content',
+          buttonClassName: 'wspr-minimize-btn',
+        });
+      }
+    }, 150);
+
+    // Create band chart control
+    const ChartControl = L.Control.extend({
+      options: { position: 'bottomleft' },
+      onAdd: function () {
+        const panelWrapper = L.DomUtil.create('div', 'panel-wrapper');
+        const div = L.DomUtil.create('div', 'wspr-chart', panelWrapper);
+
+        div.innerHTML =
+          '<div class="floating-panel-header">📊 Band Activity</div><div style="opacity: 0.7;">Loading...</div>';
+
+        // Prevent map interaction when clicking/dragging on this control
+        L.DomEvent.disableClickPropagation(div);
+        L.DomEvent.disableScrollPropagation(div);
+
+        return panelWrapper;
+      },
+    });
+
+    const chart = new ChartControl();
+    map.addControl(chart);
+    chartControlRef.current = chart;
+    setChartControl(chart);
+
+    setTimeout(() => {
+      const container = document.querySelector('.wspr-chart');
+      if (container) {
+        // Apply saved position IMMEDIATELY before making draggable
+        const saved = localStorage.getItem('wspr-chart-position');
+        if (saved) {
+          try {
+            const { top, left } = JSON.parse(saved);
+            container.style.position = 'fixed';
+            container.style.top = top + 'px';
+            container.style.left = left + 'px';
+            container.style.right = 'auto';
+            container.style.bottom = 'auto';
+          } catch (e) {}
+        }
+
+        makeDraggable(container, 'wspr-chart-position', { snap: 5 });
+        addMinimizeToggle(container, 'wspr-chart-position', {
+          contentClassName: 'wspr-panel-content',
+          buttonClassName: 'wspr-minimize-btn',
+        });
+      }
+    }, 150);
+
+    console.debug('[WSPR] All controls created once');
   }, [enabled, map]);
 
   useEffect(() => {
     const checkbox = document.getElementById('wspr-enable-630m');
     if (checkbox) checkbox.checked = band630mEnabled;
+
+    const bandSelect = document.getElementById('wspr-band-filter');
+    const band630mOption = bandSelect?.querySelector('option[value="630m"]');
+    if (band630mOption) {
+      band630mOption.hidden = !band630mEnabled;
+      band630mOption.disabled = !band630mEnabled;
+    }
+    if (!band630mEnabled && bandSelect?.value === '630m') bandSelect.value = 'all';
   }, [band630mEnabled]);
 
   // Render WSPR paths and markers
@@ -712,9 +912,8 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
         return;
       }
 
-      // Check if this is a best DX path. Keep existing SNR coloring for
-      // normal bands; use the customizable band color for 630m so MF paths
-      // are immediately recognizable when the 630m map chip is selected.
+      // Check if this is a best DX path. Keep the existing SNR colors for
+      // normal bands and use the customizable band color for 630m.
       const isBestPath = bestPathSet.has(`${spot.sender}-${spot.receiver}`);
       const renderedBand =
         normalizeBandKey(spot.band) || bandFromAnyFrequency(spot.freqMHz || spot.freq || spot.frequency);
@@ -926,7 +1125,7 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
 
     // Update existing stats panel content if it exists
     setTimeout(() => {
-      const statsContainer = document.querySelector('.wspr-stats-body');
+      const statsContainer = document.querySelector('.wspr-stats');
       if (statsContainer && enabled) {
         const lagMinutes = Number(wsprData.sourceLagMinutes);
         const hasLag = Number.isFinite(lagMinutes) && lagMinutes > 0;
@@ -934,60 +1133,81 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
         const timeLabel = wsprData.sourceWindowShifted
           ? `Latest ${timeWindow} min available · 630m source ${hasLag ? `${lagLabel} behind` : 'delayed'}`
           : `Last ${timeWindow} min`;
-
         const contentHTML = `
-          <div style="display: grid; grid-template-columns: 70px 1fr; gap: 6px; align-items: stretch;">
-            <div style="padding: 5px; background: var(--bg-tertiary); border-radius: 3px; text-align: center;">
-              <div style="font-size: 9px; color: var(--text-muted);">Score</div>
-              <div style="font-size: 17px; font-weight: bold; color: ${scoreColor}; line-height: 1.15;">${propScore}</div>
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; align-content: center; font-size: 10px;">
-              <div>Paths <span style="color: var(--accent-cyan);">${newPaths.length}</span></div>
-              <div>Spots <span style="color: var(--accent-green);">${wsprData.bandActivity ? Object.values(wsprData.bandActivity).reduce((sum, count) => sum + count, 0) : limitedData.length}</span></div>
-              <div>TX <span style="color: var(--accent-amber);">${txStations.size}</span></div>
-              <div>RX <span style="color: var(--accent-blue);">${rxStations.size}</span></div>
-            </div>
+          <div style="margin-bottom: 8px; padding: 6px; background: var(--bg-tertiary); border-radius: 3px;">
+            <div style="font-size: 10px; opacity: 0.8; margin-bottom: 2px;">Propagation Score</div>
+            <div style="font-size: 18px; font-weight: bold; color: ${scoreColor};">${propScore}/100</div>
           </div>
-          <div style="margin-top: 3px; font-size: 9px; color: ${wsprData.sourceWindowShifted ? 'var(--accent-amber)' : 'var(--text-muted)'}; text-align: right;">${timeLabel}</div>
+          <div>Paths: <span style="color: var(--accent-cyan);">${newPaths.length}</span></div>
+          <div>TX Stations: <span style="color: var(--accent-amber);">${txStations.size}</span></div>
+          <div>RX Stations: <span style="color: var(--accent-blue);">${rxStations.size}</span></div>
+          <div>Total: <span style="color: var(--accent-green);">${totalStations}</span></div>
+          <div style="margin-top: 6px; font-size: 10px; color: ${wsprData.sourceWindowShifted ? 'var(--accent-amber)' : 'inherit'}; opacity: 0.7;">${timeLabel}</div>
         `;
 
-        statsContainer.innerHTML = contentHTML;
+        // Check if minimize toggle has been added (content is wrapped)
+        const contentWrapper = statsContainer.querySelector('.wspr-panel-content');
+        if (contentWrapper) {
+          // Update only the content wrapper to preserve header and minimize button
+          contentWrapper.innerHTML = contentHTML;
+        } else {
+          // Initial render before minimize toggle is added
+          statsContainer.innerHTML = `
+            <div class="floating-panel-header">📊 WSPR Activity</div>
+
+            ${contentHTML}
+          `;
+        }
       }
     }, 50);
 
     // Update band chart content if it exists
     setTimeout(() => {
-      const chartContainer = document.querySelector('.wspr-chart-body');
-      if (chartContainer && enabled) {
-        const bandCounts = wsprData.bandActivity ? { ...wsprData.bandActivity } : {};
-        if (!wsprData.bandActivity) {
+      const chartContainer = document.querySelector('.wspr-chart');
+      if (chartContainer && limitedData.length > 0 && enabled) {
+        const useServerBandActivity = band630mEnabled && wsprData.bandActivity;
+        const bandCounts = useServerBandActivity ? { ...wsprData.bandActivity } : {};
+        if (!useServerBandActivity) {
           limitedData.forEach((spot) => {
             const band = spot.band || 'Unknown';
             bandCounts[band] = (bandCounts[band] || 0) + 1;
           });
         }
 
-        const bandTotal = Object.values(bandCounts).reduce((sum, count) => sum + count, 0);
-        const entries = Object.entries(bandCounts)
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 8);
+        let chartContentHTML = '';
 
-        chartContainer.style.opacity = '1';
-        chartContainer.style.display = 'grid';
-        chartContainer.style.gridTemplateColumns = '1fr 1fr';
-        chartContainer.style.gap = '3px 5px';
-        chartContainer.innerHTML =
-          bandTotal === 0
-            ? '<div style="grid-column: 1 / -1; opacity: 0.7;">No activity in this window.</div>'
-            : entries
-                .map(
-                  ([band, count]) => `
-                    <div style="display: flex; justify-content: space-between; gap: 6px; padding: 2px 4px; background: var(--bg-tertiary); border-radius: 3px; font-size: 10px;">
-                      <span>${band}</span><span style="color: var(--accent-cyan);">${count}</span>
-                    </div>
-                  `,
-                )
-                .join('');
+        Object.entries(bandCounts)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 8)
+          .forEach(([band, count]) => {
+            const percentage = (count / limitedData.length) * 100;
+            const barWidth = Math.max(percentage, 5);
+            chartContentHTML += `
+              <div style="margin-bottom: 4px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 2px;">
+                  <span>${band}</span>
+                  <span style="color: var(--accent-cyan);">${count}</span>
+                </div>
+                <div style="background: var(--bg-tertiary); height: 6px; border-radius: 3px; overflow: hidden;">
+                  <div style="background: linear-gradient(90deg, var(--accent-amber), var(--accent-cyan)); height: 100%; width: ${barWidth}%;"></div>
+                </div>
+              </div>
+            `;
+          });
+
+        // Check if minimize toggle has been added (content is wrapped)
+        const contentWrapper = chartContainer.querySelector('.wspr-panel-content');
+        if (contentWrapper) {
+          // Update only the content wrapper to preserve header and minimize button
+          contentWrapper.innerHTML = chartContentHTML;
+        } else {
+          // Initial render before minimize toggle is added
+          chartContainer.innerHTML = `
+            <div class="floating-panel-header">📊 Band Activity</div>
+
+            ${chartContentHTML}
+          `;
+        }
       }
     }, 50);
 
@@ -1255,7 +1475,8 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
   useEffect(() => {
     if (!enabled && map) {
       // Only log once and check if controls actually exist before attempting removal
-      const hasControls = filterControlRef.current;
+      const hasControls =
+        filterControlRef.current || legendControlRef.current || statsControlRef.current || chartControlRef.current;
 
       if (!hasControls) {
         return; // Nothing to clean up
@@ -1273,6 +1494,42 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
         }
         filterControlRef.current = null;
         setFilterControl(null);
+      }
+
+      // Remove legend control
+      if (legendControlRef.current) {
+        try {
+          map.removeControl(legendControlRef.current);
+          console.debug('[WSPR] Removed legend control');
+        } catch (e) {
+          console.error('[WSPR] Error removing legend control:', e);
+        }
+        legendControlRef.current = null;
+        setLegendControl(null);
+      }
+
+      // Remove stats control
+      if (statsControlRef.current) {
+        try {
+          map.removeControl(statsControlRef.current);
+          console.debug('[WSPR] Removed stats control');
+        } catch (e) {
+          console.error('[WSPR] Error removing stats control:', e);
+        }
+        statsControlRef.current = null;
+        setStatsControl(null);
+      }
+
+      // Remove chart control
+      if (chartControlRef.current) {
+        try {
+          map.removeControl(chartControlRef.current);
+          console.debug('[WSPR] Removed chart control');
+        } catch (e) {
+          console.error('[WSPR] Error removing chart control:', e);
+        }
+        chartControlRef.current = null;
+        setChartControl(null);
       }
 
       // Remove heatmap layer
@@ -1308,6 +1565,7 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
     spotCount: wsprData.length,
     filteredCount: wsprData.filter((s) => (s.snr || -30) >= snrThreshold).length,
     filters: {
+      bandFilter,
       band630mEnabled,
       timeWindow,
       snrThreshold,
