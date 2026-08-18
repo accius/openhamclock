@@ -19,7 +19,7 @@ import { MAP_STYLES } from '../utils/config.js';
 import { buildGlobeTexture, chooseGlobeTileZoom } from '../utils/globeTexture.js';
 // Project icon set — exists because bare glyphs/emoji render inconsistently
 // (or as tofu) depending on the platform's font coverage.
-import { IconRefresh, IconQth } from './Icons.jsx';
+import { IconRefresh } from './Icons.jsx';
 
 const DEG = Math.PI / 180;
 const EARTH_R = 1;
@@ -34,6 +34,8 @@ const CONTROLS_TOP_WIDE = '10px';
 const CONTROLS_TOP_NARROW = '52px';
 const AUTOROTATE_KEY = 'ohc_globe_autorotate';
 const AUTOROTATE_SPEED = 0.6;
+// Screensaver delay: rotation starts only after this much user inactivity.
+const AUTOROTATE_IDLE_MS = 30_000;
 
 // ── Geometry helpers ───────────────────────────────────────
 // Matches THREE.SphereGeometry's UV layout: u=0 at lon -180, v=1 at lat +90.
@@ -336,9 +338,20 @@ export default function Globe3D({
   // Mirrors the nightDarkness prop so a scene rebuild seeds the shader uniform
   // with the current value instead of snapping back to the material default.
   const nightDarknessRef = useRef(nightDarkness);
-  // Same reason: a rebuilt OrbitControls starts with autoRotate off, and the
-  // toggle's effect will not re-run because the state did not change.
-  const autoRotateRef = useRef(true);
+  // Screensaver machinery: `autoRotate` state means the feature is enabled;
+  // actual rotation only engages after AUTOROTATE_IDLE_MS without interaction.
+  const autoRotateEnabledRef = useRef(true);
+  const idleTimerRef = useRef(0);
+  const kickIdleTimer = useCallback(() => {
+    clearTimeout(idleTimerRef.current);
+    const s = gl.current;
+    if (s.controls) s.controls.autoRotate = false;
+    if (!autoRotateEnabledRef.current) return;
+    idleTimerRef.current = setTimeout(() => {
+      const s2 = gl.current;
+      if (s2.controls && autoRotateEnabledRef.current) s2.controls.autoRotate = true;
+    }, AUTOROTATE_IDLE_MS);
+  }, []);
   const [textureLoading, setTextureLoading] = useState(true);
   const [textureProgress, setTextureProgress] = useState(0);
   const [tooltip, setTooltip] = useState(null);
@@ -606,13 +619,15 @@ export default function Globe3D({
     controls.enablePan = false;
     controls.minDistance = 1.25;
     controls.maxDistance = 8;
-    controls.autoRotate = autoRotateRef.current;
+    controls.autoRotate = false;
     controls.autoRotateSpeed = AUTOROTATE_SPEED;
     // Fires on pointer-down / wheel, i.e. genuine user gestures — programmatic
     // controls.update() calls do not trigger it.
     controls.addEventListener('start', () => {
       userMovedRef.current = true;
       setHasInteracted(true);
+      // Any drag or zoom counts as presence: stop rotating, restart the clock.
+      kickIdleTimer();
     });
 
     // Placeholder texture until the tiles land.
@@ -723,8 +738,12 @@ export default function Globe3D({
     });
     ro.observe(container);
 
+    // A fresh scene starts still; the screensaver clock decides when it turns.
+    kickIdleTimer();
+
     return () => {
       cancelAnimationFrame(raf);
+      clearTimeout(idleTimerRef.current);
       ro.disconnect();
       controls.dispose();
       const s = gl.current;
@@ -743,7 +762,7 @@ export default function Globe3D({
       if (renderer.domElement.parentNode === container) container.removeChild(renderer.domElement);
       gl.current = {};
     };
-  }, [lowMem]);
+  }, [lowMem, kickIdleTimer]);
 
   // ── Night overlay darkness ───────────────────────────────
   useEffect(() => {
@@ -762,17 +781,14 @@ export default function Globe3D({
 
   // ── Auto-rotate toggle ───────────────────────────────────
   useEffect(() => {
-    const s = gl.current;
-    if (!s.controls) return;
-    autoRotateRef.current = autoRotate;
-    s.controls.autoRotate = autoRotate;
-    // ~90s per revolution once damping is taken into account: visibly turning
-    // without being distracting on a dashboard left running all day.
-    s.controls.autoRotateSpeed = AUTOROTATE_SPEED;
+    autoRotateEnabledRef.current = autoRotate;
     try {
       localStorage.setItem(AUTOROTATE_KEY, String(autoRotate));
     } catch {}
-  }, [autoRotate]);
+    // Enabling arms the 30 s clock; disabling stops any rotation immediately.
+    kickIdleTimer();
+    return () => clearTimeout(idleTimerRef.current);
+  }, [autoRotate, kickIdleTimer]);
 
   // ── Texture: rebuild when the map style changes ──────────
   useEffect(() => {
@@ -1204,6 +1220,7 @@ export default function Globe3D({
     };
 
     const onMove = (ev) => {
+      kickIdleTimer();
       const rect = toPointer(ev);
       s.raycaster.setFromCamera(s.pointer, s.camera);
 
@@ -1305,7 +1322,7 @@ export default function Globe3D({
       el.removeEventListener('pointerup', onUp);
       el.removeEventListener('pointerleave', onLeave);
     };
-  }, [onDXChange, dxLocked, onSpotClick, markers, toggleSatSelection]);
+  }, [onDXChange, dxLocked, onSpotClick, markers, toggleSatSelection, kickIdleTimer]);
 
   // ── View helpers ─────────────────────────────────────────
   const centerOn = useCallback((lat, lon) => {
@@ -1313,17 +1330,6 @@ export default function Globe3D({
     if (!s.camera || !s.controls) return;
     const dist = s.camera.position.length();
     latLonToVec3(lat, lon, dist, s.camera.position);
-    s.controls.update();
-  }, []);
-
-  // Reset returns to the default distance looking straight down on the
-  // operator's QTH — the same view the globe opens with.
-  const resetView = useCallback(() => {
-    const s = gl.current;
-    if (!s.camera || !s.controls) return;
-    const { has, lat, lon } = deRef.current;
-    if (has) latLonToVec3(lat, lon, DEFAULT_CAM_DISTANCE, s.camera.position);
-    else s.camera.position.set(0, 0, DEFAULT_CAM_DISTANCE);
     s.controls.update();
   }, []);
 
@@ -1423,9 +1429,6 @@ export default function Globe3D({
               DX
             </button>
           )}
-          <button style={btnStyle} onClick={resetView} title="Reset view to your QTH">
-            <IconQth size={15} style={iconStyle} />
-          </button>
           <button
             style={{
               ...btnStyle,
@@ -1433,7 +1436,7 @@ export default function Globe3D({
               background: autoRotate ? 'var(--accent-cyan)' : btnStyle.background,
             }}
             onClick={() => setAutoRotate((v) => !v)}
-            title={autoRotate ? 'Stop auto-rotate' : 'Auto-rotate'}
+            title={autoRotate ? 'Auto-rotate on — turns after 30 s idle' : 'Auto-rotate off'}
           >
             <IconRefresh size={15} style={iconStyle} />
           </button>
