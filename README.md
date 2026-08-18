@@ -812,9 +812,9 @@ Layer preferences persist in localStorage.
 
 ## Languages
 
-The interface is available in 10 languages, selectable in Settings:
+The interface is available in 16 languages, selectable in Settings:
 
-🇬🇧 English · 🇫🇷 Français · 🇪🇸 Español · 🇩🇪 Deutsch · 🇳🇱 Nederlands · 🇧🇷 Português · 🇯🇵 日本語 · 🇰🇷 한국어 · 🇮🇹 Italiano · 🇸🇮 Slovenščina
+🇬🇧 English · 🇫🇷 Français · 🇪🇸 Español · 🇩🇪 Deutsch · 🇳🇱 Nederlands · 🇧🇷 Português · 🇯🇵 日本語 · 🇰🇷 한국어 · 🇮🇹 Italiano · 🇸🇮 Slovenščina · 🇲🇾 Melayu · 🇷🇺 Русский · 🇹🇭 ไทย · 🇨🇳 简体中文 · 🇬🇪 ქართული · 🇦🇩 Català
 
 Language files are in `src/lang/`. Each is a JSON file with translation keys. Contributions of new translations are welcome — just copy `en.json`, translate the values, and submit a PR.
 
