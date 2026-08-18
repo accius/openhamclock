@@ -61,7 +61,9 @@ function greatCircleArc(lat1, lon1, lat2, lon2, segments = 64) {
 
   if (angle < 1e-6) return [a.clone().multiplyScalar(EARTH_R * 1.002)];
 
-  const lift = 0.16 * (angle / Math.PI);
+  // Matches the QSO plotter's profile: a floor so short hops still stand off
+  // the surface, ramping to a high arc by ~18000 km.
+  const lift = 0.06 + 0.3 * Math.min(1, (angle * 6371) / 18000);
   const sinAngle = Math.sin(angle);
 
   for (let i = 0; i <= segments; i++) {
@@ -70,7 +72,7 @@ function greatCircleArc(lat1, lon1, lat2, lon2, segments = 64) {
     const w1 = Math.sin((1 - t) * angle) / sinAngle;
     const w2 = Math.sin(t * angle) / sinAngle;
     const p = new THREE.Vector3(a.x * w1 + b.x * w2, a.y * w1 + b.y * w2, a.z * w1 + b.z * w2);
-    p.normalize().multiplyScalar(EARTH_R * (1.004 + lift * Math.sin(t * Math.PI)));
+    p.normalize().multiplyScalar(EARTH_R * (1 + lift * Math.sin(t * Math.PI)));
     pts.push(p);
   }
   return pts;
@@ -377,7 +379,7 @@ export default function Globe3D({
           lat: s.lat,
           lon: s.lon,
           color,
-          size: 0.026,
+          size: 8,
           kind,
           label: s.call || s.callsign || s.activator || kind,
           detail: [s.ref || s.reference, band, s.freq ? `${s.freq} MHz` : null, s.mode, s.name]
@@ -402,7 +404,7 @@ export default function Globe3D({
           lat: p.dxLat,
           lon: p.dxLon,
           color: getBandColor(parseFloat(p.freq)) || ACTIVITY_COLORS.bandFallback,
-          size: 0.03,
+          size: 9,
           kind: 'DX',
           label: p.dxCall || p.callsign || 'DX',
           detail: [p.freq ? `${p.freq} MHz` : null, band, p.spotter ? `de ${p.spotter}` : null]
@@ -427,7 +429,7 @@ export default function Globe3D({
           lat,
           lon,
           color: isRx ? ACTIVITY_COLORS.pskRx : ACTIVITY_COLORS.pskTx,
-          size: 0.022,
+          size: 7,
           kind: isRx ? 'PSK RX' : 'PSK TX',
           label: (isRx ? s.sender : s.receiver || s.sender) || 'PSK',
           detail: [band, s.mode].filter(Boolean).join(' · '),
@@ -445,7 +447,7 @@ export default function Globe3D({
           lat: s.lat,
           lon: s.lon,
           color: ACTIVITY_COLORS.wsjtx,
-          size: 0.024,
+          size: 8,
           kind: 'WSJT-X',
           label: s.dxCall || s.call || s.callsign || 'WSJT-X',
           detail: [band, s.mode, s.snr != null ? `${s.snr} dB` : null].filter(Boolean).join(' · '),
@@ -487,7 +489,7 @@ export default function Globe3D({
           from: [p.spotterLat, p.spotterLon],
           to: [p.dxLat, p.dxLon],
           color: getBandColor(parseFloat(p.freq)) || ACTIVITY_COLORS.bandFallback,
-          opacity: 0.45,
+          opacity: 0.62,
         });
       });
     }
@@ -801,17 +803,21 @@ export default function Globe3D({
       geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
       const mat = new THREE.ShaderMaterial({
-        uniforms: { uTex: { value: s.dotTexture } },
+        uniforms: {
+          uTex: { value: s.dotTexture },
+          uPixelRatio: { value: s.renderer?.getPixelRatio?.() ?? 1 },
+        },
         vertexShader: /* glsl */ `
           attribute float size;
+          uniform float uPixelRatio;
           varying vec3 vColor;
           void main() {
             vColor = color;
-            vec4 mv = modelViewMatrix * vec4(position, 1.0);
-            // Scale with distance, but keep markers clickable when zoomed out
-            // and from swallowing the globe when zoomed in.
-            gl_PointSize = clamp(size * 800.0 / -mv.z, 4.0, 24.0);
-            gl_Position = projectionMatrix * mv;
+            // No distance term: markers keep a constant on-screen size at any
+            // zoom, matching PointsMaterial's sizeAttenuation:false. gl_PointSize
+            // is in device pixels, hence the pixel-ratio scale.
+            gl_PointSize = size * uPixelRatio;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           }
         `,
         fragmentShader: /* glsl */ `
@@ -819,7 +825,8 @@ export default function Globe3D({
           varying vec3 vColor;
           void main() {
             vec4 t = texture2D(uTex, gl_PointCoord);
-            if (t.a < 0.15) discard;
+            // Hard cut rather than a soft fade, so dots stay crisp discs.
+            if (t.a < 0.5) discard;
             // THREE.Color.set() converts hex strings to linear, so band colours
             // need the same output transform as the globe texture.
             gl_FragColor = vec4(vColor, t.a);
@@ -833,6 +840,7 @@ export default function Globe3D({
 
       const points = new THREE.Points(geo, mat);
       points.name = 'spots';
+      points.frustumCulled = false;
       s.overlayGroup.add(points);
       s.markerData = markers;
     } else {
@@ -868,8 +876,14 @@ export default function Globe3D({
         transparent: true,
         opacity,
         depthWrite: false,
+        // Additive makes crossing paths glow where they overlap, as in the QSO
+        // plotter. It only works against a dark backdrop though — added onto a
+        // white or grey panel it saturates and the lines vanish.
+        blending: isDarkBackdrop ? THREE.AdditiveBlending : THREE.NormalBlending,
       });
-      s.overlayGroup.add(new THREE.LineSegments(geo, mat));
+      const line = new THREE.LineSegments(geo, mat);
+      line.frustumCulled = false;
+      s.overlayGroup.add(line);
     });
 
     // DE / DX markers — hidden by the Settings toggle. Matches the flat map,
@@ -917,7 +931,7 @@ export default function Globe3D({
       }
     }
     // themeTick: DE/DX marker materials are built from CSS variables.
-  }, [markers, arcs, lat0, lon0, dxLocation, themeTick, showDeDxMarkers]);
+  }, [markers, arcs, lat0, lon0, dxLocation, themeTick, showDeDxMarkers, isDarkBackdrop]);
 
   // ── Pointer interaction: hover tooltip + click ───────────
   useEffect(() => {
