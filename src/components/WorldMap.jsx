@@ -28,7 +28,18 @@ import { getAllLayers } from '../plugins/layerRegistry.js';
 import PluginLayer from './PluginLayer.jsx';
 import AzimuthalMap from './AzimuthalMap.jsx';
 // three.js is ~600 kB — load it only when the operator actually opens 3D mode.
-const Globe3D = React.lazy(() => import('./Globe3D.jsx'));
+// React 18 permanently caches a rejected lazy() import, so a single failed
+// chunk load (stale HTML right after a redeploy is the classic case) would
+// otherwise make every later visit to 3D re-throw instantly until a hard
+// reload. On failure, discard the lazy instance so the next mount re-imports.
+const makeGlobe3DLazy = () =>
+  React.lazy(() =>
+    import('./Globe3D.jsx').catch((err) => {
+      Globe3D = makeGlobe3DLazy();
+      throw err;
+    }),
+  );
+let Globe3D = makeGlobe3DLazy();
 import { DXNewsTicker } from './DXNewsTicker.jsx';
 import { CallsignWeatherOverlay } from './CallsignWeatherOverlay.jsx';
 import { getCallsignWeather } from '../utils/callsignWeather.js';
@@ -599,6 +610,23 @@ export const WorldMap = ({
   const [showMapRotationMenu, setShowMapRotationMenu] = useState(false);
   const [mapRotationMenuActivity, setMapRotationMenuActivity] = useState(0);
   const [mapProjection, setMapProjection] = useState(initialProjection);
+  // The Leaflet path applies mode/continent/watchlist filters at render time;
+  // the globe consumes paths as data, so hand it the already-filtered list or
+  // those filters silently stop working in 3D.
+  const globeDxPaths = useMemo(() => filterDXPaths(dxPaths, dxFilters), [dxPaths, dxFilters]);
+  // Enabled plugin layers the globe cannot draw (everything Leaflet-bound
+  // except satellites, which 3D renders natively). Used for a visible note so
+  // toggling e.g. Lightning in Settings does not look like a silent no-op.
+  const suppressed2DLayers = useMemo(() => {
+    if (mapProjection !== 'globe3d') return [];
+    return getAllLayers().filter(
+      (l) => l.id !== 'satellites' && (pluginLayerStates[l.id]?.enabled ?? l.defaultEnabled),
+    );
+  }, [mapProjection, pluginLayerStates]);
+  // Set when a crash or chunk-load failure forces the session back to
+  // Mercator: the switch must not overwrite the user's saved projection.
+  // Cleared the next time they pick a projection themselves.
+  const projectionPersistBlockedRef = useRef(false);
   const isAzimuthal = mapProjection === 'azimuthal';
   const isGlobe3D = mapProjection === 'globe3d';
   // Both non-Leaflet projections hide the Mercator map and its dock.
@@ -617,6 +645,11 @@ export const WorldMap = ({
 
   useEffect(() => {
     if (!mapRotationConfig.enabled) return;
+    // Every style change makes the globe refetch its full tile set (up to 256
+    // tiles at retina zoom), and overlapping bursts get us throttled by the
+    // tile providers — throttled tiles are permanent holes in the texture.
+    // Rotation resumes when the user returns to a Leaflet projection.
+    if (isGlobe3D) return;
 
     const selected = (mapRotationConfig.selectedIds || []).filter((id) => availableBaseMapIds.includes(id));
     if (selected.length < 2) return;
@@ -650,6 +683,7 @@ export const WorldMap = ({
     mapRotationConfig.selectedIds,
     availableBaseMapIds,
     mapProjection,
+    isGlobe3D,
   ]);
 
   const setMainMapRotation = useCallback((next) => {
@@ -842,7 +876,9 @@ export const WorldMap = ({
         JSON.stringify({
           ...existing,
           mapStyle,
-          mapProjection,
+          mapProjection: projectionPersistBlockedRef.current
+            ? (existing.mapProjection ?? mapProjection)
+            : mapProjection,
           center: mapView.center,
           zoom: mapView.zoom,
           wheelPxPerZoomLevel: getScaledZoomLevel(mouseZoom),
@@ -2375,7 +2411,12 @@ export const WorldMap = ({
     <div style={{ position: 'relative', height: '100%', minHeight: '200px' }}>
       {/* Azimuthal equidistant projection (canvas-based) */}
       {isAzimuthal && (
-        <AzimuthalErrorBoundary onFallback={() => setMapProjection('mercator')}>
+        <AzimuthalErrorBoundary
+          onFallback={() => {
+            projectionPersistBlockedRef.current = true;
+            setMapProjection('mercator');
+          }}
+        >
           <AzimuthalMap
             leafletReady={leafletReady}
             deLocation={deLocation}
@@ -2415,7 +2456,13 @@ export const WorldMap = ({
 
       {/* 3D globe (three.js / WebGL) */}
       {isGlobe3D && (
-        <AzimuthalErrorBoundary label="Globe3D" onFallback={() => setMapProjection('mercator')}>
+        <AzimuthalErrorBoundary
+          label="Globe3D"
+          onFallback={() => {
+            projectionPersistBlockedRef.current = true;
+            setMapProjection('mercator');
+          }}
+        >
           <React.Suspense
             fallback={
               <div
@@ -2446,7 +2493,7 @@ export const WorldMap = ({
               wwffSpots={wwffSpots}
               sotaSpots={sotaSpots}
               wwbotaSpots={wwbotaSpots}
-              dxPaths={dxPaths}
+              dxPaths={globeDxPaths}
               mapBandFilter={mapBandFilter}
               pskReporterSpots={pskReporterSpots}
               wsjtxSpots={wsjtxSpots}
@@ -2488,7 +2535,30 @@ export const WorldMap = ({
           This resets internal refs (layerGroupRef, controlRef) that are bound to a
           specific Leaflet map — without this, layers stay on the hidden old map. */}
       {/* Plugin layers attach to a Leaflet map instance, so they cannot render on
-          the 3D globe — skip them entirely rather than binding to a hidden map. */}
+          the 3D globe — skip them entirely rather than binding to a hidden map.
+          The note below keeps that visible instead of silent. */}
+      {isGlobe3D && !mapUiHidden && suppressed2DLayers.length > 0 && (
+        <div
+          title={suppressed2DLayers.map((l) => t(l.name)).join(', ')}
+          style={{
+            position: 'absolute',
+            top: '44px',
+            right: '10px',
+            zIndex: 1000,
+            background: 'var(--bg-panel)',
+            border: '1px solid var(--border-color)',
+            borderRadius: '4px',
+            padding: '3px 8px',
+            fontSize: '10px',
+            fontFamily: 'var(--font-mono)',
+            color: 'var(--text-muted)',
+            pointerEvents: 'none',
+          }}
+        >
+          {suppressed2DLayers.length} map layer{suppressed2DLayers.length !== 1 ? 's' : ''} 2D-only — shown on
+          Flat/Azimuthal
+        </div>
+      )}
       {!isGlobe3D &&
         getAllLayers().map((layerDef) => {
           // Merge location config into satellite layer to keep config access consistent
@@ -2692,7 +2762,7 @@ export const WorldMap = ({
         </div>
       )}
 
-      {mapStyle === 'MODIS' && !mapUiHidden && (
+      {mapStyle === 'MODIS' && !mapUiHidden && !isGlobe3D && (
         <div
           style={{
             position: 'absolute',
@@ -2760,7 +2830,10 @@ export const WorldMap = ({
             ].map(({ key, label }) => (
               <button
                 key={key}
-                onClick={() => setMapProjection(key)}
+                onClick={() => {
+                  projectionPersistBlockedRef.current = false;
+                  setMapProjection(key);
+                }}
                 style={{
                   background: mapProjection === key ? '#00ffcc' : 'transparent',
                   color: mapProjection === key ? '#000' : '#888',
@@ -2779,7 +2852,11 @@ export const WorldMap = ({
 
           {/* Style dropdown */}
           <select
-            value={mapStyle}
+            // The globe cannot build MODIS (its GIBS URL is generated
+            // dynamically by the 2D projections), so in 3D the option is
+            // hidden and a persisted MODIS choice displays as the dark
+            // fallback the globe actually renders — without persisting it.
+            value={isGlobe3D && mapStyle === 'MODIS' ? 'dark' : mapStyle}
             id="mapStyle"
             onChange={(e) => {
               setMapStyle(e.target.value);
@@ -2801,6 +2878,7 @@ export const WorldMap = ({
           >
             {Object.entries(MAP_STYLES)
               .filter(([, style]) => !style.legacy)
+              .filter(([key]) => !(isGlobe3D && key === 'MODIS'))
               .map(([key, style]) => (
                 <option key={key} value={key}>
                   {style.name}

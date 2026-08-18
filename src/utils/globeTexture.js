@@ -42,8 +42,25 @@ function loadTile(url, signal) {
     }
     const img = new Image();
     img.crossOrigin = 'anonymous'; // required, or the canvas taints and WebGL upload fails
-    img.onload = () => resolve(img);
-    img.onerror = () => reject(new Error(`tile failed: ${url}`));
+
+    // Checking the signal only up front would let every in-flight download run
+    // to completion after an abort, competing with the next style's burst.
+    const onAbort = () => {
+      img.onload = null;
+      img.onerror = null;
+      img.src = ''; // cancels the in-flight request in every major browser
+      reject(new Error('aborted'));
+    };
+    signal?.addEventListener('abort', onAbort, { once: true });
+
+    img.onload = () => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve(img);
+    };
+    img.onerror = () => {
+      signal?.removeEventListener('abort', onAbort);
+      reject(new Error(`tile failed: ${url}`));
+    };
     img.src = url;
   });
 }

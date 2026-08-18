@@ -369,6 +369,11 @@ export default function Globe3D({
   // normalising stops that flip from rebuilding the entire WebGL scene.
   const lowMem = !!lowMemoryMode;
   const [panelWidth, setPanelWidth] = useState(0);
+  // WebGL construction failure, rethrown during render so WorldMap's error
+  // boundary can fall back to Mercator. Swallowing it here left the user on a
+  // dead "Loading globe" panel forever — wedged across reloads, since the
+  // projection choice is persisted.
+  const [initError, setInitError] = useState(null);
   // Satellite selection, shared with the Leaflet layer via sessionStorage.
   const [selectedSats, setSelectedSats] = useState(readSelectedSats);
   const toggleSatSelection = useCallback((name) => {
@@ -509,16 +514,24 @@ export default function Globe3D({
 
     if (showWSJTX && wsjtxSpots?.length) {
       wsjtxSpots.forEach((s) => {
-        if (!Number.isFinite(s.lat) || !Number.isFinite(s.lon)) return;
-        const band = normalizeBandKey(s.band) || bandFromAnyFrequency(s.freq);
+        const lat = parseFloat(s.lat);
+        const lon = parseFloat(s.lon);
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
+        // s.freq is the FT8 audio offset in Hz, not a dial frequency — band
+        // must come from dialFrequency, mirroring the Leaflet path.
+        const freqMHz = s.dialFrequency ? s.dialFrequency / 1e6 : 0;
+        const band = normalizeBandKey(s.band) || bandFromAnyFrequency(freqMHz);
         if (!bandPassesMapFilter(band)) return;
+        // CQ decodes carry the station in `caller`; QSO decodes name both
+        // sides, and the plotted station is whichever of them is not us.
+        const call = s.caller || (s.deCall === callsign ? s.dxCall : s.deCall) || 'WSJT-X';
         out.push({
-          lat: s.lat,
-          lon: s.lon,
+          lat,
+          lon,
           color: ACTIVITY_COLORS.wsjtx,
           size: 8,
           kind: 'WSJT-X',
-          label: s.dxCall || s.call || s.callsign || 'WSJT-X',
+          label: call,
           detail: [band, s.mode, s.snr != null ? `${s.snr} dB` : null].filter(Boolean).join(' · '),
           raw: s,
         });
@@ -542,6 +555,7 @@ export default function Globe3D({
     showPSKReporter,
     showWSJTX,
     bandPassesMapFilter,
+    callsign, // WSJT-X QSO decodes: which side gets plotted depends on our call
   ]);
 
   // Spotter → DX arcs, plus the DE → DX path.
@@ -602,6 +616,7 @@ export default function Globe3D({
       renderer = new THREE.WebGLRenderer({ antialias: !lowMem, alpha: true });
     } catch (e) {
       console.error('[Globe3D] WebGL unavailable:', e);
+      setInitError(e instanceof Error ? e : new Error('WebGL unavailable'));
       return undefined;
     }
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, lowMem ? 1 : 2));
@@ -792,6 +807,9 @@ export default function Globe3D({
 
   // ── Texture: rebuild when the map style changes ──────────
   useEffect(() => {
+    // No renderer (WebGL failed) means nobody to consume the texture — do not
+    // spend a full tile fetch on a scene that will never draw.
+    if (!gl.current.renderer) return undefined;
     const style = MAP_STYLES[tileStyle]?.url ? tileStyle : 'dark';
     const template = MAP_STYLES[style].url;
     if (!template) return undefined;
@@ -1022,7 +1040,8 @@ export default function Globe3D({
       }
     }
     // themeTick: DE/DX marker materials are built from CSS variables.
-  }, [markers, arcs, lat0, lon0, dxLocation, themeTick, showDeDxMarkers, isDarkBackdrop]);
+    // lowMem: scene rebuild — repopulate the fresh overlay group.
+  }, [markers, arcs, lat0, lon0, dxLocation, themeTick, showDeDxMarkers, isDarkBackdrop, lowMem]);
 
   // ── Satellites ───────────────────────────────────────────
   // Rendered from the same position/track data the Leaflet layer consumes, so
@@ -1197,7 +1216,8 @@ export default function Globe3D({
         );
       }
     });
-  }, [satellites, satellitesEnabled, selectedSats, themeTick, isDarkBackdrop]);
+    // lowMem: scene rebuild — repopulate the fresh satellite group.
+  }, [satellites, satellitesEnabled, selectedSats, themeTick, isDarkBackdrop, lowMem]);
 
   // ── Pointer interaction: hover tooltip + click ───────────
   useEffect(() => {
@@ -1209,6 +1229,16 @@ export default function Globe3D({
       const rect = el.getBoundingClientRect();
       s.pointer.set(((ev.clientX - rect.left) / rect.width) * 2 - 1, -((ev.clientY - rect.top) / rect.height) * 2 + 1);
       return rect;
+    };
+
+    // Dots render at a constant pixel size, so a fixed world-space pick radius
+    // is wrong at both ends of the zoom range: a few px zoomed out (visible
+    // dots unclickable, clicks fall through and retarget DX), tens of px
+    // zoomed in (grabs neighbours). Recompute per event from the pixel size.
+    const setPickRadius = () => {
+      const h = el.clientHeight || 1;
+      const worldPerPixel = (2 * s.camera.position.length() * Math.tan((s.camera.fov * Math.PI) / 360)) / h;
+      s.raycaster.params.Points.threshold = 7 * worldPerPixel;
     };
 
     // Distinguish a click from the tail of an orbit drag.
@@ -1223,12 +1253,20 @@ export default function Globe3D({
       kickIdleTimer();
       const rect = toPointer(ev);
       s.raycaster.setFromCamera(s.pointer, s.camera);
+      setPickRadius();
+
+      // Anything farther than the sphere's surface is on the far side of the
+      // globe — without this cut, hidden markers steal hovers and clicks
+      // straight through the planet.
+      const earthHits = s.raycaster.intersectObject(s.earth, false);
+      const horizon = (earthHits.length ? earthHits[0].distance : Infinity) + 1e-4;
+      const nearest = (hits) => hits.find((h) => h.distance <= horizon);
 
       // Satellites sit above the surface, so test them before the spot cloud.
       const satsObj = s.satGroup?.children.find((c) => c.name === 'sats');
-      const satHits = satsObj ? s.raycaster.intersectObject(satsObj, false) : [];
-      if (satHits.length && s.satData?.[satHits[0].index]) {
-        const sat = s.satData[satHits[0].index];
+      const satHit = nearest(satsObj ? s.raycaster.intersectObject(satsObj, false) : []);
+      if (satHit && s.satData?.[satHit.index]) {
+        const sat = s.satData[satHit.index];
         el.style.cursor = 'pointer';
         setTooltip({
           x: ev.clientX - rect.left,
@@ -1248,10 +1286,10 @@ export default function Globe3D({
       }
 
       const spots = s.overlayGroup?.children.find((c) => c.name === 'spots');
-      const hits = spots ? s.raycaster.intersectObject(spots, false) : [];
+      const spotHit = nearest(spots ? s.raycaster.intersectObject(spots, false) : []);
 
-      if (hits.length && s.markerData[hits[0].index]) {
-        const m = s.markerData[hits[0].index];
+      if (spotHit && s.markerData[spotHit.index]) {
+        const m = s.markerData[spotHit.index];
         el.style.cursor = 'pointer';
         setTooltip({
           x: ev.clientX - rect.left,
@@ -1278,27 +1316,33 @@ export default function Globe3D({
 
       toPointer(ev);
       s.raycaster.setFromCamera(s.pointer, s.camera);
+      setPickRadius();
+
+      // Far-side cut, mirroring the hover path: only accept hits in front of
+      // the sphere's surface.
+      const earthHits = s.raycaster.intersectObject(s.earth, false);
+      const horizon = (earthHits.length ? earthHits[0].distance : Infinity) + 1e-4;
+      const nearest = (hits) => hits.find((h) => h.distance <= horizon);
 
       // Clicking a satellite toggles its selection (footprint + bright track),
       // the same gesture as the Leaflet layer — it does not set DX.
       const satsObj = s.satGroup?.children.find((c) => c.name === 'sats');
-      const satHits = satsObj ? s.raycaster.intersectObject(satsObj, false) : [];
-      if (satHits.length && s.satData?.[satHits[0].index]) {
-        toggleSatSelection(s.satData[satHits[0].index].name);
+      const satHit = nearest(satsObj ? s.raycaster.intersectObject(satsObj, false) : []);
+      if (satHit && s.satData?.[satHit.index]) {
+        toggleSatSelection(s.satData[satHit.index].name);
         return;
       }
 
       // A spot under the cursor wins over the globe surface.
       const spots = s.overlayGroup?.children.find((c) => c.name === 'spots');
-      const spotHits = spots ? s.raycaster.intersectObject(spots, false) : [];
-      if (spotHits.length && s.markerData[spotHits[0].index]) {
-        const m = s.markerData[spotHits[0].index];
+      const spotHit = nearest(spots ? s.raycaster.intersectObject(spots, false) : []);
+      if (spotHit && s.markerData[spotHit.index]) {
+        const m = s.markerData[spotHit.index];
         if (onSpotClick) onSpotClick(m.raw);
         else if (onDXChange && !dxLocked) onDXChange({ lat: m.lat, lon: m.lon });
         return;
       }
 
-      const earthHits = s.raycaster.intersectObject(s.earth, false);
       if (earthHits.length && onDXChange && !dxLocked) {
         const { lat, lon } = vec3ToLatLon(earthHits[0].point);
         onDXChange({ lat, lon });
@@ -1322,7 +1366,8 @@ export default function Globe3D({
       el.removeEventListener('pointerup', onUp);
       el.removeEventListener('pointerleave', onLeave);
     };
-  }, [onDXChange, dxLocked, onSpotClick, markers, toggleSatSelection, kickIdleTimer]);
+    // lowMem: scene rebuild — rebind the pointer handlers to the new canvas.
+  }, [onDXChange, dxLocked, onSpotClick, markers, toggleSatSelection, kickIdleTimer, lowMem]);
 
   // ── View helpers ─────────────────────────────────────────
   const centerOn = useCallback((lat, lon) => {
@@ -1366,6 +1411,9 @@ export default function Globe3D({
   // a flex-item icon down to ~5px wide. Refusing to shrink keeps the icon at
   // its real size; it simply overflows into the padding, still centred.
   const iconStyle = { flexShrink: 0 };
+
+  // Thrown during render (not in the effect) so the boundary above catches it.
+  if (initError) throw initError;
 
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
