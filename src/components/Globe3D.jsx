@@ -550,7 +550,9 @@ export default function Globe3D({
       });
     }
 
-    if (Number.isFinite(dxLocation?.lat) && Number.isFinite(dxLocation?.lon)) {
+    // The DE→DX arc exists to connect the two station markers, so it hides
+    // with them — unlike the cluster paths, which have their own toggle.
+    if (showDeDxMarkers && Number.isFinite(dxLocation?.lat) && Number.isFinite(dxLocation?.lon)) {
       out.push({
         from: [lat0, lon0],
         to: [dxLocation.lat, dxLocation.lon],
@@ -561,7 +563,7 @@ export default function Globe3D({
 
     return out;
     // themeTick: the DE→DX arc colour is read from a CSS variable.
-  }, [dxPaths, showDXPaths, bandPassesMapFilter, dxLocation, lat0, lon0, themeTick]);
+  }, [dxPaths, showDXPaths, bandPassesMapFilter, dxLocation, lat0, lon0, themeTick, showDeDxMarkers]);
 
   // ── Scene setup (once) ───────────────────────────────────
   useEffect(() => {
