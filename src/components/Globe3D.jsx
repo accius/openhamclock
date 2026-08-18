@@ -24,6 +24,9 @@ import { IconRefresh, IconQth } from './Icons.jsx';
 const DEG = Math.PI / 180;
 const EARTH_R = 1;
 const DEFAULT_CAM_DISTANCE = 3.2;
+// Altitude of every overlay above the sphere, as a multiple of EARTH_R.
+// Markers and arc endpoints share it so arcs start exactly at the dot.
+const MARKER_ALT = 1.012;
 // Below this panel width WorldMap's projection toggle wraps across the top of
 // the map, so the globe's own controls have to move out from under it.
 const NARROW_PANEL_PX = 480;
@@ -59,7 +62,7 @@ function greatCircleArc(lat1, lon1, lat2, lon2, segments = 64) {
   const angle = a.angleTo(b);
   const pts = [];
 
-  if (angle < 1e-6) return [a.clone().multiplyScalar(EARTH_R * 1.002)];
+  if (angle < 1e-6) return [a.clone().multiplyScalar(EARTH_R * MARKER_ALT)];
 
   // Matches the QSO plotter's profile: a floor so short hops still stand off
   // the surface, ramping to a high arc by ~18000 km.
@@ -72,7 +75,7 @@ function greatCircleArc(lat1, lon1, lat2, lon2, segments = 64) {
     const w1 = Math.sin((1 - t) * angle) / sinAngle;
     const w2 = Math.sin(t * angle) / sinAngle;
     const p = new THREE.Vector3(a.x * w1 + b.x * w2, a.y * w1 + b.y * w2, a.z * w1 + b.z * w2);
-    p.normalize().multiplyScalar(EARTH_R * (1 + lift * Math.sin(t * Math.PI)));
+    p.normalize().multiplyScalar(EARTH_R * (MARKER_ALT + lift * Math.sin(t * Math.PI)));
     pts.push(p);
   }
   return pts;
@@ -792,7 +795,7 @@ export default function Globe3D({
       const c = new THREE.Color();
 
       markers.forEach((m, i) => {
-        latLonToVec3(m.lat, m.lon, EARTH_R * 1.012, v);
+        latLonToVec3(m.lat, m.lon, EARTH_R * MARKER_ALT, v);
         positions[i * 3] = v.x;
         positions[i * 3 + 1] = v.y;
         positions[i * 3 + 2] = v.z;
@@ -897,7 +900,7 @@ export default function Globe3D({
     s.stationMarkers = [];
     if (showDeDxMarkers) {
       // DE marker — station QTH.
-      const deVec = latLonToVec3(lat0, lon0, EARTH_R * 1.012);
+      const deVec = latLonToVec3(lat0, lon0, EARTH_R * MARKER_ALT);
       const deDot = new THREE.Mesh(
         new THREE.SphereGeometry(0.018, 16, 12),
         new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-blue', '#4488ff') }),
@@ -922,7 +925,7 @@ export default function Globe3D({
 
       // DX marker — current target.
       if (Number.isFinite(dxLocation?.lat) && Number.isFinite(dxLocation?.lon)) {
-        const dxVec = latLonToVec3(dxLocation.lat, dxLocation.lon, EARTH_R * 1.012);
+        const dxVec = latLonToVec3(dxLocation.lat, dxLocation.lon, EARTH_R * MARKER_ALT);
         const dxRing = new THREE.Mesh(
           new THREE.RingGeometry(0.032, 0.045, 32),
           new THREE.MeshBasicMaterial({ color: cssVarColor('--accent-cyan', '#00ddff'), side: THREE.DoubleSide }),
