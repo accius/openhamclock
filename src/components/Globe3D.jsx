@@ -20,6 +20,7 @@ import { buildGlobeTexture, chooseGlobeTileZoom } from '../utils/globeTexture.js
 // Project icon set — exists because bare glyphs/emoji render inconsistently
 // (or as tofu) depending on the platform's font coverage.
 import { IconRefresh } from './Icons.jsx';
+import SatelliteInfoPanel from './SatelliteInfoPanel.jsx';
 
 const DEG = Math.PI / 180;
 const EARTH_R = 1;
@@ -326,6 +327,7 @@ export default function Globe3D({
   showDeDxMarkers = true,
   satellites,
   satellitesEnabled = true,
+  allUnits = { dist: 'imperial' },
   hideUi = false,
   tileStyle = 'dark',
   lowMemoryMode = false,
@@ -376,6 +378,12 @@ export default function Globe3D({
   const [initError, setInitError] = useState(null);
   // Satellite selection, shared with the Leaflet layer via sessionStorage.
   const [selectedSats, setSelectedSats] = useState(readSelectedSats);
+  const clearSatSelection = useCallback(() => {
+    setSelectedSats([]);
+    try {
+      sessionStorage.setItem(SAT_SELECTED_KEY, JSON.stringify([]));
+    } catch {}
+  }, []);
   const toggleSatSelection = useCallback((name) => {
     setSelectedSats((prev) => {
       const next = prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name];
@@ -1550,6 +1558,16 @@ export default function Globe3D({
             </div>
           )}
         </div>
+      )}
+
+      {satellitesEnabled && !hideUi && (
+        <SatelliteInfoPanel
+          satellites={satellites}
+          selected={selectedSats}
+          allUnits={allUnits}
+          onDeselect={toggleSatSelection}
+          onClearAll={clearSatSelection}
+        />
       )}
 
       {/* Hover tooltip */}

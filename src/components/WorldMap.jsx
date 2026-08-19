@@ -2514,6 +2514,7 @@ export const WorldMap = ({
               showDeDxMarkers={showDeDxMarkers}
               satellites={satellites}
               satellitesEnabled={pluginLayerStates.satellites?.enabled ?? true}
+              allUnits={allUnits}
               hideUi={mapUiHidden}
               tileStyle={mapStyle}
               lowMemoryMode={lowMemoryMode}
