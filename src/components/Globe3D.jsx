@@ -856,6 +856,8 @@ export default function Globe3D({
   }, [tileStyle, lowMem]);
 
   // ── Terminator: track the subsolar point ─────────────────
+  // Depends on lowMem because a scene rebuild loses s.sunWorld, which would
+  // otherwise leave the terminator misplaced until the next 60 s tick.
   useEffect(() => {
     const update = () => {
       const s = gl.current;
@@ -866,7 +868,7 @@ export default function Globe3D({
     update();
     const id = setInterval(update, 60_000);
     return () => clearInterval(id);
-  }, []);
+  }, [lowMem]);
 
   // ── Markers + arcs ───────────────────────────────────────
   useEffect(() => {

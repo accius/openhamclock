@@ -115,7 +115,10 @@ export async function buildGlobeTexture({ tileUrlTemplate, tileZoom = 3, lang, b
         const img = await loadTile(url, signal);
         if (!signal?.aborted) mctx.drawImage(img, tx * 256, ty * 256, 256, 256);
       } catch {
-        // Missing tile — the base fill already covers it.
+        // Missing tile — the base fill already covers it. An abort, though,
+        // means a newer run owns the progress bar now: reporting here would
+        // overwrite its 0% and make the bar jump backwards.
+        if (signal?.aborted) return;
       }
       loaded++;
       if (onProgress) onProgress(loaded / total);

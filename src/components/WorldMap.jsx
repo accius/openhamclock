@@ -613,7 +613,13 @@ export const WorldMap = ({
   // The Leaflet path applies mode/continent/watchlist filters at render time;
   // the globe consumes paths as data, so hand it the already-filtered list or
   // those filters silently stop working in 3D.
-  const globeDxPaths = useMemo(() => filterDXPaths(dxPaths, dxFilters), [dxPaths, dxFilters]);
+  const globeDxPaths = useMemo(
+    () =>
+      // filterDXPaths covers mode/continent/watchlist; the Leaflet path also
+      // drops entries with no dxCall at render time, so match that here.
+      filterDXPaths(dxPaths, dxFilters).filter((p) => String(p?.dxCall || '').trim()),
+    [dxPaths, dxFilters],
+  );
   // Enabled plugin layers the globe cannot draw (everything Leaflet-bound
   // except satellites, which 3D renders natively). Used for a visible note so
   // toggling e.g. Lightning in Settings does not look like a silent no-op.
@@ -666,10 +672,10 @@ export const WorldMap = ({
 
         try {
           const stored = JSON.parse(localStorage.getItem('openhamclock_mapSettings') || '{}');
-          localStorage.setItem(
-            'openhamclock_mapSettings',
-            JSON.stringify({ ...stored, mapStyle: nextStyle, mapProjection }),
-          );
+          // Only mapStyle belongs to the rotator. Writing mapProjection here
+          // would bypass projectionPersistBlockedRef and discard a saved 3D
+          // preference after a fallback — the save effect owns that key.
+          localStorage.setItem('openhamclock_mapSettings', JSON.stringify({ ...stored, mapStyle: nextStyle }));
         } catch {}
 
         return nextStyle;
@@ -682,7 +688,6 @@ export const WorldMap = ({
     mapRotationConfig.intervalSeconds,
     mapRotationConfig.selectedIds,
     availableBaseMapIds,
-    mapProjection,
     isGlobe3D,
   ]);
 
@@ -2552,7 +2557,10 @@ export const WorldMap = ({
             fontSize: '10px',
             fontFamily: 'var(--font-mono)',
             color: 'var(--text-muted)',
-            pointerEvents: 'none',
+            // No pointerEvents: 'none' — the browser will not show a title
+            // tooltip on an element the cursor cannot hit, and the layer names
+            // live in that tooltip.
+            cursor: 'help',
           }}
         >
           {suppressed2DLayers.length} map layer{suppressed2DLayers.length !== 1 ? 's' : ''} 2D-only — shown on
@@ -2831,8 +2839,23 @@ export const WorldMap = ({
               <button
                 key={key}
                 onClick={() => {
+                  const wasBlocked = projectionPersistBlockedRef.current;
                   projectionPersistBlockedRef.current = false;
                   setMapProjection(key);
+                  // Re-selecting the projection the session already fell back
+                  // to is a no-op state change, so the save effect never runs
+                  // and the cleared block would not persist. Write it here.
+                  if (wasBlocked && key === mapProjection) {
+                    try {
+                      const existing = getStoredMapSettings();
+                      localStorage.setItem(
+                        'openhamclock_mapSettings',
+                        JSON.stringify({ ...existing, mapProjection: key }),
+                      );
+                    } catch (e) {
+                      console.error('Failed to save map settings:', e);
+                    }
+                  }
                 }}
                 style={{
                   background: mapProjection === key ? '#00ffcc' : 'transparent',
@@ -2853,10 +2876,10 @@ export const WorldMap = ({
           {/* Style dropdown */}
           <select
             // The globe cannot build MODIS (its GIBS URL is generated
-            // dynamically by the 2D projections), so in 3D the option is
-            // hidden and a persisted MODIS choice displays as the dark
-            // fallback the globe actually renders — without persisting it.
-            value={isGlobe3D && mapStyle === 'MODIS' ? 'dark' : mapStyle}
+            // dynamically by the 2D projections). The option stays present but
+            // disabled in 3D: aliasing the controlled value to 'dark' instead
+            // made picking Dark a no-op, since the DOM value never changed.
+            value={mapStyle}
             id="mapStyle"
             onChange={(e) => {
               setMapStyle(e.target.value);
@@ -2878,10 +2901,10 @@ export const WorldMap = ({
           >
             {Object.entries(MAP_STYLES)
               .filter(([, style]) => !style.legacy)
-              .filter(([key]) => !(isGlobe3D && key === 'MODIS'))
               .map(([key, style]) => (
-                <option key={key} value={key}>
+                <option key={key} value={key} disabled={isGlobe3D && key === 'MODIS'}>
                   {style.name}
+                  {isGlobe3D && key === 'MODIS' ? ' (2D only)' : ''}
                 </option>
               ))}
           </select>
