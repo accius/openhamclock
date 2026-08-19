@@ -2515,6 +2515,7 @@ export const WorldMap = ({
               satellites={satellites}
               satellitesEnabled={pluginLayerStates.satellites?.enabled ?? true}
               allUnits={allUnits}
+              config={config}
               hideUi={mapUiHidden}
               tileStyle={mapStyle}
               lowMemoryMode={lowMemoryMode}

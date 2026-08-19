@@ -328,6 +328,7 @@ export default function Globe3D({
   satellites,
   satellitesEnabled = true,
   allUnits = { dist: 'imperial' },
+  config,
   hideUi = false,
   tileStyle = 'dark',
   lowMemoryMode = false,
@@ -1565,6 +1566,7 @@ export default function Globe3D({
           satellites={satellites}
           selected={selectedSats}
           allUnits={allUnits}
+          config={config}
           onDeselect={toggleSatSelection}
           onClearAll={clearSatSelection}
         />

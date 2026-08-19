@@ -10,6 +10,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { deriveSatelliteTelemetry } from '../utils/satelliteTelemetry.js';
+import { openSatellitePredict } from '../utils/satellitePredict.js';
 
 const rowStyle = (bg, fg) => ({
   background: bg,
@@ -31,7 +32,7 @@ function Row({ label, value, bg, fg }) {
   );
 }
 
-export default function SatelliteInfoPanel({ satellites, selected, allUnits, onDeselect, onClearAll }) {
+export default function SatelliteInfoPanel({ satellites, selected, allUnits, config, onDeselect, onClearAll }) {
   const { t } = useTranslation();
   const [minimized, setMinimized] = useState(false);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -67,9 +68,11 @@ export default function SatelliteInfoPanel({ satellites, selected, allUnits, onD
 
   if (!active.length) return null;
 
+  // Called directly rather than through window.openSatellitePredict: that
+  // global is registered by the Leaflet satellite layer, which never mounts in
+  // 3D, so going via it made this button a no-op.
   const openPredict = (name, omm) => {
-    // Provided globally by the satellite plugin; absent if that layer never mounted.
-    if (name && omm && window.openSatellitePredict) window.openSatellitePredict(name, omm);
+    if (name && omm) openSatellitePredict({ satName: name, omm, satellites, config, t });
   };
 
   return (
