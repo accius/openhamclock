@@ -15,6 +15,7 @@ import { MAP_STYLES } from '../utils/config.js';
 import { createTileReprojector } from '../utils/tileReproject.js';
 import { createAzimuthalCRS } from '../utils/azimuthalCRS.js';
 import { matchesDXSpotPath } from '../utils/dxClusterSpotMatcher';
+import { ACTIVITY_COLORS } from '../utils/activityColors.js';
 
 // ── Projection Math ────────────────────────────────────────
 const DEG = Math.PI / 180;
@@ -708,7 +709,7 @@ export default function AzimuthalMap({
         ctx.lineTo(p.x - 5, p.y + 4);
         ctx.lineTo(p.x + 5, p.y + 4);
         ctx.closePath();
-        ctx.fillStyle = '#44cc44';
+        ctx.fillStyle = ACTIVITY_COLORS.pota;
         ctx.fill();
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 0.5;
@@ -729,7 +730,7 @@ export default function AzimuthalMap({
         ctx.lineTo(p.x - 5, p.y - 4);
         ctx.lineTo(p.x + 5, p.y - 4);
         ctx.closePath();
-        ctx.fillStyle = '#a3f3a3';
+        ctx.fillStyle = ACTIVITY_COLORS.wwff;
         ctx.fill();
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 0.5;
@@ -748,7 +749,7 @@ export default function AzimuthalMap({
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(Math.PI / 4);
-        ctx.fillStyle = '#ff9632';
+        ctx.fillStyle = ACTIVITY_COLORS.sota;
         ctx.fillRect(-4, -4, 8, 8);
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 0.5;
@@ -765,10 +766,10 @@ export default function AzimuthalMap({
         if (!bandPassesMapFilter(band)) return;
 
         const p = toCanvas(spot.lat, spot.lon);
-        // Blue circle for WWBOTA
+        // WWBOTA circle — shared palette; this was #4488ff, the DE marker's blue
         ctx.beginPath();
         ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
-        ctx.fillStyle = '#4488ff';
+        ctx.fillStyle = ACTIVITY_COLORS.wwbota;
         ctx.fill();
         ctx.strokeStyle = '#000';
         ctx.lineWidth = 0.5;

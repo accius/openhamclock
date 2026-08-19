@@ -17,6 +17,7 @@ import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
 import { getSunPosition } from '../utils/geo.js';
 import { MAP_STYLES } from '../utils/config.js';
 import { buildGlobeTexture, chooseGlobeTileZoom } from '../utils/globeTexture.js';
+import { ACTIVITY_COLORS } from '../utils/activityColors.js';
 // Project icon set — exists because bare glyphs/emoji render inconsistently
 // (or as tofu) depending on the platform's font coverage.
 import { IconRefresh } from './Icons.jsx';
@@ -153,19 +154,11 @@ function cssVarColor(name, fallback) {
 }
 
 /**
- * Activity-type marker palette.
- *
- * Deliberately not themed: these identify what a spot *is*, and a POTA marker
- * has to read identically in Flat, Azimuthal and 3D. WorldMap and AzimuthalMap
- * use these same values, so re-theming them here would desynchronise the
- * projections. Band colours are centralised in bandColors.js for the same
- * reason. Station accents (DE/DX) and all UI chrome do follow the theme.
+ * Globe-only marker colours. The activity programmes (POTA/WWFF/SOTA/WWBOTA)
+ * come from the shared palette so the globe cannot drift from the panels and
+ * the other projections again; these are the ones only this view draws.
  */
-const ACTIVITY_COLORS = {
-  pota: '#44cc44',
-  wwff: '#22bb88',
-  sota: '#ddaa33',
-  wwbota: '#cc66dd',
+const GLOBE_COLORS = {
   pskRx: '#ff44aa',
   pskTx: '#aa66ff',
   wsjtx: '#00ddff',
@@ -335,7 +328,11 @@ export default function Globe3D({
   nightDarkness = 60,
   onNightDarknessChange,
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  // Basemap label language, resolved the way AzimuthalMap does it. Without
+  // this, {lang} templates fell through to the builder's 'en' default and
+  // non-English operators got English labels only in 3D.
+  const mapLang = i18n.language?.split('-')[0] || 'en';
   const containerRef = useRef(null);
   const gl = useRef({}); // three.js objects, kept off React state
   // Mirrors the nightDarkness prop so a scene rebuild seeds the shader uniform
@@ -486,7 +483,7 @@ export default function Globe3D({
         out.push({
           lat: p.dxLat,
           lon: p.dxLon,
-          color: getBandColor(parseFloat(p.freq)) || ACTIVITY_COLORS.bandFallback,
+          color: getBandColor(parseFloat(p.freq)) || GLOBE_COLORS.bandFallback,
           size: 9,
           kind: 'DX',
           label: p.dxCall || p.callsign || 'DX',
@@ -511,7 +508,7 @@ export default function Globe3D({
         out.push({
           lat,
           lon,
-          color: isRx ? ACTIVITY_COLORS.pskRx : ACTIVITY_COLORS.pskTx,
+          color: isRx ? GLOBE_COLORS.pskRx : GLOBE_COLORS.pskTx,
           size: 7,
           kind: isRx ? 'PSK RX' : 'PSK TX',
           label: (isRx ? s.sender : s.receiver || s.sender) || 'PSK',
@@ -537,7 +534,7 @@ export default function Globe3D({
         out.push({
           lat,
           lon,
-          color: ACTIVITY_COLORS.wsjtx,
+          color: GLOBE_COLORS.wsjtx,
           size: 8,
           kind: 'WSJT-X',
           label: call,
@@ -580,7 +577,7 @@ export default function Globe3D({
         out.push({
           from: [p.spotterLat, p.spotterLon],
           to: [p.dxLat, p.dxLon],
-          color: getBandColor(parseFloat(p.freq)) || ACTIVITY_COLORS.bandFallback,
+          color: getBandColor(parseFloat(p.freq)) || GLOBE_COLORS.bandFallback,
           opacity: 0.62,
         });
       });
@@ -830,6 +827,7 @@ export default function Globe3D({
     buildGlobeTexture({
       tileUrlTemplate: template,
       tileZoom: chooseGlobeTileZoom({ lowMemory: lowMem, pixelRatio: window.devicePixelRatio || 1 }),
+      lang: mapLang,
       // Countries ships transparent overlay tiles; flat mode paints this same
       // blue behind them via the map div's background.
       baseColor: MAP_STYLES[style].countriesOverlay ? '#4a90d9' : undefined,
@@ -862,7 +860,7 @@ export default function Globe3D({
       });
 
     return () => ac.abort();
-  }, [tileStyle, lowMem]);
+  }, [tileStyle, lowMem, mapLang]);
 
   // ── Terminator: track the subsolar point ─────────────────
   // Depends on lowMem because a scene rebuild loses s.sunWorld, which would
@@ -1127,6 +1125,10 @@ export default function Globe3D({
           vec4 t = texture2D(uTex, gl_PointCoord);
           if (t.a < 0.5) discard;
           gl_FragColor = vec4(vColor, t.a);
+        // Same transform the spot-dot shader this was copied from applies:
+        // THREE.Color.set() yields linear values, so without it satellite
+        // dots render in a different colour space from the rest.
+        #include <colorspace_fragment>
         }
       `,
       transparent: true,
