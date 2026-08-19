@@ -352,7 +352,10 @@ export default function Globe3D({
     if (!autoRotateEnabledRef.current) return;
     idleTimerRef.current = setTimeout(() => {
       const s2 = gl.current;
-      if (s2.controls && autoRotateEnabledRef.current) s2.controls.autoRotate = true;
+      if (s2.controls && autoRotateEnabledRef.current) {
+        s2.controls.autoRotate = true;
+        s2.requestRender?.(); // loop is parked by now; nudge it back to life
+      }
     }, AUTOROTATE_IDLE_MS);
   }, []);
   const [textureLoading, setTextureLoading] = useState(true);
@@ -710,6 +713,7 @@ export default function Globe3D({
     const pointer = new THREE.Vector2();
 
     gl.current = {
+      needsRender: true, // first paint
       scene,
       camera,
       renderer,
@@ -727,13 +731,33 @@ export default function Globe3D({
       disposables: [],
     };
 
-    // ── Render loop ────────────────────────────────────────
+    // ── Render loop (on demand) ────────────────────────────
+    // A still globe used to redraw 60 times a second to produce identical
+    // pixels — real heat on Pi-class hardware. The loop now runs only while
+    // something is actually changing and parks itself when nothing is.
+    //
+    // controls.update() reports whether it moved the camera, which covers both
+    // the damping tail after a drag and auto-rotate, so neither needs a special
+    // case. Everything else that mutates the scene calls requestRender().
     let raf = 0;
-    const tick = () => {
-      raf = requestAnimationFrame(tick);
+    let running = false;
+
+    const renderFrame = () => {
       const s = gl.current;
-      if (!s.renderer) return;
-      s.controls.update();
+      if (!s.renderer) {
+        running = false;
+        return;
+      }
+      const moved = s.controls.update();
+      // Never park while auto-rotating. update() reports movement below its own
+      // epsilon as "no change", and parking on such a frame would be terminal:
+      // the event that would wake us comes from the very update that no longer
+      // runs, so the globe would silently stop mid-spin.
+      if (!moved && !s.needsRender && !s.controls.autoRotate) {
+        running = false; // idle — stop until something invalidates
+        return;
+      }
+      s.needsRender = false;
       // Counter-scale the station markers so they hold a constant apparent
       // size, matching the spot dots instead of swelling as you zoom in.
       if (s.stationMarkers?.length) {
@@ -745,8 +769,26 @@ export default function Globe3D({
         s.earthMat.uniforms.uSunDir.value.copy(s.sunWorld).transformDirection(s.camera.matrixWorldInverse);
       }
       s.renderer.render(s.scene, s.camera);
+      raf = requestAnimationFrame(renderFrame);
     };
-    tick();
+
+    const requestRender = () => {
+      const g = gl.current;
+      if (!g.renderer) return;
+      g.needsRender = true;
+      if (!running) {
+        running = true;
+        raf = requestAnimationFrame(renderFrame);
+      }
+    };
+
+    // Published on the handle now that it exists — the handle is built above,
+    // before this closure, so it cannot go in the object literal.
+    gl.current.requestRender = requestRender;
+
+    // OrbitControls fires 'change' for drags, wheel zoom and each damping step,
+    // which is what restarts the loop after it has parked.
+    controls.addEventListener('change', requestRender);
 
     // ── Resize ─────────────────────────────────────────────
     const ro = new ResizeObserver(() => {
@@ -756,11 +798,14 @@ export default function Globe3D({
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       renderer.setSize(w, h);
+      requestRender();
       // On a narrow panel WorldMap's projection toggle spans the full width and
       // would sit on top of our control column, so the column drops below it.
       setPanelWidth(w);
     });
     ro.observe(container);
+
+    requestRender(); // first paint
 
     // A fresh scene starts still; the screensaver clock decides when it turns.
     kickIdleTimer();
@@ -794,6 +839,7 @@ export default function Globe3D({
     const s = gl.current;
     if (!s.earthMat) return;
     s.earthMat.uniforms.uNightDarkness.value = THREE.MathUtils.clamp(nightDarkness / 100, 0, 1);
+    s.requestRender?.();
   }, [nightDarkness]);
 
   // ── Starfield / atmosphere follow the backdrop ───────────
@@ -801,6 +847,7 @@ export default function Globe3D({
     const s = gl.current;
     if (s.stars) s.stars.visible = isDarkBackdrop;
     if (s.atmosphere) s.atmosphere.visible = isDarkBackdrop;
+    s.requestRender?.();
   }, [isDarkBackdrop]);
 
   // ── Auto-rotate toggle ───────────────────────────────────
@@ -852,6 +899,7 @@ export default function Globe3D({
         // leaving anything that bright untouched — the clamp floor of 1 means
         // this only ever brightens.
         s.earthMat.uniforms.uBrightness.value = THREE.MathUtils.clamp(0.3 / Math.max(meanLuma, 0.001), 1, 4);
+        s.requestRender?.();
         setTextureLoading(false);
       })
       .catch((e) => {
@@ -873,6 +921,7 @@ export default function Globe3D({
       if (!s.earthMat) return;
       const sun = getSunPosition(new Date());
       s.sunWorld = latLonToVec3(sun.lat, sun.lon, 1).normalize();
+      s.requestRender?.(); // the sun moves on a timer, not on input
     };
     update();
     const id = setInterval(update, 60_000);
@@ -1052,6 +1101,8 @@ export default function Globe3D({
     }
     // themeTick: DE/DX marker materials are built from CSS variables.
     // lowMem: scene rebuild — repopulate the fresh overlay group.
+    s.requestRender?.();
+    // lowMem: scene rebuild — repopulate the fresh overlay group.
   }, [markers, arcs, lat0, lon0, dxLocation, themeTick, showDeDxMarkers, isDarkBackdrop, lowMem]);
 
   // ── Satellites ───────────────────────────────────────────
@@ -1228,6 +1279,7 @@ export default function Globe3D({
       }
     });
     // lowMem: scene rebuild — repopulate the fresh satellite group.
+    s.requestRender?.();
   }, [satellites, satellitesEnabled, selectedSats, themeTick, isDarkBackdrop, lowMem]);
 
   // ── Pointer interaction: hover tooltip + click ───────────
@@ -1387,6 +1439,7 @@ export default function Globe3D({
     const dist = s.camera.position.length();
     latLonToVec3(lat, lon, dist, s.camera.position);
     s.controls.update();
+    s.requestRender?.();
   }, []);
 
   // deLocation first arrives as the config default (N0CALL @ 41.5, -73) and is
@@ -1398,6 +1451,7 @@ export default function Globe3D({
     if (!s.camera || !s.controls || !hasDE || userMovedRef.current) return;
     latLonToVec3(lat0, lon0, DEFAULT_CAM_DISTANCE, s.camera.position);
     s.controls.update();
+    s.requestRender?.();
   }, [hasDE, lat0, lon0]);
 
   const btnStyle = {
