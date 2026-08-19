@@ -327,6 +327,7 @@ export default function Globe3D({
   showDeDxMarkers = true,
   satellites,
   satellitesEnabled = true,
+  suppressedLayers = [],
   allUnits = { dist: 'imperial' },
   config,
   hideUi = false,
@@ -1532,6 +1533,26 @@ export default function Globe3D({
                   transform: 'rotate(180deg)',
                 }}
               />
+            </div>
+          )}
+
+          {suppressedLayers.length > 0 && (
+            <div
+              title={suppressedLayers.join(', ')}
+              style={{
+                marginTop: '4px',
+                color: 'var(--text-muted)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '10px',
+                background: 'var(--bg-panel)',
+                border: '1px solid var(--border-color)',
+                padding: '3px 8px',
+                borderRadius: '4px',
+                whiteSpace: 'nowrap',
+                cursor: 'help',
+              }}
+            >
+              {suppressedLayers.length} map layer{suppressedLayers.length !== 1 ? 's' : ''} 2D-only
             </div>
           )}
 

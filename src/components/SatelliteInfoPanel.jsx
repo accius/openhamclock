@@ -41,30 +41,38 @@ export default function SatelliteInfoPanel({ satellites, selected, allUnits, con
   const active = (satellites || []).filter((s) => selected.includes(s.name));
 
   // Drag by the title bar, matching the Leaflet window's affordance.
+  // The window-level listeners are bound on pointerdown and released on
+  // pointerup, so nothing is attached while the panel is merely open — the
+  // previous version registered them on mount, above the early return, so they
+  // stayed bound even with no satellite selected.
   const onPointerDown = useCallback(
     (ev) => {
       ev.preventDefault();
-      dragRef.current = { startX: ev.clientX, startY: ev.clientY, baseX: offset.x, baseY: offset.y };
+      const start = { startX: ev.clientX, startY: ev.clientY, baseX: offset.x, baseY: offset.y };
+
+      const onMove = (e) => {
+        setOffset({ x: start.baseX + (e.clientX - start.startX), y: start.baseY + (e.clientY - start.startY) });
+      };
+      const onUp = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onUp);
+        dragRef.current = null;
+      };
+
+      dragRef.current = { onMove, onUp };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
     },
     [offset],
   );
 
-  useEffect(() => {
-    const onMove = (ev) => {
-      if (!dragRef.current) return;
-      const d = dragRef.current;
-      setOffset({ x: d.baseX + (ev.clientX - d.startX), y: d.baseY + (ev.clientY - d.startY) });
-    };
-    const onUp = () => {
-      dragRef.current = null;
-    };
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-    return () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    };
-  }, []);
+  // Unmounting mid-drag would otherwise strand the listeners on window.
+  useEffect(
+    () => () => {
+      if (dragRef.current) dragRef.current.onUp();
+    },
+    [],
+  );
 
   if (!active.length) return null;
 
@@ -251,7 +259,14 @@ export default function SatelliteInfoPanel({ satellites, selected, allUnits, con
                           fg="var(--text-secondary)"
                         />
                       )}
-                      {lit && d.endingIn && <Row label="Ending" value={d.endingIn} bg={relBg} fg={relFg} />}
+                      {lit && d.endingIn && (
+                        <Row
+                          label={t('station.settings.satellites.passEnding')}
+                          value={d.endingIn}
+                          bg={relBg}
+                          fg={relFg}
+                        />
+                      )}
 
                       <Row label={t('station.settings.satellites.mode')} value={d.mode} bg={metaBg} fg={metaFg} />
                       {d.downlink && (
@@ -271,8 +286,13 @@ export default function SatelliteInfoPanel({ satellites, selected, allUnits, con
 
                       <tr>
                         <td colSpan={2}>
+                          {/* Pass prediction needs orbit elements. Without them
+                              the button used to render live and do nothing, so
+                              it is disabled and says why instead. */}
                           <button
                             onClick={() => openPredict(d.name, d.omm)}
+                            disabled={!d.omm}
+                            title={d.omm ? undefined : t('station.settings.satellites.predictUnavailable')}
                             style={{
                               width: '100%',
                               padding: '2px 0',
@@ -282,7 +302,8 @@ export default function SatelliteInfoPanel({ satellites, selected, allUnits, con
                               color: 'var(--accent-red)',
                               fontSize: '10px',
                               fontWeight: 'bold',
-                              cursor: 'pointer',
+                              cursor: d.omm ? 'pointer' : 'not-allowed',
+                              opacity: d.omm ? 1 : 0.45,
                             }}
                           >
                             {t('station.settings.satellites.predict')}

@@ -8,6 +8,12 @@
  * callers pass what it needs rather than relying on a plugin having run.
  */
 import Orbit from './orbit.js';
+
+// Teardown for the modal currently on screen, if any. Reopening used to call
+// modal.remove() alone, which detached the node but left that invocation's
+// document-level keydown handler bound — one listener leaked per open, each
+// closing over a modal that no longer existed.
+let activeCleanup = null;
 import { esc } from './escapeHtml.js';
 
 /**
@@ -41,6 +47,8 @@ export function openSatellitePredict({ satName, omm, satellites, config, t }) {
   const endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // until 7 days from now
   const minElevation = config?.satellite?.minElev || 5;
   const maxPasses = 25;
+  // One propagation per open. This used to run twice — the first result was
+  // rendered and then overwritten by an identical second walk before paint.
   const passes = orbit.computePassesElevation(groundStation, startDate, endDate, minElevation, maxPasses);
 
   const modalId = 'satellite-predict-modal';
@@ -144,7 +152,9 @@ export function openSatellitePredict({ satName, omm, satellites, config, t }) {
         `;
   };
 
-  // Create a modal overlay
+  // Create a modal overlay. Tear the previous one down properly first —
+  // listeners included — rather than just dropping its DOM node.
+  if (activeCleanup) activeCleanup();
   let modal = document.getElementById(modalId);
 
   if (modal) {
@@ -196,20 +206,11 @@ export function openSatellitePredict({ satName, omm, satellites, config, t }) {
     }
   };
 
-  const currentStartDate = new Date();
-  const currentEndDate = new Date(currentStartDate.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const currentPasses = orbit.computePassesElevation(
-    groundStation,
-    currentStartDate,
-    currentEndDate,
-    minElevation,
-    maxPasses,
-  );
-
-  // update modal every second, satellite data currentPasses is not updated unless modal is reopened,
-  // or if satellite layer is updated for instance if satellite data changes
+  // Re-render every second so the countdowns tick. The pass list itself is
+  // fixed for the lifetime of the modal — it only changes on reopen, or when
+  // the satellite layer refreshes its data.
   const updatePasses = () => {
-    content.innerHTML = generateModalContent(currentPasses);
+    content.innerHTML = generateModalContent(passes);
   };
 
   const closeModal = () => {
@@ -222,7 +223,11 @@ export function openSatellitePredict({ satName, omm, satellites, config, t }) {
     if (window.satellitePredictInterval) {
       clearInterval(window.satellitePredictInterval);
     }
+    activeCleanup = null;
   };
+
+  // Published so a reopen (or a later caller) can tear this instance down.
+  activeCleanup = closeModal;
 
   // Use event delegation for close button so it works after HTML regeneration
   const handleContentClick = (e) => {

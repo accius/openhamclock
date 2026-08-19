@@ -2525,6 +2525,7 @@ export const WorldMap = ({
               showDeDxMarkers={showDeDxMarkers}
               satellites={satellites}
               satellitesEnabled={pluginLayerStates.satellites?.enabled ?? true}
+              suppressedLayers={suppressed2DLayers.map((l) => t(l.name))}
               allUnits={allUnits}
               config={config}
               hideUi={mapUiHidden}
@@ -2555,31 +2556,6 @@ export const WorldMap = ({
       {/* Plugin layers attach to a Leaflet map instance, so they cannot render on
           the 3D globe — skip them entirely rather than binding to a hidden map.
           The note below keeps that visible instead of silent. */}
-      {isGlobe3D && !mapUiHidden && suppressed2DLayers.length > 0 && (
-        <div
-          title={suppressed2DLayers.map((l) => t(l.name)).join(', ')}
-          style={{
-            position: 'absolute',
-            top: '44px',
-            right: '10px',
-            zIndex: 1000,
-            background: 'var(--bg-panel)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '4px',
-            padding: '3px 8px',
-            fontSize: '10px',
-            fontFamily: 'var(--font-mono)',
-            color: 'var(--text-muted)',
-            // No pointerEvents: 'none' — the browser will not show a title
-            // tooltip on an element the cursor cannot hit, and the layer names
-            // live in that tooltip.
-            cursor: 'help',
-          }}
-        >
-          {suppressed2DLayers.length} map layer{suppressed2DLayers.length !== 1 ? 's' : ''} 2D-only — shown on
-          Flat/Azimuthal
-        </div>
-      )}
       {!isGlobe3D &&
         getAllLayers().map((layerDef) => {
           // Merge location config into satellite layer to keep config access consistent
