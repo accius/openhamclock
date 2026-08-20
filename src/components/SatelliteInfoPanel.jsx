@@ -84,7 +84,7 @@ export default function SatelliteInfoPanel({ satellites, selected, allUnits, con
         top: `${PANEL_TOP + offset.y}px`,
         right: `${PANEL_RIGHT - offset.x}px`,
         zIndex: 1200,
-        width: '260px',
+        width: minimized ? 'fit-content' : '260px',
         maxHeight: 'calc(100% - 80px)',
         overflowY: 'auto',
         background: 'var(--bg-panel)',
@@ -111,8 +111,10 @@ export default function SatelliteInfoPanel({ satellites, selected, allUnits, con
         }}
       >
         <span>
-          🛰 {active.length}{' '}
-          {active.length !== 1 ? t('station.settings.satellites.name_plural') : t('station.settings.satellites.name')}
+          🛰{' '}
+          {minimized
+            ? ''
+            : `${active.length} ${active.length !== 1 ? t('station.settings.satellites.name_plural') : t('station.settings.satellites.name')}`}
         </span>
         <button
           onClick={() => setMinimized((v) => !v)}
