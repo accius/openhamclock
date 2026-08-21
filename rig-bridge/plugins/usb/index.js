@@ -327,21 +327,46 @@ function createUsbPlugin(radioType) {
         console.log(`[USB/${radioType}] Disconnected`);
       }
 
+      // A band change makes the radio recall that band's stored mode, which would
+      // overwrite a mode command issued before the band finished switching. The
+      // mode is therefore resolved when the deferred write fires: a mode
+      // requested alongside the tune is applied after the band change, and when
+      // none was requested the radio keeps the mode it recalled for that band.
+      let lastRequestedMode = null;
+      let modeRequestSeq = 0;
+      let lastRequestedFreq = 0;
+      let lastRequestedFreqAt = 0;
+
+      // Frequency a band-dependent mode (generic SSB) resolves against. A tune
+      // still in flight has not been echoed by the radio yet, so the frequency
+      // just requested wins; after that window state.freq is authoritative and
+      // also reflects the operator turning the VFO by hand.
+      const FREQ_IN_FLIGHT_MS = 1000;
+      const modeReferenceFreq = () =>
+        Date.now() - lastRequestedFreqAt < FREQ_IN_FLIGHT_MS ? lastRequestedFreq : state.freq;
+
       function setFreq(hz) {
         console.log(`[USB/${radioType}] SET FREQ: ${(hz / 1e6).toFixed(6)} MHz`);
+        lastRequestedFreq = hz;
+        lastRequestedFreqAt = Date.now();
         if (radioType === 'icom') {
           proto.setFreq(hz, write, getIcomAddress());
         } else {
-          proto.setFreq(hz, write);
+          // Third arg is the radio's live frequency: Yaesu uses it to decide
+          // whether this is a band change. Kenwood ignores both extra args.
+          const seqAtCall = modeRequestSeq;
+          proto.setFreq(hz, write, state.freq, () => (modeRequestSeq !== seqAtCall ? lastRequestedMode : null));
         }
       }
 
       function setMode(mode) {
         console.log(`[USB/${radioType}] SET MODE: ${mode}`);
+        lastRequestedMode = mode;
+        modeRequestSeq++;
         if (radioType === 'icom') {
           proto.setMode(mode, write, getIcomAddress());
         } else {
-          proto.setMode(mode, write);
+          proto.setMode(mode, write, modeReferenceFreq());
         }
       }
 
