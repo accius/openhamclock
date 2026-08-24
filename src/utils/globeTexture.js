@@ -11,6 +11,12 @@
 
 const DEG = Math.PI / 180;
 const MAX_MERCATOR_LAT = 85.0511287798066;
+
+// Widest horizontal blur applied inside a polar cap, as a fraction of texture
+// width — reached at the pole, zero at the boundary. 1/64 is about 5.6° of
+// longitude at the equator, which is enough to erase the repeated row's fine
+// detail while keeping its broad light and dark areas.
+const CAP_BLUR_MAX_FRACTION = 1 / 64;
 const MAX_CONCURRENT = 6;
 
 const subdomains = ['a', 'b', 'c'];
@@ -169,6 +175,75 @@ function averageRow(ctx, width, y) {
 }
 
 /**
+ * Horizontal box blur across the rows of one polar cap.
+ *
+ * The stripes are horizontal variation inside a single repeated row, so only a
+ * horizontal blur touches them — blurring vertically does nothing when every
+ * row in the cap is a copy of the same one. The radius grows from zero at the
+ * boundary, so the cap still meets the real imagery without a step, to
+ * CAP_BLUR_MAX_FRACTION of the width at the pole.
+ *
+ * The window wraps at the antimeridian. A canvas blur filter would not, and
+ * would replace the pinwheel with a seam down the 180th meridian where the
+ * texture joins.
+ */
+function blurCapRows(ctx, width, height, edge, dir, capRows) {
+  const maxRadius = Math.max(1, Math.round(width * CAP_BLUR_MAX_FRACTION));
+
+  // The whole cap is read and written once. Doing it row by row costs one GPU
+  // readback per row — 112 of them for a retina texture, which is most of the
+  // time this function takes and is felt on slower hardware.
+  const blockTop = dir < 0 ? Math.max(0, edge - capRows) : Math.min(height - 1, edge + 1);
+  const blockRows = Math.min(capRows, dir < 0 ? edge : height - 1 - edge);
+  if (blockRows < 1) return;
+
+  const img = ctx.getImageData(0, blockTop, width, blockRows);
+  const src = img.data;
+  const out = new Uint8ClampedArray(src);
+
+  for (let i = 1; i <= blockRows; i++) {
+    const y = edge + dir * i;
+    const row = y - blockTop;
+    if (row < 0 || row >= blockRows) continue;
+
+    const radius = Math.round((i / capRows) * maxRadius);
+    if (radius < 1) continue;
+
+    const base = row * width * 4;
+    const span = radius * 2 + 1;
+    const wrap = (x) => base + (((x % width) + width) % width) * 4;
+
+    // Running sum over a wrapped window, so cost per row is O(width) rather
+    // than O(width * radius).
+    let sr = 0;
+    let sg = 0;
+    let sb = 0;
+    for (let k = -radius; k <= radius; k++) {
+      const q = wrap(k);
+      sr += src[q];
+      sg += src[q + 1];
+      sb += src[q + 2];
+    }
+
+    for (let x = 0; x < width; x++) {
+      const o = base + x * 4;
+      out[o] = sr / span;
+      out[o + 1] = sg / span;
+      out[o + 2] = sb / span;
+
+      const leaving = wrap(x - radius);
+      const entering = wrap(x + radius + 1);
+      sr += src[entering] - src[leaving];
+      sg += src[entering + 1] - src[leaving + 1];
+      sb += src[entering + 2] - src[leaving + 2];
+    }
+  }
+
+  img.data.set(out);
+  ctx.putImageData(img, 0, blockTop);
+}
+
+/**
  * Settle the polar caps.
  *
  * Web Mercator stops at ±85.0511°, so the rows above and below that are copies
@@ -195,6 +270,10 @@ function resolvePolarCaps(ctx, width, height) {
   ];
 
   for (const { edge, dir } of caps) {
+    // Blur first, then blend: the blur removes the stripes themselves, and the
+    // blend then carries what is left toward one colour at the pole.
+    blurCapRows(ctx, width, height, edge, dir, capRows);
+
     const [r, g, b] = averageRow(ctx, width, edge);
     for (let i = 1; i <= capRows; i++) {
       const y = edge + dir * i;
