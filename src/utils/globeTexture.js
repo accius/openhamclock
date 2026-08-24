@@ -215,98 +215,161 @@ async function fetchPolarStrip(serviceUrl, hemisphere, width, rows, signal) {
 }
 
 /**
- * Scale a cap's colours so it meets the Mercator imagery without a step.
+ * Prepare one fetched polar strip for compositing.
  *
- * The polar services render the same ocean differently from the basemap — Esri's
- * Arctic imagery is markedly darker than World Imagery at the same latitude — so
- * dropping one into the other leaves a visible ring at 85°. Matching the mean of
- * the cap's first row to the mean of the last real Mercator row removes it.
+ * Two things have to happen before it touches the texture, both because the
+ * strip is not fully opaque:
  *
- * A per-channel gain rather than an offset, so the cap keeps its own contrast;
- * clamped, because a wild ratio would mean the two sources disagree so badly
- * that forcing them together would look worse than the seam.
+ *  - The services leave a transparent sliver either side of ±180, about 11px of
+ *    4096, and a hole over the pole itself. Drawing as-is lets the repeated
+ *    Mercator row show through those gaps.
+ *  - The colour match must be applied here, to the strip's own pixels. Applied
+ *    to the texture afterwards it also scales whatever showed through the gaps,
+ *    and the gain that lifts this dark imagery to match World Imagery turned
+ *    those leftovers bright green.
+ *
+ * Returns the prepared canvas and how many rows at the pole carry no data.
  */
-function matchCapToBoundary(ctx, width, height, edgeRow, capTop, capRows) {
-  if (capRows < 1) return;
+function preparePolarStrip(bitmap, hemisphere, target) {
+  const w = bitmap.width;
+  const h = bitmap.height;
+  const scratch = document.createElement('canvas');
+  scratch.width = w;
+  scratch.height = h;
+  const sctx = scratch.getContext('2d', { willReadFrequently: true });
+  sctx.drawImage(bitmap, 0, 0);
 
-  const target = averageRow(ctx, width, edgeRow);
-  const source = averageRow(ctx, width, capTop === 0 ? capRows - 1 : capTop);
-
-  const gain = [0, 1, 2].map((i) => {
-    if (source[i] < 4) return 1; // near-black: a ratio here is meaningless
-    return Math.max(0.5, Math.min(2.5, target[i] / source[i]));
-  });
-  if (gain.every((g) => Math.abs(g - 1) < 0.02)) return;
-
-  const img = ctx.getImageData(0, capTop, width, capRows);
+  const img = sctx.getImageData(0, 0, w, h);
   const d = img.data;
-  for (let i = 0; i < d.length; i += 4) {
-    d[i] = d[i] * gain[0];
-    d[i + 1] = d[i + 1] * gain[1];
-    d[i + 2] = d[i + 2] * gain[2];
+  const alphaAt = (x, y) => d[(y * w + x) * 4 + 3];
+
+  // Close the antimeridian sliver by interpolating between the last valid
+  // column each side. The gap spans ±180, so the two edges are neighbours once
+  // the texture wraps and the join is invisible.
+  for (let y = 0; y < h; y++) {
+    let left = 0;
+    while (left < w && alphaAt(left, y) < 128) left++;
+    if (left >= w) continue; // whole row is hole; the fallback covers it
+    let right = w - 1;
+    while (right > left && alphaAt(right, y) < 128) right--;
+
+    const a = right * 1 * 4 + y * w * 4;
+    const b = left * 4 + y * w * 4;
+    const gapLeft = left;
+    const gapRight = w - 1 - right;
+    const total = gapLeft + gapRight;
+    if (total === 0 || total > w / 8) continue; // nothing to do, or not an edge sliver
+
+    for (let i = 0; i < total; i++) {
+      // Walk across the wrapped gap: right edge first, then the left edge.
+      const x = i < gapRight ? right + 1 + i : i - gapRight;
+      const t = (i + 1) / (total + 1);
+      const o = (y * w + x) * 4;
+      for (let ch = 0; ch < 3; ch++) {
+        d[o + ch] = d[a + ch] * (1 - t) + d[b + ch] * t;
+      }
+      d[o + 3] = 255;
+    }
   }
-  ctx.putImageData(img, 0, capTop);
+
+  // Rows with no data at the pole, counted from the polar end.
+  const order = hemisphere === 'north' ? [...Array(h).keys()] : [...Array(h).keys()].reverse();
+  let hole = 0;
+  for (const y of order) {
+    let opaque = 0;
+    for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] >= 128) opaque++;
+    if (opaque < w * 0.5) hole++;
+    else break;
+  }
+
+  // Colour match, measured over real pixels only, on the row nearest the
+  // Mercator boundary — the one that has to meet it without a step.
+  const seamRow = hemisphere === 'north' ? h - 1 : 0;
+  if (target) {
+    let n = 0;
+    const sum = [0, 0, 0];
+    for (let x = 0; x < w; x++) {
+      const o = (seamRow * w + x) * 4;
+      if (d[o + 3] < 128) continue;
+      sum[0] += d[o];
+      sum[1] += d[o + 1];
+      sum[2] += d[o + 2];
+      n++;
+    }
+    if (n > 0) {
+      const gain = sum.map((v, i) => {
+        const mean = v / n;
+        if (mean < 4) return 1; // near-black: a ratio here is meaningless
+        // Wide enough to actually reach: Arctic imagery runs about half the
+        // brightness of World Imagery at the same latitude.
+        return Math.max(0.4, Math.min(3, target[i] / mean));
+      });
+      if (!gain.every((g) => Math.abs(g - 1) < 0.02)) {
+        for (let i = 0; i < d.length; i += 4) {
+          d[i] *= gain[0];
+          d[i + 1] *= gain[1];
+          d[i + 2] *= gain[2];
+        }
+      }
+    }
+  }
+
+  // Ease the strip in across a few rows at the boundary. Matching the mean gets
+  // the level right, but any residual difference still reads as a ring on a
+  // sphere; ramping the strip's own alpha lets it emerge from the Mercator
+  // imagery instead of starting at full strength on one row.
+  const blendRows = Math.max(2, Math.round(h * 0.15));
+  for (let i = 0; i < blendRows; i++) {
+    const y = hemisphere === 'north' ? h - 1 - i : i;
+    if (y < 0 || y >= h) break;
+    const t = (i + 1) / (blendRows + 1);
+    for (let x = 0; x < w; x++) {
+      const o = (y * w + x) * 4;
+      d[o + 3] = Math.round(d[o + 3] * t);
+    }
+  }
+
+  sctx.putImageData(img, 0, 0);
+  return { canvas: scratch, hole };
 }
 
 /**
  * Paint real polar imagery over the repeated Mercator rows.
  *
- * Returns how far poleward real data reaches, as a row index per cap, so the
- * cosmetic fallback only has to cover what is left — typically the half-degree
- * hole these services leave over the pole itself.
+ * Returns how many rows at each pole still carry no data, so the cosmetic
+ * fallback only has to cover what is left — typically the half-degree hole
+ * these services leave over the pole itself.
  */
 async function drawPolarImagery(ctx, width, height, capRows, polar, signal) {
   const reach = { north: null, south: null };
-  if (!polar) return reach;
+  if (!polar || capRows < 1) return reach;
 
   const [north, south] = await Promise.all([
     fetchPolarStrip(polar.north, 'north', Math.min(width, 4096), capRows, signal),
     fetchPolarStrip(polar.south, 'south', Math.min(width, 4096), capRows, signal),
   ]);
 
-  // Measured on a scratch canvas: drawing straight onto the texture would blend
-  // the strip's transparent hole with what is underneath and lose the alpha that
-  // says where real data stops.
-  const measure = (bitmap, hemisphere) => {
-    if (!bitmap) return null;
-    const scratch = document.createElement('canvas');
-    scratch.width = bitmap.width;
-    scratch.height = bitmap.height;
-    const sctx = scratch.getContext('2d', { willReadFrequently: true });
-    sctx.drawImage(bitmap, 0, 0);
-    const { data } = sctx.getImageData(0, 0, bitmap.width, bitmap.height);
-
-    // Row order runs north to south in both strips, so the pole is the first row
-    // for the northern cap and the last for the southern one.
-    const rowsIn =
-      hemisphere === 'north' ? [...Array(bitmap.height).keys()] : [...Array(bitmap.height).keys()].reverse();
-    let covered = 0;
-    for (const y of rowsIn) {
-      let opaque = 0;
-      for (let x = 0; x < bitmap.width; x++) {
-        if (data[(y * bitmap.width + x) * 4 + 3] >= 128) opaque++;
-      }
-      // A row counts as real once most of it carries data; the services cut a
-      // clean circular hole, so this flips once rather than flickering.
-      if (opaque < bitmap.width * 0.5) covered++;
-      else break;
-    }
-    return covered;
-  };
-
   if (north) {
-    const hole = measure(north, 'north');
-    ctx.drawImage(north, 0, 0, north.width, north.height, 0, 0, width, capRows);
-    // Boundary row is the first real Mercator row, just below the cap.
-    matchCapToBoundary(ctx, width, height, capRows, 0, capRows);
-    reach.north = hole === null ? null : hole;
+    // Target is the last real Mercator row, just below the cap.
+    const prepared = preparePolarStrip(north, 'north', averageRow(ctx, width, capRows));
+    ctx.drawImage(prepared.canvas, 0, 0, prepared.canvas.width, prepared.canvas.height, 0, 0, width, capRows);
+    reach.north = prepared.hole;
     north.close?.();
   }
   if (south) {
-    const hole = measure(south, 'south');
-    ctx.drawImage(south, 0, 0, south.width, south.height, 0, height - capRows, width, capRows);
-    matchCapToBoundary(ctx, width, height, height - 1 - capRows, height - capRows, capRows);
-    reach.south = hole === null ? null : hole;
+    const prepared = preparePolarStrip(south, 'south', averageRow(ctx, width, height - 1 - capRows));
+    ctx.drawImage(
+      prepared.canvas,
+      0,
+      0,
+      prepared.canvas.width,
+      prepared.canvas.height,
+      0,
+      height - capRows,
+      width,
+      capRows,
+    );
+    reach.south = prepared.hole;
     south.close?.();
   }
 
