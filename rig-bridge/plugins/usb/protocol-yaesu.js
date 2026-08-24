@@ -148,27 +148,40 @@ function parse(data, updateState, getState, debug) {
   }
 }
 
-// Maps upper-edge frequency (Hz) to Yaesu BS band-select code.
-// Frequencies above the last entry (70cm) are sent without a band-change first.
+// Ham band edges (Hz) and the Yaesu BS band-select code for each.
+//
+// Ranges, not upper edges: with upper edges alone every out-of-band frequency
+// fell into the next band up, so 15 MHz WWV selected 17m and 12 MHz selected
+// 20m before FA; landed. A frequency outside every band now selects no band at
+// all and is sent as a plain FA;, which is what general-coverage receive wants —
+// the radio keeps whatever band it is on rather than being dragged to a ham band
+// whose stored settings have nothing to do with the frequency being tuned.
+//
+// Edges span the widest regional allocation for each band (for example 7.0–7.3
+// covers both IARU R1 and the US) so no legitimate in-band frequency is refused
+// a band change; a frequency legal in one region and not another still tunes,
+// it simply keeps the current band's settings.
 const BAND_MAP = [
-  { max: 2_000_000, code: '00' }, // 160m
-  { max: 4_000_000, code: '01' }, // 80m
-  { max: 5_500_000, code: '02' }, // 60m
-  { max: 7_300_000, code: '03' }, // 40m
-  { max: 10_200_000, code: '04' }, // 30m
-  { max: 14_350_000, code: '05' }, // 20m
-  { max: 18_200_000, code: '06' }, // 17m
-  { max: 21_450_000, code: '07' }, // 15m
-  { max: 24_990_000, code: '08' }, // 12m
-  { max: 29_700_000, code: '09' }, // 10m
-  { max: 54_000_000, code: '10' }, // 6m
-  { max: 148_000_000, code: '14' }, // 2m
-  { max: 450_000_000, code: '15' }, // 70cm
+  { min: 1_800_000, max: 2_000_000, code: '00' }, // 160m
+  { min: 3_500_000, max: 4_000_000, code: '01' }, // 80m
+  { min: 5_250_000, max: 5_450_000, code: '02' }, // 60m
+  { min: 7_000_000, max: 7_300_000, code: '03' }, // 40m
+  { min: 10_100_000, max: 10_150_000, code: '04' }, // 30m
+  { min: 14_000_000, max: 14_350_000, code: '05' }, // 20m
+  { min: 18_068_000, max: 18_168_000, code: '06' }, // 17m
+  { min: 21_000_000, max: 21_450_000, code: '07' }, // 15m
+  { min: 24_890_000, max: 24_990_000, code: '08' }, // 12m
+  { min: 28_000_000, max: 29_700_000, code: '09' }, // 10m
+  { min: 50_000_000, max: 54_000_000, code: '10' }, // 6m
+  { min: 144_000_000, max: 148_000_000, code: '14' }, // 2m
+  { min: 420_000_000, max: 450_000_000, code: '15' }, // 70cm
 ];
 
+/** BS code for a frequency, or null when it falls outside every ham band. */
 function freqToBandCode(hz) {
-  for (const { max, code } of BAND_MAP) {
-    if (hz <= max) return code;
+  if (!Number.isFinite(hz)) return null;
+  for (const { min, max, code } of BAND_MAP) {
+    if (hz >= min && hz <= max) return code;
   }
   return null;
 }
@@ -191,8 +204,9 @@ function freqToBandCode(hz) {
  * the band finished switching is simply overwritten. getMode is called when the
  * deferred write fires, not now: the caller sets frequency and mode as two
  * near-simultaneous commands, so at fire time it can report the mode that was
- * just requested. When no mode was requested it returns nothing and the radio
- * keeps the mode it recalled for the new band.
+ * just requested — or, when none was, the mode the radio was in before the band
+ * change, which BS; would otherwise silently replace with that band's stored
+ * mode.
  *
  * @param {number} hz          - target frequency
  * @param {Function} serialWrite
