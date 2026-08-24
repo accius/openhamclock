@@ -138,13 +138,74 @@ export async function buildGlobeTexture({ tileUrlTemplate, tileZoom = 3, lang, b
 
   for (let y = 0; y < outH; y++) {
     const lat = 90 - ((y + 0.5) / outH) * 180;
-    // Beyond ±85.05° Mercator has no data; clamping stretches the last real
-    // row over the caps, which is the usual compromise for globe textures.
+    // Beyond ±85.05° Mercator has no data, so clamping repeats the last real
+    // row across the cap. resolvePolarCaps() below then fades those repeats out
+    // — on a sphere every column of a row converges to the pole, so a repeated
+    // row of coastline becomes a pinwheel of wedges.
     const srcY = Math.max(0, Math.min(dim - 1, Math.floor(latToMercatorY(lat, dim))));
     ectx.drawImage(merc, 0, srcY, dim, 1, 0, y, outW, 1);
   }
 
+  resolvePolarCaps(ectx, outW, outH);
+
   return { canvas: eq, meanLuma: measureMeanLuma(eq) };
+}
+
+/**
+ * Average colour of one pixel row, as [r, g, b].
+ */
+function averageRow(ctx, width, y) {
+  const { data } = ctx.getImageData(0, y, width, 1);
+  let r = 0;
+  let g = 0;
+  let b = 0;
+  for (let i = 0; i < data.length; i += 4) {
+    r += data[i];
+    g += data[i + 1];
+    b += data[i + 2];
+  }
+  const n = data.length / 4;
+  return [Math.round(r / n), Math.round(g / n), Math.round(b / n)];
+}
+
+/**
+ * Settle the polar caps.
+ *
+ * Web Mercator stops at ±85.0511°, so the rows above and below that are copies
+ * of the last real row. SphereGeometry collapses every column of a row onto the
+ * pole, which turns those copies into a fan of wedges radiating from the point.
+ *
+ * Each cap is faded toward the average colour of its own last real row —
+ * Arctic sea reads blue-grey, Antarctic ice reads white — with the blend
+ * starting at zero on the boundary row so nothing seams at 85°, and reaching
+ * full at the pole so the wedges converge on a single flat colour instead of
+ * on 4096 competing ones. Detail Mercator never carried cannot be recovered;
+ * this makes the caps read as plausible rather than broken.
+ */
+function resolvePolarCaps(ctx, width, height) {
+  const capRows = Math.floor(((90 - MAX_MERCATOR_LAT) / 180) * height);
+  if (capRows < 1) return;
+
+  // Smoothstep keeps the ramp from showing a visible edge where it begins.
+  const ease = (t) => t * t * (3 - 2 * t);
+
+  const caps = [
+    { edge: capRows, dir: -1 }, // north: boundary row, walking up to y=0
+    { edge: height - 1 - capRows, dir: 1 }, // south: walking down to y=height-1
+  ];
+
+  for (const { edge, dir } of caps) {
+    const [r, g, b] = averageRow(ctx, width, edge);
+    for (let i = 1; i <= capRows; i++) {
+      const y = edge + dir * i;
+      if (y < 0 || y >= height) break;
+      ctx.save();
+      ctx.globalAlpha = ease(i / capRows);
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fillRect(0, y, width, 1);
+      ctx.restore();
+    }
+  }
 }
 
 /**
