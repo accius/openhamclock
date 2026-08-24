@@ -879,6 +879,8 @@ export default function Globe3D({
       // Countries ships transparent overlay tiles; flat mode paints this same
       // blue behind them via the map div's background.
       baseColor: MAP_STYLES[style].countriesOverlay ? '#4a90d9' : undefined,
+      // Real imagery for the polar caps, where this basemap has a polar source.
+      polar: MAP_STYLES[style].polar,
       onProgress: (p) => setTextureProgress(p),
       signal: ac.signal,
     })

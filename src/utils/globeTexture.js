@@ -76,13 +76,16 @@ function loadTile(url, signal) {
  *
  * @param {object}   opts
  * @param {string}   opts.tileUrlTemplate - Leaflet URL template ({z}/{x}/{y})
+ * @param {object}   [opts.polar]         - { north, south } ArcGIS MapServer URLs for
+ *                                        real polar imagery; omit for sources that
+ *                                        publish Mercator only
  * @param {number}   [opts.tileZoom=3]    - Zoom level; 2^z × 2^z tiles are fetched
  * @param {string}   [opts.lang]          - Language for {lang} templates
  * @param {Function} [opts.onProgress]    - Called with 0..1 as tiles land
  * @param {AbortSignal} [opts.signal]     - Cancels in-flight work
  * @returns {Promise<HTMLCanvasElement>}  - 2:1 equirectangular canvas
  */
-export async function buildGlobeTexture({ tileUrlTemplate, tileZoom = 3, lang, baseColor, onProgress, signal }) {
+export async function buildGlobeTexture({ tileUrlTemplate, tileZoom = 3, lang, baseColor, polar, onProgress, signal }) {
   const numTiles = Math.pow(2, tileZoom);
   const dim = numTiles * 256;
 
@@ -152,7 +155,11 @@ export async function buildGlobeTexture({ tileUrlTemplate, tileZoom = 3, lang, b
     ectx.drawImage(merc, 0, srcY, dim, 1, 0, y, outW, 1);
   }
 
-  resolvePolarCaps(ectx, outW, outH);
+  // Real imagery first where a polar-projected source exists, then the cosmetic
+  // fallback for whatever it does not reach.
+  const capRows = Math.floor(((90 - MAX_MERCATOR_LAT) / 180) * outH);
+  const holeRows = await drawPolarImagery(ectx, outW, outH, capRows, polar, signal);
+  resolvePolarCaps(ectx, outW, outH, holeRows);
 
   return { canvas: eq, meanLuma: measureMeanLuma(eq) };
 }
@@ -175,6 +182,138 @@ function averageRow(ctx, width, y) {
 }
 
 /**
+ * One polar cap as a plate-carrée strip, fetched from a polar-projected service.
+ *
+ * Web Mercator has no data past ±85.05°, but the same imagery exists in polar
+ * projections. Rather than reprojecting here, the ArcGIS export endpoint is
+ * asked for the strip already in EPSG:4326 (imageSR=4326) — the projection this
+ * texture is in — so the result drops straight into the cap rows.
+ *
+ * Returns null rather than throwing: real polar imagery is an improvement on the
+ * fallback, never a requirement for building a texture.
+ */
+async function fetchPolarStrip(serviceUrl, hemisphere, width, rows, signal) {
+  if (!serviceUrl || rows < 1) return null;
+
+  const bbox = hemisphere === 'north' ? `-180,${MAX_MERCATOR_LAT},180,90` : `-180,-90,180,${-MAX_MERCATOR_LAT}`;
+
+  // png32 keeps an alpha channel, which is how the no-data hole over the pole
+  // itself is told apart from genuinely dark ocean.
+  const url =
+    `${serviceUrl}/export?bbox=${bbox}&bboxSR=4326&imageSR=4326` +
+    `&size=${width},${rows}&format=png32&transparent=true&f=image`;
+
+  try {
+    const res = await fetch(url, { signal });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    const bitmap = await createImageBitmap(blob);
+    return bitmap;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Scale a cap's colours so it meets the Mercator imagery without a step.
+ *
+ * The polar services render the same ocean differently from the basemap — Esri's
+ * Arctic imagery is markedly darker than World Imagery at the same latitude — so
+ * dropping one into the other leaves a visible ring at 85°. Matching the mean of
+ * the cap's first row to the mean of the last real Mercator row removes it.
+ *
+ * A per-channel gain rather than an offset, so the cap keeps its own contrast;
+ * clamped, because a wild ratio would mean the two sources disagree so badly
+ * that forcing them together would look worse than the seam.
+ */
+function matchCapToBoundary(ctx, width, height, edgeRow, capTop, capRows) {
+  if (capRows < 1) return;
+
+  const target = averageRow(ctx, width, edgeRow);
+  const source = averageRow(ctx, width, capTop === 0 ? capRows - 1 : capTop);
+
+  const gain = [0, 1, 2].map((i) => {
+    if (source[i] < 4) return 1; // near-black: a ratio here is meaningless
+    return Math.max(0.5, Math.min(2.5, target[i] / source[i]));
+  });
+  if (gain.every((g) => Math.abs(g - 1) < 0.02)) return;
+
+  const img = ctx.getImageData(0, capTop, width, capRows);
+  const d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    d[i] = d[i] * gain[0];
+    d[i + 1] = d[i + 1] * gain[1];
+    d[i + 2] = d[i + 2] * gain[2];
+  }
+  ctx.putImageData(img, 0, capTop);
+}
+
+/**
+ * Paint real polar imagery over the repeated Mercator rows.
+ *
+ * Returns how far poleward real data reaches, as a row index per cap, so the
+ * cosmetic fallback only has to cover what is left — typically the half-degree
+ * hole these services leave over the pole itself.
+ */
+async function drawPolarImagery(ctx, width, height, capRows, polar, signal) {
+  const reach = { north: null, south: null };
+  if (!polar) return reach;
+
+  const [north, south] = await Promise.all([
+    fetchPolarStrip(polar.north, 'north', Math.min(width, 4096), capRows, signal),
+    fetchPolarStrip(polar.south, 'south', Math.min(width, 4096), capRows, signal),
+  ]);
+
+  // Measured on a scratch canvas: drawing straight onto the texture would blend
+  // the strip's transparent hole with what is underneath and lose the alpha that
+  // says where real data stops.
+  const measure = (bitmap, hemisphere) => {
+    if (!bitmap) return null;
+    const scratch = document.createElement('canvas');
+    scratch.width = bitmap.width;
+    scratch.height = bitmap.height;
+    const sctx = scratch.getContext('2d', { willReadFrequently: true });
+    sctx.drawImage(bitmap, 0, 0);
+    const { data } = sctx.getImageData(0, 0, bitmap.width, bitmap.height);
+
+    // Row order runs north to south in both strips, so the pole is the first row
+    // for the northern cap and the last for the southern one.
+    const rowsIn =
+      hemisphere === 'north' ? [...Array(bitmap.height).keys()] : [...Array(bitmap.height).keys()].reverse();
+    let covered = 0;
+    for (const y of rowsIn) {
+      let opaque = 0;
+      for (let x = 0; x < bitmap.width; x++) {
+        if (data[(y * bitmap.width + x) * 4 + 3] >= 128) opaque++;
+      }
+      // A row counts as real once most of it carries data; the services cut a
+      // clean circular hole, so this flips once rather than flickering.
+      if (opaque < bitmap.width * 0.5) covered++;
+      else break;
+    }
+    return covered;
+  };
+
+  if (north) {
+    const hole = measure(north, 'north');
+    ctx.drawImage(north, 0, 0, north.width, north.height, 0, 0, width, capRows);
+    // Boundary row is the first real Mercator row, just below the cap.
+    matchCapToBoundary(ctx, width, height, capRows, 0, capRows);
+    reach.north = hole === null ? null : hole;
+    north.close?.();
+  }
+  if (south) {
+    const hole = measure(south, 'south');
+    ctx.drawImage(south, 0, 0, south.width, south.height, 0, height - capRows, width, capRows);
+    matchCapToBoundary(ctx, width, height, height - 1 - capRows, height - capRows, capRows);
+    reach.south = hole === null ? null : hole;
+    south.close?.();
+  }
+
+  return reach;
+}
+
+/**
  * Horizontal box blur across the rows of one polar cap.
  *
  * The stripes are horizontal variation inside a single repeated row, so only a
@@ -187,14 +326,14 @@ function averageRow(ctx, width, y) {
  * would replace the pinwheel with a seam down the 180th meridian where the
  * texture joins.
  */
-function blurCapRows(ctx, width, height, edge, dir, capRows) {
+function blurCapRows(ctx, width, height, edge, dir, rows) {
   const maxRadius = Math.max(1, Math.round(width * CAP_BLUR_MAX_FRACTION));
 
   // The whole cap is read and written once. Doing it row by row costs one GPU
   // readback per row — 112 of them for a retina texture, which is most of the
   // time this function takes and is felt on slower hardware.
   const blockTop = dir < 0 ? Math.max(0, edge - capRows) : Math.min(height - 1, edge + 1);
-  const blockRows = Math.min(capRows, dir < 0 ? edge : height - 1 - edge);
+  const blockRows = Math.min(rows, dir < 0 ? edge : height - 1 - edge);
   if (blockRows < 1) return;
 
   const img = ctx.getImageData(0, blockTop, width, blockRows);
@@ -206,7 +345,7 @@ function blurCapRows(ctx, width, height, edge, dir, capRows) {
     const row = y - blockTop;
     if (row < 0 || row >= blockRows) continue;
 
-    const radius = Math.round((i / capRows) * maxRadius);
+    const radius = Math.round((i / rows) * maxRadius);
     if (radius < 1) continue;
 
     const base = row * width * 4;
@@ -257,29 +396,37 @@ function blurCapRows(ctx, width, height, edge, dir, capRows) {
  * on 4096 competing ones. Detail Mercator never carried cannot be recovered;
  * this makes the caps read as plausible rather than broken.
  */
-function resolvePolarCaps(ctx, width, height) {
+function resolvePolarCaps(ctx, width, height, holeRows) {
   const capRows = Math.floor(((90 - MAX_MERCATOR_LAT) / 180) * height);
   if (capRows < 1) return;
+
+  // How many rows each cap still needs covering. Without real polar imagery
+  // that is the whole cap; with it, only the hole those services leave over the
+  // pole itself — about half a degree.
+  const north = Math.max(0, Math.min(capRows, holeRows?.north ?? capRows));
+  const south = Math.max(0, Math.min(capRows, holeRows?.south ?? capRows));
 
   // Smoothstep keeps the ramp from showing a visible edge where it begins.
   const ease = (t) => t * t * (3 - 2 * t);
 
   const caps = [
-    { edge: capRows, dir: -1 }, // north: boundary row, walking up to y=0
-    { edge: height - 1 - capRows, dir: 1 }, // south: walking down to y=height-1
+    { edge: north, dir: -1, rows: north }, // north: first real row, walking up to y=0
+    { edge: height - 1 - south, dir: 1, rows: south }, // south: walking down
   ];
 
-  for (const { edge, dir } of caps) {
+  for (const { edge, dir, rows } of caps) {
+    if (rows < 1) continue;
+
     // Blur first, then blend: the blur removes the stripes themselves, and the
     // blend then carries what is left toward one colour at the pole.
-    blurCapRows(ctx, width, height, edge, dir, capRows);
+    blurCapRows(ctx, width, height, edge, dir, rows);
 
     const [r, g, b] = averageRow(ctx, width, edge);
-    for (let i = 1; i <= capRows; i++) {
+    for (let i = 1; i <= rows; i++) {
       const y = edge + dir * i;
       if (y < 0 || y >= height) break;
       ctx.save();
-      ctx.globalAlpha = ease(i / capRows);
+      ctx.globalAlpha = ease(i / rows);
       ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
       ctx.fillRect(0, y, width, 1);
       ctx.restore();

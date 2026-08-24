@@ -358,6 +358,14 @@ export const MAP_STYLES = {
     name: 'Satellite',
     url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: '&copy; Esri',
+    // Web Mercator stops at ±85.05°, so the globe's polar caps have no imagery
+    // from the tiles above. These polar-projected services cover the rest, and
+    // ArcGIS reprojects them to plate carrée server-side on request — see
+    // fetchPolarStrip() in utils/globeTexture.js.
+    polar: {
+      north: 'https://services.arcgisonline.com/arcgis/rest/services/Polar/Arctic_Imagery/MapServer',
+      south: 'https://services.arcgisonline.com/arcgis/rest/services/Polar/Antarctic_Imagery/MapServer',
+    },
   },
   MODIS: {
     name: 'Modis Truecolor', // NASA GIBS MODIS Truecolor Imagery
