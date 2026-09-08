@@ -46,7 +46,7 @@ COUNTER=0
 cp /tmp/gfonts-raw.css "$VENDOR_DIR/fonts/fonts.css"
 
 # Extract all woff2 URLs, download them, rewrite CSS
-grep -oP 'https://fonts\.gstatic\.com/[^\)]+' /tmp/gfonts-raw.css | sort -u | while read url; do
+grep -oE 'https://fonts\.gstatic\.com/[^)]+' /tmp/gfonts-raw.css | sort -u | while read url; do
   COUNTER=$((COUNTER + 1))
   FILENAME="font-${COUNTER}.woff2"
   curl -sL "$url" -o "$VENDOR_DIR/fonts/$FILENAME"
