@@ -12,6 +12,7 @@ import { apiFetch } from '../utils/apiFetch.js';
 import { mergeShelters } from '../utils/emcommShelters.js';
 import { winlinkModeLabel, winlinkModeColor } from '../utils/winlinkModes.js';
 import { stationAgeMinutes, formatStationAge } from '../utils/aprsStationAge.js';
+import { requestMapFocus } from '../utils/mapFocus.js';
 import {
   recordEvent,
   getEvents,
@@ -713,11 +714,12 @@ export default function EmcommLayout(props) {
   }, [config.location, alerts, mergedShelters, emcommStationsWithDistance, winlinkGateways, fieldReports]);
 
   // Click shelter to pan map
-  const panToShelter = useCallback((shelter) => {
-    const map = mapInstanceRef.current;
-    if (map && shelter.lat && shelter.lon) {
-      map.setView([shelter.lat, shelter.lon], 10, { animate: true });
-    }
+  // Bring a panel row's target (shelter, station, gateway, roster op, field
+  // report) into view: always pans, zooms to 10, pulses the target (#1182).
+  // Rows without a position (roster ops never heard on APRS) are a no-op.
+  const panToTarget = useCallback((item) => {
+    if (item?.lat == null || item?.lon == null) return;
+    requestMapFocus({ lat: item.lat, lon: item.lon, zoom: 10, force: true });
   }, []);
 
   // Send an APRS message to the current target (shared by Enter key + button)
@@ -1032,7 +1034,7 @@ export default function EmcommLayout(props) {
                       borderRadius: '3px',
                       borderLeft: isAprs ? '2px solid #22c55e' : '2px solid transparent',
                     }}
-                    onClick={() => panToShelter(s)}
+                    onClick={() => panToTarget(s)}
                     onMouseEnter={(e) => (e.currentTarget.style.background = '#1a1a1a')}
                     onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
                   >
@@ -1134,6 +1136,8 @@ export default function EmcommLayout(props) {
                 return (
                   <div
                     key={s.call}
+                    onClick={() => panToTarget(s)}
+                    title="Show on map"
                     style={{
                       padding: hasTokens ? '6px 8px' : '4px 8px',
                       fontSize: '11px',
@@ -1141,7 +1145,10 @@ export default function EmcommLayout(props) {
                       borderLeft: hasTokens ? '2px solid #22d3ee' : 'none',
                       background: hasTokens ? '#0d1117' : 'transparent',
                       borderRadius: hasTokens ? '4px' : '0',
+                      cursor: 'pointer',
                     }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#1a1f2e')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = hasTokens ? '#0d1117' : 'transparent')}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
@@ -1201,6 +1208,8 @@ export default function EmcommLayout(props) {
                 return (
                   <div
                     key={gw.callsign}
+                    onClick={() => panToTarget(gw)}
+                    title="Show on map"
                     style={{
                       padding: '5px 8px',
                       fontSize: '11px',
@@ -1208,7 +1217,10 @@ export default function EmcommLayout(props) {
                       borderLeft: gw.hasEmcomm ? '2px solid #ef4444' : '2px solid #3b82f6',
                       background: '#0d1117',
                       borderRadius: '4px',
+                      cursor: 'pointer',
                     }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = '#1a1f2e')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = '#0d1117')}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
@@ -1276,7 +1288,7 @@ export default function EmcommLayout(props) {
                     borderRadius: '4px',
                     cursor: r.lat != null && r.lon != null ? 'pointer' : 'default',
                   }}
-                  onClick={() => panToShelter(r)}
+                  onClick={() => panToTarget(r)}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -1309,9 +1321,12 @@ export default function EmcommLayout(props) {
             ) : (
               netRoster.map((op) => {
                 const ageStr = op.age < 1 ? 'now' : op.age < 60 ? `${op.age}m` : `${Math.floor(op.age / 60)}h`;
+                const hasPos = op.lat != null && op.lon != null;
                 return (
                   <div
                     key={op.call}
+                    onClick={hasPos ? () => panToTarget(op) : undefined}
+                    title={hasPos ? 'Show on map' : 'No APRS position heard for this station'}
                     style={{
                       padding: '5px 8px',
                       fontSize: '11px',
@@ -1319,7 +1334,10 @@ export default function EmcommLayout(props) {
                       background: '#0d1117',
                       borderRadius: '4px',
                       marginBottom: '3px',
+                      cursor: hasPos ? 'pointer' : 'default',
                     }}
+                    onMouseEnter={hasPos ? (e) => (e.currentTarget.style.background = '#1a1f2e') : undefined}
+                    onMouseLeave={hasPos ? (e) => (e.currentTarget.style.background = '#0d1117') : undefined}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
@@ -1329,7 +1347,10 @@ export default function EmcommLayout(props) {
                       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
                         <span style={{ color: '#888', fontSize: '10px' }}>{ageStr}</span>
                         <button
-                          onClick={() => setMessageTarget(op.call)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMessageTarget(op.call);
+                          }}
                           style={{
                             background: 'none',
                             border: '1px solid #333',

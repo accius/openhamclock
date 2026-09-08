@@ -29,6 +29,7 @@ import { GLOBE_OVERLAY_LAYER_IDS } from '../utils/globeOverlays.js';
 import { countryColor, fetchCountriesGeojson } from '../utils/countriesBasemap.js';
 import PluginLayer from './PluginLayer.jsx';
 import AzimuthalMap from './AzimuthalMap.jsx';
+import { MAP_FOCUS_EVENT, MAP_FOCUS_PULSE_MS, nearestWrappedLon, isInView } from '../utils/mapFocus.js';
 // three.js is ~600 kB — load it only when the operator actually opens 3D mode.
 // React 18 permanently caches a rejected lazy() import, so a single failed
 // chunk load (stale HTML right after a redeploy is the classic case) would
@@ -1158,6 +1159,69 @@ export const WorldMap = ({
     map.on('click', handleMapClick);
     return () => map.off('click', handleMapClick);
   }, [leafletReady]);
+
+  // "Bring this station into view" requests from panel rows (#1182). Pans only
+  // when the target is off-screen (or the request is forced), then drops a
+  // self-removing pulse ring so the eye finds the target in a busy view.
+  // The Leaflet map is hidden under the azimuthal / 3D projections, so those
+  // requests are ignored until the projection has its own focus handling.
+  const focusPulseRef = useRef(null);
+  useEffect(() => {
+    if (isLeafletHidden) return;
+    const handleFocus = (e) => {
+      const map = mapInstanceRef.current;
+      const d = e.detail;
+      if (!map || !d || !Number.isFinite(d.lat) || !Number.isFinite(d.lon)) return;
+      const lon = nearestWrappedLon(map.getCenter().lng, d.lon);
+      const target = [d.lat, lon];
+      if (d.force || !isInView(map.getBounds(), d.lat, d.lon)) {
+        if (Number.isFinite(d.zoom)) map.setView(target, d.zoom, { animate: true });
+        else map.panTo(target, { animate: true });
+      }
+      const prev = focusPulseRef.current;
+      if (prev) {
+        clearTimeout(prev.timer);
+        try {
+          map.removeLayer(prev.marker);
+        } catch {
+          /* already gone */
+        }
+      }
+      const marker = L.marker(target, {
+        icon: L.divIcon({
+          className: 'map-focus-pulse',
+          html: '<span></span><span></span><span></span>',
+          iconSize: [0, 0],
+        }),
+        interactive: false,
+        keyboard: false,
+        zIndexOffset: 25000,
+      }).addTo(map);
+      const timer = setTimeout(() => {
+        try {
+          map.removeLayer(marker);
+        } catch {
+          /* map torn down */
+        }
+        if (focusPulseRef.current?.marker === marker) focusPulseRef.current = null;
+      }, MAP_FOCUS_PULSE_MS);
+      focusPulseRef.current = { marker, timer };
+    };
+    window.addEventListener(MAP_FOCUS_EVENT, handleFocus);
+    return () => {
+      window.removeEventListener(MAP_FOCUS_EVENT, handleFocus);
+      const prev = focusPulseRef.current;
+      if (prev) {
+        clearTimeout(prev.timer);
+        try {
+          mapInstanceRef.current?.removeLayer(prev.marker);
+        } catch {
+          /* map torn down */
+        }
+        focusPulseRef.current = null;
+      }
+    };
+  }, [leafletReady, isLeafletHidden]);
 
   // Update the value for how many scroll pixels count as a zoom level
   useEffect(() => {

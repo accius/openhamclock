@@ -82,6 +82,7 @@ import { DockableLayoutProvider } from './contexts';
 import { useRig } from './contexts/RigContext.jsx';
 import { calculateBearing, calculateDistance, formatDistance } from './utils/geo.js';
 import { findDXPathForSpot } from './utils/dxClusterSpotMatcher';
+import { requestMapFocus } from './utils/mapFocus.js';
 import { DXGridInput } from './components/DXGridInput.jsx';
 import { DXCallsignInput } from './components/DXCallsignInput.jsx';
 import { DXFavorites } from './components/DXFavorites.jsx';
@@ -421,13 +422,18 @@ export const DockableApp = ({
       // 2. Set DX Location if location data is available
       // For DX Cluster spots, we need to find the path data which contains coordinates
       // For POTA/SOTA, the spot object itself has lat/lon
+      // 3. Bring the target into view: the map pans only when the target is
+      // off-screen and drops a pulse ring on it either way (#1182). Runs even
+      // with DX locked — the marker stays put, but the eye still gets a cue.
       if (spot.lat != null && spot.lon != null) {
         handleDXChange({ lat: spot.lat, lon: spot.lon, callsign: spot.call ?? null });
+        requestMapFocus({ lat: spot.lat, lon: spot.lon });
       } else if (spot.call) {
         // Try to find in DX Cluster paths
         const path = findDXPathForSpot(dxClusterData.paths || [], spot);
         if (path && path.dxLat != null && path.dxLon != null) {
           handleDXChange({ lat: path.dxLat, lon: path.dxLon, callsign: spot.call ?? null });
+          requestMapFocus({ lat: path.dxLat, lon: path.dxLon });
         }
       }
     },
@@ -1213,6 +1219,7 @@ export const DockableApp = ({
               showOnMap={mapLayersEff.showAPRS}
               onToggleMap={toggleAPRSEff}
               onHoverSpot={setHoveredSpot}
+              onSpotClick={handleSpotClick}
               deLocation={config.location}
               units={config.allUnits?.dist}
             />

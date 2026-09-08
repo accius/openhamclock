@@ -494,6 +494,42 @@ body::before {
   height: 32px;
 }
 
+/* Click-to-locate pulse (#1182): three rings expand from the target a panel
+   row asked the map to show, then the marker removes itself. */
+.map-focus-pulse {
+  pointer-events: none;
+}
+.map-focus-pulse span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  border: 2px solid var(--accent-cyan);
+  box-shadow: 0 0 8px var(--accent-cyan);
+  opacity: 0;
+  transform: scale(0.2);
+  animation: map-focus-ring 1.3s ease-out 2;
+}
+.map-focus-pulse span:nth-child(2) {
+  animation-delay: 0.3s;
+}
+.map-focus-pulse span:nth-child(3) {
+  animation-delay: 0.6s;
+}
+@keyframes map-focus-ring {
+  0% {
+    opacity: 0.95;
+    transform: scale(0.2);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+
 .sun-marker-icon,
 .moon-marker-icon {
   background: none !important;

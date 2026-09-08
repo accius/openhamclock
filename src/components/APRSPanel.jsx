@@ -10,7 +10,7 @@ import { useCallsignPopup } from './CallsignPopupManager.jsx';
 import { calculateDistance, formatDistance } from '../utils/geo.js';
 import { stationAgeMinutes, formatStationAge } from '../utils/aprsStationAge.js';
 
-const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onHoverSpot, deLocation, units = 'metric' }) => {
+const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onHoverSpot, onSpotClick, deLocation, units = 'metric' }) => {
   const {
     filteredStations = [],
     stations = [],
@@ -508,7 +508,13 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onHoverSpot, deLocation, 
                   onHoverSpot?.(null);
                   setTooltip(null);
                 }}
-                onClick={() => {}}
+                onClick={() => {
+                  // Set DX + bring the station into view on the map (#1182)
+                  if (station.lat != null && station.lon != null) {
+                    onSpotClick?.({ call: station.call, ssid: station.ssid, lat: station.lat, lon: station.lon });
+                  }
+                }}
+                title={station.lat != null && station.lon != null ? 'Show on map' : undefined}
                 style={{
                   display: 'grid',
                   gridTemplateColumns: '1fr auto',
