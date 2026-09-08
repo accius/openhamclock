@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import CallsignLink from './CallsignLink.jsx';
 import { useCallsignPopup } from './CallsignPopupManager.jsx';
 import { calculateDistance, formatDistance } from '../utils/geo.js';
+import { stationAgeMinutes, formatStationAge } from '../utils/aprsStationAge.js';
 
 const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onHoverSpot, deLocation, units = 'metric' }) => {
   const {
@@ -64,13 +65,7 @@ const APRSPanel = ({ aprsData, showOnMap, onToggleMap, onHoverSpot, deLocation, 
     }
   }, [addCallInput, addCallTarget, addCallToGroup]);
 
-  const formatAge = (minutes) =>
-    minutes == null ? '?' : minutes < 1 ? 'now' : minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h`;
-  const stationAgeMinutes = (station) => {
-    if (station.age != null) return station.age;
-    if (station.timestamp != null) return Math.floor((Date.now() - station.timestamp) / 60000);
-    return null;
-  };
+  const formatAge = formatStationAge;
 
   if (!aprsEnabled) {
     return (

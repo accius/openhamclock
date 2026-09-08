@@ -11,6 +11,7 @@ import { esc } from '../utils/escapeHtml.js';
 import { apiFetch } from '../utils/apiFetch.js';
 import { mergeShelters } from '../utils/emcommShelters.js';
 import { winlinkModeLabel, winlinkModeColor } from '../utils/winlinkModes.js';
+import { stationAgeMinutes, formatStationAge } from '../utils/aprsStationAge.js';
 import {
   recordEvent,
   getEvents,
@@ -190,8 +191,12 @@ export default function EmcommLayout(props) {
   const [eventLog, setEventLog] = useState(() => getEvents());
   // Previous-snapshot key sets for event-log diffing (null = no snapshot yet)
   const evtPrevRef = useRef({ roster: null, alerts: null, shelters: null, stations: null, fieldReports: null });
+  // Bumped when the operator clears the log so the recording effects below
+  // re-run against a reset baseline and re-seed the current picture (#1181)
+  const [logEpoch, setLogEpoch] = useState(0);
   // High-water mark for received-APRS-message polling (only log traffic from this session on)
-  const msgSinceRef = useRef(Date.now());
+  const sessionStartRef = useRef(Date.now());
+  const msgSinceRef = useRef(sessionStartRef.current);
   const mapInstanceRef = useRef(null);
   const overlayLayersRef = useRef([]);
 
@@ -304,7 +309,7 @@ export default function EmcommLayout(props) {
     fetchMessages();
     const timer = setInterval(fetchMessages, 30000);
     return () => clearInterval(timer);
-  }, []);
+  }, [logEpoch]);
 
   const { alerts = [], shelters = [], disasters = [], loading } = emcommData || {};
   const allAprsStations = aprsData?.stations || [];
@@ -354,7 +359,7 @@ export default function EmcommLayout(props) {
       recordEvent('net_checkout', { callsign: call, summary: 'Checked out of net' });
     }
     evtPrevRef.current.roster = keys;
-  }, [netRoster]);
+  }, [netRoster, logEpoch]);
 
   // NWS alerts: new alert IDs
   useEffect(() => {
@@ -367,7 +372,7 @@ export default function EmcommLayout(props) {
       });
     }
     evtPrevRef.current.alerts = keys;
-  }, [alerts]);
+  }, [alerts, logEpoch]);
 
   // APRS shelter reports: new reports (keyed by sender + report timestamp)
   useEffect(() => {
@@ -386,7 +391,7 @@ export default function EmcommLayout(props) {
       });
     }
     evtPrevRef.current.shelters = keys;
-  }, [aprsShelterReports]);
+  }, [aprsShelterReports, logEpoch]);
 
   // EmComm APRS stations: first-heard (once per station per log lifetime)
   useEffect(() => {
@@ -399,7 +404,7 @@ export default function EmcommLayout(props) {
       });
     }
     evtPrevRef.current.stations = keys;
-  }, [emcommStations]);
+  }, [emcommStations, logEpoch]);
 
   // Field reports: new report IDs (row hashes from the CSV ingest)
   useEffect(() => {
@@ -414,7 +419,7 @@ export default function EmcommLayout(props) {
       });
     }
     evtPrevRef.current.fieldReports = keys;
-  }, [fieldReports]);
+  }, [fieldReports, logEpoch]);
 
   // Calculate distance from DE for shelters
   const sheltersWithDistance = useMemo(() => {
@@ -766,9 +771,23 @@ export default function EmcommLayout(props) {
   }, [config.callsign, config.location]);
 
   const clearEventLog = useCallback(() => {
-    if (window.confirm('Clear the entire EmComm event log? This cannot be undone.')) {
-      clearEvents();
-    }
+    if (!window.confirm('Clear the entire EmComm event log? This cannot be undone.')) return;
+    clearEvents();
+    // Clearing wiped the stored events but the diff snapshots above still
+    // remembered everything already on the board, so nothing re-logged until
+    // a brand-new station/alert appeared — the log looked dead until a page
+    // refresh (#1181). Reset the baselines to *empty* (not null) so the next
+    // effect pass treats the current picture as freshly heard, exactly like a
+    // reload does, without throwing away the map's RF history.
+    evtPrevRef.current = {
+      roster: new Set(),
+      alerts: new Set(),
+      shelters: new Set(),
+      stations: new Set(),
+      fieldReports: new Set(),
+    };
+    msgSinceRef.current = sessionStartRef.current;
+    setLogEpoch((n) => n + 1);
   }, []);
 
   // Time until expiry helper
@@ -1108,7 +1127,9 @@ export default function EmcommLayout(props) {
               <EmptyState text="No emergency APRS stations heard" />
             ) : (
               emcommStationsWithDistance.map((s) => {
-                const ageStr = s.age < 1 ? 'now' : s.age < 60 ? `${s.age}m ago` : `${Math.floor(s.age / 60)}h ago`;
+                // RF stations from the rig-bridge stream carry only a timestamp, no
+                // precomputed age — reading s.age directly rendered "NaNh ago" (#1180)
+                const ageStr = formatStationAge(stationAgeMinutes(s), { suffix: ' ago' });
                 const hasTokens = s.tokens && s.tokens.length > 0;
                 return (
                   <div
