@@ -2667,6 +2667,7 @@ export const WorldMap = ({
               onDXChange={onDXChange}
               mapBandFilter={mapBandFilter}
               config={finalConfig}
+              showLabels={showDXLabels}
               map={isAzimuthal ? azimuthalMapRef.current : mapInstanceRef.current}
               satellites={satellites}
               allUnits={allUnits}

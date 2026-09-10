@@ -3,6 +3,7 @@ import { esc } from '../../utils/escapeHtml.js';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { makeDraggable } from './makeDraggable.js';
 import { getGreatCirclePoints, replicatePath, maidenheadToLatLon } from '../../utils/geo.js';
+import { makeCallLabel } from './callLabel.js';
 
 export const metadata = {
   id: 'n3fjp_logged_qsos',
@@ -26,7 +27,7 @@ const STORAGE_PREVIEW_COLOR_KEY = 'n3fjp_preview_line_color';
 // Sanitize CSS color values from localStorage to prevent innerHTML injection
 const sanitizeColor = (c, fallback = '#3388ff') => (/^(#[0-9a-f]{3,8}|[a-z]{3,20})$/i.test(c) ? c : fallback);
 
-export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
+export function useLayer({ enabled = false, opacity = 0.9, map = null, showLabels = true }) {
   const [layersRef, setLayersRef] = useState([]);
   const [qsos, setQsos] = useState([]);
   const [retentionMinutes, setRetentionMinutes] = useState(15);
@@ -346,6 +347,12 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
 
       newLayers.push(dxMarker);
 
+      // Callsign pill beside the dot, following the map's global Calls toggle.
+      // Previews get a "?" suffix so a half-typed call reads as tentative.
+      if (showLabels) {
+        newLayers.push(makeCallLabel(L, [lat, lon], isPreview ? `${dxCall}?` : dxCall, color, { opacity }).addTo(map));
+      }
+
       // If this was the popup that was open before redraw, re-open it now
       if (!suppressReopenRef.current && openDxCall && dxCall === openDxCall) {
         setTimeout(() => {
@@ -384,7 +391,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
         } catch {}
       });
     };
-  }, [enabled, qsos, map, opacity, retentionMinutes, displayMinutes, lineColor, previewLineColor]);
+  }, [enabled, qsos, map, opacity, retentionMinutes, displayMinutes, lineColor, previewLineColor, showLabels]);
 
   return {
     qsoCount: qsos.length,

@@ -37,6 +37,7 @@ const PluginLayerInner = ({
   satellites,
   allUnits,
   config,
+  showLabels,
 }) => {
   const layerFunc = plugin.useLayer || plugin.hook;
   const safeMap = isMapAlive(map) ? map : null;
@@ -56,6 +57,7 @@ const PluginLayerInner = ({
       satellites,
       allUnits,
       config,
+      showLabels,
     });
   }
   return null;

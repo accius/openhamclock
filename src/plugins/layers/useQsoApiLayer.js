@@ -7,11 +7,13 @@
 import { useEffect, useState } from 'react';
 import { esc } from '../../utils/escapeHtml.js';
 import { getGreatCirclePoints, replicatePath, maidenheadToLatLon } from '../../utils/geo.js';
+import { makeCallLabel } from './callLabel.js';
 
 export const metadata = {
   id: 'qso-api',
   name: 'Logged QSOs (API)',
-  description: 'QSOs pushed by any external logger through the open REST API (POST /api/qso-layer).',
+  description:
+    "QSOs pushed by any external logger through the open REST API (POST /api/qso-layer). Callsign labels follow the map's Calls toggle.",
   icon: '📖',
   category: 'amateur',
   localOnly: true,
@@ -48,7 +50,7 @@ function readStationPosition() {
   return null;
 }
 
-export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
+export function useLayer({ enabled = false, opacity = 0.9, map = null, showLabels = true }) {
   const [qsos, setQsos] = useState([]);
   const [retentionMinutes, setRetentionMinutes] = useState(1440);
 
@@ -117,6 +119,12 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
       );
       layers.push(marker);
 
+      // Callsign pill beside the dot (a dot alone says nothing about who was
+      // worked). Honours the map's global Calls toggle like DX spot labels do.
+      if (showLabels) {
+        layers.push(makeCallLabel(L, [q.lat, q.lon], call, color, { opacity }).addTo(map));
+      }
+
       // Great-circle path from DE to the worked station
       if (station) {
         const arcPoints = getGreatCirclePoints(station.lat, station.lon, q.lat, q.lon, 64);
@@ -148,7 +156,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null }) {
         }
       });
     };
-  }, [enabled, qsos, map, opacity, retentionMinutes]);
+  }, [enabled, qsos, map, opacity, retentionMinutes, showLabels]);
 
   return {
     qsoCount: qsos.length,
