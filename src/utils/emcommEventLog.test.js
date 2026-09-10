@@ -161,6 +161,13 @@ describe('diffAdded', () => {
     expect(keys.has('b')).toBe(true);
   });
 
+  it('treats an empty (non-null) baseline as "everything is new" — the re-seed after Clear (#1181)', () => {
+    const { added, removed, keys } = diffAdded(new Set(), [{ id: 'a' }, { id: 'b' }], (x) => x.id);
+    expect(added.map((x) => x.id)).toEqual(['a', 'b']);
+    expect(removed).toEqual([]);
+    expect([...keys]).toEqual(['a', 'b']);
+  });
+
   it('ignores items whose key is null', () => {
     const { added, keys } = diffAdded(new Set(), [{ id: null }, { id: 'x' }], (x) => x.id);
     expect(added).toEqual([{ id: 'x' }]);

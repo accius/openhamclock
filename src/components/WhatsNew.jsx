@@ -29,6 +29,39 @@ const ANNOUNCEMENT = {
 
 const CHANGELOG = [
   {
+    version: '26.7.3',
+    date: '2026-09-10',
+    heading:
+      'Third hotfix of the cycle, and the first with a new feature in it. Two more EmComm reports from Michael (@mbrun-plm), plus a request of his that turned into something every layout gets; a QSO-layer ask from Alan McDonald on Facebook; and a Docker fix from @9M2PJU.',
+    features: [
+      {
+        icon: '🎯',
+        title: 'Click a Panel Row to Find It on the Map',
+        desc: 'Any station, shelter, gateway, or spot listed in a panel can now pull the map to it. In EmComm mode the EmComm Stations, Nearby Winlink Gateways, and Net Roster rows are clickable (roster entries once an APRS position has been heard), pan the map to the target, and drop a short expanding-ring pulse on it so your eye lands on the right dot in a busy view. In the Dockable layout every spot click you already use — DX Cluster, POTA/SOTA/WWFF, PSK Reporter, MeshCom — now pulses the target and pans to it when it is off-screen; if it is already in view the map stays put. APRS panel rows, which looked clickable but did nothing, now behave like every other panel. Flat map only for now; the Azimuthal and 3D globe projections ignore the request. Requested by @mbrun-plm.',
+      },
+      {
+        icon: '🏷️',
+        title: 'Callsign Labels on the Logged-QSO Layers',
+        desc: 'A dot at the end of a QSO path said nothing about who you worked, while the DX spots beside it carried callsign pills. Both logged-QSO layers — Logged QSOs (API) and Logged QSOs (N3FJP) — now draw the same style pill beside each contact, in the layer\'s colour (a per-QSO colour sent through the REST API carries into its pill), and N3FJP live-entry previews get a trailing "?" so a half-typed call reads as tentative. The pills follow the map\'s existing Show/Hide Calls button, so one control governs spot and QSO labels alike. Asked for by Alan McDonald on Facebook.',
+      },
+      {
+        icon: '⏱️',
+        title: 'FIX: EmComm Station Age No Longer Reads "NaNh ago"',
+        desc: 'The EmComm Stations list read a precomputed age that only stations from the server feed carry; beacons arriving over RF from the rig-bridge TNC have just a timestamp, so the maths produced NaN. A shared helper now derives minutes-since-heard from the timestamp and only falls back to the server value when there is no timestamp. The Dockable APRS panel uses it too, so its ages now tick live between polls instead of freezing at fetch time. Reported by @mbrun-plm (#1180).',
+      },
+      {
+        icon: '📋',
+        title: 'FIX: EmComm Event Log Comes Back After Clear',
+        desc: "Clearing the Event Log left it empty until a page refresh. The log records activity by diffing each feed against what it had already seen, and Clear wiped the stored events but not those snapshots — so only a brand-new station or alert could ever log again. Clear now resets the baselines and re-runs the recording pass immediately: the current stations, alerts, roster, shelter and field reports, and this session's received messages re-log right away, the same result a refresh gave you, minus the reload, so the map keeps its hours of RF-heard beacons. Reported by @mbrun-plm (#1181).",
+      },
+      {
+        icon: '🐳',
+        title: 'FIX: Self-Hosted Fonts on Alpine Docker Builds',
+        desc: 'The vendor-download script extracted Google Fonts URLs with a Perl-regex grep flag that Alpine\'s BusyBox grep does not have, so container builds silently downloaded zero font files and the "self-hosted" image quietly fell back to Google\'s CDN. It now uses a POSIX extended regex that works on Alpine, Debian, and macOS alike. Thanks @9M2PJU (#1179).',
+      },
+    ],
+  },
+  {
     version: '26.7.2',
     date: '2026-09-03',
     heading:

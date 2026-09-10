@@ -40,17 +40,17 @@ map layer, not a logbook.
 Accepts a single QSO object, a bare array, or `{ "qsos": [...] }`.
 Batches are capped at **100 QSOs per request**.
 
-| Field       | Type             | Required | Notes                                                        |
-| ----------- | ---------------- | -------- | ------------------------------------------------------------ |
-| `call`      | string           | yes      | Callsign of the worked station (portable `/` suffixes OK)    |
-| `grid`      | string           | \*       | Maidenhead locator, 2/4/6/8 chars (e.g. `FN42`)              |
-| `lat`,`lon` | number           | \*       | Decimal degrees; takes precedence over `grid` when both sent |
-| `freq`      | number           | no       | Frequency in **MHz** (`freq_khz` also accepted)              |
-| `band`      | string           | no       | e.g. `20m`; derived from `freq` when omitted                 |
-| `mode`      | string           | no       | e.g. `SSB`, `CW`, `FT8`                                      |
-| `timestamp` | string \| number | no       | ISO 8601 or epoch **ms**; defaults to server "now"           |
-| `label`     | string           | no       | Free text shown in the marker popup (max 120 chars)          |
-| `color`     | string           | no       | CSS color for this QSO's marker/path (`#rrggbb` or named)    |
+| Field       | Type             | Required | Notes                                                                                         |
+| ----------- | ---------------- | -------- | --------------------------------------------------------------------------------------------- |
+| `call`      | string           | yes      | Callsign of the worked station (portable `/` suffixes OK); drawn as a label beside the marker |
+| `grid`      | string           | \*       | Maidenhead locator, 2/4/6/8 chars (e.g. `FN42`)                                               |
+| `lat`,`lon` | number           | \*       | Decimal degrees; takes precedence over `grid` when both sent                                  |
+| `freq`      | number           | no       | Frequency in **MHz** (`freq_khz` also accepted)                                               |
+| `band`      | string           | no       | e.g. `20m`; derived from `freq` when omitted                                                  |
+| `mode`      | string           | no       | e.g. `SSB`, `CW`, `FT8`                                                                       |
+| `timestamp` | string \| number | no       | ISO 8601 or epoch **ms**; defaults to server "now"                                            |
+| `label`     | string           | no       | Free text shown in the marker popup (max 120 chars)                                           |
+| `color`     | string           | no       | CSS color for this QSO's marker/path (`#rrggbb` or named)                                     |
 
 \* At least one of `grid` or `lat`+`lon` is required — a QSO that can't be
 placed on the map is rejected. Unknown fields are silently dropped.
