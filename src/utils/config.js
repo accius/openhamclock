@@ -273,27 +273,56 @@ export const fetchServerSettings = async () => {
  * No-op if settings sync is not enabled (interceptor not installed).
  */
 let _syncTimeout = null;
+
+/** Gather every synced localStorage key into one settings object. */
+const collectSyncSettings = () => {
+  const settings = {};
+  for (const key of SYNC_KEYS) {
+    const val = localStorage.getItem(key);
+    if (val !== null) settings[key] = val;
+  }
+  // Also capture any openhamclock_*/ohc_* keys not in the static list
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (key.startsWith('openhamclock_') || key.startsWith('ohc_')) && !settings[key]) {
+      // Skip profiles (too large, browser-specific)
+      if (key === 'openhamclock_profiles' || key === 'openhamclock_activeProfile') continue;
+      settings[key] = localStorage.getItem(key);
+    }
+  }
+  return settings;
+};
+
+/**
+ * If a debounced sync is still pending when the page goes away, push it now
+ * with sendBeacon (survives unload). Without this, changing a setting and
+ * refreshing within the 2 s debounce lost the change: the server copy was
+ * stale, and on reload "server wins" wrote the old value back over
+ * localStorage (N3DD: antenna type reverting on refresh).
+ * @returns {boolean} true when a beacon was queued
+ */
+export const flushSettingsSync = () => {
+  if (!_syncTimeout) return false;
+  clearTimeout(_syncTimeout);
+  _syncTimeout = null;
+  try {
+    if (typeof navigator === 'undefined' || typeof navigator.sendBeacon !== 'function') return false;
+    const body = new Blob([JSON.stringify(collectSyncSettings())], { type: 'application/json' });
+    return navigator.sendBeacon('/api/settings', body);
+  } catch {
+    return false;
+  }
+};
+
 export const syncAllSettingsToServer = () => {
   if (!_interceptorInstalled) return; // Sync not enabled — no-op
 
   // Debounce: wait 2s after last change before pushing
   if (_syncTimeout) clearTimeout(_syncTimeout);
   _syncTimeout = setTimeout(async () => {
+    _syncTimeout = null;
     try {
-      const settings = {};
-      for (const key of SYNC_KEYS) {
-        const val = localStorage.getItem(key);
-        if (val !== null) settings[key] = val;
-      }
-      // Also capture any openhamclock_*/ohc_* keys not in the static list
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('openhamclock_') || key.startsWith('ohc_')) && !settings[key]) {
-          // Skip profiles (too large, browser-specific)
-          if (key === 'openhamclock_profiles' || key === 'openhamclock_activeProfile') continue;
-          settings[key] = localStorage.getItem(key);
-        }
-      }
+      const settings = collectSyncSettings();
 
       const response = await fetch('/api/settings', {
         method: 'POST',
@@ -329,6 +358,11 @@ export const installSettingsSyncInterceptor = () => {
       syncAllSettingsToServer();
     }
   };
+
+  // A refresh inside the debounce window must not lose the last change
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', flushSettingsSync);
+  }
 };
 
 /**
@@ -481,6 +515,7 @@ export default {
   fetchServerConfig,
   fetchServerSettings,
   syncAllSettingsToServer,
+  flushSettingsSync,
   loadConfig,
   saveConfig,
   isConfigIncomplete,

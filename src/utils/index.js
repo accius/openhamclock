@@ -12,6 +12,7 @@ export {
   fetchServerConfig,
   fetchServerSettings,
   syncAllSettingsToServer,
+  flushSettingsSync,
   installSettingsSyncInterceptor,
   isConfigIncomplete,
   MAP_STYLES,
