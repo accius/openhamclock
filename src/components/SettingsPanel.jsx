@@ -700,7 +700,11 @@ export const SettingsPanel = ({
       sceneRotation,
       // units,
       allUnits: { dist: distUnits, temp: tempUnits, press: pressUnits },
-      propagation: { mode: propMode, power: parseFloat(propPower) || 100 },
+      // Spread the existing propagation block: this panel only edits mode and
+      // power, and replacing the object wholesale silently dropped the antenna
+      // chosen in the Propagation panel — it came back as the default on the
+      // next load (N3DD report).
+      propagation: { ...config.propagation, mode: propMode, power: parseFloat(propPower) || 100 },
       licenseClass,
       wsjtxRelayMulticast: { enabled: wsjtxMulticastEnabled, address: wsjtxMulticastAddress },
       rigControl: {
