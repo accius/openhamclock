@@ -301,6 +301,9 @@ const collectSyncSettings = () => {
  * localStorage (N3DD: antenna type reverting on refresh).
  * @returns {boolean} true when a beacon was queued
  */
+/** True while a debounced server sync is armed and not yet sent. */
+export const hasPendingSettingsSync = () => _syncTimeout != null;
+
 export const flushSettingsSync = () => {
   if (!_syncTimeout) return false;
   clearTimeout(_syncTimeout);
@@ -516,6 +519,7 @@ export default {
   fetchServerSettings,
   syncAllSettingsToServer,
   flushSettingsSync,
+  hasPendingSettingsSync,
   loadConfig,
   saveConfig,
   isConfigIncomplete,

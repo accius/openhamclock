@@ -4,7 +4,14 @@
  *  - loadConfig must keep the antenna saved in localStorage
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { loadConfig, saveConfig, installSettingsSyncInterceptor, flushSettingsSync } from './config.js';
+import {
+  loadConfig,
+  saveConfig,
+  installSettingsSyncInterceptor,
+  flushSettingsSync,
+  hasPendingSettingsSync,
+  syncAllSettingsToServer,
+} from './config.js';
 
 describe('flushSettingsSync', () => {
   beforeEach(() => {
@@ -22,11 +29,17 @@ describe('flushSettingsSync', () => {
 
   it('pushes a pending debounced sync with sendBeacon so a quick refresh cannot lose it', async () => {
     const beacon = vi.fn(() => true);
-    Object.defineProperty(navigator, 'sendBeacon', { value: beacon, configurable: true });
+    vi.stubGlobal('navigator', { sendBeacon: beacon });
+    expect(typeof navigator.sendBeacon).toBe('function');
     installSettingsSyncInterceptor();
 
-    // A settings write arms the 2 s debounce
+    // A settings write arms the 2 s debounce (the interceptor routes
+    // localStorage.setItem here; call it directly so the test does not depend
+    // on jsdom's Storage accepting a patched setItem or on module-state
+    // isolation between test files).
     localStorage.setItem('openhamclock_config', JSON.stringify({ propagation: { antenna: 'dipole' } }));
+    syncAllSettingsToServer();
+    expect(hasPendingSettingsSync()).toBe(true);
 
     expect(flushSettingsSync()).toBe(true);
     expect(beacon).toHaveBeenCalledTimes(1);
@@ -47,7 +60,8 @@ describe('flushSettingsSync', () => {
 
   it('is a no-op when nothing is pending', () => {
     const beacon = vi.fn(() => true);
-    Object.defineProperty(navigator, 'sendBeacon', { value: beacon, configurable: true });
+    vi.stubGlobal('navigator', { sendBeacon: beacon });
+    expect(hasPendingSettingsSync()).toBe(false);
     expect(flushSettingsSync()).toBe(false);
     expect(beacon).not.toHaveBeenCalled();
   });
