@@ -29,6 +29,18 @@ const ANNOUNCEMENT = {
 
 const CHANGELOG = [
   {
+    version: '26.7.4',
+    date: '2026-09-12',
+    heading: 'One-fix hotfix: the VOACAP antenna you pick now stays picked. Thanks to N3DD for the report.',
+    features: [
+      {
+        icon: '📡',
+        title: 'FIX: VOACAP Antenna Choice No Longer Reverts to Isotropic',
+        desc: "Choose an antenna in the Propagation panel, save anything in Settings later, refresh — and the antenna was back to Isotropic. The Settings save rebuilt the propagation block from only the two fields it edits (mode and power) and silently dropped the antenna, so the next load filled the gap with the default. It now keeps the existing block and overrides just mode and power. As a belt-and-braces measure for self-hosted installs with settings sync, any change still waiting in the 2-second sync debounce is now pushed on page unload, so a refresh straight after a change can no longer let the server's older copy win. If you already lost your antenna this way you will see Isotropic once more after updating; pick it again and it sticks. Reported by N3DD.",
+      },
+    ],
+  },
+  {
     version: '26.7.3',
     date: '2026-09-10',
     heading:
