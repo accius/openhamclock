@@ -49,6 +49,8 @@ module.exports = function (app, ctx) {
   const MAX_DX_CALLSIGNS = 5000; // Track up to 5000 unique DX stations
   const MAX_SPOTTER_CALLSIGNS = 2000; // ~1000 active RBN skimmers worldwide
   const RBN_SPOT_TTL = 30 * 60 * 1000; // 30 minutes
+  const RBN_CONNECTION_TTL = 5 * 60 * 1000; // 5 minutes
+  let lastRBNApiReq = 0;
   const callsignLocationCache = new Map(); // Cache for skimmer/station locations
   const LOCATION_CACHE_MAX = 2000; // ~1000 active RBN skimmers worldwide, 2x headroom
 
@@ -126,6 +128,7 @@ module.exports = function (app, ctx) {
 
   /**
    * Maintain persistent connection to RBN Telnet
+   * Port 7000 for CW & RTTY spots, 7001 for FT8
    */
   function maintainRBNConnection(port = 7000) {
     if (rbnConnection && !rbnConnection.destroyed) {
@@ -150,7 +153,7 @@ module.exports = function (app, ctx) {
         port: port,
       },
       () => {
-        console.log(`[RBN] Persistent connection established`);
+        console.log(`[RBN] Connection established`);
         ctx.rbnHealth.connected = true;
       },
     );
@@ -267,21 +270,29 @@ module.exports = function (app, ctx) {
     });
 
     client.on('close', () => {
-      console.log(`[RBN] Connection closed, reconnecting in 5s...`);
       rbnConnection = null;
       ctx.rbnHealth.connected = false;
       ctx.rbnHealth.authenticated = false;
-      setTimeout(() => maintainRBNConnection(port), 5000);
+      // If there was a recent request, we'll try to re-establish the connection
+      if (Date.now() - lastRBNApiReq < RBN_CONNECTION_TTL) {
+        console.log(`[RBN] Connection closed, reconnecting in 5s...`);
+        setTimeout(() => maintainRBNConnection(port), 5000);
+      } else console.log(`[RBN] Connection closed.`);
     });
 
     rbnConnection = client;
   }
 
   // Start persistent connection on server startup
-  maintainRBNConnection(7000);
+  // delay startup until the first request
+  // maintainRBNConnection(7000);
 
   // Periodic cleanup of expired spots from the DX-indexed map
   setInterval(() => {
+    if (Date.now() - lastRBNApiReq > RBN_CONNECTION_TTL) {
+      // close the connection to the RBN telnet server
+      if (rbnConnection) rbnConnection.end();
+    }
     const cutoff = Date.now() - RBN_SPOT_TTL;
     let cleaned = 0;
     for (const [dxCall, spots] of rbnSpotsByDX) {
@@ -540,6 +551,8 @@ module.exports = function (app, ctx) {
   // GET /api/rbn/spots?callsign=W3LPL&minutes=5&mode=spotter — what is skimmer W3LPL hearing?
   // GET /api/rbn/spots?callsigns=4U1UN,VE8AT,...&minutes=5  — bulk dx lookup (IBP cross-reference)
   app.get('/api/rbn/spots', async (req, res) => {
+    if (ctx.rbnHealth.connected === false) maintainRBNConnection(7000);
+    lastRBNApiReq = Date.now();
     const minutes = Math.min(parseInt(req.query.minutes) || 15, 30);
     const include630m = req.query.include630m === 'true';
 
@@ -651,6 +664,8 @@ module.exports = function (app, ctx) {
 
   // Endpoint to lookup skimmer location (cached permanently)
   app.get('/api/rbn/location/:callsign', async (req, res) => {
+    if (ctx.rbnHealth.connected === false) maintainRBNConnection(7000);
+    lastRBNApiReq = Date.now();
     const callsign = req.params.callsign.toUpperCase().replace(/[^\w\-\/]/g, '');
     if (!callsign || callsign.length > 15) {
       return res.status(400).json({ error: 'Invalid callsign' });
