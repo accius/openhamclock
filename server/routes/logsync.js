@@ -102,24 +102,24 @@ module.exports = function (app, ctx) {
     if (!target.ok) return res.status(400).json({ error: target.reason });
 
     try {
-      const endpoint = test ? `${target.base}/api/station_info` : `${target.base}/api/qso`;
-      const body = test
-        ? { key: key.trim() }
-        : {
-            key: key.trim(),
-            station_profile_id: String(stationProfileId || '').trim() || '1',
-            type: 'adif',
-            string: adif,
-          };
+      const endpoint = test
+        ? `${target.base}/api/station_info/${encodeURIComponent(key.trim())}`
+        : `${target.base}/api/qso`;
+      const body = {
+        key: key.trim(),
+        station_profile_id: String(stationProfileId || '').trim() || '1',
+        type: 'adif',
+        string: adif,
+      };
       const upstream = await fetchWithTimeout(endpoint, {
-        method: 'POST',
+        method: test ? 'GET' : 'POST',
         headers: {
-          'Content-Type': 'application/json',
           Accept: 'application/json',
           'User-Agent': userAgent,
           Host: target.host,
+          ...(!test ? { 'Content-Type': 'application/json' } : {}),
         },
-        body: JSON.stringify(body),
+        ...(!test ? { body: JSON.stringify(body) } : {}),
       });
       const text = await upstream.text();
       let data = null;
@@ -156,6 +156,201 @@ module.exports = function (app, ctx) {
         .status(502)
         .json({ error: err.name === 'AbortError' ? 'Wavelog server timed out' : 'Could not reach the Wavelog server' });
     }
+  });
+
+  /**
+   * Pull new QSOs from Wavelog after a QSO ID cursor.
+   * The browser owns the cursor and credentials; this proxy stores neither.
+   */
+  app.post('/api/logsync/wavelog/pull', writeLimiter, async (req, res) => {
+    noCache(res);
+    const { url, key, stationIds, fetchFromId = 0, limit = 5000 } = req.body || {};
+
+    if (typeof url !== 'string' || typeof key !== 'string' || !url.trim() || !key.trim()) {
+      return res.status(400).json({ error: 'url and key are required' });
+    }
+
+    const ids = Array.isArray(stationIds) ? stationIds.map(Number).filter((id) => Number.isInteger(id) && id > 0) : [];
+
+    if (ids.length === 0) {
+      return res.status(400).json({ error: 'at least one station ID is required' });
+    }
+
+    const cursor = Number(fetchFromId);
+    if (!Number.isInteger(cursor) || cursor < 0) {
+      return res.status(400).json({ error: 'fetchFromId must be a non-negative integer' });
+    }
+
+    const requestedLimit = Number(limit);
+    if (!Number.isInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 20000) {
+      return res.status(400).json({ error: 'limit must be between 1 and 20000' });
+    }
+
+    const target = await resolveWavelogBase(url);
+    if (!target.ok) return res.status(400).json({ error: target.reason });
+
+    try {
+      const upstream = await fetchWithTimeout(`${target.base}/api/get_contacts_adif`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'User-Agent': userAgent,
+          Host: target.host,
+        },
+        body: JSON.stringify({
+          key: key.trim(),
+          station_id: ids,
+          fetchfromid: cursor,
+          limit: requestedLimit,
+          output_format: 'adif',
+        }),
+      });
+
+      const text = await upstream.text();
+      let data = null;
+      try {
+        data = JSON.parse(text);
+      } catch {}
+
+      if (!upstream.ok) {
+        const reason = data?.reason || data?.message || `HTTP ${upstream.status}`;
+        return res.status(502).json({ error: `Wavelog: ${reason}` });
+      }
+
+      const status = String(data?.status || '').toLowerCase();
+      if (status === 'failed' || status === 'error') {
+        return res.status(502).json({
+          error: `Wavelog: ${data?.reason || data?.message || 'pull failed'}`,
+        });
+      }
+
+      return res.json({
+        ok: true,
+        message: data?.message || '',
+        lastFetchedId: Number(data?.lastfetchedid ?? cursor),
+        exportedQsos: Number(data?.exported_qsos || 0),
+        adif: typeof data?.adif === 'string' ? data.adif : null,
+      });
+    } catch (err) {
+      logErrorOnce('logsync-wavelog-pull', err.name === 'AbortError' ? 'timeout' : err.message);
+      return res.status(502).json({
+        error: err.name === 'AbortError' ? 'Wavelog server timed out' : 'Could not reach the Wavelog server',
+      });
+    }
+  });
+
+  // ── Wavelog MQTT event bridge ──────────────────────────────────────────
+  //
+  // MQTT is only a doorbell. The browser still performs the authoritative
+  // incremental Wavelog pull using its existing credentials and QSO cursor.
+  //
+  // Disabled unless all required server-side MQTT settings are present.
+
+  const wavelogMqttUrl = String(process.env.WAVELOG_MQTT_URL || '').trim();
+  const wavelogMqttUsername = String(process.env.WAVELOG_MQTT_USERNAME || '').trim();
+  const wavelogMqttPassword = String(process.env.WAVELOG_MQTT_PASSWORD || '');
+  const wavelogMqttTopic = String(process.env.WAVELOG_MQTT_TOPIC || '').trim();
+
+  const wavelogEventClients = new Set();
+  let wavelogMqttClient = null;
+
+  const wavelogMqttConfigured = wavelogMqttUrl && wavelogMqttUsername && wavelogMqttPassword && wavelogMqttTopic;
+
+  const broadcastWavelogEvent = () => {
+    const message = `event: qso\ndata: ${JSON.stringify({ timestamp: Date.now() })}\n\n`;
+
+    for (const client of wavelogEventClients) {
+      try {
+        client.write(message);
+        if (typeof client.flush === 'function') client.flush();
+      } catch {
+        wavelogEventClients.delete(client);
+      }
+    }
+  };
+
+  const connectWavelogMqtt = () => {
+    if (!wavelogMqttConfigured || wavelogMqttClient) return;
+
+    const mqttLib = require('mqtt');
+
+    const client = mqttLib.connect(wavelogMqttUrl, {
+      username: wavelogMqttUsername,
+      password: wavelogMqttPassword,
+      clean: true,
+      connectTimeout: 10000,
+      reconnectPeriod: 5000,
+      keepalive: 60,
+    });
+
+    wavelogMqttClient = client;
+
+    client.on('connect', () => {
+      console.log(`[LogSync] Wavelog MQTT connected; subscribing to ${wavelogMqttTopic}`);
+
+      client.subscribe(wavelogMqttTopic, { qos: 0 }, (err) => {
+        if (err) {
+          logWarn(`[LogSync] Wavelog MQTT subscribe failed: ${err.message}`);
+        }
+      });
+    });
+
+    client.on('message', (topic) => {
+      if (topic !== wavelogMqttTopic) return;
+      broadcastWavelogEvent();
+    });
+
+    client.on('error', (err) => {
+      logWarn(`[LogSync] Wavelog MQTT error: ${err.message}`);
+    });
+
+    client.on('close', () => {
+      console.log('[LogSync] Wavelog MQTT disconnected');
+    });
+  };
+
+  app.get('/api/logsync/wavelog/events', (req, res) => {
+    if (!wavelogMqttConfigured) {
+      return res.status(503).json({ error: 'Wavelog MQTT event bridge is not configured' });
+    }
+
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+      'X-Accel-Buffering': 'no',
+      'Content-Encoding': 'identity',
+    });
+
+    if (typeof res.flushHeaders === 'function') res.flushHeaders();
+
+    wavelogEventClients.add(res);
+
+    res.write(
+      `event: connected\ndata: ${JSON.stringify({
+        mqttConfigured: true,
+        subscriberCount: wavelogEventClients.size,
+      })}\n\n`,
+    );
+
+    if (typeof res.flush === 'function') res.flush();
+
+    connectWavelogMqtt();
+
+    const keepalive = setInterval(() => {
+      try {
+        res.write(`: keepalive ${Date.now()}\n\n`);
+        if (typeof res.flush === 'function') res.flush();
+      } catch {
+        clearInterval(keepalive);
+      }
+    }, 30000);
+
+    req.on('close', () => {
+      clearInterval(keepalive);
+      wavelogEventClients.delete(res);
+    });
   });
 
   // ── QRZ Logbook ──────────────────────────────────────────────────────────

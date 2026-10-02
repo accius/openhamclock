@@ -242,7 +242,7 @@ export const add = async (fields) => {
  * QSO (or an earlier record in the same batch).
  * @returns {{ imported: number, skipped: number }}
  */
-export const addMany = async (records) => {
+export const addMany = async (records, { strict = false } = {}) => {
   await init();
   const seen = new Set(state.qsos.map(dedupKey));
   const fresh = [];
@@ -266,6 +266,12 @@ export const addMany = async (records) => {
     try {
       await state.adapter.putMany(fresh);
     } catch (err) {
+      if (strict) {
+        const freshIds = new Set(fresh.map((qso) => qso.id));
+        state.qsos = state.qsos.filter((qso) => !freshIds.has(qso.id));
+        notify();
+        throw err;
+      }
       persistError('addMany', err);
     }
   }
