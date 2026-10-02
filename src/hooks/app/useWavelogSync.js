@@ -60,7 +60,17 @@ export default function useWavelogSync() {
     // Catch up whenever the SSE connection is established or re-established.
     // Do not initialize a brand-new log automatically: the first historical
     // import remains an explicit user action via Sync now.
-    eventSource.addEventListener('connected', () => {
+    eventSource.addEventListener('connected', (event) => {
+      try {
+        const status = JSON.parse(event.data || '{}');
+        if (status.mqttConfigured === false) {
+          eventSource.close();
+          return;
+        }
+      } catch {
+        // Older servers may not provide connection metadata.
+      }
+
       if (hasCursor) void runSync();
     });
 

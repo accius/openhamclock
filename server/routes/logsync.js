@@ -311,10 +311,6 @@ module.exports = function (app, ctx) {
   };
 
   app.get('/api/logsync/wavelog/events', (req, res) => {
-    if (!wavelogMqttConfigured) {
-      return res.status(503).json({ error: 'Wavelog MQTT event bridge is not configured' });
-    }
-
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
@@ -325,16 +321,22 @@ module.exports = function (app, ctx) {
 
     if (typeof res.flushHeaders === 'function') res.flushHeaders();
 
-    wavelogEventClients.add(res);
+    if (wavelogMqttConfigured) {
+      wavelogEventClients.add(res);
+    }
 
     res.write(
       `event: connected\ndata: ${JSON.stringify({
-        mqttConfigured: true,
+        mqttConfigured: Boolean(wavelogMqttConfigured),
         subscriberCount: wavelogEventClients.size,
       })}\n\n`,
     );
 
     if (typeof res.flush === 'function') res.flush();
+
+    if (!wavelogMqttConfigured) {
+      return res.end();
+    }
 
     connectWavelogMqtt();
 

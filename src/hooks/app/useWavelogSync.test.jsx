@@ -41,8 +41,8 @@ class MockEventSource {
     this.listeners.set(name, handler);
   }
 
-  emit(name) {
-    this.listeners.get(name)?.({ type: name });
+  emit(name, data = '') {
+    this.listeners.get(name)?.({ type: name, data });
   }
 
   close() {
@@ -120,6 +120,19 @@ describe('useWavelogSync', () => {
     });
 
     expect(mocks.sync).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes the event stream when server MQTT events are not configured', async () => {
+    mocks.state = { wavelogLastFetchedId: 928 };
+
+    renderHook();
+
+    await act(async () => {
+      eventSources[0].emit('connected', JSON.stringify({ mqttConfigured: false }));
+    });
+
+    expect(eventSources[0].closed).toBe(true);
+    expect(mocks.sync).not.toHaveBeenCalled();
   });
 
   it('does not start a historical import on connect without a cursor', async () => {
