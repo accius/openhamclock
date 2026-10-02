@@ -15,6 +15,7 @@ import {
   QUEUE_CAP,
   QUEUE_KEY,
   syncLotwConfirmations,
+  syncWavelogQsos,
 } from './logsync.js';
 import { getLogsyncConfig, getLogsyncState, LOGSYNC_STATE_KEY, setLogsyncServiceConfig } from './logsyncConfig.js';
 
@@ -220,6 +221,196 @@ describe('retry queue', () => {
     await processQueue();
     expect(fetchMock).not.toHaveBeenCalled();
     expect(getPendingCount()).toBe(0);
+  });
+});
+
+// ── Wavelog pull sync ──────────────────────────────────────────────────────
+
+describe('Wavelog pull sync', () => {
+  it('imports returned ADIF and advances the QSO cursor', async () => {
+    setLogsyncServiceConfig('wavelog', {
+      enabled: true,
+      url: 'http://wavelog.test/index.php',
+      apiKey: 'secret',
+      pullEnabled: true,
+      pullStationIds: [1, 2, 3],
+    });
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        ok: true,
+        lastFetchedId: 42,
+        exportedQsos: 1,
+        adif: 'stub-adif',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const parsedQso = qso({ id: undefined, call: 'W1AW' });
+    const parseAdif = vi.fn().mockReturnValue({ qsos: [parsedQso] });
+
+    const result = await syncWavelogQsos({ parseAdif });
+
+    expect(parseAdif).toHaveBeenCalledWith('stub-adif');
+    expect(result.imported).toBe(1);
+    expect(result.fetched).toBe(1);
+    expect(result.lastFetchedId).toBe(42);
+    expect(logbookStore.getAll()).toHaveLength(1);
+    expect(logbookStore.getAll()[0].call).toBe('W1AW');
+
+    const state = getLogsyncState();
+    expect(state.wavelogLastFetchedId).toBe(42);
+
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/logsync/wavelog/pull');
+    const body = JSON.parse(opts.body);
+    expect(body.stationIds).toEqual([1, 2, 3]);
+    expect(body.fetchFromId).toBe(0);
+  });
+
+  it('posts grid-bearing pulled QSOs to the QSO map layer', async () => {
+    setLogsyncServiceConfig('wavelog', {
+      enabled: true,
+      url: 'http://wavelog.test/index.php',
+      apiKey: 'secret',
+      pullEnabled: true,
+      pullStationIds: [1],
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          lastFetchedId: 42,
+          exportedQsos: 1,
+          adif: 'stub-adif',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ ok: true }),
+      });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    await syncWavelogQsos({
+      parseAdif: () => ({
+        qsos: [
+          qso({
+            id: undefined,
+            call: 'W1AW',
+            gridsquare: 'FN31',
+            qso_date: '2026-10-02',
+            time_on: '12:34:56',
+            band: '20m',
+            mode: 'SSB',
+            freq: '14.250',
+          }),
+        ],
+      }),
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/qso-layer');
+
+    const body = JSON.parse(fetchMock.mock.calls[1][1].body);
+    expect(body.qsos).toHaveLength(1);
+    expect(body.qsos[0]).toMatchObject({
+      call: 'W1AW',
+      grid: 'FN31',
+      band: '20m',
+      mode: 'SSB',
+      label: 'Wavelog',
+    });
+  });
+
+  it('still advances the cursor when only the map-layer update fails', async () => {
+    setLogsyncServiceConfig('wavelog', {
+      enabled: true,
+      url: 'http://wavelog.test/index.php',
+      apiKey: 'secret',
+      pullEnabled: true,
+      pullStationIds: [1],
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          lastFetchedId: 77,
+          exportedQsos: 1,
+          adif: 'stub-adif',
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        json: async () => ({ error: 'map unavailable' }),
+      });
+
+    vi.stubGlobal('fetch', fetchMock);
+
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const result = await syncWavelogQsos({
+      parseAdif: () => ({
+        qsos: [
+          qso({
+            id: undefined,
+            call: 'K1ABC',
+            gridsquare: 'EM73',
+          }),
+        ],
+      }),
+    });
+
+    expect(result.imported).toBe(1);
+    expect(result.lastFetchedId).toBe(77);
+    expect(getLogsyncState().wavelogLastFetchedId).toBe(77);
+    expect(logbookStore.getAll()).toHaveLength(1);
+    expect(warn).toHaveBeenCalled();
+
+    warn.mockRestore();
+  });
+
+  it('does not advance the cursor when the strict logbook import fails', async () => {
+    setLogsyncServiceConfig('wavelog', {
+      enabled: true,
+      url: 'http://wavelog.test/index.php',
+      apiKey: 'secret',
+      pullEnabled: true,
+      pullStationIds: [1],
+    });
+
+    localStorage.setItem(LOGSYNC_STATE_KEY, JSON.stringify({ wavelogLastFetchedId: 10 }));
+
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          ok: true,
+          lastFetchedId: 11,
+          exportedQsos: 1,
+          adif: 'stub-adif',
+        }),
+      }),
+    );
+
+    const addMany = vi.spyOn(logbookStore, 'addMany').mockRejectedValue(new Error('disk write failed'));
+
+    await expect(
+      syncWavelogQsos({
+        parseAdif: () => ({ qsos: [qso({ call: 'W1AW' })] }),
+      }),
+    ).rejects.toThrow('disk write failed');
+
+    expect(addMany).toHaveBeenCalledWith(expect.any(Array), { strict: true });
+    expect(getLogsyncState().wavelogLastFetchedId).toBe(10);
   });
 });
 
