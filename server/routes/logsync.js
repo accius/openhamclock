@@ -36,7 +36,7 @@ const PUSH_TIMEOUT_MS = 20000;
 const LOTW_TIMEOUT_MS = 90000; // LoTW is notoriously slow — give it room
 
 module.exports = function (app, ctx) {
-  const { fetch, APP_VERSION, writeLimiter, logWarn, logErrorOnce } = ctx;
+  const { fetch, APP_VERSION, writeLimiter, logInfo, logWarn, logErrorOnce } = ctx;
   const userAgent = `OpenHamClock/${APP_VERSION} (+https://github.com/accius/openhamclock)`;
 
   const fetchWithTimeout = async (url, options = {}, timeoutMs = PUSH_TIMEOUT_MS) => {
@@ -287,7 +287,7 @@ module.exports = function (app, ctx) {
     wavelogMqttClient = client;
 
     client.on('connect', () => {
-      console.log(`[LogSync] Wavelog MQTT connected; subscribing to ${wavelogMqttTopic}`);
+      logInfo(`[LogSync] Wavelog MQTT connected; subscribing to ${wavelogMqttTopic}`);
 
       client.subscribe(wavelogMqttTopic, { qos: 0 }, (err) => {
         if (err) {
@@ -306,7 +306,7 @@ module.exports = function (app, ctx) {
     });
 
     client.on('close', () => {
-      console.log('[LogSync] Wavelog MQTT disconnected');
+      logInfo('[LogSync] Wavelog MQTT disconnected');
     });
   };
 
