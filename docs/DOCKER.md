@@ -155,6 +155,7 @@ See `.env.example` for the complete list with descriptions. Key sections:
 - **DX Cluster** — `DX_CLUSTER_SOURCE`, `SPOT_RETENTION_MINUTES`
 - **WSJT-X** — `WSJTX_ENABLED`, `WSJTX_UDP_PORT`, `WSJTX_RELAY_KEY`
 - **N1MM** — `N1MM_UDP_ENABLED`, `N1MM_UDP_PORT`
+- **Wavelog event sync** — `WAVELOG_MQTT_URL`, `WAVELOG_MQTT_USERNAME`, `WAVELOG_MQTT_PASSWORD`, `WAVELOG_MQTT_TOPIC`
 - **Weather** — `OPENWEATHER_API_KEY`, `VITE_AMBIENT_*`
 - **Advanced** — `ITURHFPROP_URL`, `HEALTH_ENDPOINT`, `CORS_ORIGINS`
 
