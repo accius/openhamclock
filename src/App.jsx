@@ -61,6 +61,7 @@ import useResponsiveScale from './hooks/app/useResponsiveScale';
 import useLocalInstall from './hooks/app/useLocalInstall';
 import useVersionCheck from './hooks/app/useVersionCheck';
 import usePresence from './hooks/app/usePresence';
+import useWavelogSync from './hooks/app/useWavelogSync.js';
 import useAudioAlerts from './hooks/app/useAudioAlerts';
 import { useSatelliteAnnouncements } from './hooks/app/useSatelliteAnnouncements';
 import useSceneRotation from './hooks/app/useSceneRotation';
@@ -84,6 +85,8 @@ initCtyLookup();
 
 const App = () => {
   const { t } = useTranslation();
+
+  useWavelogSync();
 
   // Core config/state
   const { config, configLoaded, showDxWeather, classicAnalogClock, handleSaveConfig, serverLocal } = useAppConfig();

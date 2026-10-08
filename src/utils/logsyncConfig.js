@@ -19,7 +19,7 @@ const AUTH_KEY = 'ohc-logsync-auth';
 export const LOGSYNC_STATE_KEY = 'openhamclock_logsync_state';
 
 const DEFAULTS = {
-  wavelog: { enabled: false, url: '', apiKey: '', stationProfileId: '' },
+  wavelog: { enabled: false, url: '', apiKey: '', stationProfileId: '', pullEnabled: false, pullStationIds: [] },
   qrz: { enabled: false, apiKey: '' },
   lotw: { enabled: false, username: '', password: '' },
 };

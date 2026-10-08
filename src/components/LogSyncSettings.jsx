@@ -17,6 +17,7 @@ import {
   processQueue,
   subscribeLogsync,
   syncLotwConfirmations,
+  syncWavelogQsos,
   testLotw,
   testQrz,
   testWavelog,
@@ -113,6 +114,7 @@ export const LogSyncSettings = () => {
   const [cooldownMs, setCooldownMs] = useState(() => lotwCooldownRemainingMs());
   const [busy, setBusy] = useState({}); // { wavelog|qrz|lotw|lotwSync|push: bool }
   const [messages, setMessages] = useState({}); // { service: {type, text} }
+  const [wavelogStations, setWavelogStations] = useState([]);
 
   useEffect(() => {
     const refresh = () => {
@@ -241,6 +243,7 @@ export const LogSyncSettings = () => {
               run('wavelog', async () => {
                 try {
                   const r = await testWavelog({ url: cfg.wavelog.url, key: cfg.wavelog.apiKey });
+                  setWavelogStations(r.stations || []);
                   const list = (r.stations || [])
                     .map((s) => `#${s.station_id} ${s.station_callsign || ''} (${s.station_profile_name || ''})`)
                     .join(', ');
@@ -274,6 +277,131 @@ export const LogSyncSettings = () => {
           </button>
         </div>
         <Message msg={messages.wavelog} />
+
+        <div
+          style={{
+            marginTop: 12,
+            paddingTop: 10,
+            borderTop: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
+          <label
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              fontSize: 12,
+              marginBottom: 6,
+            }}
+          >
+            <input
+              type="checkbox"
+              checked={!!cfg.wavelog.pullEnabled}
+              onChange={(e) => setService('wavelog', { pullEnabled: e.target.checked })}
+            />
+            {t('station.settings.logsync.wavelog.pullEnable', 'Pull QSOs from Wavelog into this logbook')}
+          </label>
+
+          <div
+            style={{
+              color: 'var(--text-secondary)',
+              fontSize: 11,
+              marginBottom: 8,
+              lineHeight: 1.45,
+            }}
+          >
+            {t(
+              'station.settings.logsync.wavelog.pullDescribe',
+              'Imports new Wavelog QSOs into the native OpenHamClock logbook. Use Test above to load your station profiles, then choose which profiles to include.',
+            )}
+          </div>
+
+          {wavelogStations.length > 0 && (
+            <div style={{ marginBottom: 8 }}>
+              {wavelogStations.map((station) => {
+                const id = Number(station.station_id);
+                const selected = (cfg.wavelog.pullStationIds || []).map(Number).includes(id);
+
+                return (
+                  <label
+                    key={id}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontSize: 11,
+                      marginBottom: 4,
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selected}
+                      onChange={(e) => {
+                        const current = (cfg.wavelog.pullStationIds || [])
+                          .map(Number)
+                          .filter((n) => Number.isInteger(n) && n > 0);
+
+                        const next = e.target.checked
+                          ? [...new Set([...current, id])]
+                          : current.filter((n) => n !== id);
+
+                        setService('wavelog', { pullStationIds: next });
+                      }}
+                    />
+                    #{id} {station.station_callsign || ''}
+                    {station.station_profile_name ? ` — ${station.station_profile_name}` : ''}
+                  </label>
+                );
+              })}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button
+              type="button"
+              disabled={
+                busy.wavelogPull ||
+                !cfg.wavelog.pullEnabled ||
+                !cfg.wavelog.url ||
+                !cfg.wavelog.apiKey ||
+                !(cfg.wavelog.pullStationIds || []).length
+              }
+              onClick={() =>
+                run('wavelogPull', async () => {
+                  try {
+                    const r = await syncWavelogQsos({ parseAdif });
+                    flash(
+                      'wavelogPull',
+                      'success',
+                      t('station.settings.logsync.wavelog.pullResult', {
+                        defaultValue: 'Fetched {{fetched}} — imported {{imported}}, skipped {{skipped}}',
+                        fetched: r.fetched,
+                        imported: r.imported,
+                        skipped: r.skipped,
+                      }),
+                    );
+                  } catch (err) {
+                    flash('wavelogPull', 'error', String(err?.message || err));
+                  }
+                })
+              }
+              style={btnStyle(true)}
+            >
+              {busy.wavelogPull ? '…' : t('station.settings.logsync.wavelog.syncNow', 'Sync now')}
+            </button>
+
+            {fmtTime(state.wavelogLastPullAt) && (
+              <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                {t('station.settings.logsync.wavelog.lastPull', {
+                  defaultValue: 'last pull {{time}}',
+                  time: fmtTime(state.wavelogLastPullAt),
+                })}
+              </span>
+            )}
+          </div>
+
+          <Message msg={messages.wavelogPull} />
+        </div>
       </Card>
 
       {/* QRZ Logbook */}
