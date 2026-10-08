@@ -201,7 +201,7 @@ const RETRY_DELAYS = [5000, 15000, 30000];
 // Settle window after a location change. Absorbs rapid DX tuning while keeping
 // time-to-first-weather under the 1-3s target.
 const DEBOUNCE_MS = 1500;
-const POLL_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours — matches server cache TTL
+const POLL_INTERVAL = 15 * 60 * 1000; // 15 minutes
 
 // Fetch weather directly from Open-Meteo
 // Each user's browser makes its own request — rate limits are per-IP, not per-server
