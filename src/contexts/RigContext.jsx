@@ -4,12 +4,38 @@ import { getModeFromFreq, mapModeToRig } from '../utils/bandPlan.js';
 import { canTransmit, getLicenseClass, normalizeLicenseClass } from '../utils/privileges.js';
 import { showToast } from '../utils/toast.js';
 import { isRelayConfigured, setRelayConfigured, setRelaySessionId } from '../utils/relaySession.js';
+import { setTunedSpot } from '../services/logbookStore.js';
 
 // Default config
 // Default config (fallback)
 const DEFAULT_RIG_URL = 'http://localhost:5555';
 
 const RigContext = createContext(null);
+
+/**
+ * Frequency in Hz from a number or string of unknown unit. Numbers: < 1000 is
+ * MHz, < 100000 is kHz, otherwise Hz. Strings may say "MHz" or "kHz";
+ * without a unit the same magnitude rule applies. 0 when unparsable.
+ */
+const toHz = (freqInput) => {
+  if (typeof freqInput === 'number') {
+    if (freqInput < 1000) return freqInput * 1000000;
+    if (freqInput < 100000) return freqInput * 1000;
+    return freqInput;
+  }
+  if (typeof freqInput === 'string') {
+    // Remove non-numeric chars except dot
+    const val = parseFloat(freqInput.replace(/[^\d.]/g, ''));
+    if (isNaN(val)) return 0;
+    const lower = freqInput.toLowerCase();
+    if (lower.includes('mhz')) return val * 1000000;
+    if (lower.includes('khz')) return val * 1000;
+    if (val < 1000) return val * 1000000;
+    if (val < 100000) return val * 1000;
+    return val;
+  }
+  return 0;
+};
 
 const buildRigUrl = (rigConfig) => {
   const host = rigConfig?.host?.trim();
@@ -486,43 +512,13 @@ export const RigProvider = ({ children, rigConfig }) => {
         const m = spot.mode || modeInput;
         if (f) {
           tuneTo(f, m);
+          // Remember who we tuned to, so the Logbook's +QSO can fill in the call.
+          if (spot.call) setTunedSpot({ call: spot.call, freqHz: toHz(f), gridsquare: spot.dxGrid || spot.grid });
         }
         return;
       }
 
-      let hz = 0;
-      // Handle number
-      if (typeof freqInput === 'number') {
-        // If small number (< 1000), assume MHz -> Hz
-        // If medium number (< 100000), assume kHz -> Hz
-        // If large number (> 100000), assume Hz
-        if (freqInput < 1000) hz = freqInput * 1000000;
-        else if (freqInput < 100000) hz = freqInput * 1000;
-        else hz = freqInput;
-      }
-      // Handle string
-      else if (typeof freqInput === 'string') {
-        // Remove non-numeric chars except dot
-        const clean = freqInput.replace(/[^\d.]/g, '');
-        const val = parseFloat(clean);
-        if (isNaN(val)) return;
-
-        // Heuristic: If string contains "MHz", treat as MHz
-        if (freqInput.toLowerCase().includes('mhz')) {
-          hz = val * 1000000;
-        }
-        // If string contains "kHz", treat as kHz
-        else if (freqInput.toLowerCase().includes('khz')) {
-          hz = val * 1000;
-        }
-        // Otherwise use magnitude heuristic
-        else {
-          if (val < 1000) hz = val * 1000000;
-          else if (val < 100000) hz = val * 1000;
-          else hz = val;
-        }
-      }
-
+      const hz = toHz(freqInput);
       if (hz > 0) {
         // console.log(`[RigContext] Tuning to ${hz} Hz`);
         // Only switch mode when autoMode is enabled (default: on).

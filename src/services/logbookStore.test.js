@@ -19,8 +19,10 @@ import {
   registerPanelMount,
   remove,
   requestLogQso,
+  setTunedSpot,
   subscribe,
   subscribePrefill,
+  tunedSpotPrefill,
   unregisterPanelMount,
   update,
 } from './logbookStore.js';
@@ -186,6 +188,52 @@ describe('log-from-spot prefill hand-off', () => {
     requestLogQso(null);
     requestLogQso({ freq: 14.2 });
     expect(consumePendingPrefill()).toBe(null);
+  });
+});
+
+describe('tuned-spot prefill for +QSO', () => {
+  it('offers the call while the rig is within 3 kHz of the spot', () => {
+    setTunedSpot({ call: 'zl1xyz', freqHz: 14025000, gridsquare: 'RF73' });
+    expect(tunedSpotPrefill(14025000)).toEqual({ call: 'ZL1XYZ', gridsquare: 'RF73' });
+    expect(tunedSpotPrefill(14025600)).toEqual({ call: 'ZL1XYZ', gridsquare: 'RF73' });
+    expect(tunedSpotPrefill(14022000)).toEqual({ call: 'ZL1XYZ', gridsquare: 'RF73' });
+  });
+
+  it('offers nothing once the dial has moved away', () => {
+    setTunedSpot({ call: 'ZL1XYZ', freqHz: 14025000 });
+    expect(tunedSpotPrefill(14030000)).toBe(null);
+    expect(tunedSpotPrefill(7025000)).toBe(null);
+  });
+
+  it('offers nothing without a rig reading or without a tuned spot', () => {
+    expect(tunedSpotPrefill(14025000)).toBe(null);
+    setTunedSpot({ call: 'ZL1XYZ', freqHz: 14025000 });
+    expect(tunedSpotPrefill(null)).toBe(null);
+    expect(tunedSpotPrefill(0)).toBe(null);
+  });
+
+  it('leaves gridsquare out when the spot had none', () => {
+    setTunedSpot({ call: 'W1AW', freqHz: 7030000 });
+    expect(tunedSpotPrefill(7030000)).toEqual({ call: 'W1AW' });
+  });
+
+  it('ignores spots without a call or frequency', () => {
+    setTunedSpot({ call: '', freqHz: 14025000 });
+    setTunedSpot({ call: 'W1AW', freqHz: 0 });
+    setTunedSpot(null);
+    expect(tunedSpotPrefill(14025000)).toBe(null);
+  });
+
+  it('forgets the call once a QSO with it is saved (any letter case)', async () => {
+    setTunedSpot({ call: 'ZL1XYZ', freqHz: 14025000 });
+    await add(sampleQso({ call: 'zl1xyz' }));
+    expect(tunedSpotPrefill(14025000)).toBe(null);
+  });
+
+  it('keeps the call when a QSO with another station is saved', async () => {
+    setTunedSpot({ call: 'ZL1XYZ', freqHz: 14025000 });
+    await add(sampleQso({ call: 'OZ1ABC' }));
+    expect(tunedSpotPrefill(14025000)).toEqual({ call: 'ZL1XYZ' });
   });
 });
 
