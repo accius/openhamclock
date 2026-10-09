@@ -11,6 +11,7 @@ Thank you for helping build OpenHamClock! Whether you're fixing a bug, adding a 
 git clone https://github.com/YOUR_USERNAME/openhamclock.git
 cd openhamclock
 npm ci
+bash scripts/vendor-download.sh   # Leaflet + fonts into public/vendor (gitignored)
 git checkout Staging
 
 # 2. Start the backend (Terminal 1)
@@ -23,6 +24,8 @@ npm run dev
 ```
 
 Open `http://localhost:3000` — you should see the full dashboard with live data.
+
+> If the flat map stays empty under `npm run dev`, the vendor step was skipped. The backend on :3001 quietly redirects missing `/vendor` files to a CDN, but the dev server on :3000 has no such fallback, so Leaflet never loads.
 
 ### Docker Alternative
 
