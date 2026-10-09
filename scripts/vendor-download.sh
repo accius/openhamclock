@@ -52,7 +52,11 @@ grep -oE 'https://fonts\.gstatic\.com/[^)]+' /tmp/gfonts-raw.css | sort -u | whi
   curl -sL "$url" -o "$VENDOR_DIR/fonts/$FILENAME"
   # Escape URL for sed (slashes)
   ESCAPED_URL=$(echo "$url" | sed 's/[\/&]/\\&/g')
-  sed -i "s|$ESCAPED_URL|/vendor/fonts/$FILENAME|g" "$VENDOR_DIR/fonts/fonts.css"
+  # Write to a temp file and move it into place rather than `sed -i`: GNU sed
+  # takes `-i` alone, but BSD sed (macOS) reads the next argument as a backup
+  # suffix and fails, aborting the whole download on a Mac.
+  sed "s|$ESCAPED_URL|/vendor/fonts/$FILENAME|g" "$VENDOR_DIR/fonts/fonts.css" > "$VENDOR_DIR/fonts/fonts.css.tmp"
+  mv "$VENDOR_DIR/fonts/fonts.css.tmp" "$VENDOR_DIR/fonts/fonts.css"
 done
 
 # Clean up
