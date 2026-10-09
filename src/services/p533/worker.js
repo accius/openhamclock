@@ -25,7 +25,14 @@ let createModulePromise = null;
 
 async function loadCreateModule(wasmUrl) {
   if (!createModulePromise) {
-    createModulePromise = import(/* @vite-ignore */ wasmUrl)
+    // Resolve to a full URL before importing. In dev, Vite rewrites dynamic
+    // imports of root-relative URLs to append ?import, which sends a file from
+    // public/ through its transform pipeline and fails ("should not be imported
+    // from source code"). A full URL is left alone and served as the static
+    // file it is. Production builds behave the same either way, and an override
+    // that is already absolute passes through unchanged.
+    const moduleUrl = new URL(wasmUrl, self.location.href).href;
+    createModulePromise = import(/* @vite-ignore */ moduleUrl)
       .then((m) => m.default)
       .catch((err) => {
         createModulePromise = null; // retry on next call rather than poison-caching
