@@ -22,6 +22,7 @@ import {
   setTunedSpot,
   subscribe,
   subscribePrefill,
+  tunedSpotForRig,
   tunedSpotPrefill,
   unregisterPanelMount,
   update,
@@ -228,6 +229,14 @@ describe('tuned-spot prefill for +QSO', () => {
     setTunedSpot({ call: 'ZL1XYZ', freqHz: 14025000 });
     await add(sampleQso({ call: 'zl1xyz' }));
     expect(tunedSpotPrefill(14025000)).toBe(null);
+  });
+
+  it('tells the Rig button whether the rig is still near the spot', () => {
+    expect(tunedSpotForRig(14025000)).toBe(null); // nothing remembered
+    setTunedSpot({ call: 'ZL1XYZ', freqHz: 14025000, gridsquare: 'RF73' });
+    expect(tunedSpotForRig(14026000)).toEqual({ call: 'ZL1XYZ', gridsquare: 'RF73', near: true });
+    expect(tunedSpotForRig(14040000)).toEqual({ call: 'ZL1XYZ', gridsquare: 'RF73', near: false });
+    expect(tunedSpotForRig(null)).toBe(null); // no rig reading
   });
 
   it('keeps the call when a QSO with another station is saved', async () => {

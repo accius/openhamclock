@@ -395,16 +395,29 @@ export const setTunedSpot = (spot) => {
 };
 
 /**
- * Prefill for a new QSO from the tuned spot: `{ call, gridsquare? }` while the
- * rig (`rigFreqHz`) is within TUNED_SPOT_TOLERANCE_HZ of it, else null — also
- * null without a rig reading, since a stale call could then slip into a QSO
- * with someone else.
+ * The tuned spot relative to the rig: `{ call, gridsquare, near }`, where
+ * `near` means the rig (`rigFreqHz`) is within TUNED_SPOT_TOLERANCE_HZ of it.
+ * null when no spot is remembered or there is no rig reading.
  */
-export const tunedSpotPrefill = (rigFreqHz) => {
+export const tunedSpotForRig = (rigFreqHz) => {
   const spot = state.tunedSpot;
   const rig = Number(rigFreqHz);
   if (!spot || !(rig > 0)) return null;
-  if (Math.abs(rig - spot.freqHz) > TUNED_SPOT_TOLERANCE_HZ) return null;
+  return {
+    call: spot.call,
+    gridsquare: spot.gridsquare,
+    near: Math.abs(rig - spot.freqHz) <= TUNED_SPOT_TOLERANCE_HZ,
+  };
+};
+
+/**
+ * Prefill for a new QSO from the tuned spot: `{ call, gridsquare? }` while the
+ * rig is near it, else null — also null without a rig reading, since a stale
+ * call could then slip into a QSO with someone else.
+ */
+export const tunedSpotPrefill = (rigFreqHz) => {
+  const spot = tunedSpotForRig(rigFreqHz);
+  if (!spot?.near) return null;
   return spot.gridsquare ? { call: spot.call, gridsquare: spot.gridsquare } : { call: spot.call };
 };
 
@@ -453,6 +466,7 @@ export default {
   consumePendingPrefill,
   subscribePrefill,
   setTunedSpot,
+  tunedSpotForRig,
   tunedSpotPrefill,
   registerPanelMount,
   unregisterPanelMount,
