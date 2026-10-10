@@ -696,8 +696,9 @@ export const GLOBE_OVERLAY_PAINTERS = {
   lightning: paintLightning,
 };
 
-// Plugin layer ids the globe can draw itself. Aircraft has no canvas
-// painter — Globe3D renders it natively as instanced 3D models — but it
-// belongs here so its enabled/opacity state reaches Globe3D and it stays
-// out of WorldMap's suppressed-layers note (like satellites).
-export const GLOBE_OVERLAY_LAYER_IDS = [...Object.keys(GLOBE_OVERLAY_PAINTERS), 'aircraft'];
+// Plugin layer ids the globe can draw itself. Aircraft and Logbook QSOs have
+// no canvas painter — Globe3D renders them natively (instanced 3D models;
+// markers + great-circle arcs like DX spots) — but they belong here so their
+// enabled/opacity state reaches Globe3D and they stay out of WorldMap's
+// suppressed-layers note (like satellites).
+export const GLOBE_OVERLAY_LAYER_IDS = [...Object.keys(GLOBE_OVERLAY_PAINTERS), 'aircraft', 'logbook-qsos'];

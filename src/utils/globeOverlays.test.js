@@ -416,14 +416,17 @@ describe('painter registry', () => {
       'floods',
       'history-playback',
       'lightning',
-      // aircraft has no painter — Globe3D renders it as instanced 3D models —
-      // but the id must stay in the list for state plumbing + suppression note
+      // aircraft and logbook-qsos have no painter — Globe3D renders them
+      // natively — but the ids must stay in the list for state plumbing +
+      // suppression note
       'aircraft',
+      'logbook-qsos',
     ]);
     for (const id of Object.keys(GLOBE_OVERLAY_PAINTERS)) {
       expect(typeof GLOBE_OVERLAY_PAINTERS[id]).toBe('function');
     }
     expect(GLOBE_OVERLAY_PAINTERS.aircraft).toBeUndefined();
+    expect(GLOBE_OVERLAY_PAINTERS['logbook-qsos']).toBeUndefined();
   });
 
   it('registered painters are the exported ones', () => {
