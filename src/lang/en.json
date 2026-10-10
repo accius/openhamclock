@@ -398,7 +398,7 @@
   "logbook.form.freq": "MHz",
   "logbook.form.freqLabel": "Frequency in MHz",
   "logbook.form.fromRig": "Rig",
-  "logbook.form.fromRigTooltip": "Fill frequency and mode from the connected rig",
+  "logbook.form.fromRigTooltip": "Fill frequency and mode from the connected rig, and the call of the spot you tuned to (cleared when you've tuned away from it)",
   "logbook.form.grid": "Grid",
   "logbook.form.log": "Log QSO",
   "logbook.form.mode": "Mode",

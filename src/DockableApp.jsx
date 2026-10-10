@@ -394,20 +394,11 @@ export const DockableApp = ({
     (spot) => {
       if (!spot) return;
 
-      // 1. Tune Rig if frequency is available and rig control is enabled
+      // 1. Tune Rig if frequency is available and rig control is enabled.
+      // tuneTo picks dialFrequency (WSJT-X) over freq/freqMHz and remembers
+      // the spot's call for the Logbook's +QSO.
       if (enabled && (spot.freq || spot.freqMHz || spot.dialFrequency)) {
-        let freqToSend;
-
-        // WSJT-X decodes have dialFrequency (the VFO frequency to tune to)
-        // The freq field is just the audio delta offset within the passband
-        if (spot.dialFrequency) {
-          freqToSend = spot.dialFrequency; // Use dial frequency directly
-        } else {
-          // For other spot types (DX Cluster, POTA, etc.), use freq or freqMHz as-is
-          freqToSend = spot.freq || spot.freqMHz;
-        }
-
-        tuneTo(freqToSend, spot.mode);
+        tuneTo(spot);
       }
 
       // 2. Set DX Location if location data is available

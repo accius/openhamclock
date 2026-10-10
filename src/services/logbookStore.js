@@ -145,6 +145,7 @@ const state = {
   subscribers: new Set(),
   pendingPrefill: null, // "log this spot" hand-off payload
   prefillSubscribers: new Set(),
+  tunedSpot: null, // last spot the rig was tuned to — { call, freqHz, gridsquare }
   panelMounts: 0, // number of currently mounted LogbookPanel instances
 };
 
@@ -228,6 +229,8 @@ export const add = async (fields) => {
   await init();
   const record = { ...fields, id: fields?.id || makeQsoId() };
   state.qsos.push(record);
+  // That station is logged now — the next +QSO must not offer it again.
+  if (state.tunedSpot && sameCall(state.tunedSpot.call, record.call)) state.tunedSpot = null;
   notify();
   try {
     await state.adapter.put(record);
@@ -365,6 +368,59 @@ export const subscribePrefill = (cb) => {
   };
 };
 
+// ── Tuned-spot hand-off ─────────────────────────────────────────────────────
+// Clicking a spot tunes the rig; the call is remembered here so the Logbook
+// panel's +QSO can fill it in. It is only offered while the rig is still near
+// the spot's frequency, and is dropped once a QSO with that call is saved.
+
+/** How far (Hz) the dial may drift from the spot and still count as "on it". */
+export const TUNED_SPOT_TOLERANCE_HZ = 3000;
+
+const sameCall = (a, b) =>
+  String(a || '')
+    .trim()
+    .toUpperCase() ===
+  String(b || '')
+    .trim()
+    .toUpperCase();
+
+/** Remember the spot the rig was just tuned to. Ignored without a call or frequency. */
+export const setTunedSpot = (spot) => {
+  const call = String(spot?.call || '')
+    .trim()
+    .toUpperCase();
+  const freqHz = Number(spot?.freqHz);
+  if (!call || !(freqHz > 0)) return;
+  state.tunedSpot = { call, freqHz, gridsquare: spot.gridsquare || undefined };
+};
+
+/**
+ * The tuned spot relative to the rig: `{ call, gridsquare, near }`, where
+ * `near` means the rig (`rigFreqHz`) is within TUNED_SPOT_TOLERANCE_HZ of it.
+ * null when no spot is remembered or there is no rig reading.
+ */
+export const tunedSpotForRig = (rigFreqHz) => {
+  const spot = state.tunedSpot;
+  const rig = Number(rigFreqHz);
+  if (!spot || !(rig > 0)) return null;
+  return {
+    call: spot.call,
+    gridsquare: spot.gridsquare,
+    near: Math.abs(rig - spot.freqHz) <= TUNED_SPOT_TOLERANCE_HZ,
+  };
+};
+
+/**
+ * Prefill for a new QSO from the tuned spot: `{ call, gridsquare? }` while the
+ * rig is near it, else null — also null without a rig reading, since a stale
+ * call could then slip into a QSO with someone else.
+ */
+export const tunedSpotPrefill = (rigFreqHz) => {
+  const spot = tunedSpotForRig(rigFreqHz);
+  if (!spot?.near) return null;
+  return spot.gridsquare ? { call: spot.call, gridsquare: spot.gridsquare } : { call: spot.call };
+};
+
 // ── Logbook panel mount tracking ────────────────────────────────────────────
 // The app-level LogQsoPopup only opens for a "log this spot" request when no
 // LogbookPanel is mounted to consume it. Panels report their presence here
@@ -391,6 +447,7 @@ export const __resetLogbookForTests = () => {
   state.subscribers.clear();
   state.pendingPrefill = null;
   state.prefillSubscribers.clear();
+  state.tunedSpot = null;
   state.panelMounts = 0;
 };
 
@@ -408,6 +465,9 @@ export default {
   requestLogQso,
   consumePendingPrefill,
   subscribePrefill,
+  setTunedSpot,
+  tunedSpotForRig,
+  tunedSpotPrefill,
   registerPanelMount,
   unregisterPanelMount,
   hasMountedPanel,

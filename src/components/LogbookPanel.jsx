@@ -9,11 +9,13 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useRig } from '../contexts/RigContext.jsx';
 import { useLogbook } from '../hooks/useLogbook.js';
 import {
   consumePendingPrefill,
   registerPanelMount,
   subscribePrefill,
+  tunedSpotPrefill,
   unregisterPanelMount,
 } from '../services/logbookStore.js';
 import {
@@ -35,6 +37,17 @@ export const LogbookPanel = ({ userCallsign, myGrid }) => {
   const { t } = useTranslation();
   const { showPopup } = useCallsignPopup();
   const { qsos, add, update, remove, importAdif, exportAdif, stats } = useLogbook();
+
+  // Rig state is optional (same as QsoForm): +QSO offers the call of the spot
+  // the rig was tuned to, but only while the dial is still on it.
+  let rig = null;
+  try {
+    // eslint-disable-next-line react-hooks/rules-of-hooks
+    rig = useRig();
+  } catch {
+    rig = null;
+  }
+  const rigFreqHz = rig?.connected && rig.freq > 0 ? rig.freq : null;
 
   // Report presence to the store so the app-level LogQsoPopup only handles
   // "log this spot" requests when no Logbook panel is around to take them.
@@ -259,7 +272,9 @@ export const LogbookPanel = ({ userCallsign, myGrid }) => {
         <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
           <button
             type="button"
-            onClick={() => (showForm && !editingId ? setShowForm(false) : openNewForm())}
+            onClick={() =>
+              showForm && !editingId ? setShowForm(false) : openNewForm(tunedSpotPrefill(rigFreqHz) || {})
+            }
             title={t('logbook.newQsoTooltip', { defaultValue: 'Log a new QSO' })}
             aria-label={t('logbook.newQsoTooltip', { defaultValue: 'Log a new QSO' })}
             aria-pressed={showForm && !editingId}

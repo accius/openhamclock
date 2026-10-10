@@ -31,6 +31,7 @@ import { useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getBandFromFreq } from '../utils/callsign.js';
 import { useRig } from '../contexts/RigContext.jsx';
+import { tunedSpotForRig } from '../services/logbookStore.js';
 
 export const BANDS = [
   '630m',
@@ -366,15 +367,35 @@ export const QsoForm = ({ prefill, editQso, onSaved, onCancel, onDelete, myGrid,
           <button
             type="button"
             onClick={() =>
-              setForm((f) => ({
-                ...f,
-                freq: String(rigFreqMHz.toFixed(4)).replace(/0+$/, '').replace(/\.$/, ''),
-                band: bandForFreq(rigFreqMHz) || f.band,
-                mode: rigMode ? rigMode.toUpperCase() : f.mode,
-              }))
+              setForm((f) => {
+                const next = {
+                  ...f,
+                  freq: String(rigFreqMHz.toFixed(4)).replace(/0+$/, '').replace(/\.$/, ''),
+                  band: bandForFreq(rigFreqMHz) || f.band,
+                  mode: rigMode ? rigMode.toUpperCase() : f.mode,
+                };
+                // New QSOs also take the call of the spot the rig was tuned to:
+                // still near it → that call (and its grid); tuned well away →
+                // the call no longer belongs to this frequency, so clear it.
+                // Without a remembered spot the call is left alone.
+                const spot = editing ? null : tunedSpotForRig(rig.freq);
+                if (spot?.near) {
+                  const sameStation =
+                    String(f.call || '')
+                      .trim()
+                      .toUpperCase() === spot.call;
+                  next.call = spot.call;
+                  next.gridsquare = spot.gridsquare || (sameStation ? f.gridsquare : '');
+                } else if (spot) {
+                  next.call = '';
+                  next.gridsquare = '';
+                }
+                return next;
+              })
             }
             title={t('logbook.form.fromRigTooltip', {
-              defaultValue: 'Fill frequency and mode from the connected rig',
+              defaultValue:
+                "Fill frequency and mode from the connected rig, and the call of the spot you tuned to (cleared when you've tuned away from it)",
             })}
             style={smallBtnStyle(false, 'var(--accent-cyan)')}
           >
