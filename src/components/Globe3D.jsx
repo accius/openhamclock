@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
+import { getBandColorForBand } from '../utils/bandColors.js';
 import { getSunPosition, getMoonPosition, getMoonAzEl, densifyGeoJson } from '../utils/geo.js';
 import { lzwDecode } from '../plugins/layers/useLightning.js';
 import { MAP_STYLES } from '../utils/config.js';
@@ -32,6 +33,7 @@ import { getSantaTemplate } from '../utils/santaModel.js';
 import { getSantaState, resolveSantaClock, destinationPoint, formatPresents } from '../utils/santa.js';
 import { GLOBE_OVERLAY_PAINTERS, ZONE_SOURCES, workedGridCounts, decimateAircraft } from '../utils/globeOverlays.js';
 import logbookStore from '../services/logbookStore.js';
+import { MAX_LOGBOOK_LINES, useLogbookMapPoints } from '../utils/logbookMap.js';
 import {
   acquire as acquireHistory,
   release as releaseHistory,
@@ -489,6 +491,13 @@ export default function Globe3D({
   // config.lowMemoryMode arrives asynchronously as undefined then false;
   // normalising stops that flip from rebuilding the entire WebGL scene.
   const lowMem = !!lowMemoryMode;
+  // Logbook QSOs layer: drawn natively like DX spots (markers + arcs from DE),
+  // from the same points as the flat layer — live log + the Logbook panel's
+  // filter (utils/logbookMap.js).
+  const logbookLayer = overlayLayerStates?.['logbook-qsos'];
+  const logbookOn = !lowMem && !!logbookLayer?.enabled;
+  const logbookOpacity = logbookLayer?.opacity ?? 0.8;
+  const logbookPoints = useLogbookMapPoints(logbookOn);
   const [panelWidth, setPanelWidth] = useState(0);
   // WebGL construction failure, rethrown during render so WorldMap's error
   // boundary can fall back to Mercator. Swallowing it here left the user on a
@@ -667,8 +676,33 @@ export default function Globe3D({
       });
     }
 
+    // Logbook QSOs: one dot per worked position and band. Clicking sets DX
+    // only — `raw` carries no frequency, so a past QSO never retunes the rig.
+    if (logbookOn) {
+      logbookPoints.forEach((p) => {
+        const latest = p.qsos.reduce((a, b) =>
+          `${b.qso_date || ''}${b.time_on || ''}` > `${a.qso_date || ''}${a.time_on || ''}` ? b : a,
+        );
+        const more = p.qsos.length > 1 ? ` +${p.qsos.length - 1}` : '';
+        out.push({
+          lat: p.lat,
+          lon: p.lon,
+          color: getBandColorForBand(p.band),
+          size: p.qsos.length > 1 ? 8 : 7,
+          kind: 'QSO',
+          label: `${latest.call}${more}`,
+          detail: [p.band, latest.mode, p.approx ? `${p.place} (country position)` : p.place]
+            .filter(Boolean)
+            .join(' · '),
+          raw: { lat: p.lat, lon: p.lon, call: latest.call },
+        });
+      });
+    }
+
     return out;
   }, [
+    logbookOn,
+    logbookPoints,
     potaSpots,
     wwffSpots,
     sotaSpots,
@@ -727,6 +761,19 @@ export default function Globe3D({
       });
     }
 
+    // Logbook QSOs: DE → each worked position, band-coloured — only while
+    // they stay readable (see MAX_LOGBOOK_LINES); the dots always show.
+    if (logbookOn && hasDE && logbookPoints.length <= MAX_LOGBOOK_LINES) {
+      logbookPoints.forEach((p) => {
+        out.push({
+          from: [lat0, lon0],
+          to: [p.lat, p.lon],
+          color: getBandColorForBand(p.band),
+          opacity: logbookOpacity * 0.8, // 0.64 at the default, like the cluster arcs
+        });
+      });
+    }
+
     // The DE→DX arc exists to connect the two station markers, so it hides
     // with them — unlike the cluster paths, which have their own toggle.
     if (showDeDxMarkers && Number.isFinite(dxLocation?.lat) && Number.isFinite(dxLocation?.lon)) {
@@ -741,6 +788,10 @@ export default function Globe3D({
     return out;
     // themeTick: the DE→DX arc colour is read from a CSS variable.
   }, [
+    logbookOn,
+    logbookPoints,
+    logbookOpacity,
+    hasDE,
     dxPaths,
     showDXPaths,
     bandPassesMapFilter,

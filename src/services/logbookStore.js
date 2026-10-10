@@ -145,6 +145,8 @@ const state = {
   subscribers: new Set(),
   pendingPrefill: null, // "log this spot" hand-off payload
   prefillSubscribers: new Set(),
+  viewFilter: { band: '', mode: '', search: '' }, // Logbook panel's table filter, mirrored on the map
+  viewFilterSubscribers: new Set(),
   panelMounts: 0, // number of currently mounted LogbookPanel instances
 };
 
@@ -365,6 +367,60 @@ export const subscribePrefill = (cb) => {
   };
 };
 
+// ── Shared view filter ──────────────────────────────────────────────────────
+// The Logbook panel's band / mode / search filter. The panel publishes it here
+// so the "Logbook QSOs" map layer shows exactly the QSOs the table lists.
+
+const EMPTY_FILTER = { band: '', mode: '', search: '' };
+
+/**
+ * Does a QSO pass the view filter? Band matches the logged band tag, mode is
+ * case-insensitive, and search looks in call, name and comment.
+ */
+export const qsoMatchesFilter = (rec, filter) => {
+  const { band, mode, search } = filter || EMPTY_FILTER;
+  if (band && rec?.band !== band) return false;
+  if (mode && String(rec?.mode || '').toUpperCase() !== String(mode).toUpperCase()) return false;
+  const q = String(search || '')
+    .trim()
+    .toUpperCase();
+  if (!q) return true;
+  return (
+    String(rec?.call || '')
+      .toUpperCase()
+      .includes(q) ||
+    String(rec?.name || '')
+      .toUpperCase()
+      .includes(q) ||
+    String(rec?.comment || '')
+      .toUpperCase()
+      .includes(q)
+  );
+};
+
+export const getViewFilter = () => state.viewFilter;
+
+/** Publish the panel's filter (missing fields reset to "all"). */
+export const setViewFilter = (filter) => {
+  const next = { ...EMPTY_FILTER, ...(filter || {}) };
+  const prev = state.viewFilter;
+  if (next.band === prev.band && next.mode === prev.mode && next.search === prev.search) return;
+  state.viewFilter = next;
+  state.viewFilterSubscribers.forEach((cb) => {
+    try {
+      cb(next);
+    } catch {}
+  });
+};
+
+/** Subscribe to view-filter changes. Returns an unsubscribe fn. */
+export const subscribeViewFilter = (cb) => {
+  state.viewFilterSubscribers.add(cb);
+  return () => {
+    state.viewFilterSubscribers.delete(cb);
+  };
+};
+
 // ── Logbook panel mount tracking ────────────────────────────────────────────
 // The app-level LogQsoPopup only opens for a "log this spot" request when no
 // LogbookPanel is mounted to consume it. Panels report their presence here
@@ -391,6 +447,8 @@ export const __resetLogbookForTests = () => {
   state.subscribers.clear();
   state.pendingPrefill = null;
   state.prefillSubscribers.clear();
+  state.viewFilter = { ...EMPTY_FILTER };
+  state.viewFilterSubscribers.clear();
   state.panelMounts = 0;
 };
 
@@ -408,6 +466,10 @@ export default {
   requestLogQso,
   consumePendingPrefill,
   subscribePrefill,
+  qsoMatchesFilter,
+  getViewFilter,
+  setViewFilter,
+  subscribeViewFilter,
   registerPanelMount,
   unregisterPanelMount,
   hasMountedPanel,

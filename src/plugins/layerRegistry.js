@@ -34,6 +34,7 @@ import * as ATCSectorsPlugin from './layers/useATCSectors.js';
 import * as PSKReporterBandActivityPlugin from './layers/usePSKReporterBandActivity.js';
 import * as MaidenheadGridPlugin from './layers/useMaidenheadGrid.js';
 import * as WorkedGridsPlugin from './layers/useWorkedGrids.js';
+import * as LogbookQsosPlugin from './layers/useLogbookQsos.js';
 import * as DRAPPlugin from './layers/useDRAP.js';
 import * as ZonesPlugin from './layers/useZones.js';
 import * as HistoryPlaybackPlugin from './layers/useHistoryPlayback.js';
@@ -84,6 +85,7 @@ const layerPlugins = [
   PSKReporterBandActivityPlugin,
   MaidenheadGridPlugin,
   WorkedGridsPlugin,
+  LogbookQsosPlugin,
   DRAPPlugin,
   ZonesPlugin,
   HistoryPlaybackPlugin,
