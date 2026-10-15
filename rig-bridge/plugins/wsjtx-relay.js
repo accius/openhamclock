@@ -512,7 +512,8 @@ const descriptor = {
       if (cacheFilePath) loadCallsignCache(cacheFilePath, callsignCache);
 
       const udpPort = cfg.udpPort || 2237;
-      socket = dgram.createSocket('udp4');
+      // reuseAddr lets other WSJT-X listeners (GridTracker, Log4OM, ...) share the port
+      socket = dgram.createSocket({ type: 'udp4', reuseAddr: true });
 
       socket.on('message', handleMessage);
 
