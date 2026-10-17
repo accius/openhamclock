@@ -202,6 +202,17 @@ const DEFAULT_CONFIG = {
       port: 8080,
     },
   },
+  // Wavelog QSO forwarder — post QSOs a logger broadcasts as N1MM-style ADIF
+  // packets (e.g. RUMlogNG "Contact info ADIF") to Wavelog's API
+  wavelogForward: {
+    enabled: false,
+    url: '', // Wavelog base URL, e.g. https://log.example.com
+    apiKey: '', // Wavelog API key with read/write rights
+    stationProfileId: '', // Wavelog station profile id the QSOs belong to
+    udpPort: 12060, // N1MM-compatible broadcast port
+    udpBindAddress: '', // '' = all interfaces
+    verbose: false,
+  },
   // Winlink Express CSV ingest — watch a form-export CSV and forward new rows
   // to the OHC server's EmComm Field Reports panel
   winlinkExpressCsv: {
@@ -401,6 +412,7 @@ function loadConfig() {
           ...(raw.brightness || {}),
           http: { ...DEFAULT_CONFIG.brightness.http, ...((raw.brightness || {}).http || {}) },
         },
+        wavelogForward: { ...DEFAULT_CONFIG.wavelogForward, ...(raw.wavelogForward || {}) },
         // Coerce logging to boolean in case the stored value is a string
         logging: raw.logging !== undefined ? !!raw.logging : DEFAULT_CONFIG.logging,
       });
@@ -429,6 +441,7 @@ function loadConfig() {
           'envSensors',
           'gpio',
           'brightness',
+          'wavelogForward',
         ]) {
           if (DEFAULT_CONFIG[section] && raw[section]) {
             for (const key of Object.keys(DEFAULT_CONFIG[section])) {

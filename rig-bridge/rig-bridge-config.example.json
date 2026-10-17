@@ -108,5 +108,14 @@
   "tls": {
     "enabled": false,
     "certGenerated": false
+  },
+  "wavelogForward": {
+    "enabled": false,
+    "url": "https://log.example.com",
+    "apiKey": "",
+    "stationProfileId": "",
+    "udpPort": 12060,
+    "udpBindAddress": "",
+    "verbose": false
   }
 }
