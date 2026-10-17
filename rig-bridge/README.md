@@ -16,16 +16,17 @@ It also connects FT8/FT4 decoding software (WSJT-X, JTDX, MSHV, JS8Call) to Open
 4. [Connecting Your Radio](#connecting-your-radio)
 5. [Connecting to OpenHamClock](#connecting-to-openhamclock)
 6. [Digital Mode Software (FT8, JS8, etc.)](#digital-mode-software)
-7. [APRS via Local TNC _(Beta)_](#aprs-via-local-tnc-beta)
-8. [MeshCom UDP _(Beta)_](#meshcom-udp-plugin-beta)
-9. [Winlink Express CSV Ingest _(Beta)_](#winlink-express-csv-ingest-beta)
-10. [NBEMS: fldigi and flmsg _(Beta)_](#nbems-fldigi-and-flmsg-beta)
-11. [Antenna Rotator](#antenna-rotator-alpha)
-12. [Raspberry Pi Hardware _(Alpha)_ — GPS, BME280, GPIO, brightness](#raspberry-pi-hardware-alpha)
-13. [HTTPS Setup (needed for openhamclock.com)](#https-setup)
-14. [Troubleshooting](#troubleshooting)
-15. [Glossary](#glossary)
-16. [Advanced Topics](#advanced-topics)
+7. [Forwarding QSOs to Wavelog _(Beta)_](#forwarding-qsos-to-wavelog-beta)
+8. [APRS via Local TNC _(Beta)_](#aprs-via-local-tnc-beta)
+9. [MeshCom UDP _(Beta)_](#meshcom-udp-plugin-beta)
+10. [Winlink Express CSV Ingest _(Beta)_](#winlink-express-csv-ingest-beta)
+11. [NBEMS: fldigi and flmsg _(Beta)_](#nbems-fldigi-and-flmsg-beta)
+12. [Antenna Rotator](#antenna-rotator-alpha)
+13. [Raspberry Pi Hardware _(Alpha)_ — GPS, BME280, GPIO, brightness](#raspberry-pi-hardware-alpha)
+14. [HTTPS Setup (needed for openhamclock.com)](#https-setup)
+15. [Troubleshooting](#troubleshooting)
+16. [Glossary](#glossary)
+17. [Advanced Topics](#advanced-topics)
 
 ---
 
@@ -500,6 +501,49 @@ When **HamQTH callsign lookup** is enabled in the WSJT-X Relay settings, Rig Bri
 - If HamQTH is unreachable, decodes simply show no lat/lon for unresolved callsigns — no errors are shown and operation is otherwise unaffected.
 
 ---
+
+## Forwarding QSOs to Wavelog _(Beta)_
+
+The **wavelog-forward** plugin sends every QSO your logger records to a
+[Wavelog](https://www.wavelog.org) logbook, with no browser needed. It listens
+for the "QSO logged" ADIF packets that N1MM-compatible loggers broadcast on
+the LAN and posts each one to Wavelog's API.
+
+**1. Make your logger broadcast logged QSOs as ADIF.** In RUMlogNG: Preferences
+→ UDP → set a "Contact info" row to **Contact info ADIF** (or **Contact N1MM &
+ADIF**), host `255.255.255.255`, port `12060`. Other loggers that send
+`<QsoLoggedInfoAdif>` packets work the same way.
+
+**2. Create an API key in Wavelog** with read/write rights (Account → API
+keys), and note the station profile ID the QSOs belong to (shown in the URL
+when editing a station profile).
+
+**3. Configure Rig Bridge** in `rig-bridge-config.json`:
+
+```json
+"wavelogForward": {
+  "enabled": true,
+  "url": "https://log.example.com",
+  "apiKey": "your-wavelog-api-key",
+  "stationProfileId": "1",
+  "udpPort": 12060
+}
+```
+
+Restart Rig Bridge; the log shows `[WavelogForward] Listening on UDP …` and
+`Forwarded <call> <date> <time> <band> <mode>` for each QSO. Status is at
+`/api/wavelog-forward/status`.
+
+- **Nothing is lost while Wavelog is unreachable**: QSOs are queued in
+  `wavelog-forward-queue.json` next to the config file and retried with
+  backoff, including after a restart. Wavelog skips duplicates on import, so a
+  retry never logs a QSO twice.
+- **Rejected QSOs are dropped**, not retried: a wrong API key or station
+  profile shows up as `Wavelog rejected …` in the log and in `lastError`.
+- **Only new QSOs are sent.** Edits and deletes in the logger arrive as N1MM
+  replace/delete packets, which Wavelog's API cannot apply.
+- The UDP port is shared (`reuseAddr`), so other programs can listen on
+  `12060` too.
 
 ## APRS via Local TNC _(Beta)_
 

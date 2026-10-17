@@ -87,6 +87,7 @@ class PluginRegistry {
       'mqtt-publish',
       'hamalert',
       'fldigi',
+      'wavelog-forward',
     ]) {
       try {
         const p = require(`../plugins/${file}`);
