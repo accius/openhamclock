@@ -19,7 +19,9 @@
 
 'use strict';
 
-const VERSION = '2.2.2';
+// From package.json so the banner, --version and the setup UI never drift
+// from the release (it sat at 2.2.2 through 2.5.x).
+const VERSION = require('./package.json').version;
 
 const { config, loadConfig, applyCliArgs, saveConfig } = require('./core/config');
 const {
