@@ -1,0 +1,98 @@
+name: openhamclock
+base: core22
+adopt-info: openhamclock
+summary: Modern Web-Based Amateur Radio Dashboard
+description: |
+  OpenHamClock is a free, real-time amateur radio dashboard with live DX cluster
+  spots, PSK Reporter, Reverse Beacon Network, POTA/SOTA tracking, propagation
+  predictions, solar indices, band conditions, satellite passes, and an
+  interactive world map. Runs on any browser. No login, no ads, no subscription.
+
+  In memory of Elwood Downey, WB0OEW.
+  Original project: https://github.com/accius/openhamclock
+
+grade: stable
+confinement: strict
+license: MIT
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+  - build-on: armhf
+
+apps:
+  openhamclock:
+    command: bin/openhamclock-launcher
+    desktop: snap/gui/openhamclock.desktop
+    plugs:
+      - network
+      - network-bind
+      - home
+      - desktop
+      - desktop-legacy
+      - x11
+      - wayland
+      - browser-support
+
+  daemon:
+    command: bin/openhamclock-launcher
+    daemon: simple
+    restart-condition: always
+    plugs:
+      - network
+      - network-bind
+      - home
+
+parts:
+  node:
+    plugin: nil
+    build-packages:
+      - curl
+      - tar
+      - xz-utils
+      - ca-certificates
+    override-build: |
+      case "${CRAFT_TARGET_ARCH:-amd64}" in
+        amd64) NODE_ARCH="x64" ;;
+        arm64) NODE_ARCH="arm64" ;;
+        armhf) NODE_ARCH="armv7l" ;;
+        *) NODE_ARCH="x64" ;;
+      esac
+      NODE_VER="v22.14.0"
+      mkdir -p "$SNAPCRAFT_PART_INSTALL"
+      curl -fsSL "https://nodejs.org/dist/${NODE_VER}/node-${NODE_VER}-linux-${NODE_ARCH}.tar.xz" | tar -xJ --strip-components=1 -C "$SNAPCRAFT_PART_INSTALL"
+
+  openhamclock:
+    after: [node]
+    plugin: nil
+    source: .
+    source-type: local
+    override-build: |
+      export PATH="$SNAPCRAFT_STAGE/bin:$PATH"
+
+      # Dynamically set snap version from package.json or git tag
+      PKG_VERSION=$(node -p "require('./package.json').version" 2>/dev/null || git describe --tags --always | sed 's/^v//')
+      craftctl set version "$PKG_VERSION"
+
+      # Install all dependencies and build frontend
+      npm ci --no-audit --no-fund || npm install --no-audit --no-fund
+      npm run build
+      npm prune --omit=dev --no-audit --no-fund
+
+      # Install application tree to /usr/lib/openhamclock
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock"
+      cp -a dist "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock/"
+      cp -a public "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock/"
+      cp -a server "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock/"
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock/src"
+      cp -a src/server "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock/src/"
+      cp -a node_modules "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock/"
+      cp package.json server.js "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock/"
+      [ -f config.example.json ] && cp config.example.json "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock/"
+      [ -f .env.example ] && cp .env.example "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock/"
+      touch "$SNAPCRAFT_PART_INSTALL/usr/lib/openhamclock/.env"
+
+      # Install launcher
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/bin"
+      cp snap/local/openhamclock-launcher "$SNAPCRAFT_PART_INSTALL/bin/"
+      chmod +x "$SNAPCRAFT_PART_INSTALL/bin/openhamclock-launcher"

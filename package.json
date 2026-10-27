@@ -24,6 +24,9 @@
     "test:coverage": "npx vitest run --coverage",
     "format": "npx prettier --write .",
     "format:check": "npx prettier --check .",
+    "sync:upstream": "bash scripts/sync-upstream.sh",
+    "update:aur": "bash scripts/update-aur.sh",
+    "build:snap": "bash scripts/build-snap.sh",
     "lint": "eslint .",
     "prepare": "husky || true",
     "vendor:aprs-deviceid": "node scripts/vendor-aprs-deviceid.mjs"

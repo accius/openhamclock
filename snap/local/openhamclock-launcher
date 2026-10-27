@@ -1,0 +1,90 @@
+#!/bin/bash
+# OpenHamClock Snap Launcher
+
+# Configure writable data paths inside Snap confinement
+export SNAP_USER_DATA="${SNAP_USER_DATA:-$HOME/.openhamclock}"
+mkdir -p "$SNAP_USER_DATA"
+
+# Writable state stores for Snap
+export STATS_FILE="$SNAP_USER_DATA/stats.json"
+export SPOT_HISTORY_FILE="$SNAP_USER_DATA/spot-history.json"
+export FIELD_REPORTS_FILE="$SNAP_USER_DATA/field-reports.json"
+export PUSH_STORE_FILE="$SNAP_USER_DATA/push-store.json"
+export GROUP_LOG_FILE="$SNAP_USER_DATA/group-log.json"
+export RELAY_TOKENS_FILE="$SNAP_USER_DATA/relay-tokens.json"
+
+# Load user environment configuration if present
+if [ -f "$SNAP_USER_DATA/openhamclock.env" ]; then
+    set -a
+    # shellcheck source=/dev/null
+    source "$SNAP_USER_DATA/openhamclock.env"
+    set +a
+fi
+
+export NODE_ENV="${NODE_ENV:-production}"
+export PORT="${PORT:-3000}"
+export HOST="${HOST:-0.0.0.0}"
+
+OPEN_BROWSER=false
+
+while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+        -b|--browser)
+            OPEN_BROWSER=true
+            shift
+            ;;
+        -p|--port)
+            if [ -n "$2" ]; then
+                export PORT="$2"
+                shift 2
+            else
+                echo "Error: --port requires a port number" >&2
+                exit 1
+            fi
+            ;;
+        -h|--help)
+            echo "OpenHamClock (Snap) — Modern Web-Based Amateur Radio Dashboard"
+            echo ""
+            echo "Usage: openhamclock [options]"
+            echo ""
+            echo "Options:"
+            echo "  -b, --browser        Open default web browser automatically once started"
+            echo "  -p, --port <port>    Set HTTP server port (default: 3000, or from PORT env)"
+            echo "  -h, --help           Show this help message"
+            echo ""
+            echo "Snap configuration file:"
+            echo "  \$SNAP_USER_DATA/openhamclock.env"
+            echo ""
+            echo "Snap service commands (daemon):"
+            echo "  sudo snap start openhamclock.daemon"
+            echo "  sudo snap stop openhamclock.daemon"
+            echo "  sudo snap restart openhamclock.daemon"
+            echo "  sudo snap logs -f openhamclock.daemon"
+            exit 0
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
+if [ "$OPEN_BROWSER" = true ]; then
+    (
+        for _ in {1..30}; do
+            if curl -s "http://localhost:${PORT}/api/health" >/dev/null 2>&1 || nc -z 127.0.0.1 "${PORT}" 2>/dev/null; then
+                break
+            fi
+            sleep 0.2
+        done
+        if command -v xdg-open >/dev/null 2>&1; then
+            xdg-open "http://localhost:${PORT}"
+        fi
+    ) &
+fi
+
+cd "$SNAP/usr/lib/openhamclock" || exit 1
+NODE_EXEC="$SNAP/bin/node"
+if [ ! -x "$NODE_EXEC" ]; then
+    NODE_EXEC="$SNAP/usr/bin/node"
+fi
+exec "$NODE_EXEC" server.js "$@"

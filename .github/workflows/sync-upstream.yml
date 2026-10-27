@@ -1,0 +1,52 @@
+name: Sync Upstream Repository
+
+on:
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: sync-upstream
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: Staging
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git author
+        run: |
+          git config --global user.name "9M2PJU"
+          git config --global user.email "9m2pju@gmail.com"
+
+      - name: Fetch from upstream repository
+        run: |
+          git remote add upstream https://github.com/accius/openhamclock.git || true
+          git fetch --tags upstream
+
+      - name: Check and merge upstream changes
+        run: |
+          LOCAL_HASH=$(git rev-parse HEAD)
+          UPSTREAM_HASH=$(git rev-parse upstream/Staging)
+
+          echo "Local HEAD:    $LOCAL_HASH"
+          echo "Upstream HEAD: $UPSTREAM_HASH"
+
+          if [ "$LOCAL_HASH" = "$UPSTREAM_HASH" ]; then
+            echo "Already up to date with upstream/Staging. Nothing to sync."
+          else
+            echo "Syncing new commits from upstream/Staging..."
+            git merge upstream/Staging --no-edit -m "chore: sync with upstream Staging"
+            git push origin Staging --tags
+            echo "Successfully pushed synchronized Staging branch to origin!"
+          fi

@@ -1,0 +1,13 @@
+title=OpenHamClock
+subtitle=Live amateur radio dashboard
+version=1.0.0
+major_version=1
+minor_version=0
+build_version=1
+mm_icon_focus_hd=pkg:/images/mm_icon_focus_hd.png
+mm_icon_focus_sd=pkg:/images/mm_icon_focus_sd.png
+splash_screen_hd=pkg:/images/splash_screen_hd.png
+splash_screen_sd=pkg:/images/splash_screen_sd.png
+splash_screen_fhd=pkg:/images/splash_screen_fhd.png
+splash_color=#0a0e14
+splash_min_time=0

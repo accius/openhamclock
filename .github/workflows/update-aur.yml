@@ -1,0 +1,92 @@
+name: Update AUR Package
+
+on:
+  push:
+    branches:
+      - Staging
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+concurrency:
+  group: aur-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publish-aur:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+    steps:
+      - name: Install required Arch Linux build packages
+        run: |
+          pacman -Syu --noconfirm --needed base-devel git openssh nodejs npm
+
+      - name: Configure safe directory and non-root build user
+        run: |
+          useradd -m builder
+          echo "builder ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Deploy package to AUR
+        env:
+          AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+        run: |
+          if [ -z "${AUR_SSH_PRIVATE_KEY}" ]; then
+            echo "::warning::AUR_SSH_PRIVATE_KEY secret is not set. Skipping AUR update push."
+            exit 0
+          fi
+
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${AUR_SSH_PRIVATE_KEY}" > ~/.ssh/aur_rsa
+          chmod 600 ~/.ssh/aur_rsa
+
+          ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts
+
+          cat << 'SSHEOF' > ~/.ssh/config
+          Host aur.archlinux.org
+              User aur
+              IdentityFile ~/.ssh/aur_rsa
+              StrictHostKeyChecking yes
+          SSHEOF
+          chmod 600 ~/.ssh/config
+
+          # Configure git author
+          git config --global user.name "9M2PJU"
+          git config --global user.email "9m2pju@gmail.com"
+
+          # Clone AUR repo
+          git clone ssh://aur@aur.archlinux.org/openhamclock-git.git /tmp/aur-pkg
+          chown -R builder:builder /tmp/aur-pkg "$GITHUB_WORKSPACE"
+
+          # Synchronize files
+          cp -f aur/openhamclock-git/PKGBUILD /tmp/aur-pkg/
+          cp -f aur/openhamclock-git/openhamclock.sh /tmp/aur-pkg/
+          cp -f aur/openhamclock-git/openhamclock.service /tmp/aur-pkg/
+          cp -f aur/openhamclock-git/openhamclock-user.service /tmp/aur-pkg/
+          cp -f aur/openhamclock-git/openhamclock.desktop /tmp/aur-pkg/
+          cp -f aur/openhamclock-git/openhamclock.env /tmp/aur-pkg/
+          cp -f aur/openhamclock-git/openhamclock.install /tmp/aur-pkg/
+          [ -f aur/openhamclock-git/.gitignore ] && cp -f aur/openhamclock-git/.gitignore /tmp/aur-pkg/
+
+          # Generate .SRCINFO as non-root user
+          cd /tmp/aur-pkg
+          su builder -c "cd /tmp/aur-pkg && makepkg --printsrcinfo > .SRCINFO"
+
+          if git diff --quiet && git diff --staged --quiet && [ -z "$(git status --porcelain)" ]; then
+            echo "AUR package is already up to date."
+          else
+            PKG_VER=$(grep 'pkgver =' .SRCINFO | head -n1 | awk '{print $3}')
+            PKG_REL=$(grep 'pkgrel =' .SRCINFO | head -n1 | awk '{print $3}')
+            git add -A
+            git commit -m "chore(release): update openhamclock-git to ${PKG_VER}-${PKG_REL}" --author="9M2PJU <9m2pju@gmail.com>"
+            git push origin master
+            echo "Successfully updated openhamclock-git on AUR!"
+          fi

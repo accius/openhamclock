@@ -1,0 +1,58 @@
+name: Build and Publish Snap
+
+on:
+  push:
+    branches:
+      - Staging
+      - main
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: 'Snap Store channel to release to'
+        required: true
+        default: 'stable'
+        type: choice
+        options:
+          - stable
+          - candidate
+          - beta
+          - edge
+
+concurrency:
+  group: snap-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Snap Store release channel
+        id: channel
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "channel=${{ github.event.inputs.channel }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "channel=stable" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=edge" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Snap package
+        uses: snapcore/action-build@v2
+        id: snapcraft_build
+
+      - name: Publish Snap package to Canonical Snap Store
+        uses: snapcore/action-publish@v1
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+        with:
+          snap: ${{ steps.snapcraft_build.outputs.snap }}
+          release: ${{ steps.channel.outputs.channel }}
+        if: env.SNAPCRAFT_STORE_CREDENTIALS != ''
