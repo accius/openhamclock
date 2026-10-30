@@ -15,7 +15,7 @@ import {
   withWindowDegradation,
   formatDurationShort,
 } from '../utils/eme.js';
-import { displayNow, displayNowMs, subscribeDisplayTime, setDisplayTime } from '../utils/displayTime.js';
+import { displayNow, displayNowMs, subscribeDisplayTimeSettled, setDisplayTime } from '../utils/displayTime.js';
 import { ElevationChart, DE_COLOR, DX_COLOR } from './ElevationChart.jsx';
 
 const HOURS = 48;
@@ -46,7 +46,8 @@ export function EmePlannerPanel({ deLocation, dxLocation, dxCallsign, embedded =
 
   useEffect(() => {
     const id = setInterval(() => setTick((n) => n + 1), 5 * 60_000);
-    const unsub = subscribeDisplayTime(() => {
+    // Settled: re-plan once Time Shift playback pauses, not on every tick.
+    const unsub = subscribeDisplayTimeSettled(() => {
       setPicked(null);
       setTick((n) => n + 1);
     });

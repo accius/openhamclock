@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Orbit from '../utils/orbit.js';
-import { displayNowMs, subscribeDisplayTime } from '../utils/displayTime.js';
+import { displayNowMs, subscribeDisplayTimeSettled } from '../utils/displayTime.js';
 import { satrecFor } from '../utils/satRelay.js';
 import { observerFromLocation, lookAnglesAt, computePassSkyPath } from '../utils/satelliteSkyPath.js';
 import { formatTleAge } from '../utils/tleAge.js';
@@ -105,7 +105,8 @@ export const SatellitePassesPanel = ({ satellites, config, rotatorAvailable = fa
   useEffect(() => {
     const id = setInterval(() => setNow(displayNowMs()), 15_000);
     const recompute = setInterval(() => setPassTick((t) => t + 1), RECOMPUTE_MS);
-    const unsub = subscribeDisplayTime(() => {
+    // Settled: pass prediction waits until Time Shift playback pauses.
+    const unsub = subscribeDisplayTimeSettled(() => {
       setNow(displayNowMs());
       setPassTick((t) => t + 1);
     });

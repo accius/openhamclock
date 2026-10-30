@@ -14,6 +14,12 @@
  *   window.dispatchEvent(new CustomEvent('ohc:set-time', { detail: { offsetMs: 3600000 } }))
  *   window.dispatchEvent(new CustomEvent('ohc:set-time', { detail: { iso: '2026-12-21T12:00:00Z' } }))
  *   window.dispatchEvent(new CustomEvent('ohc:set-time', { detail: 'now' }))
+ *
+ * Playback runs the display time forward on its own (startPlayback) at a
+ * preset speed. Any explicit set (slider, nudge, Now, a planner's "jump to",
+ * the set-time event) stops it. Expensive consumers (pass predictions, …)
+ * subscribe with subscribeDisplayTimeSettled so they recompute once playback
+ * pauses instead of several times a second.
  */
 
 export const HOUR_MS = 3_600_000;
@@ -27,8 +33,20 @@ export const DISPLAY_TIME_EVENT = 'ohc:display-time';
 /** Listened for on window; detail = { offsetMs } | { iso } | 'now' | { now: true }. */
 export const SET_TIME_EVENT = 'ohc:set-time';
 
+/** Display seconds per real second: 6 s/s, 1 min/s, 10 min/s, 1 h/s. */
+export const PLAYBACK_SPEEDS = [6, 60, 600, 3600];
+export const DEFAULT_PLAYBACK_SPEED = 60;
+/** Ticker period: 5 updates a second is smooth enough and keeps SGP4 load sane. */
+export const PLAYBACK_TICK_MS = 200;
+
 let offsetMs = 0;
+let playing = false;
+let playbackSpeed = DEFAULT_PLAYBACK_SPEED;
+let playbackTimer = null;
+let lastTickRealMs = 0;
 const listeners = new Set();
+const settledListeners = new Set();
+const playbackListeners = new Set();
 
 /** Clamp any offset to the supported ±30 day range; invalid input → 0. */
 export function clampOffset(ms) {
@@ -55,10 +73,11 @@ export function displayNow() {
   return new Date(displayNowMs());
 }
 
-/** Set the offset (clamped). Notifies subscribers and fires DISPLAY_TIME_EVENT. */
-export function setDisplayOffsetMs(ms) {
+// Apply an offset without touching playback (the playback ticker uses this).
+// Returns whether it changed.
+function applyOffset(ms) {
   const next = clampOffset(ms);
-  if (next === offsetMs) return offsetMs;
+  if (next === offsetMs) return false;
   offsetMs = next;
   for (const fn of listeners) {
     try {
@@ -67,11 +86,25 @@ export function setDisplayOffsetMs(ms) {
       /* one bad listener must not break the others */
     }
   }
+  if (!playing) notifySettled();
   try {
     window.dispatchEvent(new CustomEvent(DISPLAY_TIME_EVENT, { detail: { offsetMs } }));
   } catch {
     /* no window (tests, SSR) */
   }
+  return true;
+}
+
+/**
+ * Set the offset (clamped). Notifies subscribers and fires DISPLAY_TIME_EVENT.
+ * An explicit set stops playback.
+ */
+export function setDisplayOffsetMs(ms) {
+  const wasPlaying = playing;
+  if (wasPlaying) stopPlayback({ silent: true });
+  const changed = applyOffset(ms);
+  // Stopped on the same instant: settled consumers still need their catch-up.
+  if (wasPlaying && !changed) notifySettled();
   return offsetMs;
 }
 
@@ -95,6 +128,100 @@ export function resetDisplayTime() {
 export function subscribeDisplayTime(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
+}
+
+/**
+ * Like subscribeDisplayTime, but quiet while playback runs: fn fires for
+ * changes made while paused, plus once when playback stops. For consumers
+ * whose recompute is too heavy to run several times a second (pass
+ * predictions, reach maps). Returns an unsubscribe function.
+ */
+export function subscribeDisplayTimeSettled(fn) {
+  settledListeners.add(fn);
+  return () => settledListeners.delete(fn);
+}
+
+function notifySettled() {
+  for (const fn of settledListeners) {
+    try {
+      fn(offsetMs);
+    } catch {
+      /* one bad listener must not break the others */
+    }
+  }
+}
+
+// ── Playback ────────────────────────────────────────────────────────────────
+
+function notifyPlayback() {
+  const state = { playing, speed: playbackSpeed };
+  for (const fn of playbackListeners) {
+    try {
+      fn(state);
+    } catch {
+      /* one bad listener must not break the others */
+    }
+  }
+}
+
+export function isPlaying() {
+  return playing;
+}
+
+export function getPlaybackSpeed() {
+  return playbackSpeed;
+}
+
+/** Subscribe to { playing, speed } changes; returns an unsubscribe function. */
+export function subscribePlayback(fn) {
+  playbackListeners.add(fn);
+  return () => playbackListeners.delete(fn);
+}
+
+/** Pick a speed (one of PLAYBACK_SPEEDS); takes effect on the next tick. */
+export function setPlaybackSpeed(speed) {
+  if (!PLAYBACK_SPEEDS.includes(speed) || speed === playbackSpeed) return;
+  playbackSpeed = speed;
+  notifyPlayback();
+}
+
+/**
+ * Run the display time forward at `speed` (default: the current speed).
+ * Advances by real elapsed time × speed, so a throttled background tab does
+ * not fall behind; stops by itself at +MAX_OFFSET_MS.
+ */
+export function startPlayback(speed = playbackSpeed) {
+  if (PLAYBACK_SPEEDS.includes(speed)) playbackSpeed = speed;
+  if (playing) {
+    notifyPlayback();
+    return;
+  }
+  if (offsetMs >= MAX_OFFSET_MS) return; // already at the end of the range
+  playing = true;
+  lastTickRealMs = Date.now();
+  playbackTimer = setInterval(() => {
+    const realNow = Date.now();
+    const elapsed = realNow - lastTickRealMs;
+    lastTickRealMs = realNow;
+    const next = offsetMs + elapsed * playbackSpeed;
+    if (next >= MAX_OFFSET_MS) {
+      applyOffset(MAX_OFFSET_MS);
+      stopPlayback();
+    } else {
+      applyOffset(next);
+    }
+  }, PLAYBACK_TICK_MS);
+  notifyPlayback();
+}
+
+/** Pause playback. Settled subscribers get their catch-up unless `silent`. */
+export function stopPlayback({ silent = false } = {}) {
+  if (!playing) return;
+  playing = false;
+  clearInterval(playbackTimer);
+  playbackTimer = null;
+  notifyPlayback();
+  if (!silent) notifySettled();
 }
 
 /**
