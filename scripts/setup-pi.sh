@@ -10,8 +10,13 @@
 #   Raspberry Pi 4          (32-bit and 64-bit Raspberry Pi OS)
 #   Raspberry Pi 5          (64-bit Raspberry Pi OS)
 #
+#   Radxa ROCK boards (e.g. ROCK 4D / 5B on Radxa OS, Debian 12)
+#     Detected from the device tree. Pi-only steps (raspi-config
+#     blanking, config.txt splash/gpu_mem) are skipped; Wayland screen
+#     blanking must be turned off in the desktop's power settings.
+#
 #   Other Debian-based ARM boards may work but are not tested.
-#   Non-Raspberry Pi hardware will trigger a warning and prompt.
+#   Unrecognised hardware will trigger a warning and prompt.
 #
 # ═══════════════════════════════════════════════════════════════════
 # SUPPORTED OPERATING SYSTEMS
@@ -264,11 +269,27 @@ resolve_session_type() {
     echo "x11"
 }
 
-# Check if running on Raspberry Pi
+# Identify the board. BOARD is pi, radxa or other; Pi-only steps (raspi-config,
+# config.txt) check it. Radxa boards are matched on the device-tree model
+# ("Radxa ROCK 4D") or the "radxa," vendor prefix in the compatible string.
+BOARD=other
 check_raspberry_pi() {
     if [ -f /proc/device-tree/model ]; then
         MODEL=$(tr -d '\0' < /proc/device-tree/model)
+        COMPATIBLE=$(tr '\0' ' ' < /proc/device-tree/compatible 2>/dev/null)
+        case "$MODEL" in
+            *"Raspberry Pi"*) BOARD=pi ;;
+            *Radxa*|*RADXA*|*radxa*) BOARD=radxa ;;
+        esac
+        if [ "$BOARD" = other ] && [[ "$COMPATIBLE" == *"radxa,"* ]]; then
+            BOARD=radxa
+        fi
         echo -e "${GREEN}✓ Detected: $MODEL${NC}"
+        if [ "$BOARD" = radxa ]; then
+            echo "  Radxa board — Raspberry Pi-only boot and blanking tweaks will be skipped."
+        elif [ "$BOARD" = other ]; then
+            echo -e "${YELLOW}⚠ Not a Raspberry Pi or Radxa board — Pi-only tweaks will be skipped${NC}"
+        fi
     else
         echo -e "${YELLOW}⚠ Warning: This doesn't appear to be a Raspberry Pi${NC}"
         read -p "Continue anyway? (y/N) " -n 1 -r
@@ -495,8 +516,15 @@ setup_kiosk() {
         echo "  (override with --session-type=x11|wayland if this is wrong)"
     fi
 
-    # Disable screen blanking (0 = disable, 1 = enable — keep the screen on for kiosk)
-    sudo raspi-config nonint do_blanking 0 2>/dev/null || true
+    # Disable screen blanking (0 = disable, 1 = enable — keep the screen on for kiosk).
+    # raspi-config only exists on Raspberry Pi OS. Elsewhere kiosk.sh's xset calls
+    # cover X11; a Wayland desktop keeps its own power settings, so say so.
+    if [ "$BOARD" = pi ]; then
+        sudo raspi-config nonint do_blanking 0 2>/dev/null || true
+    elif [ "$resolved_session_type" = "wayland" ]; then
+        echo -e "${YELLOW}⚠ Turn off screen blanking / screen lock in the desktop's power settings,${NC}"
+        echo -e "${YELLOW}  or the kiosk display will go dark after a few minutes.${NC}"
+    fi
 
     # Create autostart directory
     mkdir -p "$HOME/.config/autostart"
@@ -634,8 +662,10 @@ EOF
     
     # Configure boot for faster startup.
     # Bookworm and later (including Trixie) moved the config to /boot/firmware/config.txt.
-    # Bullseye and older use /boot/config.txt.
-    if [ -f /boot/firmware/config.txt ]; then
+    # Bullseye and older use /boot/config.txt. Only the Pi firmware reads it.
+    if [ "$BOARD" != pi ]; then
+        BOOT_CONFIG=""
+    elif [ -f /boot/firmware/config.txt ]; then
         BOOT_CONFIG=/boot/firmware/config.txt
     elif [ -f /boot/config.txt ]; then
         BOOT_CONFIG=/boot/config.txt
@@ -653,7 +683,7 @@ EOF
         if ! grep -q "gpu_mem=" "$BOOT_CONFIG"; then
             echo "gpu_mem=128" | sudo tee -a "$BOOT_CONFIG" > /dev/null
         fi
-    else
+    elif [ "$BOARD" = pi ]; then
         echo -e "${YELLOW}⚠ Boot config not found — skipping gpu_mem and splash settings${NC}"
     fi
     
