@@ -5,6 +5,7 @@
 const physics = require('../utils/propagationPhysics');
 const { parseMonthParam } = require('../utils/monthParam');
 const { resolveMonthSsn } = require('../utils/solarCycleSsn');
+const { resolveHeatmapTime, solarForDate, dateKeyOf } = require('../utils/heatmapTime');
 
 module.exports = function (app, ctx) {
   const {
@@ -692,21 +693,38 @@ module.exports = function (app, ctx) {
     const txGain = ANTENNA_PROFILES[antennaKey]?.gain ?? 0;
     const signalMarginDb = calculateSignalMargin(txMode, txPower, txGain);
 
-    const cacheKey = `${deLat.toFixed(0)}:${deLon.toFixed(0)}:${freq}:${gridSize}:${txMode}:${txPower}:${antennaKey}`;
     const now = Date.now();
 
-    if (PROP_HEATMAP_CACHE[cacheKey] && now - PROP_HEATMAP_CACHE[cacheKey].timestamp < PROP_HEATMAP_TTL) {
-      return res.json(PROP_HEATMAP_CACHE[cacheKey].data);
-    }
-
     try {
-      // Solar conditions — cached separately so band/mode/power changes don't
-      // each trigger a slow NOAA round-trip
-      const { sfi, ssn, kIndex } = await getSolarData();
+      // Which moment: `at` (the client's Time Shift display time, ±31 days)
+      // or now. The model needs its UTC hour (day/night) and month (season).
+      const { hour: mapHour, month: mapMonth, dateKey, shifted } = resolveHeatmapTime(req.query.at, now);
 
-      const now2 = new Date();
-      const currentHour = now2.getUTCHours();
-      const currentMonth = now2.getUTCMonth() + 1;
+      // Solar conditions — cached separately so band/mode/power changes don't
+      // each trigger a slow NOAA round-trip. For a future day the NOAA 27-day
+      // outlook's forecast SFI / Kp replace the live values.
+      const live = await getSolarData();
+      const todayKey = dateKeyOf(new Date(now));
+      let outlook = null;
+      if (dateKey > todayKey && typeof ctx.getSolarOutlook === 'function') {
+        try {
+          outlook = await ctx.getSolarOutlook();
+        } catch {
+          outlook = null; // no outlook → live values
+        }
+      }
+      const { sfi, ssn, kIndex, source: solarSource } = solarForDate(live, outlook, dateKey, todayKey);
+
+      // Hour, month and the solar values used are part of the key: different
+      // hours (and forecast days) must not share an entry — before, a map kept
+      // being served for up to the TTL after the UTC hour had moved on.
+      const cacheKey = `${deLat.toFixed(0)}:${deLon.toFixed(0)}:${freq}:${gridSize}:${txMode}:${txPower}:${antennaKey}:${mapHour}:${mapMonth}:${sfi}:${kIndex}`;
+      if (PROP_HEATMAP_CACHE[cacheKey] && now - PROP_HEATMAP_CACHE[cacheKey].timestamp < PROP_HEATMAP_TTL) {
+        return res.json(PROP_HEATMAP_CACHE[cacheKey].data);
+      }
+
+      const currentHour = mapHour;
+      const currentMonth = mapMonth;
       const de = { lat: deLat, lon: deLon };
       const halfGrid = gridSize / 2;
       const cells = [];
@@ -757,7 +775,11 @@ module.exports = function (app, ctx) {
         power: txPower,
         signalMargin: Math.round(signalMarginDb * 10) / 10,
         solarData: { sfi, ssn, kIndex },
+        solarSource, // 'live' | 'forecast' (NOAA 27-day outlook)
         hour: currentHour,
+        month: currentMonth,
+        date: dateKey,
+        shifted,
         cells,
         timestamp: new Date().toISOString(),
       };

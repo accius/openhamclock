@@ -26,6 +26,7 @@
 import { bandFromFreq } from './workedBefore.js';
 import { getGreatCirclePoints } from './geo.js';
 import { getBandColorForFreq } from './bandColors.js';
+import { reliabilityColor, smoothReliability } from './voacapHeatmap.js';
 
 // ── Equirectangular projection ─────────────────────────────
 export const lonToX = (lon, width) => ((lon + 180) / 360) * width;
@@ -359,6 +360,42 @@ export function paintDrap(ctx, { width, height, opacity = 0.6, data }) {
       if (x < 0) ctx.fillRect(x + width, y, cw + 0.5, ch + 0.5);
       else if (x + cw > width) ctx.fillRect(x - width, y, cw + 0.5, ch + 0.5);
     }
+  }
+  ctx.restore();
+}
+
+/**
+ * VOACAP propagation heatmap — the same reliability cells, smoothing and
+ * colours as the flat layer (plugins/layers/useVOACAPHeatmap.js, via
+ * utils/voacapHeatmap.js). Cells are gridSize° squares centred on lat/lon.
+ * data: a /api/propagation/heatmap response, { cells: [{ lat, lon, r }], gridSize }.
+ */
+export function paintVoacapHeatmap(ctx, { width, height, opacity = 0.55, data }) {
+  const cells = data?.cells;
+  if (!Array.isArray(cells) || !cells.length) return;
+  const grid = data.gridSize || 10;
+  const half = grid / 2;
+  const cw = (grid / 360) * width;
+  const ch = (grid / 180) * height;
+  const smoothed = smoothReliability(data);
+
+  ctx.save();
+  for (const cell of cells) {
+    const r = smoothed.get(cell) ?? cell.r;
+    const { color, alpha } = reliabilityColor(r);
+    // Same scaling as the flat layer: alpha relative to the 0.6 default.
+    const a = Math.min(1, alpha * (opacity / 0.6));
+    if (a <= 0) continue;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = color;
+    const x = lonToX(normLon(cell.lon) - half, width);
+    const y = latToY(cell.lat + half, height);
+    // +0.5 overdraw hides seams between adjacent cells.
+    ctx.fillRect(x, y, cw + 0.5, ch + 0.5);
+    // A cell straddling the antimeridian spills off one edge — draw the
+    // wrapped remainder on the other side so the seam has no gap.
+    if (x < 0) ctx.fillRect(x + width, y, cw + 0.5, ch + 0.5);
+    else if (x + cw > width) ctx.fillRect(x - width, y, cw + 0.5, ch + 0.5);
   }
   ctx.restore();
 }
@@ -731,6 +768,7 @@ export const GLOBE_OVERLAY_PAINTERS = {
   wxradar: paintWxRadar,
   drap: paintDrap,
   aurora: paintAurora,
+  'voacap-heatmap': paintVoacapHeatmap,
   'worked-grids': paintWorkedGrids,
   maidenhead: paintMaidenhead,
   zones: paintZones,
