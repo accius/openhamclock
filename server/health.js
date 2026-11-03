@@ -139,8 +139,15 @@ function checkSatellites(ctx) {
 async function checkPropagation(ctx) {
   const base = ctx.ITURHFPROP_URL;
   if (!base) return { status: 'unknown', detail: 'ITURHFPROP_URL unset (WASM-only mode)' };
-  const result = await probeHttp(`${base}/api/version`, 'propagation');
-  if (result.ok) return { status: 'ok', detail: `${result.status} from ${base}/api/version` };
+  // The iturhfprop service has no /api/version (#1264). /api/health always
+  // answers 200 and reports 'degraded' when its binary, data or circuit
+  // breaker is unhealthy.
+  const result = await probeJson(`${base}/api/health`, 'propagation');
+  if (result.ok) {
+    const svc = result.json?.status;
+    if (svc === 'degraded') return { status: 'degraded', detail: `${base}/api/health reports degraded` };
+    return { status: 'ok', detail: `${result.status} from ${base}/api/health` };
+  }
   return {
     status: 'down',
     detail: result.error ? `probe failed: ${result.error}` : `HTTP ${result.status}`,
