@@ -57,6 +57,13 @@ export default function NbemsPanel({ apiToken = '' }) {
     if (rxRef.current) rxRef.current.scrollTop = rxRef.current.scrollHeight;
   }, [rxText]);
 
+  // Opening the ICS-213 form grows the panel downward; bring the whole form,
+  // Send button included, into view in the scrolling sidebar (#1261).
+  const icsRef = useRef(null);
+  useEffect(() => {
+    if (showIcs) icsRef.current?.scrollIntoView?.({ block: 'nearest' });
+  }, [showIcs]);
+
   const describeError = (r) => {
     if (r.error === 'relay' || r.error === 'relay-inactive')
       return t('nbems.errRelay', { defaultValue: 'Cloud relay is not connected to Rig Bridge' });
@@ -266,7 +273,7 @@ export default function NbemsPanel({ apiToken = '' }) {
       </form>
 
       {showIcs && (
-        <form onSubmit={onSendIcs} style={{ ...box, display: 'grid', gap: '4px' }}>
+        <form ref={icsRef} onSubmit={onSendIcs} style={{ ...box, display: 'grid', gap: '4px' }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
             <input
               style={input}

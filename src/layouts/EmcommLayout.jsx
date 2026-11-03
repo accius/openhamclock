@@ -2230,6 +2230,7 @@ export default function EmcommLayout(props) {
             panelKey="NBEMS"
             color="#38bdf8"
             panels={panels}
+            bodyMaxHeight="none"
           >
             <NbemsPanel apiToken={config.rigControl?.apiToken || ''} />
           </PanelSection>
