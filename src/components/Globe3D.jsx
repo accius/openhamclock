@@ -19,7 +19,15 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
 import { getBandColorForBand, getEffectiveBandColors } from '../utils/bandColors.js';
-import { getSunPosition, getMoonPosition, getMoonAzEl, densifyGeoJson } from '../utils/geo.js';
+import { getSunPosition, getMoonPosition, getMoonAzEl, densifyGeoJson, latLonToMaidenhead } from '../utils/geo.js';
+import {
+  BANDS as VOACAP_BANDS,
+  VOACAP_DATA_EVENT,
+  deFromLocator,
+  getVoacapSettings,
+  heatmapUrl,
+  subscribeVoacapSettings,
+} from '../utils/voacapHeatmap.js';
 import { displayNow, subscribeDisplayTime } from '../utils/displayTime.js';
 import { subscribeStrikes } from '../utils/lightningFeed.js';
 import { MAP_STYLES } from '../utils/config.js';
@@ -1998,6 +2006,7 @@ export default function Globe3D({
   // In low-memory mode the whole feature is off and the layers stay in
   // WorldMap's suppressed-layers note instead.
   const drapOverlayOn = !lowMem && !!overlayLayerStates?.drap?.enabled;
+  const voacapOverlayOn = !lowMem && !!overlayLayerStates?.['voacap-heatmap']?.enabled;
   const auroraOverlayOn = !lowMem && !!overlayLayerStates?.aurora?.enabled;
   const zonesOverlayOn = !lowMem && !!overlayLayerStates?.zones?.enabled;
   const workedGridsOverlayOn = !lowMem && !!overlayLayerStates?.['worked-grids']?.enabled;
@@ -2011,6 +2020,7 @@ export default function Globe3D({
   const atcOverlayOn = !lowMem && !!overlayLayerStates?.['atc-sectors']?.enabled;
   const historyOverlayOn = !lowMem && !!overlayLayerStates?.['history-playback']?.enabled;
   const [overlayDrap, setOverlayDrap] = useState(null);
+  const [overlayVoacap, setOverlayVoacap] = useState(null);
   const [overlayAurora, setOverlayAurora] = useState(null);
   const [overlayZones, setOverlayZones] = useState(null);
   const [overlayWorkedGrids, setOverlayWorkedGrids] = useState(null);
@@ -2046,6 +2056,57 @@ export default function Globe3D({
       clearInterval(id);
     };
   }, [drapOverlayOn]);
+
+  // VOACAP heatmap: the same request as the flat layer (DE = centre of the
+  // station's 4-character square, settings shared via utils/voacapHeatmap.js),
+  // refreshed every 5 min and whenever a VOACAP panel changes band/mode/power/grid.
+  const voacapDe = hasDE ? deFromLocator(latLonToMaidenhead({ lat: lat0, lon: lon0 }, 4)) : null;
+  const voacapDeLat = voacapDe?.lat;
+  const voacapDeLon = voacapDe?.lon;
+  useEffect(() => {
+    if (!voacapOverlayOn || !Number.isFinite(voacapDeLat) || !Number.isFinite(voacapDeLon)) return undefined;
+    let alive = true;
+    let controller = null;
+    const fetchHeatmap = async () => {
+      const st = getVoacapSettings();
+      const band = VOACAP_BANDS[st.bandIndex];
+      if (!band) return;
+      controller?.abort();
+      controller = new AbortController();
+      try {
+        const url = heatmapUrl({
+          deLat: voacapDeLat,
+          deLon: voacapDeLon,
+          freq: band.freq,
+          grid: st.grid,
+          mode: st.mode,
+          power: st.power,
+        });
+        const res = await fetch(url, { signal: controller.signal });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!alive || !Array.isArray(data?.cells)) return;
+        setOverlayVoacap(data);
+        // The globe's settings panel shows this in its status line.
+        window.dispatchEvent(
+          new CustomEvent(VOACAP_DATA_EVENT, {
+            detail: { mode: data.mode, power: data.power, solarData: data.solarData },
+          }),
+        );
+      } catch (err) {
+        if (err?.name !== 'AbortError') console.error('[Globe3D] VOACAP heatmap fetch error:', err);
+      }
+    };
+    fetchHeatmap();
+    const id = setInterval(fetchHeatmap, 300_000);
+    const unsub = subscribeVoacapSettings(fetchHeatmap);
+    return () => {
+      alive = false;
+      controller?.abort();
+      clearInterval(id);
+      unsub();
+    };
+  }, [voacapOverlayOn, voacapDeLat, voacapDeLon]);
 
   useEffect(() => {
     if (!auroraOverlayOn) return undefined;
@@ -2390,6 +2451,7 @@ export default function Globe3D({
     const dataById = {
       zones: overlayZones,
       drap: overlayDrap,
+      'voacap-heatmap': overlayVoacap,
       aurora: overlayAurora,
       'worked-grids': overlayWorkedGrids,
       wxradar: overlayWxRadar,
@@ -2420,6 +2482,7 @@ export default function Globe3D({
     overlayStatesKey,
     overlayZones,
     overlayDrap,
+    overlayVoacap,
     overlayAurora,
     overlayWorkedGrids,
     overlayWxRadar,

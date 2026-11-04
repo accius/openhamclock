@@ -1,6 +1,19 @@
 import { useState, useEffect, useRef } from 'react';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { makeDraggable } from './makeDraggable.js';
+import {
+  BANDS,
+  GRID_SIZES,
+  MODES,
+  POWERS,
+  deFromLocator,
+  getVoacapSettings,
+  heatmapUrl,
+  reliabilityColor,
+  setVoacapSettings,
+  smoothReliability,
+  subscribeVoacapSettings,
+} from '../../utils/voacapHeatmap.js';
 
 /**
  * VOACAP-Style Propagation Heatmap Plugin v1.0.0
@@ -24,103 +37,14 @@ export const metadata = {
   version: '1.0.0',
 };
 
-// HF bands: label, frequency in MHz
-const BANDS = [
-  { label: '160m', freq: 1.8 },
-  { label: '80m', freq: 3.5 },
-  { label: '40m', freq: 7 },
-  { label: '30m', freq: 10 },
-  { label: '20m', freq: 14 },
-  { label: '17m', freq: 18 },
-  { label: '15m', freq: 21 },
-  { label: '12m', freq: 24 },
-  { label: '10m', freq: 28 },
-];
-
-// Reliability to color: HamClock-style wide spectrum
-// magenta (0%) → red → orange → yellow → green (100%)
-// Cubic smoothstep — smooth interpolation between edge0 and edge1, with zero
-// first-derivative at both ends. Eliminates the visible "step" you'd get from
-// a linear ramp between bands.
-function smoothstep(edge0, edge1, x) {
-  const t = Math.max(0, Math.min(1, (x - edge0) / (edge1 - edge0)));
-  return t * t * (3 - 2 * t);
-}
-
-function reliabilityColor(r) {
-  if (r >= 99) return { color: 'rgb(0,220,0)', alpha: 0.85 };
-
-  let red, green, blue;
-  if (r < 25) {
-    // Below VOACAP's usefully-modelled range. Color stays as a dim
-    // red-purple but the alpha will be tapered to ~0 (see below), so the
-    // exact RGB barely matters — it just sets the hue you see at the very
-    // edge of the predicted region.
-    const t = r / 25;
-    red = 40 + Math.round(t * 180);
-    green = 30;
-    blue = 80 - Math.round(t * 80);
-  } else if (r < 40) {
-    // Low: Red → Orange
-    const t = (r - 25) / 15;
-    red = 220 + Math.round(t * 35);
-    green = Math.round(t * 120);
-    blue = 0;
-  } else if (r < 60) {
-    // Fair: Orange → Yellow
-    const t = (r - 40) / 20;
-    red = 255;
-    green = 120 + Math.round(t * 135);
-    blue = 0;
-  } else if (r < 80) {
-    // Good: Yellow → Yellow-Green
-    const t = (r - 60) / 20;
-    red = 255 - Math.round(t * 140);
-    green = 255;
-    blue = 0;
-  } else {
-    // Excellent: Yellow-Green → Green
-    const t = (r - 80) / 20;
-    red = 115 - Math.round(t * 115);
-    green = 220 + Math.round(t * 35);
-    blue = 0;
-  }
-
-  // Smooth alpha taper from 0 → 0.85 across r=0..40 (#990 round 3).
-  // Previously the alpha jumped from 0.25 at r<10 to 0.75 at r=40 in
-  // discrete bands, which read as a hard vertical cliff at VOACAP's
-  // useful-range boundary. A cubic smoothstep makes the edge fade
-  // gradually into the base map — visually a real propagation map rather
-  // than a stamped-out region.
-  const alpha = smoothstep(0, 40, r) * 0.85;
-  return { color: `rgb(${red},${green},${blue})`, alpha };
-}
+// Bands, colour scale, smoothing and the settings store are shared with the
+// 3D globe's painter: utils/voacapHeatmap.js.
 
 export function useLayer({ map, enabled, opacity, locator }) {
-  const [selectedBand, setSelectedBand] = useState(() => {
-    const saved = localStorage.getItem('voacap-heatmap-band');
-    return saved ? parseInt(saved) : 4; // Default: 20m (index 4)
-  });
-  const [gridSize, setGridSize] = useState(() => {
-    const saved = localStorage.getItem('voacap-heatmap-grid');
-    return saved ? parseInt(saved) : 5;
-  });
-  const [propMode, setPropMode] = useState(() => {
-    try {
-      const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
-      return cfg.propagation?.mode || 'SSB';
-    } catch {
-      return 'SSB';
-    }
-  });
-  const [propPower, setPropPower] = useState(() => {
-    try {
-      const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
-      return cfg.propagation?.power || 100;
-    } catch {
-      return 100;
-    }
-  });
+  const [selectedBand, setSelectedBand] = useState(() => getVoacapSettings().bandIndex);
+  const [gridSize, setGridSize] = useState(() => getVoacapSettings().grid);
+  const [propMode, setPropMode] = useState(() => getVoacapSettings().mode);
+  const [propPower, setPropPower] = useState(() => getVoacapSettings().power);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -142,16 +66,20 @@ export function useLayer({ map, enabled, opacity, locator }) {
     return () => window.removeEventListener('openhamclock-config-change', onConfigChange);
   }, []);
 
-  // Parse DE location from locator grid square
-  const deLocation = (() => {
-    if (!locator || locator.length < 4) return null;
-    const g = locator.toUpperCase();
-    const lon = (g.charCodeAt(0) - 65) * 20 - 180;
-    const lat = (g.charCodeAt(1) - 65) * 10 - 90;
-    const lonMin = parseInt(g[2]) * 2;
-    const latMin = parseInt(g[3]) * 1;
-    return { lat: lat + latMin + 0.5, lon: lon + lonMin + 1 };
-  })();
+  // Settings changed by a VOACAP panel (this one or the 3D globe's).
+  useEffect(
+    () =>
+      subscribeVoacapSettings((st) => {
+        setSelectedBand(st.bandIndex);
+        setGridSize(st.grid);
+        setPropMode(st.mode);
+        setPropPower(st.power);
+      }),
+    [],
+  );
+
+  // DE location: centre of the locator's 4-character square
+  const deLocation = deFromLocator(locator);
 
   // Fetch heatmap data
   useEffect(() => {
@@ -163,9 +91,14 @@ export function useLayer({ map, enabled, opacity, locator }) {
 
       setLoading(true);
       try {
-        // Round to whole degrees — propagation doesn't differ within 1°,
-        // and identical URLs share server + browser + CDN caches
-        const url = `/api/propagation/heatmap?deLat=${Math.round(deLocation.lat)}&deLon=${Math.round(deLocation.lon)}&freq=${band.freq}&grid=${gridSize}&mode=${propMode}&power=${propPower}`;
+        const url = heatmapUrl({
+          deLat: deLocation.lat,
+          deLon: deLocation.lon,
+          freq: band.freq,
+          grid: gridSize,
+          mode: propMode,
+          power: propPower,
+        });
         const res = await fetch(url);
         if (res.ok) {
           const json = await res.json();
@@ -208,17 +141,17 @@ export function useLayer({ map, enabled, opacity, locator }) {
           (b, i) => `<option value="${i}" ${i === selectedBand ? 'selected' : ''}>${b.label} (${b.freq} MHz)</option>`,
         ).join('');
 
-        const gridOptions = [5, 10, 15, 20]
-          .map((g) => `<option value="${g}" ${g === gridSize ? 'selected' : ''}>${g}°</option>`)
-          .join('');
+        const gridOptions = GRID_SIZES.map(
+          (g) => `<option value="${g}" ${g === gridSize ? 'selected' : ''}>${g}°</option>`,
+        ).join('');
 
-        const modeOptions = ['SSB', 'CW', 'FT8', 'FT4', 'FT2', 'RTTY', 'AM', 'FM']
-          .map((m) => `<option value="${m}" ${m === propMode ? 'selected' : ''}>${m}</option>`)
-          .join('');
+        const modeOptions = MODES.map(
+          (m) => `<option value="${m}" ${m === propMode ? 'selected' : ''}>${m}</option>`,
+        ).join('');
 
-        const powerOptions = [5, 10, 25, 50, 100, 200, 400, 500, 750, 1000, 1500]
-          .map((p) => `<option value="${p}" ${p === propPower ? 'selected' : ''}>${p}W</option>`)
-          .join('');
+        const powerOptions = POWERS.map(
+          (p) => `<option value="${p}" ${p === propPower ? 'selected' : ''}>${p}W</option>`,
+        ).join('');
 
         container.innerHTML = `
             <div class="floating-panel-header">🌐 VOACAP Heatmap</div>
@@ -289,18 +222,6 @@ export function useLayer({ map, enabled, opacity, locator }) {
     map.addControl(control);
     controlRef.current = control;
 
-    // Helper to update both plugin state AND global config in localStorage
-    const updateGlobalConfig = (mode, power) => {
-      try {
-        const cfg = JSON.parse(localStorage.getItem('openhamclock_config') || '{}');
-        if (!cfg.propagation) cfg.propagation = {};
-        cfg.propagation.mode = mode;
-        cfg.propagation.power = power;
-        localStorage.setItem('openhamclock_config', JSON.stringify(cfg));
-        // Don't dispatch event here — we're already updating local state directly
-      } catch (e) {}
-    };
-
     // Wire up event handlers after DOM is ready
     setTimeout(() => {
       const container = document.querySelector('.voacap-heatmap-control');
@@ -332,30 +253,22 @@ export function useLayer({ map, enabled, opacity, locator }) {
 
       if (bandSelect) {
         bandSelect.addEventListener('change', (e) => {
-          const val = parseInt(e.target.value);
-          setSelectedBand(val);
-          localStorage.setItem('voacap-heatmap-band', val);
+          setVoacapSettings({ bandIndex: parseInt(e.target.value) });
         });
       }
       if (gridSelect) {
         gridSelect.addEventListener('change', (e) => {
-          const val = parseInt(e.target.value);
-          setGridSize(val);
-          localStorage.setItem('voacap-heatmap-grid', val);
+          setVoacapSettings({ grid: parseInt(e.target.value) });
         });
       }
       if (modeSelect) {
         modeSelect.addEventListener('change', (e) => {
-          const val = e.target.value;
-          setPropMode(val);
-          updateGlobalConfig(val, propPower);
+          setVoacapSettings({ mode: e.target.value });
         });
       }
       if (powerSelect) {
         powerSelect.addEventListener('change', (e) => {
-          const val = parseFloat(e.target.value);
-          setPropPower(val);
-          updateGlobalConfig(propMode, val);
+          setVoacapSettings({ power: parseFloat(e.target.value) });
         });
       }
     }, 150);
@@ -377,9 +290,13 @@ export function useLayer({ map, enabled, opacity, locator }) {
     // Sync dropdowns if changed externally (e.g. from Settings panel)
     const modeSelect = document.getElementById('voacap-mode-select');
     const powerSelect = document.getElementById('voacap-power-select');
+    const bandSelect = document.getElementById('voacap-band-select');
+    const gridSelect = document.getElementById('voacap-grid-select');
     if (modeSelect && modeSelect.value !== propMode) modeSelect.value = propMode;
     if (powerSelect && parseFloat(powerSelect.value) !== propPower) powerSelect.value = propPower;
-  }, [loading, data, enabled, propMode, propPower]);
+    if (bandSelect && parseInt(bandSelect.value) !== selectedBand) bandSelect.value = selectedBand;
+    if (gridSelect && parseInt(gridSelect.value) !== gridSize) gridSelect.value = gridSize;
+  }, [loading, data, enabled, propMode, propPower, selectedBand, gridSize]);
 
   // Render heatmap rectangles on the map
   useEffect(() => {
@@ -399,32 +316,8 @@ export function useLayer({ map, enabled, opacity, locator }) {
     const half = grid / 2;
     const newLayers = [];
 
-    // ─── Spatial blur of the reliability grid (#990 round 4) ──────────────
-    // VOACAP's output has a real discontinuity where the short-path prediction
-    // gives up and long-path becomes shorter — adjacent cells can jump from
-    // r=5 to r=52, which renders as a visual cliff regardless of how smooth
-    // the alpha taper is. A 3×3 box average over the cell grid feathers that
-    // discontinuity over a couple of cells visually, without claiming the
-    // underlying physics is wrong (the data is preserved everywhere else).
-    // Longitude wraps at ±180; latitude doesn't.
-    const cellMap = new Map();
-    for (const c of data.cells) cellMap.set(`${c.lat},${c.lon}`, c);
-    const wrapLon = (lon) => ((lon + 540) % 360) - 180;
-    const smoothedR = new Map();
-    for (const c of data.cells) {
-      let sum = 0;
-      let count = 0;
-      for (const dlat of [-grid, 0, grid]) {
-        for (const dlon of [-grid, 0, grid]) {
-          const n = cellMap.get(`${c.lat + dlat},${wrapLon(c.lon + dlon)}`);
-          if (n) {
-            sum += n.r || 0;
-            count++;
-          }
-        }
-      }
-      smoothedR.set(c, count > 0 ? sum / count : c.r);
-    }
+    // 3×3 blur of the reliability grid (#990 round 4) — see smoothReliability.
+    const smoothedR = smoothReliability(data);
 
     // Use a shared canvas renderer for all cells — avoids SVG anti-aliasing
     // seams and is significantly faster for hundreds of rectangles
@@ -489,7 +382,9 @@ export function useLayer({ map, enabled, opacity, locator }) {
     layersRef.current = newLayers;
 
     return () => {
-      newLayers.forEach((layer) => {
+      // The renderer too: Leaflet keeps a renderer (canvas + move/zoom
+      // listeners) on the map until it is removed itself.
+      [...newLayers, renderer].forEach((layer) => {
         try {
           map.removeLayer(layer);
         } catch (e) {}
