@@ -1,6 +1,6 @@
-name: Build P.533 WASM
+name: Build WASM
 
-# Builds the ITU-R P.533 WebAssembly artifact. Outputs are uploaded as a
+# Builds the ITU-R P.533 and FT8 (ft8_lib) WebAssembly artifacts. Outputs are uploaded as a
 # workflow artifact — we intentionally do not commit the binaries. Changes to
 # the build script, upstream pin, or workflow file retrigger.
 
@@ -22,7 +22,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write # push builds upload p533.{mjs,wasm} to the wasm-latest release
+  contents: write # push builds upload {p533,ft8}.{mjs,wasm} to the wasm-latest release
 
 jobs:
   build:
@@ -91,3 +91,72 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --clobber \
             p533.mjs p533.wasm p533.sha256
+
+  # FT8 decoder (kgoba/ft8_lib, MIT) for the Decoder panel's FT8 tab.
+  # Built, smoke-tested against ft8_lib's WSJT-X reference decodes, then
+  # published next to the P.533 assets so scripts/fetch-wasm.js can fetch
+  # /releases/download/wasm-latest/ft8.{mjs,wasm,sha256}.
+  build-ft8:
+    if: github.repository == 'accius/openhamclock'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+
+      - name: Native check (wrapper vs WSJT-X reference, no emcc)
+        working-directory: wasm-build/ft8
+        run: ./build.sh --native
+
+      - name: Set up Emscripten
+        uses: mymindstorm/setup-emsdk@v16
+        with:
+          version: 3.1.64
+          actions-cache-folder: emsdk-cache-ft8
+
+      - name: Build FT8 WASM
+        working-directory: wasm-build/ft8
+        run: ./build.sh
+
+      - name: Smoke test (decode test WAVs through src/utils/ft8Wasm.js)
+        working-directory: wasm-build/ft8
+        run: node smoke-test.mjs
+
+      - name: Report artifact sizes
+        working-directory: wasm-build
+        run: |
+          ls -lh dist/ft8.*
+          cat dist/ft8.sha256
+
+      - name: Upload FT8 WASM artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ft8-wasm
+          path: |
+            wasm-build/dist/ft8.mjs
+            wasm-build/dist/ft8.wasm
+            wasm-build/dist/ft8.sha256
+          retention-days: 90
+
+      - name: Publish FT8 WASM to wasm-latest release
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        working-directory: wasm-build/dist
+        run: |
+          set -euo pipefail
+          TAG="wasm-latest"
+          if ! gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "WASM builds (latest)" \
+              --notes "Auto-updated by .github/workflows/build-wasm.yml on every push to main/Staging. Asset URLs are stable: /releases/download/wasm-latest/{p533,ft8}.{mjs,wasm,sha256}. Do not hand-edit."
+          fi
+          gh release upload "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --clobber \
+            ft8.mjs ft8.wasm ft8.sha256

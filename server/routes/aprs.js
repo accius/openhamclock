@@ -4,10 +4,20 @@
  */
 
 const net = require('net');
+const crypto = require('crypto');
 
 const { parseAprsPacket: parseAprsPosition, parseResourceTokens } = require('../utils/aprsParser');
 const { identifyDevice } = require('../utils/aprsDeviceId');
-const { parseAprsMessage, messagesForStation, isDuplicateMessage } = require('../utils/aprsMessage');
+const {
+  parseAprsMessage,
+  messagesForStation,
+  isDuplicateMessage,
+  parseAprsAck,
+  applyAprsAck,
+} = require('../utils/aprsMessage');
+const { normalizeArea, buildUnionFilter, inArea, AreaRegistry } = require('../utils/aprsAreas');
+const { getClientIP } = require('../utils/helpers');
+const { isValidCallsign } = require('../utils/incidentAuth');
 
 module.exports = function (app, ctx) {
   const { CONFIG, APP_VERSION, logDebug, logInfo, logWarn, logErrorOnce } = ctx;
@@ -17,13 +27,45 @@ module.exports = function (app, ctx) {
   // Connects to APRS-IS network for real-time position tracking.
   // Read-only connection (passcode -1). Positions cached in memory.
   // Enable via APRS_ENABLED=true in .env
+  //
+  // One connection serves every viewer. Its filter is APRS_FILTER (if set)
+  // plus the union of the areas viewers ask for (GET /api/aprs/stations
+  // ?lat=&lon=&radius=), changed live with `#filter` on the open socket.
+  // Each viewer then gets only the stations inside its own circle.
 
   const APRS_ENABLED = process.env.APRS_ENABLED === 'true';
+  // APRS-IS login: APRS_LOGIN, else the station callsign. Only a real
+  // amateur callsign (optionally with an -SSID) ever logs in, never N0CALL
+  // or another placeholder; without one, internet APRS stays off.
+  const aprsLogin = () => {
+    const call = String(process.env.APRS_LOGIN || CONFIG.callsign || '')
+      .trim()
+      .toUpperCase();
+    const m = /^(.+?)(-[A-Z0-9]{1,2})?$/.exec(call);
+    return m && isValidCallsign(m[1]) ? call : null;
+  };
+  const internetOn = () => APRS_ENABLED && !!aprsLogin();
   const APRS_HOST = process.env.APRS_HOST || 'rotate.aprs2.net';
   const APRS_PORT = parseInt(process.env.APRS_PORT || '14580');
-  const APRS_FILTER = process.env.APRS_FILTER || ''; // e.g. 'r/40/-75/500' for 500km around lat/lon
+  const APRS_FILTER = (process.env.APRS_FILTER || '').trim(); // e.g. 'r/40/-75/500' for 500km around lat/lon
   const APRS_MAX_AGE_MINUTES = parseInt(process.env.APRS_MAX_AGE_MINUTES || '60');
-  const APRS_MAX_STATIONS = 500;
+  // Global cache cap. A union feed covers many viewers' areas, so this is
+  // well above what one area needs; over it, the oldest internet stations go
+  // first so one busy area can't push out another viewer's (or RF) stations.
+  const APRS_MAX_STATIONS = Math.max(500, parseInt(process.env.APRS_MAX_STATIONS || '5000') || 5000);
+  // Most internet stations one response carries (newest first; RF uncapped)
+  const APRS_RESPONSE_MAX = 1000;
+  // `#filter` at most once per 30 s, so viewers coming and going don't spam
+  // the APRS-IS server; a change inside the window waits for its end.
+  const APRS_FILTER_THROTTLE_MS = 30000;
+  // With no viewer areas and no APRS_FILTER, hang up after 15 min idle
+  // (a viewer arriving later reconnects at once).
+  const APRS_IDLE_DISCONNECT_MS = 15 * 60000;
+  // New areas one IP may add per 10 min (re-polling a known area is free)
+  const AREA_NEW_PER_IP = 10;
+  const AREA_NEW_WINDOW_MS = 10 * 60000;
+  // Test seam: the suite passes a fake socket so no network is touched
+  const createSocket = ctx.createAprsSocket || (() => new net.Socket());
 
   // In-memory station cache: callsign → { call, lat, lon, symbol, comment, speed, course, altitude, timestamp, raw }
   const aprsStations = new Map();
@@ -31,10 +73,15 @@ module.exports = function (app, ctx) {
   const aprsMessages = [];
   const APRS_MAX_MESSAGES = 200;
   // Net operations: operator roster keyed by callsign
-  const netRoster = new Map(); // callsign → { call, status, netName, checkinTime, lastHeard, location, resources }
-  // The roster is shared by everyone viewing this server: bound its size and
-  // the text that can be put into it.
-  const NET_ROSTER_MAX = 500;
+  // Keyed `${alias}|${call}`: the same station can be checked into two
+  // groups' nets at once (#1239). Each entry carries the address (`alias`)
+  // its check-in was sent to; browsers show only their own addresses.
+  const netRoster = new Map(); // key → { call, alias, status, netName, checkinTime, lastHeard, location, resources }
+  const NET_ROSTER_MAX = 500; // every check-in to any address is kept, so cap it
+  const rosterKeyOf = (alias, call) => `${String(alias || 'EMCOMM').toUpperCase()}|${String(call).toUpperCase()}`;
+  const NET_ALIAS_RE = /^[A-Z0-9-]{1,9}$/;
+  // The roster is shared by everyone viewing this server: bound the text that
+  // can be put into it (its size is bounded by trimRoster below).
   const CALLSIGN_RE = /^[A-Z0-9/-]{1,12}$/i;
   const clip = (v, n) => String(v).slice(0, n);
   // Over NET_ROSTER_MAX, drop the longest-unheard entry
@@ -50,10 +97,98 @@ module.exports = function (app, ctx) {
     }
     if (oldestKey) netRoster.delete(oldestKey);
   }
+  // The roster lives in memory, so a restart empties it. `rosterBootId`
+  // changes on every server start and `rosterGeneration` on every roster
+  // change, which lets a client tell "the server restarted" (ignore the empty
+  // roster) from "everyone checked out" (same boot, roster emptied).
+  const rosterBootId = crypto.randomBytes(8).toString('hex');
+  let rosterGeneration = 0;
+  const rosterSet = netRoster.set.bind(netRoster);
+  const rosterDelete = netRoster.delete.bind(netRoster);
+  netRoster.set = (k, v) => {
+    rosterGeneration++;
+    return rosterSet(k, v);
+  };
+  netRoster.delete = (k) => {
+    const removed = rosterDelete(k);
+    if (removed) rosterGeneration++;
+    return removed;
+  };
   let aprsSocket = null;
   let aprsReconnectTimer = null;
   let aprsConnected = false;
   let aprsBuffer = '';
+
+  // Viewer areas and the filter they add up to (server/utils/aprsAreas.js)
+  const viewerAreas = new AreaRegistry();
+  const newAreaLog = new Map(); // ip → [epoch ms of each new area it added]
+  let aprsFilterSent = ''; // filter in effect on the open socket
+  let lastFilterChange = 0;
+  let filterTimer = null;
+  let idleSince = null;
+
+  const currentFilter = () => buildUnionFilter(viewerAreas.list(), { baseFilter: APRS_FILTER });
+  // A connection is wanted while there is something to filter for: on port
+  // 14580 an empty filter delivers nothing but our own messages.
+  const wantConnection = () => internetOn() && (!!APRS_FILTER || viewerAreas.size > 0);
+
+  function applyFilter() {
+    filterTimer = null;
+    const filter = currentFilter();
+    // Every area expired: keep the last filter rather than send an empty one
+    if (!aprsSocket || !aprsConnected || !filter || filter === aprsFilterSent) return;
+    aprsSocket.write(`#filter ${filter}\r\n`);
+    aprsFilterSent = filter;
+    lastFilterChange = Date.now();
+    logDebug(`[APRS-IS] Filter now ${filter.split(' ').length} term(s): ${filter}`);
+  }
+
+  // The areas changed: connect if we were idle, else send `#filter` now or
+  // at the end of the throttle window.
+  function scheduleFilterUpdate() {
+    if (!internetOn()) return;
+    if (!aprsSocket) {
+      // A pending reconnect logs in with the current filter anyway
+      if (!aprsReconnectTimer && wantConnection()) connectAprsIS();
+      return;
+    }
+    if (filterTimer) return;
+    const wait = Math.max(0, lastFilterChange + APRS_FILTER_THROTTLE_MS - Date.now());
+    filterTimer = setTimeout(applyFilter, wait);
+  }
+
+  // Record a viewer's area. Returns false when the IP is over its budget of
+  // new areas (the request is still answered, from the areas already fed).
+  function registerArea(area, req) {
+    const now = Date.now();
+    if (!viewerAreas.has(area)) {
+      const ip = getClientIP(req);
+      const log = (newAreaLog.get(ip) || []).filter((t) => now - t < AREA_NEW_WINDOW_MS);
+      if (log.length >= AREA_NEW_PER_IP) {
+        newAreaLog.set(ip, log);
+        return false;
+      }
+      log.push(now);
+      newAreaLog.set(ip, log);
+    }
+    if (viewerAreas.touch(area, now)) scheduleFilterUpdate();
+    return true;
+  }
+
+  // Over the cap: age out first, then drop the oldest internet stations
+  // (RF heard by our own TNC is kept) down to the cap.
+  function trimStations() {
+    if (aprsStations.size <= APRS_MAX_STATIONS) return;
+    const cutoff = Date.now() - APRS_MAX_AGE_MINUTES * 60000;
+    for (const [key, val] of aprsStations) {
+      if (val.timestamp < cutoff) aprsStations.delete(key);
+    }
+    if (aprsStations.size <= APRS_MAX_STATIONS) return;
+    const internet = [...aprsStations.entries()]
+      .filter(([, v]) => v.source !== 'local-tnc')
+      .sort((a, b) => a[1].timestamp - b[1].timestamp);
+    for (const [k] of internet.slice(0, aprsStations.size - APRS_MAX_STATIONS)) aprsStations.delete(k);
+  }
 
   // Telemetry stores (EmComm Phase 6). The declarations were lost in the
   // shared-position-parser refactor (#1194) while every use survived, so each
@@ -185,10 +320,13 @@ module.exports = function (app, ctx) {
   function applyNetCommand(msg) {
     if (!msg?.netCommand) return;
     const { action, netName, status } = msg.netCommand;
+    const alias = String(msg.netCommand.alias || 'EMCOMM').toUpperCase();
+    const key = rosterKeyOf(alias, msg.from);
     if (action === 'checkin') {
       const station = aprsStations.get(msg.from) || aprsStations.get(msg.from.split('-')[0]) || {};
-      netRoster.set(msg.from, {
+      netRoster.set(key, {
         call: msg.from,
+        alias,
         netName,
         status: status || 'Checked in',
         checkinTime: Date.now(),
@@ -199,33 +337,40 @@ module.exports = function (app, ctx) {
         source: msg.source || station.source || null,
       });
       trimRoster();
-      logInfo(`[APRS Net] ${msg.from} checked into ${netName}: ${status || '(no status)'}`);
+      logInfo(`[APRS Net] ${msg.from} checked into ${netName} via ${alias}: ${status || '(no status)'}`);
     } else if (action === 'checkout') {
-      netRoster.delete(msg.from);
-      logInfo(`[APRS Net] ${msg.from} checked out of ${netName}`);
+      netRoster.delete(key);
+      logInfo(`[APRS Net] ${msg.from} checked out of ${netName} via ${alias}`);
     }
   }
 
   function connectAprsIS() {
-    if (!APRS_ENABLED || aprsSocket) return;
+    clearTimeout(aprsReconnectTimer);
+    aprsReconnectTimer = null;
+    if (aprsSocket || !wantConnection()) return;
 
-    const loginCallsign = CONFIG.callsign || 'N0CALL';
+    const loginCallsign = aprsLogin();
     logInfo(`[APRS-IS] Connecting to ${APRS_HOST}:${APRS_PORT} as ${loginCallsign} (read-only)...`);
 
-    aprsSocket = new net.Socket();
-    aprsSocket.setTimeout(120000); // 2 min timeout
+    const socket = createSocket();
+    aprsSocket = socket;
+    socket.setTimeout(120000); // 2 min timeout
 
-    aprsSocket.connect(APRS_PORT, APRS_HOST, () => {
+    socket.connect(APRS_PORT, APRS_HOST, () => {
       aprsConnected = true;
       aprsBuffer = '';
+      idleSince = null;
       logInfo('[APRS-IS] Connected, sending login...');
 
-      // Read-only login (passcode -1)
-      aprsSocket.write(`user ${loginCallsign} pass -1 vers OpenHamClock ${APP_VERSION}`);
-      if (APRS_FILTER) {
-        aprsSocket.write(` filter ${APRS_FILTER}`);
+      // Read-only login (passcode -1), with the filter as it stands now
+      const filter = currentFilter();
+      socket.write(`user ${loginCallsign} pass -1 vers OpenHamClock ${APP_VERSION}`);
+      if (filter) {
+        socket.write(` filter ${filter}`);
       }
-      aprsSocket.write('\r\n');
+      socket.write('\r\n');
+      aprsFilterSent = filter;
+      lastFilterChange = Date.now();
     });
 
     aprsSocket.on('data', (data) => {
@@ -246,22 +391,8 @@ module.exports = function (app, ctx) {
             station.source = 'local-tnc';
           }
           aprsStations.set(station.ssid, station);
-
-          // Prune if over limit
-          if (aprsStations.size > APRS_MAX_STATIONS * 1.2) {
-            const cutoff = Date.now() - APRS_MAX_AGE_MINUTES * 60000;
-            for (const [key, val] of aprsStations) {
-              if (val.timestamp < cutoff) aprsStations.delete(key);
-            }
-            // Hard cap if still too many
-            if (aprsStations.size > APRS_MAX_STATIONS) {
-              const sorted = [...aprsStations.entries()].sort((a, b) => b[1].timestamp - a[1].timestamp);
-              aprsStations.clear();
-              for (const [k, v] of sorted.slice(0, APRS_MAX_STATIONS)) {
-                aprsStations.set(k, v);
-              }
-            }
-          }
+          // Trim in batches (10 % over the cap), not on every packet
+          if (aprsStations.size > APRS_MAX_STATIONS * 1.1) trimStations();
         } else {
           // Try parsing as telemetry
           const telem = parseAprsTelemetry(trimmed);
@@ -269,6 +400,8 @@ module.exports = function (app, ctx) {
             logDebug(`[APRS] Telemetry from ${telem.call}: seq ${telem.seq} [${telem.values.join(', ')}]`);
           }
 
+          // An ack/rej marks the message we sent as delivered (#1247)
+          applyAprsAck(aprsMessages, parseAprsAck(trimmed));
           // Try parsing as a message (addressed message or bulletin)
           const msg = parseAprsMessage(trimmed);
           if (msg && !isDuplicateMessage(aprsMessages, msg)) {
@@ -283,74 +416,128 @@ module.exports = function (app, ctx) {
       }
     });
 
-    aprsSocket.on('error', (err) => {
+    socket.on('error', (err) => {
       logErrorOnce('APRS-IS', err.message);
     });
 
-    aprsSocket.on('close', () => {
+    socket.on('close', () => {
       aprsConnected = false;
       aprsSocket = null;
-      logInfo('[APRS-IS] Disconnected, reconnecting in 30s...');
+      clearTimeout(filterTimer);
+      filterTimer = null;
       clearTimeout(aprsReconnectTimer);
+      aprsReconnectTimer = null;
+      // An idle hang-up (no areas, no APRS_FILTER) stays down until a viewer asks
+      if (!wantConnection()) {
+        logInfo('[APRS-IS] Disconnected (no viewer areas)');
+        return;
+      }
+      logInfo('[APRS-IS] Disconnected, reconnecting in 30s...');
       aprsReconnectTimer = setTimeout(connectAprsIS, 30000);
     });
 
-    aprsSocket.on('timeout', () => {
+    socket.on('timeout', () => {
       logWarn('[APRS-IS] Socket timeout, reconnecting...');
       try {
-        aprsSocket.destroy();
+        socket.destroy();
       } catch (e) {}
     });
   }
 
   // Periodic cleanup of old stations (runs regardless of APRS_ENABLED so that
   // RF-only stations injected via /api/aprs/local are also aged out correctly).
+  // Also expires viewer areas nobody polls any more, and hangs up after a
+  // long idle with nothing to filter for.
   setInterval(() => {
-    const cutoff = Date.now() - APRS_MAX_AGE_MINUTES * 60000;
+    const now = Date.now();
+    const cutoff = now - APRS_MAX_AGE_MINUTES * 60000;
     for (const [key, val] of aprsStations) {
       if (val.timestamp < cutoff) aprsStations.delete(key);
     }
+    for (const [ip, log] of newAreaLog) {
+      if (!log.some((t) => now - t < AREA_NEW_WINDOW_MS)) newAreaLog.delete(ip);
+    }
+    if (viewerAreas.expire(now) > 0) scheduleFilterUpdate();
+    if (aprsSocket && !wantConnection()) {
+      if (idleSince == null) idleSince = now;
+      else if (now - idleSince >= APRS_IDLE_DISCONNECT_MS) {
+        logInfo('[APRS-IS] No viewer areas for 15 min, disconnecting');
+        idleSince = null;
+        try {
+          aprsSocket.destroy();
+        } catch (e) {}
+      }
+    } else {
+      idleSince = null;
+    }
   }, 60000);
 
-  // Start APRS-IS connection if enabled
-  if (APRS_ENABLED) {
+  // Start APRS-IS connection now when APRS_FILTER gives it something to
+  // fetch; otherwise the first viewer area connects it.
+  if (APRS_ENABLED && !aprsLogin()) {
+    logWarn(
+      '[APRS-IS] APRS_ENABLED is set but there is no valid callsign to log in with (set CALLSIGN or APRS_LOGIN); internet APRS stays off',
+    );
+  } else if (APRS_ENABLED) {
     connectAprsIS();
   }
 
   // REST endpoint: GET /api/aprs/stations
+  //   ?lat=&lon=&radius=  this viewer's area (km, clamped 10–1000): registers
+  //                       it in the union filter and returns only internet
+  //                       stations inside it, plus every local RF station
+  //   ?internet=0         local RF stations only, nothing registered
+  //   (no params)         every cached station, as before
   app.get('/api/aprs/stations', (req, res) => {
-    const cutoff = Date.now() - APRS_MAX_AGE_MINUTES * 60000;
-    const stations = [];
-    for (const [, station] of aprsStations) {
-      if (station.timestamp >= cutoff) {
-        stations.push({
-          call: station.call,
-          ssid: station.ssid,
-          lat: station.lat,
-          lon: station.lon,
-          symbol: station.symbol,
-          comment: station.comment,
-          tokens: station.tokens || [],
-          cleanComment: station.cleanComment || station.comment,
-          speed: station.speed,
-          course: station.course,
-          altitude: station.altitude,
-          device: station.device ?? null,
-          age: Math.floor((Date.now() - station.timestamp) / 60000),
-          timestamp: station.timestamp,
-          source: station.source ?? null,
-        });
-      }
+    const q = req.query || {};
+    const internetOff = q.internet === '0' || q.internet === 'false';
+    let area = null;
+    let areaRegistered = false;
+    if (!internetOff && (q.lat != null || q.lon != null)) {
+      area = normalizeArea(q);
+      if (!area) return res.status(400).json({ error: 'Invalid lat/lon' });
+      if (internetOn()) areaRegistered = registerArea(area, req);
     }
+
+    const cutoff = Date.now() - APRS_MAX_AGE_MINUTES * 60000;
+    const rf = [];
+    const internet = [];
+    for (const [, station] of aprsStations) {
+      if (station.timestamp < cutoff) continue;
+      const isRf = station.source === 'local-tnc';
+      if (!isRf && (internetOff || (area && !inArea(station, area)))) continue;
+      (isRf ? rf : internet).push(station);
+    }
+    const byNewest = (a, b) => b.timestamp - a.timestamp;
+    const picked = [...rf, ...internet.sort(byNewest).slice(0, APRS_RESPONSE_MAX)];
+    const stations = picked.map((station) => ({
+      call: station.call,
+      ssid: station.ssid,
+      lat: station.lat,
+      lon: station.lon,
+      symbol: station.symbol,
+      comment: station.comment,
+      tokens: station.tokens || [],
+      cleanComment: station.cleanComment || station.comment,
+      speed: station.speed,
+      course: station.course,
+      altitude: station.altitude,
+      device: station.device ?? null,
+      age: Math.floor((Date.now() - station.timestamp) / 60000),
+      timestamp: station.timestamp,
+      source: station.source ?? null,
+    }));
     // tncActive: true whenever at least one station from the local TNC is present in the
     // cache. This lets the UI display RF data even when APRS_ENABLED (APRS-IS) is off.
-    const tncActive = stations.some((s) => s.source === 'local-tnc');
+    const tncActive = rf.length > 0;
     res.json({
       connected: aprsConnected,
-      enabled: APRS_ENABLED,
+      enabled: internetOn(),
+      ...(APRS_ENABLED && !aprsLogin() ? { reason: 'no-callsign' } : {}),
       tncActive,
+      ...(area ? { area, areaRegistered } : {}),
       count: stations.length,
-      stations: stations.sort((a, b) => b.timestamp - a.timestamp),
+      stations: stations.sort(byNewest),
     });
   });
 
@@ -414,8 +601,8 @@ module.exports = function (app, ctx) {
   app.get('/api/aprs/net', (req, res) => {
     // Update lastHeard from station cache for each roster entry
     const roster = [];
-    for (const [call, entry] of netRoster) {
-      const station = aprsStations.get(call.split('-')[0]);
+    for (const entry of netRoster.values()) {
+      const station = aprsStations.get(String(entry.call).split('-')[0]);
       if (station) {
         entry.lastHeard = station.timestamp;
         entry.lat = station.lat;
@@ -430,7 +617,7 @@ module.exports = function (app, ctx) {
       });
     }
     roster.sort((a, b) => a.age - b.age);
-    res.json({ count: roster.length, roster });
+    res.json({ count: roster.length, roster, bootId: rosterBootId, generation: rosterGeneration });
   });
 
   // REST endpoint: POST /api/aprs/net/checkin — manual check-in (for operators without APRS TX)
@@ -440,10 +627,13 @@ module.exports = function (app, ctx) {
     if (typeof callsign !== 'string' || !CALLSIGN_RE.test(callsign)) {
       return res.status(400).json({ error: 'Invalid callsign' });
     }
+    const alias = String(req.body.alias || 'EMCOMM').toUpperCase();
+    if (!NET_ALIAS_RE.test(alias)) return res.status(400).json({ error: 'Invalid alias' });
 
     const station = aprsStations.get(callsign.split('-')[0].toUpperCase());
-    netRoster.set(callsign.toUpperCase(), {
+    netRoster.set(rosterKeyOf(alias, callsign), {
       call: callsign.toUpperCase(),
+      alias,
       netName: clip(netName, 32),
       status: status ? clip(status, 64) : 'Checked in',
       checkinTime: Date.now(),
@@ -457,15 +647,25 @@ module.exports = function (app, ctx) {
     res.json({ ok: true });
   });
 
-  // REST endpoint: POST /api/aprs/net/checkout — manual check-out
+  // REST endpoint: POST /api/aprs/net/checkout — manual check-out, and the
+  // roster's remove button (#1238). With `alias`, only that net address's
+  // entry goes; without it, every entry for the callsign (the old behaviour).
   app.post('/api/aprs/net/checkout', ingest(20), (req, res) => {
     const { callsign } = req.body;
     if (!callsign) return res.status(400).json({ error: 'Missing callsign' });
     if (typeof callsign !== 'string' || !CALLSIGN_RE.test(callsign)) {
       return res.status(400).json({ error: 'Invalid callsign' });
     }
-    netRoster.delete(callsign.toUpperCase());
-    res.json({ ok: true });
+    const call = String(callsign).toUpperCase();
+    let removed = 0;
+    if (req.body.alias) {
+      if (netRoster.delete(rosterKeyOf(req.body.alias, call))) removed++;
+    } else {
+      for (const [k, v] of [...netRoster]) {
+        if (String(v.call).toUpperCase() === call && netRoster.delete(k)) removed++;
+      }
+    }
+    res.json({ ok: true, removed });
   });
 
   // Apply channel equations (val = a*x^2 + b*x + c) to a raw sample
@@ -524,7 +724,7 @@ module.exports = function (app, ctx) {
     }
     if (message.length > 67) return res.status(400).json({ error: 'Message exceeds 67 char APRS limit' });
 
-    const recordSent = () => {
+    const recordSent = (msgId = null) => {
       aprsMessages.push({
         type: 'message',
         from: (CONFIG.callsign || 'N0CALL').toUpperCase(),
@@ -532,7 +732,8 @@ module.exports = function (app, ctx) {
         text: message,
         cleanText: message,
         tokens: [],
-        msgId: null,
+        msgId: msgId ? String(msgId).slice(0, 5) : null,
+        delivery: msgId ? 'pending' : null,
         isShelterReport: false,
         netCommand: null,
         direction: 'sent',
@@ -550,7 +751,7 @@ module.exports = function (app, ctx) {
     // "sent" lines (hosted browsers send through Cloud Relay, not directly).
     if (req.body.recordOnly === true) {
       if (TNC_STATUS_HOSTED) return res.status(403).json({ error: 'Not available on a hosted server' });
-      recordSent();
+      recordSent(req.body.msgId);
       return res.json({ ok: true, recorded: true });
     }
 
@@ -565,9 +766,14 @@ module.exports = function (app, ctx) {
       });
       if (response.ok) {
         // Keep our own side of the conversation so a station's message
-        // history shows both directions (#1216). Rig-bridge only transmits.
-        recordSent();
-        return res.json({ ok: true, via: 'rig-bridge' });
+        // history shows both directions (#1216). Rig-bridge only transmits;
+        // it answers with the message id when it will wait for an ack (#1247).
+        let msgId = null;
+        try {
+          msgId = (await response.json())?.msgId || null;
+        } catch {}
+        recordSent(msgId);
+        return res.json({ ok: true, via: 'rig-bridge', msgId });
       }
       const err = await response.text();
       return res.status(response.status).json({ error: `Rig Bridge: ${err}` });
@@ -685,6 +891,8 @@ module.exports = function (app, ctx) {
           }
           continue;
         }
+        // An ack/rej marks the message we sent as delivered (#1247)
+        applyAprsAck(aprsMessages, parseAprsAck(rawLine));
         // Try as message
         const msg = parseAprsMessage(rawLine);
         if (msg && !isDuplicateMessage(aprsMessages, msg)) {
@@ -708,23 +916,12 @@ module.exports = function (app, ctx) {
         station.source = 'local-tnc';
       }
       if (!existing || station.timestamp > existing.timestamp) {
-        if (!existing && aprsStations.size >= APRS_MAX_STATIONS) {
-          // Evict oldest
-          let oldestKey = null;
-          let oldestTime = Infinity;
-          for (const [k, v] of aprsStations) {
-            if (v.timestamp < oldestTime) {
-              oldestTime = v.timestamp;
-              oldestKey = k;
-            }
-          }
-          if (oldestKey) aprsStations.delete(oldestKey);
-        }
         aprsStations.set(key, station);
         added++;
       }
     }
 
+    if (added) trimStations();
     logDebug(`[APRS] Ingested ${added} local TNC packets (${packets.length} received)`);
     res.json({ ok: true, added, duplicates });
   });

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0e14" />
+    <meta name="robots" content="noindex" />
+    <title>OpenHamClock Remote</title>
+    <link rel="icon" href="/favicon-32x32.png" />
+    <link rel="stylesheet" href="/remote/remote.css" />
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <span class="logo">OHC</span>
+        <span class="title">Remote</span>
+      </div>
+      <div class="status" id="status" aria-live="polite">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">connecting…</span>
+      </div>
+    </header>
+
+    <main id="app">
+      <section class="card" id="setupCard">
+        <h2>Display</h2>
+        <label class="field">
+          <span>Display id (<code>?target=</code>)</span>
+          <input id="targetInput" type="text" inputmode="text" autocomplete="off" placeholder="ohc-…" />
+        </label>
+        <label class="field">
+          <span>Pairing key</span>
+          <input id="keyInput" type="password" autocomplete="off" placeholder="from the QR code" />
+          <small class="help"
+            >From the QR code / Settings → Station on the display; the server admin key (<code>API_WRITE_KEY</code>)
+            also works.</small
+          >
+        </label>
+        <div class="row">
+          <button class="btn" id="connectBtn" type="button">Connect</button>
+          <button class="btn ghost" id="pickDisplayBtn" type="button" hidden>Pick a display…</button>
+          <span class="pair" id="pairStatus" aria-live="polite"></span>
+        </div>
+        <div class="hint" id="setupHint"></div>
+      </section>
+
+      <section class="card" id="dxCard" hidden>
+        <h2>DX <small id="dxNow"></small></h2>
+        <form class="row" id="dxForm">
+          <input
+            id="dxInput"
+            type="text"
+            autocapitalize="characters"
+            autocomplete="off"
+            placeholder="Callsign or grid (e.g. JA1ABC / PM95)"
+          />
+          <button class="btn primary" type="submit">Set DX</button>
+        </form>
+        <div class="row wrap" id="deRow">
+          <button class="btn ghost" type="button" data-cmd="de" data-json='{"useLocation":true}' id="deHereBtn">
+            Set DE to my phone's location
+          </button>
+        </div>
+      </section>
+
+      <section class="card" id="layoutCard" hidden>
+        <h2>Layout</h2>
+        <div class="grid" id="layoutGrid"></div>
+      </section>
+
+      <section class="card" id="themeCard" hidden>
+        <h2>Theme</h2>
+        <div class="grid" id="themeGrid"></div>
+      </section>
+
+      <section class="card" id="mapCard" hidden>
+        <h2>Map</h2>
+        <div class="grid three" id="projectionGrid"></div>
+        <div class="row">
+          <select id="basemapSelect" aria-label="Basemap"></select>
+          <button class="btn" type="button" id="nightBtn">Night shading</button>
+          <button class="btn" type="button" id="gridBtn">Grid</button>
+        </div>
+        <h3>Layers</h3>
+        <div class="grid" id="layerGrid"></div>
+      </section>
+
+      <section class="card" id="satCard" hidden>
+        <h2>Satellite</h2>
+        <div class="grid" id="satGrid"></div>
+      </section>
+
+      <section class="card" id="panelsCard" hidden>
+        <h2>Panels <small>dockable layout</small></h2>
+        <div class="row">
+          <select id="panelSelect" aria-label="Panel"></select>
+          <button class="btn" type="button" id="panelAddBtn">Add / focus</button>
+          <button class="btn ghost" type="button" id="panelRemoveBtn">Remove</button>
+        </div>
+        <div class="chips" id="panelChips"></div>
+      </section>
+
+      <section class="card" id="timeCard" hidden>
+        <h2>Time <small id="timeOffset"></small></h2>
+        <div class="grid four">
+          <button class="btn" type="button" data-time="-86400000">−1 d</button>
+          <button class="btn" type="button" data-time="-3600000">−1 h</button>
+          <button class="btn" type="button" data-time="-600000">−10 m</button>
+          <button class="btn primary" type="button" data-time="now">Now</button>
+          <button class="btn" type="button" data-time="600000">+10 m</button>
+          <button class="btn" type="button" data-time="3600000">+1 h</button>
+          <button class="btn" type="button" data-time="86400000">+1 d</button>
+          <button class="btn ghost" type="button" id="timeIsoBtn">Pick…</button>
+        </div>
+      </section>
+
+      <section class="card" id="alarmCard" hidden>
+        <h2>Alarm</h2>
+        <div class="row">
+          <input id="alarmTime" type="time" aria-label="Alarm time" />
+          <label class="check"><input id="alarmUtc" type="checkbox" /> UTC</label>
+          <label class="check"><input id="alarmDaily" type="checkbox" /> daily</label>
+        </div>
+        <div class="row">
+          <button class="btn primary" type="button" id="alarmSetBtn">Set alarm</button>
+          <button class="btn ghost" type="button" id="alarmOffBtn">Off</button>
+        </div>
+      </section>
+
+      <section class="card" id="stopwatchCard" hidden>
+        <h2>Stopwatch</h2>
+        <div class="grid four">
+          <button class="btn primary" type="button" data-sw="run">Run</button>
+          <button class="btn" type="button" data-sw="stop">Stop</button>
+          <button class="btn" type="button" data-sw="lap">Lap</button>
+          <button class="btn ghost" type="button" data-sw="reset">Reset</button>
+        </div>
+        <div class="row">
+          <input id="countdownMin" type="number" min="1" max="720" step="1" value="10" aria-label="Countdown minutes" />
+          <button class="btn" type="button" id="countdownBtn">Countdown (min)</button>
+        </div>
+      </section>
+
+      <section class="card" id="rigCard" hidden>
+        <h2>Rig <small id="rigState"></small></h2>
+        <form class="row" id="rigForm">
+          <input id="rigFreq" type="text" inputmode="decimal" autocomplete="off" placeholder="MHz (14.074)" />
+          <select id="rigMode" aria-label="Mode">
+            <option value="">mode</option>
+            <option>USB</option>
+            <option>LSB</option>
+            <option>CW</option>
+            <option>AM</option>
+            <option>FM</option>
+            <option>DATA</option>
+            <option>RTTY</option>
+          </select>
+          <button class="btn primary" type="submit">Tune</button>
+        </form>
+        <div class="hint" id="rigHint"></div>
+      </section>
+
+      <section class="card" id="miscCard" hidden>
+        <h2>Display</h2>
+        <div class="row wrap">
+          <a class="btn ghost" id="captureLink" href="#" target="_blank" rel="noopener">Screenshot</a>
+          <button class="btn ghost" type="button" id="titleBtn">Set title…</button>
+          <button class="btn ghost" type="button" id="titleClearBtn">Clear title</button>
+        </div>
+        <div class="hint">
+          Commands are documented in
+          <a
+            href="https://github.com/accius/openhamclock/blob/main/docs/API.md#remote-control-api"
+            target="_blank"
+            rel="noopener"
+            >docs/API.md</a
+          >.
+        </div>
+      </section>
+    </main>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/remote/remote.js" defer></script>
+  </body>
+</html>

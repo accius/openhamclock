@@ -1,0 +1,302 @@
+/* OpenHamClock phone remote — standalone page, no framework. */
+:root {
+  --bg: #0a0e14;
+  --panel: #121a24;
+  --panel-2: #1a2430;
+  --border: #243040;
+  --text: #e6edf3;
+  --muted: #8b98a8;
+  --cyan: #00ffcc;
+  --amber: #ffb000;
+  --green: #22c55e;
+  --red: #ef4444;
+  --font: 'JetBrains Mono', Consolas, 'SF Mono', monospace;
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+.brand {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.logo {
+  color: var(--amber);
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+.title {
+  color: var(--muted);
+  font-size: 13px;
+}
+.status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.dot.ok {
+  background: var(--green);
+  box-shadow: 0 0 6px var(--green);
+}
+.dot.bad {
+  background: var(--red);
+}
+main {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 12px 14px 14px;
+}
+.card h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  color: var(--cyan);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.card h2 small,
+.card h3 {
+  color: var(--muted);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 11px;
+}
+.card h3 {
+  margin: 12px 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.field {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.field span {
+  display: block;
+  margin-bottom: 4px;
+}
+.field .help {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+.pair {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.pair.ok {
+  color: var(--green);
+}
+.pair.bad {
+  color: var(--red);
+}
+input,
+select {
+  width: 100%;
+  min-height: 44px;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+  font-size: 15px;
+}
+input[type='number'] {
+  max-width: 110px;
+}
+input[type='time'] {
+  max-width: 160px;
+}
+.row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.row.wrap {
+  flex-wrap: wrap;
+}
+.row input,
+.row select {
+  flex: 1;
+  min-width: 0;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+.grid.three {
+  grid-template-columns: repeat(3, 1fr);
+  margin-bottom: 8px;
+}
+.grid.four {
+  grid-template-columns: repeat(4, 1fr);
+  margin-bottom: 8px;
+}
+.btn {
+  min-height: 48px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  touch-action: manipulation;
+  text-align: center;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.btn:active {
+  transform: scale(0.98);
+}
+.btn.primary {
+  background: var(--cyan);
+  color: #000;
+  border-color: var(--cyan);
+}
+.btn.ghost {
+  background: transparent;
+  color: var(--muted);
+}
+.btn.active {
+  border-color: var(--amber);
+  color: var(--amber);
+  background: rgba(255, 176, 0, 0.12);
+}
+.btn.on {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(34, 197, 94, 0.12);
+}
+.btn[disabled] {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.check input {
+  width: 22px;
+  height: 22px;
+  min-height: 0;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.chip {
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--muted);
+  cursor: pointer;
+}
+.chip.active {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+.hint {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.hint a {
+  color: var(--cyan);
+}
+code {
+  color: var(--amber);
+}
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  transform: translateX(-50%) translateY(20px);
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
+  max-width: 90vw;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+.toast.err {
+  border-color: var(--red);
+  color: var(--red);
+}
+[hidden] {
+  display: none !important;
+}

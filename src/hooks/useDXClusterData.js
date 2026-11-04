@@ -5,9 +5,11 @@
  */
 import { useState, useEffect, useCallback, useRef } from 'react';
 
-import { applyDXFilters, balanceSpotWindow, collapseDuplicateSpots } from '../utils/dxClusterFilters';
+import { applyDXFilters, balanceSpotWindow, collapseDuplicateSpots, isOwnSpot } from '../utils/dxClusterFilters';
 import { useVisibilityRefresh } from './useVisibilityRefresh';
 import { apiFetch } from '../utils/apiFetch';
+import { useCompiledWatchlist } from './useWatchlists.js';
+import { serializeLoginCommands } from '../utils/clusterCommands.js';
 
 export const useDXClusterData = (filters = {}, config = {}) => {
   const [allData, setAllData] = useState([]);
@@ -26,6 +28,13 @@ export const useDXClusterData = (filters = {}, config = {}) => {
   // not forced as an override of the user's explicit preference.
   const effectiveRetentionMs = spotRetentionMs;
 
+  // HamClock-style DX watch list (Settings / filter dialog → Watch list).
+  // Only/Not modes filter here; Red mode is painted by the panel.
+  const watch = useCompiledWatchlist('dx');
+  // "Show UDP spots: only mine" — keep just the spots entered at this station.
+  const udpOnlyMine = source === 'udp' && config.udpDxCluster?.show === 'mine';
+  const ownCallsign = config.callsign;
+
   // Build query params for custom cluster settings
   const buildQueryParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -42,6 +51,9 @@ export const useDXClusterData = (filters = {}, config = {}) => {
       if (config.customDxCluster.port) {
         params.append('port', config.customDxCluster.port);
       }
+      // Native cluster commands to send once after login (enabled ones only).
+      const cmds = serializeLoginCommands(config.customDxCluster.loginCommands);
+      if (cmds) params.append('cmds', cmds);
     }
 
     if (source === 'udp' && config.udpDxCluster) {
@@ -63,10 +75,16 @@ export const useDXClusterData = (filters = {}, config = {}) => {
   }, [config.dxClusterSource, config.customDxCluster, config.udpDxCluster, config.callsign]);
 
   // Apply filters using the consolidated filter function from callsign.js
-  const applyFilters = useCallback((data, filters) => {
-    if (!filters || Object.keys(filters).length === 0) return data;
-    return data.filter((item) => applyDXFilters(item, filters));
-  }, []);
+  const applyFilters = useCallback(
+    (data, filters) => {
+      const ctx = watch?.matcher ? { watch } : null;
+      let rows = data;
+      if (udpOnlyMine) rows = rows.filter((item) => isOwnSpot(item, ownCallsign));
+      if (!ctx && (!filters || Object.keys(filters).length === 0)) return rows;
+      return rows.filter((item) => applyDXFilters(item, filters, ctx));
+    },
+    [watch, udpOnlyMine, ownCallsign],
+  );
 
   // Fetch data from unified paths endpoint (has all the data we need)
   useEffect(() => {

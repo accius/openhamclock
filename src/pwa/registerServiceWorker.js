@@ -21,13 +21,17 @@
  * takes control.
  *
  * Escape hatch: load the app with `?nosw` in the URL to unregister every
- * service worker on the origin and clear all ohc-* caches — useful for
- * digging out of a bad deploy or debugging cache weirdness. Example:
+ * service worker on the origin and clear the ohc-* caches (offline area
+ * packs excepted) — useful for digging out of a bad deploy or debugging
+ * cache weirdness. Example:
  *   https://openhamclock.com/?nosw
  * The parameter is one-shot: remove it and reload to re-register.
  */
 
-/* global __OHC_VERSION__, __OHC_BUILD_TS__ */
+// __OHC_VERSION__ / __OHC_BUILD_TS__ are injected by vite.config.mjs `define`
+// (declared as globals for src/ in eslint.config.js).
+
+import { isPersistentCacheName } from '../utils/swPolicy.js';
 
 const VERSION = typeof __OHC_VERSION__ !== 'undefined' ? `${__OHC_VERSION__}-${__OHC_BUILD_TS__}` : 'dev';
 
@@ -90,7 +94,7 @@ function watchForUpdates(reg) {
   // A worker may already be parked in waiting (e.g. the toast was dismissed
   // last session).
   if (reg.waiting && navigator.serviceWorker.controller) {
-    showUpdateToast(reg.waiting);
+    handleWaitingWorker(reg.waiting);
   }
   reg.addEventListener('updatefound', () => {
     const installing = reg.installing;
@@ -99,18 +103,34 @@ function watchForUpdates(reg) {
       // 'installed' with an existing controller = an update, not first
       // install. First installs activate silently.
       if (installing.state === 'installed' && navigator.serviceWorker.controller) {
-        showUpdateToast(installing);
+        handleWaitingWorker(installing);
       }
     });
   });
 }
 
-/** Unregister everything and clear ohc-* caches (the ?nosw escape hatch). */
+/** A waiting worker for this page's own build is only the worker catching
+ *  up: navigations are network-first, so the page already runs the new
+ *  code and there is nothing to reload into. It is left to take over when
+ *  the tabs close (forcing skipWaiting here was seen to stall activation
+ *  and the next navigation behind it). The toast is for a worker from a
+ *  different build — one a tab running newer code registered. */
+function handleWaitingWorker(worker) {
+  const workerVersion = new URL(worker.scriptURL).searchParams.get('v');
+  if (workerVersion === VERSION) return;
+  showUpdateToast(worker);
+}
+
+/** Unregister everything and clear ohc-* caches (the ?nosw escape hatch).
+ *  Offline area packs (ohc-offline-*) are operator-downloaded data, inert
+ *  without a worker, and are kept — they are deleted from the pack list. */
 async function teardownServiceWorker() {
   const clearOhcCaches = async () => {
     if (typeof caches === 'undefined') return;
     const names = await caches.keys();
-    await Promise.all(names.filter((n) => n.startsWith('ohc-')).map((n) => caches.delete(n)));
+    await Promise.all(
+      names.filter((n) => n.startsWith('ohc-') && !isPersistentCacheName(n)).map((n) => caches.delete(n)),
+    );
   };
   try {
     const regs = await navigator.serviceWorker.getRegistrations();

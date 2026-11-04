@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MAX_LOGBOOK_LINES, buildLogbookMapPoints, logbookLinesShown } from './logbookMap.js';
+import { MAX_LOGBOOK_LINES, buildLogbookMapPoints, logbookLinesShown, qsoPosition } from './logbookMap.js';
 
 const qso = (over = {}) => ({ call: 'OZ1ABC', band: '20m', mode: 'SSB', gridsquare: 'JO65', ...over });
 
@@ -62,5 +62,23 @@ describe('logbookLinesShown', () => {
     expect(logbookLinesShown(0)).toBe(true);
     expect(logbookLinesShown(500)).toBe(true);
     expect(logbookLinesShown(501)).toBe(false);
+  });
+});
+
+describe('qsoPosition', () => {
+  it('uses a valid grid (any case) and marks it exact', () => {
+    const p = qsoPosition('JA1XYZ', 'fn31', lookup);
+    expect(p).toMatchObject({ approx: false, place: 'FN31' });
+    expect(p.lat).toBeCloseTo(41.5);
+  });
+
+  it('falls back to the call’s country for a missing or invalid grid', () => {
+    expect(qsoPosition('ja1xyz', '', lookup)).toEqual({ lat: 36, lon: 138, approx: true, place: 'Japan' });
+    expect(qsoPosition('JA1XYZ', 'ZZ99', lookup)).toMatchObject({ approx: true, place: 'Japan' });
+  });
+
+  it('returns null when neither resolves', () => {
+    expect(qsoPosition('W1AW', '', lookup)).toBe(null);
+    expect(qsoPosition('', '', lookup)).toBe(null);
   });
 });

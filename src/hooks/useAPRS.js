@@ -1,10 +1,14 @@
 /**
  * useAPRS Hook
- * Polls /api/aprs/stations for internet APRS-IS data.
+ * Polls /api/aprs/stations for internet APRS-IS data — only the stations
+ * within this viewer's chosen radius of its station location (the server's
+ * single APRS-IS feed filters for the union of its viewers' areas), or none
+ * when this viewer has internet APRS off ("Local RF only").
  * In local/direct mode (rig-bridge SSE), RF stations are maintained in a
  * separate in-memory store fed directly by SSE events — no server round-trip.
  * Manages watchlist groups stored in localStorage.
  */
+import { cleanRfStation } from '../utils/aprsMiceClean.js';
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { apiFetch } from '../utils/apiFetch';
 
@@ -24,6 +28,14 @@ import {
   loadStations,
   saveStations,
 } from '../utils/aprsRetention';
+import {
+  RADIUS_OPTIONS_KM,
+  readInternetSettings,
+  writeInternetSettings,
+  stationsUrl,
+  viewerArea,
+  showInternetStation,
+} from '../utils/aprsInternet.js';
 
 const STORAGE_KEY = 'openhamclock_aprsWatchlist';
 const POLL_INTERVAL = 15000; // 15 seconds
@@ -35,7 +47,13 @@ const TNC_IDLE_POLL_INTERVAL = 60000; // 60 seconds while no TNC is detected
 const PERSIST_DEBOUNCE_MS = 1500;
 
 export const useAPRS = (options = {}) => {
-  const { enabled = true } = options;
+  const { enabled = true, location = null } = options;
+  const locLat = location?.lat ?? null;
+  const locLon = location?.lon ?? null;
+
+  // Per-viewer internet APRS: on/off and radius (km) around the station location
+  const [internetAprs, setInternetAprsState] = useState(readInternetSettings);
+  const stationsPath = stationsUrl(internetAprs, { lat: locLat, lon: locLon });
 
   // Dwell: how long a station stays after it was last heard (#1190). The
   // server ages its own cache at APRS_MAX_AGE_MINUTES; this is the client's
@@ -59,6 +77,9 @@ export const useAPRS = (options = {}) => {
 
   const [connected, setConnected] = useState(false);
   const [aprsEnabled, setAprsEnabled] = useState(false);
+  // Server-wide APRS-IS master switch (APRS_ENABLED), as the server reports it
+  const [serverInternetEnabled, setServerInternetEnabled] = useState(false);
+  const [serverInternetReason, setServerInternetReason] = useState(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [tncConnected, setTncConnected] = useState(false);
@@ -93,11 +114,13 @@ export const useAPRS = (options = {}) => {
   const fetchStations = useCallback(async () => {
     if (!enabled) return;
     try {
-      const res = await apiFetch('/api/aprs/stations', { cache: 'no-store' });
+      const res = await apiFetch(stationsPath, { cache: 'no-store' });
       if (res?.ok) {
         const data = await res.json();
         setNetStations((prev) => mergeStations(prev, data.stations || [], { clearedAt: clearedAtRef.current }));
         setConnected(data.connected || false);
+        setServerInternetEnabled(!!data.enabled);
+        setServerInternetReason(data.reason || null);
         // Don't let the server poll override aprsEnabled when the TNC was
         // detected locally via SSE — the OHC server may have APRS_ENABLED=false
         // even while rig-bridge's aprs-tnc plugin is actively receiving packets.
@@ -114,7 +137,7 @@ export const useAPRS = (options = {}) => {
       console.error('[APRS] Fetch error:', err);
       setLoading(false);
     }
-  }, [enabled]);
+  }, [enabled, stationsPath]);
 
   // Poll TNC connection status from rig-bridge (via server proxy)
   const fetchTncStatus = useCallback(async () => {
@@ -199,6 +222,16 @@ export const useAPRS = (options = {}) => {
     return () => clearTimeout(timer);
   }, [netStations]);
 
+  const setInternetAprs = useCallback((patch) => {
+    setInternetAprsState((prev) => {
+      const next = { ...prev, ...patch };
+      if (!RADIUS_OPTIONS_KM.includes(next.radiusKm)) next.radiusKm = prev.radiusKm;
+      next.enabled = !!next.enabled;
+      writeInternetSettings(next);
+      return next;
+    });
+  }, []);
+
   const setDwellMinutes = useCallback((minutes) => {
     const m = Number(minutes);
     if (!DWELL_OPTIONS_MINUTES.includes(m)) return;
@@ -270,10 +303,12 @@ export const useAPRS = (options = {}) => {
       if (pkt.lat == null || pkt.lon == null) return;
 
       const key = pkt.ssid ?? pkt.source;
+      // Mic-E type bytes off the comment, as the server does for its stations (#1245)
+      const clean = cleanRfStation(pkt);
       setRfStations((prev) => {
         const next = new Map(prev);
         next.set(key, {
-          ...pkt,
+          ...clean,
           source: 'local-tnc', // use the standard source tag the UI expects
           timestamp: pkt.timestamp ?? Date.now(),
           lastUpdate: Date.now(),
@@ -298,12 +333,20 @@ export const useAPRS = (options = {}) => {
   // Merge internet stations with local RF stations.
   // RF stations take precedence: if the same callsign is heard both on the
   // internet and over RF, the RF entry wins (preserves local-tnc tag).
+  // Retained internet stations outside this viewer's area (or all of them
+  // with internet APRS off) are hidden; RF relayed through the server stays.
   const allStations = useMemo(() => {
     const rf = Array.from(rfStations.values());
     const rfKeys = new Set(rf.map((s) => s.ssid ?? s.source));
-    const internet = Array.from(netStations.values()).filter((s) => !rfKeys.has(s.ssid) && !rfKeys.has(s.call));
+    const loc = { lat: locLat, lon: locLon };
+    const internet = Array.from(netStations.values()).filter(
+      (s) =>
+        !rfKeys.has(s.ssid) &&
+        !rfKeys.has(s.call) &&
+        (s.source === 'local-tnc' || showInternetStation(s, internetAprs, loc)),
+    );
     return [...rf, ...internet];
-  }, [netStations, rfStations]);
+  }, [netStations, rfStations, internetAprs, locLat, locLon]);
 
   // Watchlist helpers
   const addGroup = useCallback((name) => {
@@ -404,6 +447,13 @@ export const useAPRS = (options = {}) => {
     setDwellMinutes,
     dwellOptions: DWELL_OPTIONS_MINUTES,
     clearStations,
+    // Per-viewer internet APRS (centre = station location)
+    internetAprs,
+    setInternetAprs,
+    internetArea: viewerArea(internetAprs, { lat: locLat, lon: locLon }),
+    radiusOptions: RADIUS_OPTIONS_KM,
+    serverInternetEnabled,
+    serverInternetReason,
     refresh: fetchStations,
   };
 };

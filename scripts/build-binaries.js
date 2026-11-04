@@ -89,7 +89,7 @@ function readmeText(name) {
     'The setup wizard asks for your callsign and grid.',
     '',
     'Settings and data (.env, config.json, data/) are created next to this file.',
-    'Edit .env to change PORT, or set HOST=0.0.0.0 to reach it from other devices.',
+    'Edit .env to change PORT, or set BIND_HOST=127.0.0.1 to keep it on this computer only.',
     'Set OPENHAMCLOCK_HOME=/some/dir to keep settings and data elsewhere.',
     '',
     'Updating: download the new release and replace this file. Your .env, config.json',

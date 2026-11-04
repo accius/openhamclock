@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { applyDXFilters, filterDXPaths, balanceSpotWindow, collapseDuplicateSpots } from '../utils/dxClusterFilters.js';
+import {
+  applyDXFilters,
+  filterDXPaths,
+  balanceSpotWindow,
+  collapseDuplicateSpots,
+  isOwnSpot,
+} from '../utils/dxClusterFilters.js';
 
 describe('dxClusterFilters', () => {
   let mockSpot;
@@ -882,5 +888,90 @@ describe('dxClusterFilters', () => {
       const spots = [spot({ dxCall: '', call: '' }), spot({ freq: 'garbage', dxCall: 'W9XYZ' })];
       expect(collapseDuplicateSpots(spots)).toHaveLength(2);
     });
+  });
+
+  describe('IOTA-only filter', () => {
+    it('keeps only spots whose comment carries a real IOTA reference', () => {
+      const filters = { iotaOnly: true };
+      expect(
+        applyDXFilters({ dxCall: 'GM0ABC', spotter: 'K1AA', freq: '14.200', comment: 'IOTA EU-005' }, filters),
+      ).toBe(true);
+      expect(applyDXFilters({ dxCall: 'GM0ABC', spotter: 'K1AA', freq: '14.200', comment: 'eu005 tnx' }, filters)).toBe(
+        true,
+      );
+      expect(applyDXFilters({ dxCall: 'W1AW', spotter: 'K1AA', freq: '14.200', comment: 'FT8 -10 dB' }, filters)).toBe(
+        false,
+      );
+      expect(applyDXFilters({ dxCall: 'W1AW', spotter: 'K1AA', freq: '14.200', comment: 'AS-999 fake' }, filters)).toBe(
+        false,
+      );
+      expect(applyDXFilters({ dxCall: 'W1AW', spotter: 'K1AA', freq: '14.200' }, filters)).toBe(false);
+    });
+
+    it('is inert when off', () => {
+      expect(
+        applyDXFilters({ dxCall: 'W1AW', spotter: 'K1AA', freq: '14.200', comment: '' }, { iotaOnly: false }),
+      ).toBe(true);
+    });
+
+    it('combines with the other filters (AND)', () => {
+      const filters = { iotaOnly: true, bands: ['40m'] };
+      expect(applyDXFilters({ dxCall: 'GM0ABC', spotter: 'K1AA', freq: '14.200', comment: 'EU-005' }, filters)).toBe(
+        false,
+      );
+      expect(applyDXFilters({ dxCall: 'GM0ABC', spotter: 'K1AA', freq: '7.150', comment: 'EU-005' }, filters)).toBe(
+        true,
+      );
+    });
+  });
+});
+
+describe('applyDXFilters — HamClock watch list context', () => {
+  const compiled = (mode) => ({
+    mode,
+    matcher: (spot) => String(spot.call || '').startsWith('3Y'),
+  });
+
+  it('Only mode keeps matches, drops the rest', () => {
+    expect(applyDXFilters({ dxCall: '3Y0J', freq: '14.2' }, {}, { watch: compiled('only') })).toBe(true);
+    expect(applyDXFilters({ dxCall: 'W1AW', freq: '14.2' }, {}, { watch: compiled('only') })).toBe(false);
+  });
+
+  it('Not mode hides matches', () => {
+    expect(applyDXFilters({ dxCall: '3Y0J', freq: '14.2' }, {}, { watch: compiled('not') })).toBe(false);
+    expect(applyDXFilters({ dxCall: 'W1AW', freq: '14.2' }, {}, { watch: compiled('not') })).toBe(true);
+  });
+
+  it('Red mode never filters (painting is the panel’s job)', () => {
+    expect(applyDXFilters({ dxCall: '3Y0J', freq: '14.2' }, {}, { watch: compiled('red') })).toBe(true);
+    expect(applyDXFilters({ dxCall: 'W1AW', freq: '14.2' }, {}, { watch: compiled('red') })).toBe(true);
+  });
+
+  it('a compiled list supersedes the legacy watchlistOnly fields', () => {
+    const legacy = { watchlist: ['W1'], watchlistOnly: true };
+    expect(applyDXFilters({ dxCall: '3Y0J', freq: '14.2' }, legacy, { watch: compiled('red') })).toBe(true);
+    expect(applyDXFilters({ dxCall: '3Y0J', freq: '14.2' }, legacy)).toBe(false);
+  });
+
+  it('still combines with the other filters', () => {
+    const filters = { bands: ['40m'] };
+    expect(applyDXFilters({ dxCall: '3Y0J', freq: '14.2' }, filters, { watch: compiled('only') })).toBe(false);
+    expect(applyDXFilters({ dxCall: '3Y0J', freq: '7.2' }, filters, { watch: compiled('only') })).toBe(true);
+  });
+});
+
+describe('isOwnSpot', () => {
+  it('matches the station callsign ignoring SSIDs, skimmer markers and portable suffixes', () => {
+    expect(isOwnSpot({ spotter: 'K0CJH' }, 'K0CJH')).toBe(true);
+    expect(isOwnSpot({ spotter: 'K0CJH-3' }, 'k0cjh')).toBe(true);
+    expect(isOwnSpot({ spotter: 'K0CJH-#' }, 'K0CJH')).toBe(true);
+    expect(isOwnSpot({ spotter: 'K0CJH/P' }, 'K0CJH-56')).toBe(true);
+    expect(isOwnSpot({ spotter: 'W1AW' }, 'K0CJH')).toBe(false);
+  });
+
+  it('never matches with no callsign or N0CALL', () => {
+    expect(isOwnSpot({ spotter: 'N0CALL' }, 'N0CALL')).toBe(false);
+    expect(isOwnSpot({ spotter: 'K0CJH' }, '')).toBe(false);
+    expect(isOwnSpot({}, 'K0CJH')).toBe(false);
   });
 });

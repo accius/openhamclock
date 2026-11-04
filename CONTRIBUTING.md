@@ -21,6 +21,9 @@ node server.js
 # 3. Start the frontend dev server (Terminal 2)
 npm run dev
 # → App running on http://localhost:3000 (proxies API to :3001)
+
+# 4. Before you push: lint (required, CI fails on errors)
+npm run lint
 ```
 
 Open `http://localhost:3000` — you should see the full dashboard with live data.
@@ -146,6 +149,30 @@ npm run format:check
 **CI will fail** if unformatted code is pushed. If you see a CI failure on the `format` check, just run `npm run format` and commit the result.
 
 **IDE setup (optional but recommended):** Install the Prettier extension for your editor and enable "Format on Save." The `.prettierrc` and `.editorconfig` files will be picked up automatically.
+
+## Linting
+
+We use **ESLint** (`eslint.config.js`) to catch bugs that the formatter can't see. `npm run lint` is **required**: CI runs it on every push and PR and fails on any **error**. Warnings are reported but don't fail the build.
+
+```bash
+npm run lint
+```
+
+The pre-commit hook also runs ESLint on your staged `.js`/`.jsx`/`.mjs` files (errors only), so most problems are caught before you commit.
+
+**What fails the build (errors):**
+
+- **`react-hooks/rules-of-hooks`**: a hook (`useState`, `useEffect`, `useMemo`, a custom `useX`…) called after an early `return`, inside an `if`/`?:`/`??`, or in a loop. React expects hooks in the same order on every render; breaking that crashes the panel at runtime.
+- **`no-undef`**: a variable used but never declared or imported. Typical causes are a hook whose result you reference but forgot to call, a destructured `ctx` field you forgot to add, or a declaration lost in a refactor. In server code these are silent `ReferenceError`s inside a `try`/`catch`.
+- The rest of `@eslint/js` recommended: duplicate object keys, `return` inside `finally`, unreachable code, sparse arrays, and similar mistakes.
+
+**What's reported but allowed (warnings):**
+
+- **`react-hooks/exhaustive-deps`**: missing or extra dependencies in `useEffect`/`useMemo`/`useCallback`. Changing a dependency array changes behaviour, so fix these on purpose, one at a time, not in bulk. If an omission is intentional, put `// eslint-disable-next-line react-hooks/exhaustive-deps` on the line before the dependency array and leave a comment saying why.
+- **`no-unused-vars`**: dead imports and variables. Prefix a name with `_` to mark it intentionally unused. Unused `catch (e)` bindings are not reported.
+- **`no-useless-escape`**: a redundant `\` in a string or regex.
+
+Don't disable a rule to make an error go away. An error here almost always means a real bug.
 
 ## Code Guidelines
 
@@ -326,8 +353,14 @@ A short paragraph in the right section is enough: what the feature is, where to 
 # Run tests
 npm run test:run
 
+# Lint (CI will fail on any error)
+npm run lint
+
 # Check formatting (CI will fail without this)
 npm run format:check
+
+# Production build (CI will fail if this breaks)
+npm run build
 
 # Check translation key ordering (CI will fail without this)
 npm run lang:check

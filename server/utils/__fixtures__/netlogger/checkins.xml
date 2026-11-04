@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<NetLoggerXML>
+ <Header>
+  <CreationDateUTC>Wed 10/14/2026 23:40:25</CreationDateUTC>
+  <Copyright>The NetLogger System 2026</Copyright>
+  <APIVersion>1.3.1</APIVersion>
+  <TimeZone>UTC</TimeZone>
+ </Header>
+ <CheckinList>
+  <ServerName>NETLOGGER</ServerName>
+  <NetName>ALL IN SIMPLEX</NetName>
+  <ResponseCode>200 OK</ResponseCode>
+  <CheckinCount>3</CheckinCount>
+  <Pointer>2</Pointer>
+  <Checkin>
+   <SerialNo>1</SerialNo>
+   <Callsign>N0CALL</Callsign>
+   <State>SC</State>
+   <Remarks> </Remarks>
+   <QSLInfo> </QSLInfo>
+   <CityCountry>Lancaster</CityCountry>
+   <FirstName>Pat</FirstName>
+   <Status>(nc)</Status>
+   <County>Lancaster</County>
+   <Grid>EM94ov</Grid>
+   <Street>1 Example St</Street>
+   <Zip>00000</Zip>
+   <MemberID>1234</MemberID>
+   <Country>United States</Country>
+   <DXCC> </DXCC>
+   <PreferredName>Patricia</PreferredName>
+  </Checkin>
+  <Checkin>
+   <SerialNo>2</SerialNo>
+   <Callsign>k1abc</Callsign>
+   <State>NC</State>
+   <Remarks>mobile &amp; QRP</Remarks>
+   <QSLInfo> </QSLInfo>
+   <CityCountry>Mineral Springs</CityCountry>
+   <FirstName>Todd</FirstName>
+   <Status> </Status>
+   <County>Union</County>
+   <Grid>EM94PW</Grid>
+   <Street>PO BOX 1</Street>
+   <Zip>00000-0000</Zip>
+   <MemberID> </MemberID>
+   <Country>United States</Country>
+   <DXCC>291</DXCC>
+   <PreferredName> </PreferredName>
+  </Checkin>
+  <Checkin>
+   <SerialNo>3</SerialNo>
+   <Callsign>VE3XYZ</Callsign>
+   <State>ON</State>
+   <Remarks> </Remarks>
+   <QSLInfo> </QSLInfo>
+   <CityCountry>Toronto</CityCountry>
+   <FirstName> </FirstName>
+   <Status>(c/o)</Status>
+   <County> </County>
+   <Grid>not-a-grid</Grid>
+   <Street> </Street>
+   <Zip> </Zip>
+   <MemberID> </MemberID>
+   <Country>Canada</Country>
+   <DXCC>1</DXCC>
+   <PreferredName> </PreferredName>
+  </Checkin>
+ </CheckinList>
+</NetLoggerXML>

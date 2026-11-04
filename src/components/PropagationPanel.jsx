@@ -8,6 +8,8 @@ import { formatDistance } from '../utils/geo.js';
 import { saveConfig, loadConfig } from '../utils/config.js';
 import BandHealthPanel from './BandHealthPanel.jsx';
 import useAutoRotate from '../hooks/app/useAutoRotate.js';
+import useDisplayTime from '../hooks/app/useDisplayTime.js';
+import { displayNow } from '../utils/displayTime.js';
 
 const MODES = ['SSB', 'CW', 'FT8', 'FT4', 'WSPR', 'JS8', 'RTTY', 'AM'];
 const POWERS = [5, 10, 25, 50, 100, 200, 500, 1000, 1500];
@@ -136,6 +138,12 @@ export const PropagationPanel = ({
     }
   }, [timeZone]);
 
+  // The chart's "now" column follows the display time when shifted (Time Shift
+  // scrubber); otherwise the server's hour so marker and data agree. Called
+  // here, before the loading early-return below: a hook after that return made
+  // the hook count grow once data arrived (React error #310, blank dashboard).
+  const { offsetMs: timeOffsetMs } = useDisplayTime();
+
   const getBandStyle = (condition) =>
     ({
       GOOD: { bg: 'rgba(0,255,136,0.2)', color: '#00ff88', border: 'rgba(0,255,136,0.4)' },
@@ -155,7 +163,8 @@ export const PropagationPanel = ({
   }
 
   const { solarData, distance, currentBands, hourlyPredictions, muf, luf, dataSource } = propagation;
-  const currentHour = propagation.currentHour ?? new Date().getUTCHours();
+  const currentHour =
+    timeOffsetMs !== 0 ? displayNow().getUTCHours() : (propagation.currentHour ?? new Date().getUTCHours());
   const currentLocalMin = function () {
     const opts = { hour12: false, hour: 'numeric', minute: 'numeric' };
     if (safeTimeZone) opts.timeZone = safeTimeZone;

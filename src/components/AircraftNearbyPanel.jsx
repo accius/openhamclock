@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../utils/apiFetch';
 import { calculateDistance, calculateBearing } from '../utils/geo.js';
+import { formatBearing, useBearingMode } from '../utils/bearing.js';
 
 const POLL_MS = 60 * 1000;
 const RADIUS_OPTIONS_KM = [50, 100, 250, 500];
@@ -71,6 +72,7 @@ export const AircraftNearbyPanel = ({ config }) => {
   };
 
   const dist = (km) => (useMiles ? `${Math.round(km * 0.621371)} mi` : `${Math.round(km)} km`);
+  const bearingMode = useBearingMode();
 
   const nearby = (aircraft || [])
     .filter((p) => p.lat != null && p.lon != null)
@@ -175,7 +177,7 @@ export const AircraftNearbyPanel = ({ config }) => {
                   {p.onGround && <span style={{ color: 'var(--text-muted)', fontSize: '8px' }}> GND</span>}
                 </span>
                 <span style={{ color: 'var(--accent-cyan)', fontWeight: 600, flexShrink: 0 }}>
-                  {dist(p.km)} {compass(p.bearing)}
+                  {dist(p.km)} {compass(p.bearing)} {formatBearing(p.bearing, lat, lon, bearingMode)}
                 </span>
               </div>
               <div

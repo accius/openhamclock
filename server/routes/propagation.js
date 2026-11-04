@@ -3,6 +3,8 @@
  */
 
 const physics = require('../utils/propagationPhysics');
+const { parseMonthParam } = require('../utils/monthParam');
+const { resolveMonthSsn } = require('../utils/solarCycleSsn');
 
 module.exports = function (app, ctx) {
   const {
@@ -16,6 +18,7 @@ module.exports = function (app, ctx) {
     upstream,
     n0nbhCache,
     maintainCache,
+    getSolarCycle, // from space-weather.js — display-month SSN
   } = ctx;
 
   const {
@@ -341,7 +344,18 @@ module.exports = function (app, ctx) {
       const midLon = mid.lon;
 
       const currentHour = new Date().getUTCHours();
-      const currentMonth = new Date().getMonth() + 1;
+      // Optional ?month=1-12 (the client's display-time month); bounded, and
+      // part of the hourly cache key below, so it caches like the default.
+      const currentMonth = parseMonthParam(req.query.month, new Date().getMonth() + 1);
+      // A shifted month runs with that month's smoothed SSN (SWPC observed,
+      // else the cycle-25 prediction) instead of today's.
+      const monthSsn = await resolveMonthSsn({
+        month: currentMonth,
+        realMonth: new Date().getMonth() + 1,
+        currentSsn: effectiveSSN,
+        getSolarCycle,
+      });
+      effectiveSSN = monthSsn.ssn;
 
       logDebug('[Propagation] Distance:', Math.round(distance), 'km');
       logDebug('[Propagation] Solar: SFI', sfi, 'SSN', effectiveSSN, 'K', kIndex);
@@ -576,11 +590,12 @@ module.exports = function (app, ctx) {
 
       res.json({
         model: usedITURHFProp ? 'ITU-R P.533-14' : 'Built-in estimation',
-        solarData: { sfi, ssn: effectiveSSN, kIndex },
+        solarData: { sfi, ssn: effectiveSSN, ssnSource: monthSsn.source, kIndex },
         muf: Math.round(currentMuf * 10) / 10,
         luf: Math.round(currentLuf * 10) / 10,
         distance: Math.round(distance),
         currentHour,
+        month: currentMonth,
         currentBands,
         hourlyPredictions: predictions,
         mode: txMode,

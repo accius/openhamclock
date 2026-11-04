@@ -1,0 +1,395 @@
+{
+  "source": "Dates/types transcribed from the NASA GSFC Five Millennium Canon of Solar/Lunar Eclipses (Espenak & Meeus, eclipse.gsfc.nasa.gov) and cross-checked against the Meeus ch. 54 computation in src/utils/eclipses.js. gamma/magnitude, where present, are NASA canon values for well-documented solar eclipses; entries without them use the computed values (agree with the canon to ~0.01). Visibility text is a summary — check eclipse.gsfc.nasa.gov or timeanddate.com before travelling.",
+  "span": "2026-01-01 … 2040-12-31",
+  "eclipses": [
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2026-02-17",
+      "gamma": -0.9743,
+      "magnitude": 0.963,
+      "path": "Antarctica",
+      "visibility": "Annular over Antarctica; partial from southern South America, southern Africa and the southern Indian Ocean"
+    },
+    {
+      "kind": "lunar",
+      "type": "total",
+      "date": "2026-03-03",
+      "visibility": "East Asia, Australia, the Pacific and the Americas (best from the western Americas and Pacific)"
+    },
+    {
+      "kind": "solar",
+      "type": "total",
+      "date": "2026-08-12",
+      "gamma": 0.8977,
+      "magnitude": 1.039,
+      "path": "Arctic Ocean, eastern Greenland, western Iceland, northern Spain (Oviedo–Zaragoza–Valencia–Palma)",
+      "visibility": "Total across Greenland, Iceland and northern Spain near sunset; partial from north-eastern North America, all of Europe, North Africa and western Asia"
+    },
+    { "kind": "lunar", "type": "partial", "date": "2026-08-28", "visibility": "The Americas, Europe and Africa" },
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2027-02-06",
+      "gamma": -0.2952,
+      "magnitude": 0.928,
+      "path": "Southern Chile and Argentina, South Atlantic, Côte d'Ivoire, Ghana, Togo, Benin, Nigeria",
+      "visibility": "Annular from southern South America and West Africa; partial from South America, Antarctica and western/southern Africa"
+    },
+    {
+      "kind": "lunar",
+      "type": "penumbral",
+      "date": "2027-02-20",
+      "visibility": "Europe, Africa, the Americas and western Asia"
+    },
+    {
+      "kind": "solar",
+      "type": "total",
+      "date": "2027-08-02",
+      "gamma": 0.1421,
+      "magnitude": 1.079,
+      "path": "Southern Spain, Morocco, Algeria, Tunisia, Libya, Egypt (Luxor), Saudi Arabia, Yemen, Somalia",
+      "visibility": "Total across North Africa and the Arabian peninsula (6 min 23 s near Luxor); partial from Europe, Africa and south-western Asia"
+    },
+    { "kind": "lunar", "type": "penumbral", "date": "2027-08-17", "visibility": "The Americas and the Pacific" },
+    {
+      "kind": "lunar",
+      "type": "partial",
+      "date": "2028-01-12",
+      "visibility": "The Americas, Europe and Africa (very shallow partial)"
+    },
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2028-01-26",
+      "gamma": 0.3901,
+      "magnitude": 0.921,
+      "path": "Ecuador, Peru, Brazil, Suriname, French Guiana, Atlantic, Portugal, Spain",
+      "visibility": "Annular from northern South America to Iberia; partial from the Americas, western Europe and north-west Africa"
+    },
+    { "kind": "lunar", "type": "partial", "date": "2028-07-06", "visibility": "Asia, Australia, Europe and Africa" },
+    {
+      "kind": "solar",
+      "type": "total",
+      "date": "2028-07-22",
+      "gamma": -0.6056,
+      "magnitude": 1.056,
+      "path": "Indian Ocean, Western Australia (Kimberley), Northern Territory, Queensland, New South Wales (Sydney), New Zealand (Dunedin)",
+      "visibility": "Total across Australia and New Zealand's South Island; partial from south-east Asia, Australia and New Zealand"
+    },
+    {
+      "kind": "lunar",
+      "type": "total",
+      "date": "2028-12-31",
+      "visibility": "Asia, Australia, Europe and eastern Africa"
+    },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2029-01-14",
+      "gamma": 1.0552,
+      "magnitude": 0.871,
+      "visibility": "Partial from North and Central America"
+    },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2029-06-12",
+      "gamma": 1.2943,
+      "magnitude": 0.458,
+      "visibility": "Partial from the Arctic, Scandinavia, northern Russia, Alaska and northern Canada"
+    },
+    {
+      "kind": "lunar",
+      "type": "total",
+      "date": "2029-06-26",
+      "visibility": "The Americas, Europe and Africa (a deep, central eclipse)"
+    },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2029-07-11",
+      "gamma": -1.4191,
+      "magnitude": 0.23,
+      "visibility": "Partial from southern Chile and Argentina"
+    },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2029-12-05",
+      "gamma": -1.0609,
+      "magnitude": 0.891,
+      "visibility": "Partial from southern Argentina and Chile, and Antarctica"
+    },
+    {
+      "kind": "lunar",
+      "type": "total",
+      "date": "2029-12-20",
+      "visibility": "Europe, Africa, the Americas and western Asia"
+    },
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2030-06-01",
+      "gamma": 0.5677,
+      "magnitude": 0.944,
+      "path": "Algeria, Tunisia, Greece, Turkey, Russia, Kazakhstan, northern China, Japan (Hokkaido)",
+      "visibility": "Annular from North Africa across Europe and Asia to Japan; partial from Europe, North Africa, Asia and the Arctic"
+    },
+    { "kind": "lunar", "type": "partial", "date": "2030-06-15", "visibility": "Asia, Australia, Europe and Africa" },
+    {
+      "kind": "solar",
+      "type": "total",
+      "date": "2030-11-25",
+      "gamma": -0.3867,
+      "magnitude": 1.047,
+      "path": "Namibia, Botswana, South Africa, Indian Ocean, southern Australia",
+      "visibility": "Total across southern Africa and south-eastern Australia; partial from southern Africa, the Indian Ocean, Australia and Antarctica"
+    },
+    {
+      "kind": "lunar",
+      "type": "penumbral",
+      "date": "2030-12-09",
+      "visibility": "Europe, Africa, Asia and the Americas"
+    },
+    { "kind": "lunar", "type": "penumbral", "date": "2031-05-07", "visibility": "The Americas, Europe and Africa" },
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2031-05-21",
+      "gamma": -0.197,
+      "magnitude": 0.959,
+      "path": "Angola, Zambia, DR Congo, Tanzania, Indian Ocean, southern India, Sri Lanka, Malaysia, Indonesia",
+      "visibility": "Annular from central Africa across the Indian Ocean to south-east Asia; partial from Africa, southern Asia and Australia"
+    },
+    {
+      "kind": "lunar",
+      "type": "penumbral",
+      "date": "2031-06-05",
+      "visibility": "The Pacific, Asia, Australia and the western Americas (slight)"
+    },
+    { "kind": "lunar", "type": "penumbral", "date": "2031-10-30", "visibility": "The Americas and the Pacific" },
+    {
+      "kind": "solar",
+      "type": "hybrid",
+      "date": "2031-11-14",
+      "gamma": 0.3078,
+      "magnitude": 1.011,
+      "path": "Central Pacific, Panama (total near the end of the track)",
+      "visibility": "Annular-total over the Pacific, total in Panama; partial from the Pacific, Central America and north-western South America"
+    },
+    {
+      "kind": "lunar",
+      "type": "total",
+      "date": "2032-04-25",
+      "visibility": "Asia, Australia, eastern Europe and eastern Africa"
+    },
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2032-05-09",
+      "gamma": -0.9375,
+      "magnitude": 0.996,
+      "path": "South Atlantic Ocean",
+      "visibility": "Annular only over the South Atlantic; partial from southern South America and southern Africa"
+    },
+    { "kind": "lunar", "type": "total", "date": "2032-10-18", "visibility": "Asia, Australia, Europe and Africa" },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2032-11-03",
+      "visibility": "Partial from Asia (Siberia, China, Korea, Japan) and the Arctic"
+    },
+    {
+      "kind": "solar",
+      "type": "total",
+      "date": "2033-03-30",
+      "gamma": 0.9778,
+      "magnitude": 1.046,
+      "path": "Western Alaska (Nome, Utqiaġvik), Chukotka",
+      "visibility": "Total across western Alaska and far-eastern Russia; partial from North America and north-east Asia"
+    },
+    { "kind": "lunar", "type": "total", "date": "2033-04-14", "visibility": "Asia, Australia, Europe and Africa" },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2033-09-23",
+      "visibility": "Partial from southern South America and Antarctica"
+    },
+    {
+      "kind": "lunar",
+      "type": "total",
+      "date": "2033-10-08",
+      "visibility": "The Pacific, the Americas, East Asia and Australia"
+    },
+    {
+      "kind": "solar",
+      "type": "total",
+      "date": "2034-03-20",
+      "gamma": 0.2894,
+      "magnitude": 1.046,
+      "path": "Nigeria, Cameroon, Chad, Sudan, Egypt, Saudi Arabia, Kuwait, Iran, Afghanistan, Pakistan, India, China",
+      "visibility": "Total from West Africa across the Middle East to China; partial from Africa, Europe and Asia"
+    },
+    { "kind": "lunar", "type": "penumbral", "date": "2034-04-03", "visibility": "Asia, Australia, Europe and Africa" },
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2034-09-12",
+      "gamma": -0.3936,
+      "magnitude": 0.974,
+      "path": "South Pacific, Chile, Argentina, Paraguay, Brazil, South Atlantic",
+      "visibility": "Annular across southern South America; partial from South America, Antarctica and the South Atlantic"
+    },
+    {
+      "kind": "lunar",
+      "type": "partial",
+      "date": "2034-09-28",
+      "visibility": "The Americas, Europe and Africa (grazing, barely umbral)"
+    },
+    {
+      "kind": "lunar",
+      "type": "penumbral",
+      "date": "2035-02-22",
+      "visibility": "The Americas, the Pacific and East Asia"
+    },
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2035-03-09",
+      "path": "New Zealand, South Pacific, southern Chile and Argentina",
+      "visibility": "Annular from New Zealand across the South Pacific to southern South America; partial from Australia, New Zealand, Antarctica and South America"
+    },
+    {
+      "kind": "lunar",
+      "type": "partial",
+      "date": "2035-08-19",
+      "visibility": "The Americas, Europe and Africa (shallow partial)"
+    },
+    {
+      "kind": "solar",
+      "type": "total",
+      "date": "2035-09-02",
+      "gamma": 0.3721,
+      "magnitude": 1.032,
+      "path": "Central China, North Korea, Japan (Tokyo area), Pacific",
+      "visibility": "Total across China, Korea and Japan; partial from Asia, the western Pacific and Alaska"
+    },
+    {
+      "kind": "lunar",
+      "type": "total",
+      "date": "2036-02-11",
+      "visibility": "Europe, Africa, Asia and the eastern Americas"
+    },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2036-02-27",
+      "visibility": "Partial from Antarctica, southern Australia and the southern Indian Ocean"
+    },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2036-07-23",
+      "visibility": "Partial from Antarctica and the southern Indian Ocean (slight)"
+    },
+    {
+      "kind": "lunar",
+      "type": "total",
+      "date": "2036-08-07",
+      "visibility": "The Americas, Europe and Africa (a deep eclipse)"
+    },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2036-08-21",
+      "visibility": "Partial from North America and the Arctic"
+    },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2037-01-16",
+      "visibility": "Partial from northern Europe, Russia and the Arctic"
+    },
+    { "kind": "lunar", "type": "total", "date": "2037-01-31", "visibility": "Asia, Australia and the Pacific" },
+    {
+      "kind": "solar",
+      "type": "total",
+      "date": "2037-07-13",
+      "gamma": -0.7246,
+      "magnitude": 1.041,
+      "path": "Indian Ocean, Western Australia, Northern Territory, Queensland (Brisbane region), New Zealand (North Island, Auckland)",
+      "visibility": "Total across Australia and New Zealand's North Island; partial from Indonesia, Australia, New Zealand and the South Pacific"
+    },
+    { "kind": "lunar", "type": "partial", "date": "2037-07-27", "visibility": "The Americas, Europe and Africa" },
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2038-01-05",
+      "path": "Ecuador, Colombia, Venezuela, Atlantic, Liberia, Côte d'Ivoire, Ghana, Nigeria, Cameroon, Chad, Sudan",
+      "visibility": "Annular from northern South America across the Atlantic to central Africa; partial from the Americas, Africa and western Europe"
+    },
+    { "kind": "lunar", "type": "penumbral", "date": "2038-01-21", "visibility": "The Americas, Europe and Africa" },
+    { "kind": "lunar", "type": "penumbral", "date": "2038-06-17", "visibility": "The Americas, Europe and Africa" },
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2038-07-02",
+      "path": "Colombia, Venezuela, Atlantic, Mauritania, Mali, Niger, Chad, Sudan, Eritrea",
+      "visibility": "Annular from northern South America across the Atlantic and the Sahara; partial from the Americas, Africa, Europe and the Middle East"
+    },
+    {
+      "kind": "lunar",
+      "type": "penumbral",
+      "date": "2038-07-16",
+      "visibility": "The Pacific, Asia, Australia and the Americas"
+    },
+    { "kind": "lunar", "type": "penumbral", "date": "2038-12-11", "visibility": "Asia, Europe, Africa and Australia" },
+    {
+      "kind": "solar",
+      "type": "total",
+      "date": "2038-12-26",
+      "gamma": -0.2881,
+      "magnitude": 1.027,
+      "path": "Southern Australia (SA, Victoria, Tasmania), South Pacific, New Zealand (South Island)",
+      "visibility": "Total across southern Australia and New Zealand; partial from Australia, New Zealand, Antarctica and the South Pacific"
+    },
+    { "kind": "lunar", "type": "partial", "date": "2039-06-06", "visibility": "Asia, Australia, Europe and Africa" },
+    {
+      "kind": "solar",
+      "type": "annular",
+      "date": "2039-06-21",
+      "path": "Alaska, Yukon, Nunavut, Greenland, Iceland, Norway, Sweden, Finland, Russia",
+      "visibility": "Annular across the Arctic from Alaska to Scandinavia; partial from North America, Europe and northern Asia"
+    },
+    { "kind": "lunar", "type": "partial", "date": "2039-11-30", "visibility": "Asia, Europe, Africa and Australia" },
+    {
+      "kind": "solar",
+      "type": "total",
+      "date": "2039-12-15",
+      "gamma": -0.9464,
+      "magnitude": 1.036,
+      "path": "Antarctica",
+      "visibility": "Total over Antarctica; partial from southern South America, southern Africa and the southern oceans"
+    },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2040-05-11",
+      "visibility": "Partial from Australia, New Zealand and Antarctica"
+    },
+    {
+      "kind": "lunar",
+      "type": "total",
+      "date": "2040-05-26",
+      "visibility": "The Pacific, Asia, Australia and the western Americas"
+    },
+    {
+      "kind": "solar",
+      "type": "partial",
+      "date": "2040-11-04",
+      "visibility": "Partial from North America, Hawaii and the Arctic"
+    },
+    { "kind": "lunar", "type": "total", "date": "2040-11-18", "visibility": "Asia, Australia, Europe and Africa" }
+  ]
+}

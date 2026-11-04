@@ -7,7 +7,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import * as satellite from 'satellite.js';
 import Orbit from '../utils/orbit.js';
 import { computeOrbitTrack } from '../utils/satelliteTrack.js';
+import { tleAgeDays, isTleStale } from '../utils/tleAge.js';
 import { getDebugConfig } from '../debug/debugConfig.js';
+import { displayNow, subscribeDisplayTime } from '../utils/displayTime.js';
 
 function round(value, decimals) {
   const factor = Math.pow(10, decimals);
@@ -76,7 +78,7 @@ export const useSatellites = (observerLocation, satelliteConfig, filteredNames =
     }
 
     try {
-      const now = new Date();
+      const now = displayNow(); // follows the Time Shift scrubber (utils/displayTime.js)
       const gmst = satellite.gstime(now);
       const positions = [];
 
@@ -160,6 +162,13 @@ export const useSatellites = (observerLocation, satelliteConfig, filteredNames =
               // Repeaters/transponders (uplink + downlink) from SatNOGS — the
               // EME layout's relay mode picks satellites by these.
               relayTransmitters: Array.isArray(satData.relayTransmitters) ? satData.relayTransmitters : [],
+              // Every active SatNOGS transmitter (beacons too) — the Doppler
+              // tuner's picker. Empty until the server's SatNOGS refresh lands.
+              transmitters: Array.isArray(satData.transmitters) ? satData.transmitters : [],
+              // Element-set age vs Settings → Satellites → max TLE age: stale
+              // birds are flagged in the panels and drawn with dashed tracks.
+              tleAgeDays: tleAgeDays(satData.omm, now.getTime()),
+              tleStale: isTleStale(satData.omm, satelliteConfig?.maxTleAgeDays, now.getTime()),
               lat,
               lon,
               alt: round(alt, 1),
@@ -227,7 +236,7 @@ export const useSatellites = (observerLocation, satelliteConfig, filteredNames =
       longitude: observerLocation.lon,
       height: observerLocation.stationAlt || 100, // above sea level [m], defaults to 100m
     };
-    const startDate = new Date(); // from now
+    const startDate = displayNow(); // from (display) now
     const endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000); // until 7 days from now
     const minElevation = satelliteConfig?.minElev || 5.0;
     const maxPasses = 2;
@@ -298,14 +307,22 @@ export const useSatellites = (observerLocation, satelliteConfig, filteredNames =
   // Update positions every 5 seconds
   useEffect(() => {
     const interval = setInterval(calculatePositions, 5000);
-    return () => clearInterval(interval);
+    const unsubShift = subscribeDisplayTime(calculatePositions);
+    return () => {
+      clearInterval(interval);
+      unsubShift();
+    };
   }, [calculatePositions]);
 
   // Update next passes every hour
   useEffect(() => {
     calculateNextPasses();
     const interval = setInterval(calculateNextPasses, 60 * 60 * 1000); // 1 hour
-    return () => clearInterval(interval);
+    const unsubShift = subscribeDisplayTime(calculateNextPasses);
+    return () => {
+      clearInterval(interval);
+      unsubShift();
+    };
   }, [calculateNextPasses]);
 
   return { data, loading };

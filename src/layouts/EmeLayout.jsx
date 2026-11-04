@@ -37,6 +37,8 @@ import {
   findAmsatRow,
 } from '../utils/satRelay.js';
 import { apiFetch } from '../utils/apiFetch.js';
+import { displayNow, displayNowMs, subscribeDisplayTime } from '../utils/displayTime.js';
+import { EmePlannerPanel } from '../components/EmePlannerPanel.jsx';
 import { findDXPathForSpot } from '../utils/dxClusterSpotMatcher';
 
 const ACCENT = '#c9d1e6'; // moonlight
@@ -108,12 +110,17 @@ export default function EmeLayout(props) {
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const now = new Date();
+      const now = displayNow();
       setSeconds(String(now.getUTCSeconds()).padStart(2, '0'));
       setSecondTick((t) => t + 1);
       if (now.getUTCSeconds() === 0) setMinuteTick((t) => t + 1);
     }, 1000);
-    return () => clearInterval(timer);
+    // A display-time shift re-plans everything (snapshot, windows, tracks) at once.
+    const unsub = subscribeDisplayTime(() => setMinuteTick((t) => t + 10));
+    return () => {
+      clearInterval(timer);
+      unsub();
+    };
   }, []);
 
   const de = config.location;
@@ -122,7 +129,7 @@ export default function EmeLayout(props) {
 
   // Moon now, both ends — one-minute cadence (the moon moves ≤0.25°/min).
   const snap = useMemo(
-    () => computeEmeSnapshot(new Date(), de, dxLocation),
+    () => computeEmeSnapshot(displayNow(), de, dxLocation),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [de?.lat, de?.lon, dxLat, dxLon, minuteTick],
   );
@@ -131,12 +138,12 @@ export default function EmeLayout(props) {
   // a DX / threshold change is plenty.
   const tenMinTick = Math.floor(minuteTick / 10);
   const windows = useMemo(
-    () => computeMutualWindows(new Date(), de, dxLocation, { hours: 48, minElev }),
+    () => computeMutualWindows(displayNow(), de, dxLocation, { hours: 48, minElev }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [de?.lat, de?.lon, dxLat, dxLon, minElev, tenMinTick],
   );
   const tracks = useMemo(
-    () => computeSkyTracks(new Date(), de, dxLocation),
+    () => computeSkyTracks(displayNow(), de, dxLocation),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [de?.lat, de?.lon, dxLat, dxLon, tenMinTick],
   );
@@ -169,7 +176,6 @@ export default function EmeLayout(props) {
     if (!satMode || relaySat || !candidates.length) return;
     const first = candidates.find((c) => c.relay) || candidates[0];
     if (first) setRelaySat(first.sat.name);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [satMode, relaySat, candidates]);
 
   // Selected satellite's passes at a finer step
@@ -849,7 +855,7 @@ export default function EmeLayout(props) {
                 <div style={{ padding: '2px 4px' }}>
                   {nextWindow && !openWindow && (
                     <div style={{ fontSize: '10px', color: '#667', padding: '2px 4px 6px' }}>
-                      Next window opens in {formatDurationShort(nextWindow.start - Date.now())}
+                      Next window opens in {formatDurationShort(nextWindow.start - displayNowMs())}
                     </div>
                   )}
                   {windows.map((w, i) => (
@@ -857,6 +863,13 @@ export default function EmeLayout(props) {
                   ))}
                 </div>
               )}
+            </PanelSection>
+          )}
+
+          {/* EME PLANNER — 48 h elevation plot at both ends */}
+          {!satMode && (
+            <PanelSection title="EME Planner · 48h" color={ACCENT}>
+              <EmePlannerPanel deLocation={de} dxLocation={dxLocation} dxCallsign={dxCallsign} embedded />
             </PanelSection>
           )}
 
@@ -1160,7 +1173,7 @@ function StationCard({ label, color, view, grid }) {
 }
 
 function WindowRow({ w }) {
-  const now = Date.now();
+  const now = displayNowMs();
   const active = w.start.getTime() <= now && w.end.getTime() > now;
   return (
     <div

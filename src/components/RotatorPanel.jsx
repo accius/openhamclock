@@ -1,5 +1,8 @@
 import React, { useRef, useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { displayBearing, useBearingMode } from '../utils/bearing.js';
 import useRotator from '../hooks/useRotator';
+import { useSatAutomation, setRotatorMode, setLongPath, setAutomationSat } from '../utils/satAutomationStore.js';
 
 /**
  * Rotator Panel V1
@@ -19,7 +22,14 @@ export default function RotatorPanel({
   onTurnAzimuth,
   onStop,
   controlsEnabled = true,
+  // Auto-track: names of satellites with orbital elements, for the SAT target picker
+  satOptions = [],
+  // Station location — lets the digital readout show a magnetic bearing
+  // (Settings → Station → Bearings) via the WMM2025 declination at DE.
+  deLat = null,
+  deLon = null,
 }) {
+  const bearingMode = useBearingMode();
   // Hooks must run on every render in the same order, so useRotator is always
   // called. When the parent owns the rotator state we pass no endpointUrl, which
   // keeps the hook idle (no polling) and we read from `state` instead.
@@ -53,9 +63,13 @@ export default function RotatorPanel({
   const bearingText = useMemo(() => {
     if (status !== 'connected') return '---';
     if (azimuth == null || Number.isNaN(azimuth)) return '--';
-    const a = ((Math.round(azimuth) % 360) + 360) % 360;
+    // Rotators report true azimuth; in magnetic mode show it corrected by
+    // the local declination (suffix M on the degree sign below).
+    const shown = displayBearing(azimuth, deLat, deLon, bearingMode);
+    const a = shown ? shown.deg : ((Math.round(azimuth) % 360) + 360) % 360;
     return String(a).padStart(3, '0');
-  }, [azimuth, status]);
+  }, [azimuth, status, deLat, deLon, bearingMode]);
+  const magneticReadout = bearingMode === 'magnetic' && Number.isFinite(deLat) && Number.isFinite(deLon);
 
   const [showCompass, setShowCompass] = React.useState(() => {
     try {
@@ -156,6 +170,10 @@ export default function RotatorPanel({
       </div>
 
       {typeof onTurnAzimuth === 'function' && (
+        <AutoTrackControls satOptions={satOptions} disabled={!controlsEnabled} elevation={state?.elevation} />
+      )}
+
+      {typeof onTurnAzimuth === 'function' && (
         <div
           style={{
             display: 'flex',
@@ -192,8 +210,13 @@ export default function RotatorPanel({
 
             <button
               disabled={!controlsEnabled || typeof onStop !== 'function'}
-              onClick={() => onStop?.()}
+              onClick={() => {
+                // STOP always leaves Auto — a halted rotator must stay halted.
+                setRotatorMode('off');
+                onStop?.();
+              }}
               style={btnStyle(!controlsEnabled)}
+              aria-label="Stop rotator and leave auto-track"
             >
               STOP
             </button>
@@ -288,8 +311,9 @@ export default function RotatorPanel({
                 position: 'relative',
                 top: -4, // optional: nudges ° up
               }}
+              title={magneticReadout ? 'Magnetic bearing (WMM2025)' : 'True bearing'}
             >
-              °
+              °{magneticReadout ? 'M' : ''}
             </span>
           </div>
         </div>
@@ -381,6 +405,135 @@ function btnStyle(disabled) {
     border: '1px solid rgba(255,255,255,0.18)',
     color: disabled ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.75)',
   };
+}
+
+/**
+ * Auto-track row: OFF / DX / SAT, long-path toggle for DX, satellite picker
+ * for SAT, and the commanded target. The planning and sending happen in
+ * useRotatorAutoTrack (DockableApp); this just flips the store.
+ */
+function AutoTrackControls({ satOptions, disabled, elevation }) {
+  const { t } = useTranslation();
+  const auto = useSatAutomation();
+  const mode = auto.rotatorMode;
+  const target = auto.rotatorTarget;
+  const pill = (active, color = '#00ffff') => ({
+    padding: '4px 10px',
+    borderRadius: 999,
+    fontSize: 11,
+    fontFamily: 'var(--font-mono)',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    background: active ? `color-mix(in srgb, ${color} 18%, transparent)` : 'rgba(0,0,0,0.35)',
+    border: `1px solid ${active ? color : 'rgba(255,255,255,0.18)'}`,
+    color: active ? color : 'rgba(255,255,255,0.65)',
+    fontWeight: active ? 700 : 400,
+  });
+  const trueAz = target && Number.isFinite(target.az) ? (target.flip ? (target.az + 180) % 360 : target.az) : null;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+      <div
+        role="group"
+        aria-label={t('satAuto.autoGroupAria')}
+        style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}
+      >
+        <span style={{ fontSize: 11, opacity: 0.7, alignSelf: 'center', fontFamily: 'var(--font-mono)' }}>AUTO</span>
+        <button
+          disabled={disabled}
+          aria-pressed={mode === 'off'}
+          onClick={() => setRotatorMode('off')}
+          style={pill(mode === 'off', 'rgba(255,255,255,0.85)')}
+        >
+          OFF
+        </button>
+        <button
+          disabled={disabled}
+          aria-pressed={mode === 'dx'}
+          onClick={() => setRotatorMode('dx')}
+          style={pill(mode === 'dx')}
+          title={t('satAuto.autoDxTitle')}
+        >
+          DX
+        </button>
+        <button
+          disabled={disabled || satOptions.length === 0}
+          aria-pressed={mode === 'sat'}
+          onClick={() => setRotatorMode('sat', auto.satName || satOptions[0])}
+          style={pill(mode === 'sat', '#ffbf00')}
+          title={satOptions.length === 0 ? t('satAuto.noTrackedSats') : t('satAuto.autoSatTitle')}
+        >
+          SAT
+        </button>
+        {mode === 'dx' && (
+          <button
+            disabled={disabled}
+            aria-pressed={auto.longPath}
+            onClick={() => setLongPath(!auto.longPath)}
+            style={pill(auto.longPath, '#b388ff')}
+            title={t('satAuto.longPathTitle')}
+          >
+            {auto.longPath ? 'LP' : 'SP'}
+          </button>
+        )}
+        {mode === 'sat' && (
+          <select
+            value={auto.satName || ''}
+            onChange={(e) => setAutomationSat(e.target.value || null)}
+            aria-label={t('satAuto.pickSatellite')}
+            style={{
+              fontSize: 11,
+              fontFamily: 'var(--font-mono)',
+              background: 'rgba(0,0,0,0.35)',
+              color: 'rgba(255,255,255,0.85)',
+              border: '1px solid rgba(255,255,255,0.18)',
+              borderRadius: 8,
+              padding: '3px 6px',
+              maxWidth: 140,
+            }}
+          >
+            {!auto.satName && <option value="">{t('satAuto.pickSatellite')}</option>}
+            {satOptions.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
+      {mode !== 'off' && (
+        <div
+          style={{ fontSize: 11, opacity: 0.8, fontFamily: 'var(--font-mono)', textAlign: 'center' }}
+          aria-live="polite"
+        >
+          {trueAz != null ? (
+            <>
+              → <b>{String(Math.round(trueAz)).padStart(3, '0')}°</b>
+              {target.el != null && (target.phase === 'tracking' || target.flip) ? ` / ${Math.round(target.el)}°` : ''}
+              {target.flip ? ` · ${t('satAuto.flip')}` : ''}
+              {' · '}
+              {target.phase === 'preposition'
+                ? t('satAuto.phasePreposition')
+                : target.phase === 'tracking'
+                  ? t('satAuto.phaseTracking')
+                  : t('satAuto.phaseIdle')}
+              {!target.rotatorAvailable ? ` · ${t('satAuto.rotatorOffline')}` : ''}
+            </>
+          ) : mode === 'sat' ? (
+            target?.nextAos ? (
+              t('satAuto.waitingForPass', {
+                time: new Date(target.nextAos).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              })
+            ) : (
+              t('satAuto.phaseIdle')
+            )
+          ) : (
+            t('satAuto.noDx')
+          )}
+          {Number.isFinite(elevation) ? ` · EL ${Math.round(elevation)}°` : ''}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function AzGoto({ disabled, onGo }) {

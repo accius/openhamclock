@@ -13,6 +13,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useRig } from '../contexts/RigContext.jsx';
+import { useNetLoggerNets } from '../hooks/useNetLoggerNets.js';
 import { formatMemoryFreq, parseFreqMHz } from '../utils/freqMemories.js';
 import {
   loadNetSchedule,
@@ -82,6 +83,45 @@ export const NetSchedulePanel = () => {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(blankForm);
   const [formError, setFormError] = useState(false);
+
+  // "My nets" (the local schedule) vs "Live" (NetLogger's active nets).
+  const [tab, setTab] = useState(() => {
+    try {
+      return localStorage.getItem('ohc_nets_tab') === 'live' ? 'live' : 'mine';
+    } catch {
+      return 'mine';
+    }
+  });
+  const switchTab = (next) => {
+    setTab(next);
+    try {
+      localStorage.setItem('ohc_nets_tab', next);
+    } catch {}
+  };
+  const live = useNetLoggerNets({ enabled: tab === 'live' });
+  const [expandedNet, setExpandedNet] = useState(null); // "server|name"
+  const [checkins, setCheckins] = useState({}); // key → { loading, data, error }
+
+  const toggleExpand = async (net) => {
+    const key = `${net.server}|${net.name}`;
+    if (expandedNet === key) {
+      setExpandedNet(null);
+      return;
+    }
+    setExpandedNet(key);
+    setCheckins((c) => ({ ...c, [key]: { ...(c[key] || {}), loading: true } }));
+    try {
+      const data = await live.loadCheckins(net);
+      setCheckins((c) => ({ ...c, [key]: { loading: false, data, error: null } }));
+    } catch (err) {
+      setCheckins((c) => ({ ...c, [key]: { loading: false, data: null, error: err?.message || 'failed' } }));
+    }
+  };
+
+  const handleLiveTune = (net) => {
+    if (!canTune || net.freq == null) return;
+    rig.tuneTo(net.freq, net.mode || null);
+  };
 
   // Countdown tick — 30 s keeps "in 2h 14m" honest without burning cycles
   useEffect(() => {
@@ -194,30 +234,75 @@ export const NetSchedulePanel = () => {
           fontWeight: '700',
         }}
       >
-        <span>🕐 {t('netSchedule.title', { defaultValue: 'NET SCHEDULE' })}</span>
-        <button
-          onClick={showForm ? closeForm : openAdd}
-          title={
-            showForm
-              ? t('netSchedule.cancel', { defaultValue: 'Cancel' })
-              : t('netSchedule.add', { defaultValue: 'Add net' })
-          }
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--border-color)',
-            borderRadius: '4px',
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-            fontSize: '10px',
-            padding: '1px 7px',
-            fontFamily: 'var(--font-mono)',
-          }}
-        >
-          {showForm ? '✕' : '+'}
-        </button>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <span>🕐 {t('netSchedule.title', { defaultValue: 'NET SCHEDULE' })}</span>
+          <span
+            role="tablist"
+            aria-label={t('netSchedule.tabs', { defaultValue: 'Net list' })}
+            style={{ display: 'flex' }}
+          >
+            {[
+              ['mine', t('netSchedule.tabMine', { defaultValue: 'My nets' })],
+              ['live', t('netSchedule.tabLive', { defaultValue: 'Live' })],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                role="tab"
+                aria-selected={tab === id}
+                onClick={() => switchTab(id)}
+                style={{
+                  background: tab === id ? 'var(--accent-amber)' : 'transparent',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: id === 'mine' ? '4px 0 0 4px' : '0 4px 4px 0',
+                  color: tab === id ? '#000' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  fontSize: '9px',
+                  padding: '1px 6px',
+                  fontFamily: 'var(--font-mono)',
+                  fontWeight: tab === id ? '700' : '400',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+        </span>
+        {tab === 'mine' ? (
+          <button
+            onClick={showForm ? closeForm : openAdd}
+            title={
+              showForm
+                ? t('netSchedule.cancel', { defaultValue: 'Cancel' })
+                : t('netSchedule.add', { defaultValue: 'Add net' })
+            }
+            aria-label={
+              showForm
+                ? t('netSchedule.cancel', { defaultValue: 'Cancel' })
+                : t('netSchedule.add', { defaultValue: 'Add net' })
+            }
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--border-color)',
+              borderRadius: '4px',
+              color: 'var(--text-secondary)',
+              cursor: 'pointer',
+              fontSize: '10px',
+              padding: '1px 7px',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            {showForm ? '✕' : '+'}
+          </button>
+        ) : (
+          <span style={{ fontSize: '9px', color: 'var(--text-muted)', fontWeight: '400' }}>
+            {live.loading
+              ? '…'
+              : t('netSchedule.liveCount', { defaultValue: '{{count}} on air', count: live.nets.length })}
+          </span>
+        )}
       </div>
 
-      {showForm && (
+      {tab === 'mine' && showForm && (
         <form
           onSubmit={handleSave}
           style={{
@@ -347,7 +432,185 @@ export const NetSchedulePanel = () => {
       )}
 
       <div style={{ flex: 1, overflowY: 'auto', fontSize: '10px', fontFamily: 'var(--font-mono)' }}>
-        {nets.length === 0 && !showForm ? (
+        {tab === 'live' ? (
+          live.loading && live.nets.length === 0 ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+              <div className="loading-spinner" />
+            </div>
+          ) : live.nets.length === 0 ? (
+            <div style={{ color: live.error ? 'var(--accent-red, #f44)' : 'var(--text-muted)', padding: '10px 4px' }}>
+              {live.error
+                ? t('netSchedule.liveError', { defaultValue: 'NetLogger is not answering — retrying every minute.' })
+                : t('netSchedule.liveEmpty', { defaultValue: 'No nets are being logged on NetLogger right now.' })}
+            </div>
+          ) : (
+            live.nets.map((net) => {
+              const key = `${net.server}|${net.name}`;
+              const open = expandedNet === key;
+              const ci = checkins[key];
+              const tunable = canTune && net.freq != null;
+              return (
+                <div
+                  key={key}
+                  style={{
+                    padding: '5px 6px',
+                    marginBottom: '3px',
+                    borderRadius: '4px',
+                    background: open ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.03)',
+                    border: '1px solid transparent',
+                  }}
+                >
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    aria-expanded={open}
+                    onClick={() => toggleExpand(net)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        toggleExpand(net);
+                      }
+                    }}
+                    style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}
+                    title={t('netSchedule.liveExpand', { defaultValue: 'Show check-ins' })}
+                  >
+                    <span style={{ color: 'var(--text-muted)', fontSize: '8px' }}>{open ? '▼' : '▶'}</span>
+                    <span
+                      style={{
+                        color: 'var(--text-primary)',
+                        fontWeight: '600',
+                        flex: 1,
+                        whiteSpace: 'nowrap',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                      }}
+                    >
+                      {net.name}
+                    </span>
+                    <span
+                      style={{
+                        background: 'rgba(74, 222, 128, 0.2)',
+                        color: '#4ade80',
+                        border: '1px solid #4ade80',
+                        padding: '0 5px',
+                        borderRadius: '3px',
+                        fontSize: '8px',
+                        fontWeight: '700',
+                        flexShrink: 0,
+                      }}
+                      title={t('netSchedule.liveCheckins', { defaultValue: 'Check-ins' })}
+                    >
+                      {net.checkins}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: '6px',
+                      marginTop: '2px',
+                      color: 'var(--text-muted)',
+                      fontSize: '9px',
+                      paddingLeft: '14px',
+                    }}
+                  >
+                    <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {net.ncs ? `NCS ${net.ncs}` : ''}
+                      {net.started ? (
+                        <span style={{ marginLeft: net.ncs ? '6px' : 0 }}>
+                          {t('netSchedule.liveSince', {
+                            defaultValue: 'since {{time}}z',
+                            time: net.started.slice(11, 16),
+                          })}
+                        </span>
+                      ) : null}
+                    </span>
+                    <span style={{ whiteSpace: 'nowrap' }}>
+                      {net.freq != null ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleLiveTune(net);
+                          }}
+                          disabled={!tunable}
+                          title={
+                            tunable
+                              ? t('netSchedule.tuneTooltip', {
+                                  defaultValue: 'Tune rig to {{freq}} MHz',
+                                  freq: formatMemoryFreq(net.freq),
+                                })
+                              : undefined
+                          }
+                          style={{
+                            background: 'transparent',
+                            border: 'none',
+                            padding: 0,
+                            color: 'var(--accent-amber)',
+                            fontFamily: 'var(--font-mono)',
+                            fontSize: '9px',
+                            cursor: tunable ? 'pointer' : 'default',
+                            textDecoration: tunable ? 'underline dotted' : 'none',
+                          }}
+                        >
+                          {formatMemoryFreq(net.freq)}
+                        </button>
+                      ) : net.freqRaw ? (
+                        <span>{net.freqRaw}</span>
+                      ) : null}
+                      {net.mode && <span style={{ marginLeft: '4px' }}>{net.mode}</span>}
+                      {net.band && <span style={{ marginLeft: '4px', opacity: 0.7 }}>{net.band}</span>}
+                    </span>
+                  </div>
+                  {open && (
+                    <div style={{ marginTop: '4px', paddingLeft: '14px', fontSize: '9px' }}>
+                      {ci?.loading ? (
+                        <span style={{ color: 'var(--text-muted)' }}>…</span>
+                      ) : ci?.error ? (
+                        <span style={{ color: 'var(--accent-red, #f44)' }}>
+                          {t('netSchedule.liveCheckinsError', { defaultValue: 'Could not load check-ins' })}
+                        </span>
+                      ) : ci?.data?.checkins?.length ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr auto', gap: '2px 8px' }}>
+                          {ci.data.checkins.map((c) => (
+                            <div key={`${c.serial}-${c.call}`} style={{ display: 'contents' }}>
+                              <span
+                                style={{
+                                  color:
+                                    c.status && /nc/i.test(c.status) ? 'var(--accent-amber)' : 'var(--text-primary)',
+                                  fontWeight: '600',
+                                }}
+                                title={c.status || ''}
+                              >
+                                {c.call}
+                              </span>
+                              <span
+                                style={{
+                                  color: 'var(--text-muted)',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                {[c.name, c.city, c.state || c.country].filter(Boolean).join(', ')}
+                                {c.remarks ? ` — ${c.remarks}` : ''}
+                              </span>
+                              <span style={{ color: 'var(--text-secondary)' }}>{c.grid || ''}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>
+                          {t('netSchedule.liveNoCheckins', { defaultValue: 'No check-ins yet' })}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )
+        ) : nets.length === 0 && !showForm ? (
           <div style={{ color: 'var(--text-muted)', padding: '10px 4px', lineHeight: 1.5 }}>
             {t('netSchedule.empty', {
               defaultValue:
@@ -481,7 +744,11 @@ export const NetSchedulePanel = () => {
           paddingTop: '2px',
         }}
       >
-        {t('netSchedule.footer', { defaultValue: 'times in UTC · gray preview in your local time' })}
+        {tab === 'live'
+          ? t('netSchedule.liveFooter', {
+              defaultValue: 'NetLogger · refreshes every minute · click a net for check-ins',
+            })
+          : t('netSchedule.footer', { defaultValue: 'times in UTC · gray preview in your local time' })}
       </div>
     </div>
   );

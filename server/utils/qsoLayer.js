@@ -32,7 +32,6 @@ const COLOR_RE = /^(#[0-9a-f]{3,8}|[a-z]{3,20})$/i;
 function cleanString(value, maxLen) {
   if (typeof value !== 'string') return '';
   // Strip control characters; trim; cap length.
-  // eslint-disable-next-line no-control-regex
   return value
     .replace(/[\u0000-\u001f\u007f]/g, '')
     .trim()

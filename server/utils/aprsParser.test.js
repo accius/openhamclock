@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { parseAprsPacket, parseMice, parseResourceTokens, MICE_TYPES } from './aprsParser.js';
+import {
+  parseAprsPacket,
+  parseMice,
+  parseResourceTokens,
+  unwrapThirdParty,
+  parseMessagePayload,
+  MICE_TYPES,
+} from './aprsParser.js';
 
 // Expected values cross-checked with aprslib (the reference Python parser)
 // wherever it supports the format; third-party and item formats follow APRS 1.01.
@@ -199,6 +206,33 @@ describe('parseAprsPacket', () => {
   });
 });
 
+describe('message frames (#1252, #1253)', () => {
+  it('unwrapThirdParty returns the inner sender and payload', () => {
+    expect(
+      unwrapThirdParty('W8EH>APU25N,W8BLV,WIDE1*,WIDE2-1:}KE8PLM-9>APFII0,TCPIP,W8EH*::KE8PLM   :ack687\r'),
+    ).toEqual({ src: 'KE8PLM-9', destination: 'APFII0', payload: ':KE8PLM   :ack687', thirdPartyVia: ['W8EH'] });
+    expect(unwrapThirdParty('N8TAG>APRS::W1AW     :hi')).toMatchObject({ src: 'N8TAG', thirdPartyVia: [] });
+    expect(unwrapThirdParty('A>B:' + '}A>B:'.repeat(10) + 'x')).toBeNull(); // depth-limited
+    expect(unwrapThirdParty('garbage')).toBeNull();
+  });
+
+  it('parseMessagePayload splits ids, reply-acks, acks and rejs off the text', () => {
+    expect(parseMessagePayload(':KE8PLM   :got it{0D}682')).toEqual({
+      to: 'KE8PLM',
+      text: 'got it',
+      msgId: '0D',
+      replyAck: '682',
+      ack: null,
+      rej: null,
+    });
+    expect(parseMessagePayload(':KE8PLM   :ack687\r')).toMatchObject({ ack: '687', rej: null, msgId: null });
+    expect(parseMessagePayload(':KE8PLM   :rej687 ')).toMatchObject({ ack: null, rej: '687' });
+    expect(parseMessagePayload(':KE8PLM   :set {verbose} on')).toMatchObject({ text: 'set {verbose} on', msgId: null });
+    expect(parseMessagePayload('!3900.11N/08411.80W-')).toBeNull();
+    expect(parseMessagePayload(':TOOLONGADDRESS:hi')).toBeNull();
+  });
+});
+
 describe('rig-bridge copy stays in step', () => {
   it('rig-bridge/lib/aprs-parser.js is a verbatim copy of server/utils/aprsParser.js (banner aside)', () => {
     const root = path.resolve(__dirname, '..', '..');
@@ -252,6 +286,59 @@ describe('shelter beacons from the aprs.fi app (#1235, #1236)', () => {
   it('normalizes resource keys typed in any case, keeps unknown keys as sent', () => {
     const { tokens } = parseResourceTokens('OPEN [WATER 100] [BEDS 12/20] [beds 1/2] [MRE 40]');
     expect(tokens.map((t) => t.key)).toEqual(['Water', 'Beds', 'Beds', 'MRE']);
+  });
+});
+
+describe('spaceless and mixed-case resource tokens (#1254)', () => {
+  it('reads a known key run straight into its value, in any case', () => {
+    const { tokens, cleanComment } = parseResourceTokens('OPEN [BEDS180/200] [water170/190] [Food 50]');
+    expect(tokens).toEqual([
+      { key: 'Beds', current: 180, max: 200, type: 'capacity' },
+      { key: 'Water', current: 170, max: 190, type: 'capacity' },
+      { key: 'Food', value: 50, type: 'quantity' },
+    ]);
+    expect(cleanComment).toBe('OPEN');
+  });
+
+  it('matches the spaced form token for token', () => {
+    const spaced = parseResourceTokens('[Beds 180/200] [Water OK] [Fuel -20] [Med !] [Staff 12]').tokens;
+    const tight = parseResourceTokens('[beds180/200][WATEROK][Fuel-20][MED!][staff12]').tokens;
+    expect(tight).toEqual(spaced);
+    expect(tight.map((t) => t.type)).toEqual(['capacity', 'status', 'need', 'critical', 'quantity']);
+  });
+
+  it('tolerates spaces inside the brackets and around the slash', () => {
+    const { tokens } = parseResourceTokens('[ Beds 180 / 200 ] [  gen OK ]');
+    expect(tokens).toEqual([
+      { key: 'Beds', current: 180, max: 200, type: 'capacity' },
+      { key: 'Gen', value: 'OK', type: 'status' },
+    ]);
+  });
+
+  it('prefers the longest key ("Evacuees" over "Evac")', () => {
+    expect(parseResourceTokens('[EVACUEES12] [evac3]').tokens.map((t) => t.key)).toEqual(['Evacuees', 'Evac']);
+  });
+
+  it('leaves unknown or untyped spaceless text alone', () => {
+    const r = parseResourceTokens('[MRE40] [Generators] [Bedsfull] [Beds] note');
+    expect(r.tokens).toEqual([]);
+    expect(r.cleanComment).toBe('[MRE40] [Generators] [Bedsfull] [Beds] note');
+  });
+
+  it('still parses in a full packet', () => {
+    const p = parseAprsPacket(String.raw`KE8PLM-3>APFII0,WIDE1-1:@165208h3900.11N\08411.80WzOPEN [BEDS4/20][WATER50]`);
+    expect(p.tokens).toEqual([
+      { key: 'Beds', current: 4, max: 20, type: 'capacity' },
+      { key: 'Water', value: 50, type: 'quantity' },
+    ]);
+    expect(p.cleanComment).toBe('OPEN');
+  });
+
+  it('"[" plus long space runs stays fast', () => {
+    const t0 = Date.now();
+    parseResourceTokens('[' + ' '.repeat(50000) + 'Beds');
+    parseResourceTokens('[ '.repeat(25000));
+    expect(Date.now() - t0).toBeLessThan(200);
   });
 });
 

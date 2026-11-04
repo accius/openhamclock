@@ -2,11 +2,27 @@
  * WinlinkPanel Component
  * Winlink gateway discovery, Pat client inbox/outbox, and compose.
  * Interfaces with the winlink-gateway rig-bridge plugin.
+ *
+ * The Reachable view (predicted HF reachability of nearby gateways) needs
+ * only the gateway list, so it is available even without Rig Bridge.
  */
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useWinlink } from '../hooks/useWinlink';
+import WinlinkReachView from './WinlinkReachView.jsx';
 
-const WinlinkPanel = () => {
+const TAB_STORAGE_KEY = 'ohc_winlinkPanelTab';
+
+function loadTab() {
+  try {
+    return localStorage.getItem(TAB_STORAGE_KEY) || 'reach';
+  } catch {
+    return 'reach';
+  }
+}
+
+const WinlinkPanel = ({ deLocation, propConfig, solarIndices, units, onSelectGateway } = {}) => {
+  const { t } = useTranslation();
   const {
     status,
     inbox,
@@ -20,7 +36,10 @@ const WinlinkPanel = () => {
     connectGateway,
   } = useWinlink();
 
-  const [tab, setTab] = useState('inbox'); // inbox | outbox | gateways | compose
+  const [tab, setTab] = useState(loadTab); // reach | inbox | outbox | gateways | compose
+  // The Reachable view stays mounted once opened so the map layer keeps its
+  // reachability colouring while the operator reads mail.
+  const [reachOn, setReachOn] = useState(false);
   const [search, setSearch] = useState('');
   const [gwGrid, setGwGrid] = useState('');
   const [gwRange, setGwRange] = useState('500');
@@ -95,34 +114,35 @@ const WinlinkPanel = () => {
     }
   };
 
-  if (loading) {
+  const rigBridgeOn = !!status.enabled;
+  const tabs = [
+    { key: 'reach', label: t('winlinkReach.tab', { defaultValue: 'Reachable' }), show: true },
+    { key: 'inbox', label: `Inbox (${inbox.length})`, show: rigBridgeOn && status.patEnabled },
+    { key: 'outbox', label: `Outbox (${outbox.length})`, show: rigBridgeOn && status.patEnabled },
+    { key: 'gateways', label: 'Gateways', show: rigBridgeOn && status.gatewayDiscovery },
+    { key: 'compose', label: 'Compose', show: rigBridgeOn && status.patEnabled },
+  ].filter((x) => x.show);
+  const activeTab = tabs.some((x) => x.key === tab) ? tab : 'reach';
+
+  useEffect(() => {
+    if (activeTab === 'reach') setReachOn(true);
+  }, [activeTab]);
+
+  const chooseTab = useCallback((key) => {
+    setTab(key);
+    try {
+      localStorage.setItem(TAB_STORAGE_KEY, key);
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+
+  // Only block on the rig-bridge status for tabs that need it; the Reachable
+  // view runs from the gateway list alone.
+  if (loading && activeTab !== 'reach') {
     return (
       <div style={{ padding: '20px', color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center' }}>
         Loading...
-      </div>
-    );
-  }
-
-  if (!status.enabled) {
-    return (
-      <div
-        className="panel"
-        style={{ padding: '20px', color: 'var(--text-muted)', fontSize: '13px', textAlign: 'center' }}
-      >
-        <div style={{ fontSize: '24px', marginBottom: '10px' }}>📬</div>
-        <div style={{ fontWeight: '600', color: 'var(--text-primary)', marginBottom: '8px' }}>Winlink Not Enabled</div>
-        <div>Enable the Winlink plugin in your rig-bridge config.</div>
-        <div style={{ marginTop: '10px', fontSize: '11px' }}>
-          Set{' '}
-          <code style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '3px' }}>
-            winlink.enabled: true
-          </code>{' '}
-          and optionally configure{' '}
-          <code style={{ background: 'var(--bg-tertiary)', padding: '2px 6px', borderRadius: '3px' }}>
-            winlink.apiKey
-          </code>{' '}
-          for gateway discovery.
-        </div>
       </div>
     );
   }
@@ -195,36 +215,29 @@ const WinlinkPanel = () => {
           background: 'var(--bg-secondary)',
         }}
       >
-        {[
-          { key: 'inbox', label: `Inbox (${inbox.length})`, show: status.patEnabled },
-          { key: 'outbox', label: `Outbox (${outbox.length})`, show: status.patEnabled },
-          { key: 'gateways', label: 'Gateways', show: status.gatewayDiscovery },
-          { key: 'compose', label: 'Compose', show: status.patEnabled },
-        ]
-          .filter((t) => t.show)
-          .map((t) => (
-            <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                padding: '3px 8px',
-                fontSize: '10px',
-                borderRadius: '3px',
-                border: tab === t.key ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)',
-                background: tab === t.key ? 'var(--accent-cyan)' : 'transparent',
-                color: tab === t.key ? '#000' : 'var(--text-muted)',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                fontWeight: tab === t.key ? '600' : '400',
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
+        {tabs.map((x) => (
+          <button
+            key={x.key}
+            onClick={() => chooseTab(x.key)}
+            style={{
+              padding: '3px 8px',
+              fontSize: '10px',
+              borderRadius: '3px',
+              border: activeTab === x.key ? '1px solid var(--accent-cyan)' : '1px solid var(--border-color)',
+              background: activeTab === x.key ? 'var(--accent-cyan)' : 'transparent',
+              color: activeTab === x.key ? '#000' : 'var(--text-muted)',
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              fontWeight: activeTab === x.key ? '600' : '400',
+            }}
+          >
+            {x.label}
+          </button>
+        ))}
       </div>
 
       {/* Search (inbox/outbox) */}
-      {(tab === 'inbox' || tab === 'outbox') && (
+      {(activeTab === 'inbox' || activeTab === 'outbox') && (
         <div style={{ padding: '4px 8px', borderBottom: '1px solid var(--border-color)' }}>
           <input
             value={search}
@@ -247,8 +260,27 @@ const WinlinkPanel = () => {
 
       {/* Content */}
       <div style={{ flex: 1, overflow: 'auto', padding: '4px' }}>
+        {/* Reachable — predicted HF reachability of nearby gateways */}
+        {reachOn && (
+          <WinlinkReachView
+            hidden={activeTab !== 'reach'}
+            deLocation={deLocation}
+            propConfig={propConfig}
+            solarIndices={solarIndices}
+            units={units}
+            onSelectGateway={onSelectGateway}
+          />
+        )}
+        {activeTab === 'reach' && !rigBridgeOn && (
+          <div style={{ padding: '8px 4px 2px', fontSize: '10px', color: 'var(--text-muted)' }}>
+            {t('winlinkReach.rigBridgeHint', {
+              defaultValue:
+                'Inbox, outbox and compose need the Rig Bridge Winlink plugin (winlink.enabled: true, with Pat for messaging).',
+            })}
+          </div>
+        )}
         {/* Inbox */}
-        {tab === 'inbox' && (
+        {activeTab === 'inbox' && (
           <>
             {mailLoading && inbox.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>Loading mail...</div>
@@ -303,7 +335,7 @@ const WinlinkPanel = () => {
         )}
 
         {/* Outbox */}
-        {tab === 'outbox' && (
+        {activeTab === 'outbox' && (
           <>
             {filteredOutbox.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
@@ -338,7 +370,7 @@ const WinlinkPanel = () => {
         )}
 
         {/* Gateways */}
-        {tab === 'gateways' && (
+        {activeTab === 'gateways' && (
           <>
             {/* Search controls */}
             <div
@@ -502,7 +534,7 @@ const WinlinkPanel = () => {
         )}
 
         {/* Compose */}
-        {tab === 'compose' && (
+        {activeTab === 'compose' && (
           <div style={{ padding: '4px' }}>
             <div style={{ marginBottom: '8px' }}>
               <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '2px' }}>
@@ -612,7 +644,7 @@ const WinlinkPanel = () => {
         )}
 
         {/* No features available */}
-        {!status.patEnabled && !status.gatewayDiscovery && (
+        {activeTab === 'reach' && rigBridgeOn && !status.patEnabled && !status.gatewayDiscovery && (
           <div style={{ textAlign: 'center', padding: '20px', color: 'var(--text-muted)' }}>
             <div style={{ marginBottom: '8px' }}>Winlink plugin is running but no features are configured.</div>
             <div style={{ fontSize: '11px' }}>

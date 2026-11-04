@@ -6,7 +6,11 @@ on:
 
 jobs:
   close-issue:
-    if: github.repository == 'accius/openhamclock'
+    # Only the issue's author or a maintainer may close it with /close
+    if: |
+      github.repository == 'accius/openhamclock' &&
+      (github.event.comment.user.login == github.event.issue.user.login ||
+       contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association))
     runs-on: ubuntu-latest
     permissions:
       issues: write

@@ -309,11 +309,12 @@ export const ContestLogStrip = ({
   // badge (they're in the local log too), so only cross-station hits get the
   // distinct badge — and it names the operator, so you can shout across the
   // tent.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const groupDupeBy = useMemo(() => {
     if (!groupSession || trimmed.length < 3) return null;
     const dupe = findGroupDupes(trimmed, band, mode).find((q) => q.operator && q.operator !== groupSession.call);
     return dupe ? dupe.operator : null;
+    // groupQsos is read indirectly through findGroupDupes; keep it so the memo refreshes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupSession, groupQsos, trimmed, band, mode, findGroupDupes]);
   const badge =
     trimmed.length >= 3

@@ -268,6 +268,13 @@ ipcMain.on('set-prevent-sleep', (_event, enabled) => {
   }
 });
 
+// IPC: screenshot for the remote-control API (see src/utils/captureFrame.js)
+ipcMain.handle('capture-page', async () => {
+  if (!mainWindow || mainWindow.isDestroyed()) return null;
+  const image = await mainWindow.webContents.capturePage();
+  return image.toPNG().toString('base64');
+});
+
 // App ready
 app.whenReady().then(() => {
   createWindow();

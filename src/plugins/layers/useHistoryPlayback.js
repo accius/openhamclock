@@ -73,16 +73,16 @@ export function useLayer({ enabled = false, opacity = 0.8, map = null }) {
       const color = getBandColorForFreq(s.freq);
       // Newer spots within the window draw stronger
       const age = Math.max(0, Math.min(1, (s.timestamp - from) / span));
-      const alpha = opacity * (0.25 + 0.75 * age);
+      const alpha = opacity * (0.45 + 0.55 * age);
 
       if (s.spotterLat != null && s.spotterLon != null) {
         const arc = getGreatCirclePoints(s.spotterLat, s.spotterLon, s.dxLat, s.dxLon, 24);
         for (const copy of replicatePath(arc)) {
-          group.addLayer(L.polyline(copy, { color, weight: 1, opacity: alpha, interactive: false }));
+          group.addLayer(L.polyline(copy, { color, weight: 1.6, opacity: alpha, interactive: false }));
         }
       }
       const dot = L.circleMarker([s.dxLat, s.dxLon], {
-        radius: 3,
+        radius: 4,
         fillColor: color,
         color: '#000',
         weight: 0.5,

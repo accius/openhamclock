@@ -37,6 +37,7 @@ import {
   KeybindingsPanel,
   DXLocalTime,
   DigitalModesPanel,
+  DecoderPanel,
   WinlinkPanel,
   WorldClockPanel,
   StopwatchPanel,
@@ -52,8 +53,11 @@ import {
   IBPPanel,
   SWPCAlertsPanel,
   MeteorShowerPanel,
+  RoverPanel,
+  EnvSensorsPanel,
   FrequencyMemoriesPanel,
   NetSchedulePanel,
+  NetControlPanel,
   CallsignSearchPanel,
   DXNewsPanel,
   SolarCyclePanel,
@@ -61,10 +65,30 @@ import {
   SkedPlannerPanel,
   IonosondePanel,
   PropVerifyPanel,
+  GraylinePlannerPanel,
+  EmePlannerPanel,
+  SatPlannerPanel,
+  OpportunityPanel,
+  SolarOutlookPanel,
+  BenchmarkPanel,
+  NOAAScalesPanel,
+  DstPanel,
+  EclipsePanel,
+  PlanetsPanel,
+  SpaceLaunchesPanel,
+  TropicalPanel,
+  FireWeatherPanel,
+  MarinePanel,
+  WindyPanel,
+  WefaxPanel,
+  HamAlertPanel,
+  BalloonsPanel,
+  IcsFormsPanel,
 } from './components';
 import MeshtasticPanel from './components/MeshtasticPanel.jsx';
 import LogbookPanel from './components/LogbookPanel.jsx';
 import AwardsPanel from './components/AwardsPanel.jsx';
+import ClusterConsolePanel from './components/ClusterConsolePanel.jsx';
 
 import {
   getActiveLayout,
@@ -93,6 +117,16 @@ import './styles/flexlayout-openhamclock.css';
 import useMapLayers from './hooks/app/useMapLayers';
 import { useMapTextData } from './hooks/useMapTextData.js';
 import useRotator from './hooks/useRotator';
+import useRigBridgeRotator from './hooks/useRigBridgeRotator';
+import useDopplerTuning from './hooks/useDopplerTuning';
+import useRotatorAutoTrack from './hooks/useRotatorAutoTrack';
+import { useSatAutomation, setSatAutomationLive, setRotatorMode } from './utils/satAutomationStore.js';
+import { useGps } from './hooks/useGps.js';
+import { useNOAAScales } from './hooks/useNOAAScales.js';
+import { useDst } from './hooks/useDst.js';
+import { useHamAlert } from './hooks/useHamAlert.js';
+import useAudioAlerts from './hooks/app/useAudioAlerts';
+import { formatBearing, useBearingMode } from './utils/bearing.js';
 import { useCallsignPopup } from './components/CallsignPopupManager.jsx';
 
 // Icons
@@ -155,6 +189,8 @@ export const DockableApp = ({
   meshcomData,
   filteredPskSpots,
   wsjtxMapSpots,
+  // Opportunity feed (useOpportunities in App.jsx — shared with the alert engine)
+  opportunities,
 
   // Filters
   dxFilters,
@@ -328,6 +364,11 @@ export const DockableApp = ({
   // plugins for the text view panel (#1002 v2).
   const mapTextData = useMapTextData();
 
+  // NOAA R/S/G scales (NOAA Scales panel + Space Wx Alerts header) and Kyoto
+  // Dst (Dst panel) — fetched once here, server-cached, shared by every tab.
+  const noaaScales = useNOAAScales();
+  const dst = useDst();
+
   // Fallback: if parent did not provide map-layer toggles (seen with rotator),
   // use the internal hook so the map buttons still work.
   const internalMap = useMapLayers();
@@ -393,7 +434,35 @@ export const DockableApp = ({
   // Rig Control Hook
   const { tuneTo, enabled } = useRig();
 
+  // Rover mode: with Settings → Station → Follow GPS = follow, QSOs are
+  // stamped with the live GPS grid (MY_GRIDSQUARE) rather than the saved one.
+  const { fix: gpsFix } = useGps();
+  const liveGrid = config.gpsFollow === 'follow' && gpsFix?.grid6 ? gpsFix.grid6 : null;
+  // HamAlert feed (Rig Bridge plugin stream and/or self-hosted server feed)
+  // plus its audio/notification alert feed. Lives here rather than App.jsx
+  // so the panel works with props the factory already has.
+  const rigBridgeUrl =
+    config.rigControl?.enabled && config.rigControl?.host
+      ? `${config.rigControl.host}:${config.rigControl.port || 5555}`
+      : null;
+  const hamAlert = useHamAlert({ rigBridgeUrl });
+  useAudioAlerts({ hamalert: hamAlert.alerts });
+  // True vs magnetic bearings (Settings → Station) for the DX panel readouts
+  const bearingMode = useBearingMode();
+
   // Unified Spot Click Handler (Tune + Set DX)
+  // Reachable Winlink gateways: clicking one sets it as DX and brings it into
+  // view, same as a spot click. Tuning is handled inside the panel, which
+  // knows the channel's dial frequency and rig mode.
+  const handleSelectWinlinkGateway = useCallback(
+    (gw) => {
+      if (!gw || gw.lat == null || gw.lon == null) return;
+      handleDXChange({ lat: gw.lat, lon: gw.lon, callsign: gw.callsign ?? null });
+      requestMapFocus({ lat: gw.lat, lon: gw.lon });
+    },
+    [handleDXChange],
+  );
+
   const handleSpotClick = useCallback(
     (spot) => {
       if (!spot) return;
@@ -582,6 +651,24 @@ export const DockableApp = ({
     return () => window.removeEventListener('openhamclock:add-panel', onAddPanel);
   }, [model, panelDefs, layoutLocked]);
 
+  // Remote control → close a panel (`/api/control/panels {remove:[…]}`).
+  // Deletes every tab rendering that panel id; respects the layout lock.
+  useEffect(() => {
+    const onRemovePanel = (e) => {
+      const panelId = e.detail?.panelId;
+      if (!panelId || layoutLocked) return;
+      const tabIds = [];
+      const walk = (n) => {
+        if (n.getType?.() === 'tab' && n.getComponent?.() === panelId) tabIds.push(n.getId());
+        (n.getChildren?.() || []).forEach(walk);
+      };
+      walk(model.getRoot());
+      tabIds.forEach((id) => model.doAction(Actions.deleteTab(id)));
+    };
+    window.addEventListener('openhamclock:remove-panel', onRemovePanel);
+    return () => window.removeEventListener('openhamclock:remove-panel', onRemovePanel);
+  }, [model, layoutLocked]);
+
   // Render DE Location panel content
   const renderDELocation = (nodeId) => (
     <div className="panel" style={{ padding: '14px', height: '100%', overflowY: 'auto' }}>
@@ -752,11 +839,21 @@ export const DockableApp = ({
             </div>
             <div style={{ fontSize: '13px', marginBottom: '4px' }}>
               <span style={{ color: 'var(--text-secondary)' }}>{t?.('app.dxLocation.sp') || 'SP:'} </span>
-              <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>{spBearing}°</span>
+              <span
+                style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}
+                title={bearingMode === 'magnetic' ? 'Magnetic bearing (WMM2025)' : 'True bearing'}
+              >
+                {formatBearing(spBearing, config.location.lat, config.location.lon, bearingMode)}
+              </span>
             </div>
             <div style={{ fontSize: '13px', marginBottom: '8px' }}>
               <span style={{ color: 'var(--text-secondary)' }}>{t?.('app.dxLocation.lp') || 'LP:'} </span>
-              <span style={{ color: 'var(--accent-purple)', fontWeight: '700' }}>{lpBearing}°</span>
+              <span
+                style={{ color: 'var(--accent-purple)', fontWeight: '700' }}
+                title={bearingMode === 'magnetic' ? 'Magnetic bearing (WMM2025)' : 'True bearing'}
+              >
+                {formatBearing(lpBearing, config.location.lat, config.location.lon, bearingMode)}
+              </span>
             </div>
             <div style={{ fontSize: '13px', paddingTop: '6px', borderTop: '1px solid var(--border-color)' }}>
               <span style={{ color: 'var(--accent-cyan)', fontWeight: '700' }}>
@@ -801,6 +898,99 @@ export const DockableApp = ({
     return data;
   }, []);
 
+  // ── Satellite automation: rotator auto-track + Doppler tuning ──────────
+  // Two rotator backends: Rig Bridge's rotctld plugin (az + el, preferred
+  // when running) and the server's PSTRotator UDP route (az only).
+  const rigForSat = useRig();
+  const rbRotator = useRigBridgeRotator({
+    rigUrl: rigForSat.rigUrl,
+    apiToken: config.rigControl?.apiToken || '',
+    enabled: !!rigForSat.enabled && !rigForSat.isCloudRelay,
+  });
+  const rotatorBackend = useMemo(
+    () =>
+      rbRotator.available
+        ? {
+            kind: 'rig-bridge',
+            available: rbRotator.connected,
+            connected: rbRotator.connected,
+            azimuth: rbRotator.azimuth,
+            elevation: rbRotator.elevation,
+            hasElevation: true,
+          }
+        : {
+            kind: 'server',
+            available: rot.available && rot.status === 'connected',
+            connected: rot.status === 'connected',
+            azimuth: rot.azimuth,
+            elevation: null,
+            hasElevation: false,
+          },
+    [
+      rbRotator.available,
+      rbRotator.connected,
+      rbRotator.azimuth,
+      rbRotator.elevation,
+      rot.available,
+      rot.status,
+      rot.azimuth,
+    ],
+  );
+  const sendRotatorPosition = useCallback(
+    async ({ az, el }) => (rbRotator.available ? rbRotator.setPosition(az, el) : turnRotator(Math.round(az))),
+    [rbRotator.available, rbRotator.setPosition, turnRotator],
+  );
+  const stopAnyRotator = useCallback(async () => {
+    setRotatorMode('off');
+    return rbRotator.available ? rbRotator.stop() : stopRotator();
+  }, [rbRotator.available, rbRotator.stop, stopRotator]);
+  // What the Rotator panel and the map beam read: the live backend.
+  const rotatorView = useMemo(
+    () =>
+      rbRotator.available
+        ? {
+            azimuth: rbRotator.azimuth,
+            lastGoodAzimuth: rbRotator.azimuth,
+            elevation: rbRotator.elevation,
+            isStale: !rbRotator.connected,
+            status: rbRotator.connected ? 'connected' : 'disconnected',
+            lastError: rbRotator.error,
+            source: 'rig-bridge',
+            available: true,
+            reconnect: undefined,
+          }
+        : rot,
+    [rbRotator.available, rbRotator.azimuth, rbRotator.elevation, rbRotator.connected, rbRotator.error, rot],
+  );
+  useEffect(() => {
+    setSatAutomationLive({ rotatorAvailable: rotatorBackend.available });
+  }, [rotatorBackend.available]);
+  const satAuto = useSatAutomation();
+  const trackedSatNames = useMemo(
+    () => (satellites?.data || []).filter((s) => s.omm).map((s) => s.name),
+    [satellites?.data],
+  );
+  // Map beam: the commanded azimuth as a true bearing (un-flipped).
+  const rotatorTargetAzimuth = useMemo(() => {
+    const tgt = satAuto.rotatorTarget;
+    if (!tgt || !Number.isFinite(tgt.az)) return null;
+    return tgt.flip ? (tgt.az + 180) % 360 : tgt.az;
+  }, [satAuto.rotatorTarget]);
+  useDopplerTuning({
+    satellites: satellites?.data,
+    deLocation: config.location,
+    rig: rigForSat,
+    settings: config.satellite,
+  });
+  useRotatorAutoTrack({
+    satellites: satellites?.data,
+    deLocation: config.location,
+    dxLocation,
+    rotator: rotatorBackend,
+    send: sendRotatorPosition,
+    settings: config.satellite,
+  });
+
   // Render World Map
   const renderWorldMap = () => (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
@@ -828,6 +1018,8 @@ export const DockableApp = ({
         showDXPaths={mapLayersEff.showDXPaths}
         showDXLabels={mapLayersEff.showDXLabels}
         onToggleDXLabels={mapLayersEff.showDXPaths ? toggleDXLabelsEff : undefined}
+        spotLabelMode={mapLayersEff.spotLabelMode}
+        spotLabelMinKm={mapLayersEff.spotLabelMinKm}
         showPOTA={mapLayersEff.showPOTA}
         showPOTALabels={mapLayersEff.showPOTALabels}
         showWWFF={mapLayersEff.showWWFF}
@@ -852,11 +1044,12 @@ export const DockableApp = ({
         meshcomNodes={meshcomData?.nodes}
         // ✅ Rotator bearing overlay support
         showRotatorBearing={mapLayersEff.showRotatorBearing}
-        rotatorAzimuth={rot.azimuth}
-        rotatorLastGoodAzimuth={rot.lastGoodAzimuth}
-        rotatorIsStale={rot.isStale}
-        rotatorControlEnabled={!rot.isStale}
-        onRotatorTurnRequest={turnRotator}
+        rotatorAzimuth={rotatorView.azimuth}
+        rotatorLastGoodAzimuth={rotatorView.lastGoodAzimuth}
+        rotatorIsStale={rotatorView.isStale}
+        rotatorControlEnabled={!rotatorView.isStale}
+        onRotatorTurnRequest={(az) => sendRotatorPosition({ az, el: 0 })}
+        rotatorTargetAzimuth={rotatorTargetAzimuth}
         hoveredSpot={hoveredSpot}
         leftSidebarVisible={true}
         rightSidebarVisible={true}
@@ -1054,7 +1247,15 @@ export const DockableApp = ({
           break;
 
         case 'logbook':
-          content = <LogbookPanel userCallsign={config.callsign} myGrid={deGrid} />;
+          content = (
+            <LogbookPanel
+              userCallsign={config.callsign}
+              myGrid={liveGrid || deGrid}
+              onDXChange={handleDXChange}
+              dxLocation={dxLocation}
+              dxCallsign={dxCallsign}
+            />
+          );
           break;
 
         case 'awards':
@@ -1203,7 +1404,14 @@ export const DockableApp = ({
           break;
 
         case 'swpc-alerts':
-          content = <SWPCAlertsPanel data={swpcAlerts?.data} loading={swpcAlerts?.loading} error={swpcAlerts?.error} />;
+          content = (
+            <SWPCAlertsPanel
+              data={swpcAlerts?.data}
+              loading={swpcAlerts?.loading}
+              error={swpcAlerts?.error}
+              scales={noaaScales.data}
+            />
+          );
           break;
 
         case 'meteor-showers':
@@ -1257,12 +1465,15 @@ export const DockableApp = ({
         case 'rotator':
           return (
             <RotatorPanel
-              state={rot}
+              state={rotatorView}
               overlayEnabled={mapLayersEff.showRotatorBearing}
               onToggleOverlay={toggleRotatorBearingEff}
-              onTurnAzimuth={turnRotator}
-              onStop={stopRotator}
-              controlsEnabled={!rot.isStale}
+              onTurnAzimuth={(az) => sendRotatorPosition({ az, el: 0 })}
+              onStop={stopAnyRotator}
+              controlsEnabled={!rotatorView.isStale}
+              satOptions={trackedSatNames}
+              deLat={config.location?.lat ?? null}
+              deLon={config.location?.lon ?? null}
             />
           );
 
@@ -1280,6 +1491,12 @@ export const DockableApp = ({
 
         case 'net-schedule':
           content = <NetSchedulePanel />;
+          break;
+
+        case 'net-control':
+          content = (
+            <NetControlPanel callsign={config.callsign} timeZone={config.timezone} location={config.location} />
+          );
           break;
 
         case 'callsign-search':
@@ -1331,6 +1548,9 @@ export const DockableApp = ({
             <PropVerifyPanel
               deLocation={config.location}
               deCallsign={config.callsign}
+              dxLocation={dxLocation}
+              dxCallsign={dxCallsign}
+              units={config.allUnits?.dist}
               dxSpots={dxClusterData.spots}
               pskReporter={pskReporter}
               solarIndices={solarIndices}
@@ -1374,8 +1594,27 @@ export const DockableApp = ({
           content = <DigitalModesPanel />;
           break;
 
+        case 'decoder':
+          content = (
+            <DecoderPanel
+              onSetDX={handleDXChange}
+              dxLocked={dxLocked}
+              onSpotClick={handleSpotClick}
+              apiToken={config.rigControl?.apiToken || ''}
+            />
+          );
+          break;
+
         case 'winlink':
-          content = <WinlinkPanel />;
+          content = (
+            <WinlinkPanel
+              deLocation={config.location}
+              propConfig={config.propagation}
+              solarIndices={solarIndices}
+              units={config.allUnits?.dist}
+              onSelectGateway={handleSelectWinlinkGateway}
+            />
+          );
           break;
 
         case 'ibp':
@@ -1386,6 +1625,157 @@ export const DockableApp = ({
               units={config.allUnits?.dist ?? 'metric'}
             />
           );
+          break;
+
+        case 'grayline-planner':
+          content = (
+            <GraylinePlannerPanel
+              deLocation={config.location}
+              dxLocation={dxLocation}
+              dxCallsign={dxCallsign}
+              timeZone={config.timezone}
+            />
+          );
+          break;
+
+        case 'eme-planner':
+          content = <EmePlannerPanel deLocation={config.location} dxLocation={dxLocation} dxCallsign={dxCallsign} />;
+          break;
+
+        case 'sat-planner':
+          content = (
+            <SatPlannerPanel satellites={satellites} config={config} dxLocation={dxLocation} dxCallsign={dxCallsign} />
+          );
+          break;
+
+        case 'cluster-console':
+          content = <ClusterConsolePanel config={config} isLocalInstall={isLocalInstall} />;
+          break;
+
+        case 'rover':
+          content = <RoverPanel config={config} />;
+          break;
+
+        case 'env-sensors':
+          content = <EnvSensorsPanel allUnits={config.allUnits} />;
+          break;
+
+        case 'opportunities':
+          content = <OpportunityPanel opportunities={opportunities} onSpotClick={handleSpotClick} />;
+          break;
+
+        case 'solar-outlook':
+          content = <SolarOutlookPanel />;
+          break;
+
+        case 'benchmark':
+          content = <BenchmarkPanel config={config} />;
+          break;
+
+        case 'noaa-scales':
+          content = <NOAAScalesPanel data={noaaScales.data} loading={noaaScales.loading} error={noaaScales.error} />;
+          break;
+
+        case 'dst':
+          content = <DstPanel data={dst.data} loading={dst.loading} error={dst.error} />;
+          break;
+
+        case 'eclipse':
+          content = <EclipsePanel deLat={config.location?.lat ?? null} deLon={config.location?.lon ?? null} />;
+          break;
+
+        case 'planets':
+          content = (
+            <PlanetsPanel
+              deLat={config.location?.lat ?? null}
+              deLon={config.location?.lon ?? null}
+              use12Hour={use12Hour}
+              timeZone={config.timezone || undefined}
+            />
+          );
+          break;
+
+        case 'space-launches':
+          content = (
+            <SpaceLaunchesPanel
+              deLocation={config.location}
+              units={config.allUnits?.dist}
+              onSetDX={handleDXChange}
+              dxLocked={dxLocked}
+            />
+          );
+          break;
+
+        case 'tropical':
+          content = (
+            <TropicalPanel
+              deLocation={config.location}
+              units={config.allUnits?.dist}
+              onSetDX={handleDXChange}
+              dxLocked={dxLocked}
+            />
+          );
+          break;
+
+        case 'fire-weather':
+          content = (
+            <FireWeatherPanel
+              deLocation={config.location}
+              units={config.allUnits?.dist}
+              onSetDX={handleDXChange}
+              dxLocked={dxLocked}
+            />
+          );
+          break;
+
+        case 'marine':
+          content = (
+            <MarinePanel
+              deLocation={config.location}
+              units={config.allUnits?.dist}
+              onSetDX={handleDXChange}
+              dxLocked={dxLocked}
+            />
+          );
+          break;
+
+        case 'windy':
+          content = <WindyPanel deLocation={config.location} dxLocation={dxLocation} units={config.allUnits?.dist} />;
+          break;
+
+        case 'wefax':
+          content = <WefaxPanel onTune={handleSpotClick} rigEnabled={enabled} />;
+          break;
+
+        case 'hamalert':
+          content = (
+            <HamAlertPanel
+              alerts={hamAlert.alerts}
+              onClear={hamAlert.clear}
+              onSpotClick={handleSpotClick}
+              onHoverSpot={setHoveredSpot}
+              configured={hamAlert.configured}
+              serverEnabled={hamAlert.serverEnabled}
+              bridgeActive={hamAlert.bridgeActive}
+              error={hamAlert.error}
+              isLocalInstall={isLocalInstall}
+            />
+          );
+          break;
+
+        case 'balloons':
+          content = (
+            <BalloonsPanel
+              deLat={config.location?.lat ?? null}
+              deLon={config.location?.lon ?? null}
+              units={config.allUnits?.dist ?? 'imperial'}
+              onSpotClick={handleSpotClick}
+            />
+          );
+          break;
+
+        case 'ics-forms':
+          content = <IcsFormsPanel config={config} />;
           break;
 
         default: {
@@ -1422,8 +1812,10 @@ export const DockableApp = ({
     [
       config,
       deGrid,
+      liveGrid,
       dxGrid,
       dxLocation,
+      dxCallsign,
       deSunTimes,
       dxSunTimes,
       showDxWeather,
@@ -1450,6 +1842,12 @@ export const DockableApp = ({
       dxpeditions,
       contests,
       swpcAlerts,
+      noaaScales,
+      dst,
+      use12Hour,
+      hamAlert,
+      isLocalInstall,
+      bearingMode,
       pskFilters,
       wsjtx,
       handleDXChange,
@@ -1472,6 +1870,7 @@ export const DockableApp = ({
       panelZoom,
       keybindingsList,
       t,
+      opportunities,
     ],
   );
 

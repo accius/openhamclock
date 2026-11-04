@@ -36,7 +36,13 @@ import {
   DEFAULT_BAND_OPENING_SCOPE,
 } from '../utils/audioAlerts';
 import { getCallsignInfo } from '../utils/callsign';
+import { AlarmSettingsSection } from './AlarmIndicator.jsx';
 import { getNotificationPermission, requestNotificationPermission } from '../utils/notifications';
+import { useGps } from '../hooks/useGps.js';
+import { useBridgeEvent } from '../hooks/useBridgeEvent.js';
+import { BRIGHTNESS_PREVIEW_EVENT } from '../hooks/app/useDisplayBrightness.js';
+import SpokenAlertsSettings from './SpokenAlertsSettings.jsx';
+import { LightningGuardSettings, LightningRelayPinSettings } from './LightningGuardSettings.jsx';
 import {
   isPushSupported,
   getServerPushStatus,
@@ -51,6 +57,7 @@ import { getCallbookCredentials, setCallbookCredentials } from '../utils/callboo
 import { getCartoApiKey, CARTO_KEY_STORAGE } from '../utils/config.js';
 import { listPresets } from '../store/layoutStore.js';
 import LogSyncSettings from './LogSyncSettings.jsx';
+import BeaconMonitorSettings, { DEFAULT_BEACON_MONITOR } from './BeaconMonitorSettings.jsx';
 import { CALLBOOKS, getCallbook } from '../utils/callbook.js';
 import { HELP_EVENT, settingsTabHelpTopic, layerHelpTopic } from '../utils/helpTopics.js';
 import { SETTINGS_TAB_ICONS } from './Icons.jsx';
@@ -63,7 +70,18 @@ const SettingsTabIcon = ({ tab }) => {
 };
 import HelpTab from './HelpTab.jsx';
 import HelpLink from './HelpLink.jsx';
+import OfflineAreaPacks from './OfflineAreaPacks.jsx';
 import WeatherSourceCard from './WeatherSourceCard.jsx';
+import WatchlistEditor from './WatchlistEditor.jsx';
+import {
+  CLUSTER_COMMANDS_MAX,
+  CLUSTER_COMMAND_MAX_LENGTH,
+  normalizeLoginCommands,
+  validateClusterCommand,
+} from '../utils/clusterCommands.js';
+import { SPOT_LABEL_MODES } from '../utils/spotLabel.js';
+import RemoteControlSettings from './RemoteControlSettings.jsx';
+import DisplayExtrasSettings from './DisplayExtrasSettings.jsx';
 
 export const SettingsPanel = ({
   isOpen,
@@ -79,6 +97,8 @@ export const SettingsPanel = ({
   onToggleDXNews,
   onToggleAPRS,
   onToggleAPRSLabels,
+  onSetSpotLabelMode,
+  onSetSpotLabelMinKm,
   wakeLockStatus,
   defaultTab,
   wsjtxSessionId,
@@ -96,6 +116,15 @@ export const SettingsPanel = ({
   const [stationAlt, setStationAlt] = useState(config?.location?.stationAlt ?? 100);
   const [minElev, setMinElev] = useState(config?.satellite?.minElev ?? 5.0);
   const [satTrackDuration, setSatTrackDuration] = useState(config?.satellite?.trackDurationMins ?? 45);
+  // Satellite automation & alerts (Settings → Satellites, bottom section)
+  const [maxTleAgeDays, setMaxTleAgeDays] = useState(config?.satellite?.maxTleAgeDays ?? 7);
+  const [hamsAtApiKey, setHamsAtApiKey] = useState(config?.satellite?.hamsAtApiKey ?? '');
+  const [dopplerStepHz, setDopplerStepHz] = useState(config?.satellite?.dopplerStepHz ?? 20);
+  const [rotatorStepDeg, setRotatorStepDeg] = useState(config?.satellite?.rotatorStepDeg ?? 2);
+  const [rotatorMaxEl, setRotatorMaxEl] = useState(config?.satellite?.rotatorMaxEl ?? 90);
+  const [rotatorStopAz, setRotatorStopAz] = useState(config?.satellite?.rotatorStopAz ?? 0);
+  const [rotatorPrepositionMins, setRotatorPrepositionMins] = useState(config?.satellite?.rotatorPrepositionMins ?? 10);
+  const [tleRefreshState, setTleRefreshState] = useState(null);
   const [layout, setLayout] = useState(config?.layout || 'modern');
   const [mouseZoom, setMouseZoom] = useState(config?.mouseZoom || 50);
   const [timezone, setTimezone] = useState(config?.timezone || '');
@@ -111,9 +140,18 @@ export const SettingsPanel = ({
     config?.displaySchedule || { enabled: false, sleepTime: '23:00', wakeTime: '07:00', keepSignalActive: true },
   );
   const [idleClock, setIdleClock] = useState(config?.idleClock || { enabled: false, minutes: 10 });
+  // Rig Bridge hardware: GPS follow mode (Station tab) and display brightness (Display tab)
+  const [gpsFollow, setGpsFollow] = useState(config?.gpsFollow || 'off');
+  const [displayBrightness, setDisplayBrightness] = useState(config?.displayBrightness || { manual: 100, auto: false });
+  const gpsStatus = useGps();
+  const { data: bridgeBrightness, stale: bridgeBrightnessStale } = useBridgeEvent('brightness', { staleMs: 90000 });
   const [sceneRotation, setSceneRotation] = useState(
     config?.sceneRotation || { enabled: false, intervalSec: 60, layouts: [] },
   );
+  // Remote control / rotating titles / grayscale (docs/MANUAL.md → Remote control and kiosk)
+  const [remoteEnabled, setRemoteEnabled] = useState(config?.remoteControl?.enabled ?? null);
+  const [callsignTitles, setCallsignTitles] = useState(config?.callsignTitles || '');
+  const [grayscale, setGrayscale] = useState(config?.grayscale || 'off');
   const [distUnits, setDistUnits] = useState(config?.allUnits?.dist || config?.units || 'imperial');
   const [tempUnits, setTempUnits] = useState(config?.allUnits?.temp || config?.units || 'imperial');
   const [pressUnits, setPressUnits] = useState(config?.allUnits?.press || config?.units || 'imperial');
@@ -121,12 +159,15 @@ export const SettingsPanel = ({
   const [propMode, setPropMode] = useState(config?.propagation?.mode || 'SSB');
   const [propPower, setPropPower] = useState(config?.propagation?.power || 100);
   const [licenseClass, setLicenseClass] = useState(config?.licenseClass || 'other');
+  const [bearings, setBearings] = useState(config?.bearings === 'magnetic' ? 'magnetic' : 'true');
   const [rigEnabled, setRigEnabled] = useState(config?.rigControl?.enabled || false);
   const [rigHost, setRigHost] = useState(config?.rigControl?.host || 'http://localhost');
   const [rigPort, setRigPort] = useState(normalizeRigPort(config?.rigControl?.port));
   const [tuneEnabled, setTuneEnabled] = useState(config?.rigControl?.tuneEnabled || false);
   const [autoMode, setAutoMode] = useState(config?.rigControl?.autoMode !== false);
   const [rigApiToken, setRigApiToken] = useState(config?.rigControl?.apiToken || '');
+  // KiwiSDR beacon monitor (Rig Bridge plugin) — see BeaconMonitorSettings.jsx
+  const [beaconMonitor, setBeaconMonitor] = useState({ ...DEFAULT_BEACON_MONITOR, ...(config?.beaconMonitor || {}) });
   const [cloudRelaySession, setCloudRelaySession] = useState(() => {
     // 1. Prefer localStorage — set by "Connect Cloud Relay" in this browser.
     try {
@@ -432,9 +473,19 @@ export const SettingsPanel = ({
       setStationAlt(config.location?.stationAlt ?? 100);
       setMinElev(config.satellite?.minElev ?? 5.0);
       setSatTrackDuration(config.satellite?.trackDurationMins ?? 45);
+      setMaxTleAgeDays(config.satellite?.maxTleAgeDays ?? 7);
+      setHamsAtApiKey(config.satellite?.hamsAtApiKey ?? '');
+      setDopplerStepHz(config.satellite?.dopplerStepHz ?? 20);
+      setRotatorStepDeg(config.satellite?.rotatorStepDeg ?? 2);
+      setRotatorMaxEl(config.satellite?.rotatorMaxEl ?? 90);
+      setRotatorStopAz(config.satellite?.rotatorStopAz ?? 0);
+      setRotatorPrepositionMins(config.satellite?.rotatorPrepositionMins ?? 10);
       setLayout(config.layout || 'modern');
       setSceneRotation(config.sceneRotation || { enabled: false, intervalSec: 60, layouts: [] });
       setIdleClock(config.idleClock || { enabled: false, minutes: 10 });
+      setRemoteEnabled(config.remoteControl?.enabled ?? null);
+      setCallsignTitles(config.callsignTitles || '');
+      setGrayscale(config.grayscale || 'off');
       setMouseZoom(config.mouseZoom || 50);
       setTimezone(config.timezone || '');
       setDxClusterSource(config.dxClusterSource || 'dxspider-proxy');
@@ -449,6 +500,7 @@ export const SettingsPanel = ({
       setPropMode(config.propagation?.mode || 'SSB');
       setPropPower(config.propagation?.power || 100);
       setLicenseClass(config.licenseClass || 'other');
+      setBearings(config.bearings === 'magnetic' ? 'magnetic' : 'true');
       setRigEnabled(config.rigControl?.enabled || false);
       setRigHost(config.rigControl?.host || 'http://localhost');
       setRigPort(normalizeRigPort(config.rigControl?.port));
@@ -698,6 +750,13 @@ export const SettingsPanel = ({
       satellite: {
         minElev: isNaN(parseFloat(minElev)) ? 5.0 : parseFloat(minElev),
         trackDurationMins: isNaN(parseInt(satTrackDuration)) ? 45 : parseInt(satTrackDuration),
+        maxTleAgeDays: Math.min(60, Math.max(1, parseFloat(maxTleAgeDays) || 7)),
+        hamsAtApiKey: String(hamsAtApiKey || '').trim(),
+        dopplerStepHz: Math.min(1000, Math.max(1, parseFloat(dopplerStepHz) || 20)),
+        rotatorStepDeg: Math.min(15, Math.max(0.5, parseFloat(rotatorStepDeg) || 2)),
+        rotatorMaxEl: parseInt(rotatorMaxEl, 10) === 180 ? 180 : 90,
+        rotatorStopAz: ((Math.round(parseFloat(rotatorStopAz) || 0) % 360) + 360) % 360,
+        rotatorPrepositionMins: Math.min(60, Math.max(0, parseFloat(rotatorPrepositionMins) || 0)),
       },
       theme,
       customTheme,
@@ -713,6 +772,11 @@ export const SettingsPanel = ({
       displaySchedule,
       sceneRotation,
       idleClock,
+      remoteControl: { ...(config.remoteControl || {}), enabled: remoteEnabled },
+      callsignTitles,
+      grayscale,
+      gpsFollow,
+      displayBrightness,
       // units,
       allUnits: { dist: distUnits, temp: tempUnits, press: pressUnits },
       // Spread the existing propagation block: this panel only edits mode and
@@ -721,6 +785,7 @@ export const SettingsPanel = ({
       // next load (N3DD report).
       propagation: { ...config.propagation, mode: propMode, power: parseFloat(propPower) || 100 },
       licenseClass,
+      bearings,
       wsjtxRelayMulticast: { enabled: wsjtxMulticastEnabled, address: wsjtxMulticastAddress },
       rigControl: {
         enabled: rigEnabled,
@@ -731,6 +796,11 @@ export const SettingsPanel = ({
         apiToken: rigApiToken.trim(),
         // cloudRelaySession intentionally omitted — session ID belongs in
         // localStorage (per-browser), not in the shared server config.
+      },
+      beaconMonitor: {
+        ...beaconMonitor,
+        host: String(beaconMonitor.host || '').trim(),
+        port: parseInt(String(beaconMonitor.port), 10) || 8073,
       },
       n3fjpHost: String(n3fjpHost || '').trim() || '127.0.0.1',
       n3fjpPort: parseInt(n3fjpPort, 10) || 1100,
@@ -837,6 +907,10 @@ export const SettingsPanel = ({
     clock: t('station.settings.layout.clock.describe', {
       defaultValue:
         'A big digital clock and nothing else — UTC and local, date, callsign. For shack TVs during down time.',
+    }),
+    mobile: t('station.settings.layout.mobile.describe', {
+      defaultValue:
+        'A phone or tablet as the main display: compact header, a touch-sized map, and swipeable panel cards. For go-boxes and the field.',
     }),
   };
 
@@ -2629,6 +2703,61 @@ export const SettingsPanel = ({
                         'OpenHamClock listens for UDP DX spot packets on this port and plots matched spots on the map.',
                     })}
                   </div>
+
+                  {/* HamClock-style UDP options: spots set DX, show all / only mine */}
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      marginTop: '12px',
+                      color: 'var(--text-secondary)',
+                      fontSize: '12px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!udpDxCluster.setDx}
+                      onChange={(e) => setUdpDxCluster({ ...udpDxCluster, setDx: e.target.checked })}
+                    />
+                    {t('station.settings.dx.udp.setDx', { defaultValue: 'UDP spots set DX' })}
+                  </label>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginLeft: '24px', marginTop: '2px' }}>
+                    {t('station.settings.dx.udp.setDxHelp', {
+                      defaultValue:
+                        'Each new spot received over UDP (N1MM, DXLog, MacLoggerDX…) becomes the DX target, like HamClock.',
+                    })}
+                  </div>
+                  <div style={{ marginTop: '12px' }}>
+                    <label
+                      htmlFor="udp-show-select"
+                      style={{ display: 'block', marginBottom: '4px', color: 'var(--text-muted)', fontSize: '11px' }}
+                    >
+                      {t('station.settings.dx.udp.show', { defaultValue: 'Show UDP spots' })}
+                    </label>
+                    <select
+                      id="udp-show-select"
+                      value={udpDxCluster.show === 'mine' ? 'mine' : 'all'}
+                      onChange={(e) => setUdpDxCluster({ ...udpDxCluster, show: e.target.value })}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '6px',
+                        color: 'var(--text-primary)',
+                        fontSize: '13px',
+                      }}
+                    >
+                      <option value="all">{t('station.settings.dx.udp.showAll', { defaultValue: 'All spots' })}</option>
+                      <option value="mine">
+                        {t('station.settings.dx.udp.showMine', {
+                          defaultValue: 'Only mine (spotted by my callsign)',
+                        })}
+                      </option>
+                    </select>
+                  </div>
                 </div>
               )}
 
@@ -2714,6 +2843,133 @@ export const SettingsPanel = ({
                   <div style={{ fontSize: '11px', color: 'var(--accent-amber)', marginTop: '8px' }}>
                     {t('station.settings.dx.custom.warning')}
                   </div>
+
+                  {/* Cluster login commands — sent once after login (HamClock "cluster commands") */}
+                  {(() => {
+                    const commands = normalizeLoginCommands(customDxCluster.loginCommands);
+                    const update = (next) => setCustomDxCluster({ ...customDxCluster, loginCommands: next });
+                    return (
+                      <div
+                        style={{ marginTop: '16px', borderTop: '1px solid var(--border-color)', paddingTop: '12px' }}
+                      >
+                        <div
+                          style={{
+                            color: 'var(--accent-cyan)',
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            marginBottom: '4px',
+                          }}
+                        >
+                          {t('station.settings.dx.loginCommands.title', { defaultValue: 'Cluster login commands' })}
+                        </div>
+                        <div
+                          style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '8px', lineHeight: 1.5 }}
+                        >
+                          {t('station.settings.dx.loginCommands.help', {
+                            defaultValue:
+                              'Native cluster commands sent once after login, in order (e.g. set/filter dxbm/pass 20,15 or set/skimmer). One line each, max {{max}} commands, {{len}} characters; toggle a command off to keep it without sending it. Telnet clusters only — HTTP sources ignore these.',
+                            max: CLUSTER_COMMANDS_MAX,
+                            len: CLUSTER_COMMAND_MAX_LENGTH,
+                          })}
+                        </div>
+                        {commands.map((c, i) => {
+                          const v = validateClusterCommand(c.cmd);
+                          return (
+                            <div
+                              key={i}
+                              style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '6px' }}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={c.enabled}
+                                aria-label={t('station.settings.dx.loginCommands.enabled', {
+                                  defaultValue: 'Send this command',
+                                })}
+                                onChange={(e) =>
+                                  update(commands.map((x, j) => (j === i ? { ...x, enabled: e.target.checked } : x)))
+                                }
+                              />
+                              <input
+                                type="text"
+                                value={c.cmd}
+                                maxLength={CLUSTER_COMMAND_MAX_LENGTH}
+                                spellCheck={false}
+                                aria-label={t('station.settings.dx.loginCommands.command', {
+                                  defaultValue: 'Cluster command {{n}}',
+                                  n: i + 1,
+                                })}
+                                onChange={(e) =>
+                                  update(commands.map((x, j) => (j === i ? { ...x, cmd: e.target.value } : x)))
+                                }
+                                style={{
+                                  flex: 1,
+                                  padding: '6px 10px',
+                                  background: 'var(--bg-secondary)',
+                                  border: `1px solid ${v.ok ? 'var(--border-color)' : 'var(--accent-red)'}`,
+                                  borderRadius: '6px',
+                                  color: c.enabled ? 'var(--text-primary)' : 'var(--text-muted)',
+                                  fontSize: '13px',
+                                  fontFamily: 'var(--font-mono)',
+                                }}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => update(commands.filter((_, j) => j !== i))}
+                                aria-label={t('station.settings.dx.loginCommands.remove', {
+                                  defaultValue: 'Remove command',
+                                })}
+                                title={t('station.settings.dx.loginCommands.remove', {
+                                  defaultValue: 'Remove command',
+                                })}
+                                style={{
+                                  background: 'none',
+                                  border: '1px solid var(--border-color)',
+                                  borderRadius: '4px',
+                                  color: 'var(--accent-red)',
+                                  cursor: 'pointer',
+                                  padding: '2px 8px',
+                                  fontSize: '14px',
+                                }}
+                              >
+                                ×
+                              </button>
+                              {!v.ok && (
+                                <span style={{ fontSize: '10px', color: 'var(--accent-red)' }} role="alert">
+                                  {v.reason}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                        <button
+                          type="button"
+                          disabled={commands.length >= CLUSTER_COMMANDS_MAX}
+                          onClick={() => update([...commands, { cmd: '', enabled: true }])}
+                          style={{
+                            padding: '6px 12px',
+                            background: 'var(--bg-secondary)',
+                            border: '1px solid var(--border-color)',
+                            borderRadius: '6px',
+                            color:
+                              commands.length >= CLUSTER_COMMANDS_MAX ? 'var(--text-muted)' : 'var(--text-primary)',
+                            fontSize: '12px',
+                            cursor: commands.length >= CLUSTER_COMMANDS_MAX ? 'not-allowed' : 'pointer',
+                          }}
+                        >
+                          {t('station.settings.dx.loginCommands.add', { defaultValue: '+ Add command' })}
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {isLocalInstall && dxClusterSource !== 'custom' && (
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '20px', marginTop: '-8px' }}>
+                  {t('station.settings.dx.telnetOnlyNote', {
+                    defaultValue:
+                      'Cluster login commands and the Cluster Console panel are available only with a Custom Telnet Server source — HTTP and UDP sources have no session to talk to.',
+                  })}
                 </div>
               )}
 
@@ -2831,6 +3087,175 @@ export const SettingsPanel = ({
                       {lang.name}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Watch lists (HamClock-style) — shared with the DX / activation filter dialogs and the Logbook */}
+              <div
+                style={{
+                  marginTop: '24px',
+                  padding: '16px',
+                  background: 'var(--bg-tertiary)',
+                  borderRadius: '8px',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <div style={{ color: 'var(--accent-cyan)', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>
+                  {t('station.settings.watchlists.title', { defaultValue: 'Watch lists' })}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px', lineHeight: 1.5 }}>
+                  {t('station.settings.watchlists.help', {
+                    defaultValue:
+                      'Three independent lists: DX cluster spots, activation spots (POTA/SOTA/WWFF/WWBOTA) and logbook rows. Red highlights matches, Only shows just matches, Not hides them. The same lists are editable from each panel’s filter dialog.',
+                  })}
+                </div>
+                <div style={{ marginBottom: '14px' }}>
+                  <WatchlistEditor
+                    listKey="dx"
+                    title={t('watchlist.dxTitle', { defaultValue: 'DX cluster watch list' })}
+                  />
+                </div>
+                <div style={{ marginBottom: '14px' }}>
+                  <WatchlistEditor
+                    listKey="activations"
+                    title={t('watchlist.activationsTitle', { defaultValue: 'Activation watch list' })}
+                    compact
+                  />
+                </div>
+                <WatchlistEditor
+                  listKey="logbook"
+                  title={t('watchlist.logbookTitle', { defaultValue: 'Logbook watch list' })}
+                  compact
+                />
+              </div>
+              <RemoteControlSettings
+                remoteEnabled={remoteEnabled}
+                onRemoteEnabledChange={setRemoteEnabled}
+                callsignTitles={callsignTitles}
+                onCallsignTitlesChange={setCallsignTitles}
+                isLocalInstall={isLocalInstall}
+              />
+              {/* GPS (Rig Bridge gps plugin) — follow the receiver for DE location / rover mode */}
+              <div style={{ marginTop: '20px', marginBottom: '20px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    color: 'var(--text-muted)',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                  }}
+                >
+                  🛰️ {t('station.settings.gps.title')}
+                </label>
+                <div
+                  style={{ display: 'flex', gap: '8px' }}
+                  role="radiogroup"
+                  aria-label={t('station.settings.gps.title')}
+                >
+                  {['off', 'once', 'follow'].map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="radio"
+                      aria-checked={gpsFollow === mode}
+                      onClick={() => setGpsFollow(mode)}
+                      style={{
+                        flex: 1,
+                        padding: '8px',
+                        background: gpsFollow === mode ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+                        border: `1px solid ${gpsFollow === mode ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                        borderRadius: '6px',
+                        color: gpsFollow === mode ? '#000' : 'var(--text-secondary)',
+                        fontSize: '12px',
+                        cursor: 'pointer',
+                        fontWeight: gpsFollow === mode ? '600' : '400',
+                      }}
+                    >
+                      {t(`station.settings.gps.${mode}`)}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                  {t('station.settings.gps.describe')}
+                </div>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-mono)',
+                    marginTop: '6px',
+                    color: gpsStatus.fix ? 'var(--accent-green)' : 'var(--text-secondary)',
+                  }}
+                  aria-live="polite"
+                >
+                  {!gpsStatus.gps
+                    ? t('station.settings.gps.status.noData')
+                    : gpsStatus.stale
+                      ? t('station.settings.gps.status.stale')
+                      : gpsStatus.fix
+                        ? t('station.settings.gps.status.fix', {
+                            grid: gpsStatus.fix.grid6 || '—',
+                            lat: gpsStatus.fix.lat.toFixed(4),
+                            lon: gpsStatus.fix.lon.toFixed(4),
+                            sats: gpsStatus.fix.sats ?? '?',
+                          })
+                        : t('station.settings.gps.status.noFix')}
+                </div>
+                {gpsStatus.clockWarning && (
+                  <div style={{ fontSize: '11px', color: 'var(--accent-amber)', marginTop: '4px' }} role="status">
+                    ⚠ {t('station.settings.gps.clockWarning', { secs: (gpsStatus.timeOffsetMs / 1000).toFixed(1) })}
+                  </div>
+                )}
+              </div>
+              {/* Bearings: true vs magnetic north (WMM2025 declination at DE) */}
+              <div style={{ marginBottom: '20px' }}>
+                <label
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    color: 'var(--text-muted)',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                  }}
+                >
+                  🧭 {t('station.settings.bearings.title')}
+                </label>
+                <div
+                  style={{ display: 'flex', gap: '8px' }}
+                  role="radiogroup"
+                  aria-label={t('station.settings.bearings.title')}
+                >
+                  {[
+                    ['true', t('station.settings.bearings.true')],
+                    ['magnetic', t('station.settings.bearings.magnetic')],
+                  ].map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={bearings === value}
+                      onClick={() => setBearings(value)}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        background: bearings === value ? 'var(--accent-amber)' : 'var(--bg-tertiary)',
+                        border: `1px solid ${bearings === value ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                        borderRadius: '6px',
+                        color: bearings === value ? '#000' : 'var(--text-secondary)',
+                        fontSize: '12px',
+                        fontFamily: 'var(--font-mono)',
+                        fontWeight: bearings === value ? '700' : '400',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                  {t('station.settings.bearings.hint')}
                 </div>
               </div>
             </>
@@ -4273,6 +4698,7 @@ export const SettingsPanel = ({
                     'weather',
                     'airtraffic',
                     'clock',
+                    'mobile',
                   ].map((l) => (
                     <button
                       key={l}
@@ -4300,6 +4726,7 @@ export const SettingsPanel = ({
                         hunter: '🎯',
                         weather: '🌩️',
                         airtraffic: '✈️',
+                        mobile: '📲',
                       }[l] || '⊞'}{' '}
                       {t('station.settings.layout.' + l)}
                     </button>
@@ -4423,6 +4850,7 @@ export const SettingsPanel = ({
                         'weather',
                         'airtraffic',
                         'clock',
+                        'mobile',
                         ...profileIds,
                       ].map((l) => {
                         const presetName = l.startsWith('dockable#')
@@ -4628,6 +5056,97 @@ export const SettingsPanel = ({
                   }}
                 >
                   0 8 O 1 l I — 14.074 MHz — W1AW/0 K8O
+                </div>
+              </div>
+
+              <DisplayExtrasSettings grayscale={grayscale} onGrayscaleChange={setGrayscale} />
+              {/* Brightness — overlay dim, or the Rig Bridge brightness plugin's backlight */}
+              <div style={{ marginTop: '24px', marginBottom: '8px' }}>
+                <label
+                  htmlFor="display-brightness-slider"
+                  style={{
+                    display: 'block',
+                    marginBottom: '8px',
+                    color: 'var(--text-muted)',
+                    fontSize: '11px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                  }}
+                >
+                  🔆 {t('station.settings.brightness.title')}
+                </label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>0%</span>
+                  <input
+                    id="display-brightness-slider"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value={displayBrightness.manual ?? 100}
+                    disabled={displayBrightness.auto}
+                    aria-label={t('station.settings.brightness.title')}
+                    onChange={(e) => {
+                      const manual = parseInt(e.target.value, 10);
+                      setDisplayBrightness({ ...displayBrightness, manual });
+                      // Live preview before Save (useDisplayBrightness listens)
+                      window.dispatchEvent(new CustomEvent(BRIGHTNESS_PREVIEW_EVENT, { detail: { manual } }));
+                    }}
+                    style={{ flex: 1, accentColor: 'var(--accent-amber)' }}
+                  />
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>100%</span>
+                </div>
+                <div
+                  style={{
+                    textAlign: 'center',
+                    fontSize: '12px',
+                    color: 'var(--accent-amber)',
+                    fontWeight: 600,
+                    fontFamily: 'var(--font-mono)',
+                    marginTop: '4px',
+                  }}
+                >
+                  {displayBrightness.auto ? 'AUTO' : `${displayBrightness.manual ?? 100}%`}
+                </div>
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    color: 'var(--text-primary)',
+                    marginTop: '10px',
+                  }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!displayBrightness.auto}
+                    onChange={(e) => setDisplayBrightness({ ...displayBrightness, auto: e.target.checked })}
+                    style={{ accentColor: 'var(--accent-amber)' }}
+                  />
+                  {t('station.settings.brightness.auto')}
+                </label>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                  {t('station.settings.brightness.describe')}
+                </div>
+                <div
+                  style={{
+                    fontSize: '11px',
+                    fontFamily: 'var(--font-mono)',
+                    color: 'var(--text-secondary)',
+                    marginTop: '6px',
+                  }}
+                >
+                  {bridgeBrightness && !bridgeBrightnessStale
+                    ? t('station.settings.brightness.bridgeStatus', {
+                        pct: Number.isFinite(bridgeBrightness.brightness) ? bridgeBrightness.brightness : '—',
+                        lux: Number.isFinite(bridgeBrightness.lux) ? Math.round(bridgeBrightness.lux) : '—',
+                        hw: bridgeBrightness.hardware
+                          ? t('station.settings.brightness.hwYes')
+                          : t('station.settings.brightness.hwNo'),
+                      })
+                    : t('station.settings.brightness.noBridge')}
                 </div>
               </div>
             </div>
@@ -4883,6 +5402,66 @@ export const SettingsPanel = ({
                               />
                             </div>
                           )}
+                          {layer.id === 'boundaries' && (
+                            <div style={{ marginTop: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {[
+                                ['nationalColor', t('station.settings.layers.boundaryNational'), '#f2cc60'],
+                                ['stateColor', t('station.settings.layers.boundaryState'), '#7fc8f8'],
+                              ].map(([key, label, fallback]) => (
+                                <label
+                                  key={key}
+                                  style={{
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    fontSize: '11px',
+                                    color: 'var(--text-muted)',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.5px',
+                                    gap: '8px',
+                                  }}
+                                >
+                                  <span>{label}</span>
+                                  <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ fontFamily: 'var(--font-mono)', textTransform: 'none' }}>
+                                      {layer.config?.[key] || fallback}
+                                    </span>
+                                    <input
+                                      type="color"
+                                      value={layer.config?.[key] || fallback}
+                                      aria-label={label}
+                                      onChange={(e) => handleUpdateLayerConfig(layer.id, { [key]: e.target.value })}
+                                      style={{
+                                        width: '32px',
+                                        height: '22px',
+                                        padding: 0,
+                                        border: '1px solid var(--border-color)',
+                                        background: 'transparent',
+                                        cursor: 'pointer',
+                                      }}
+                                    />
+                                  </span>
+                                </label>
+                              ))}
+                              <label
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '8px',
+                                  fontSize: '11px',
+                                  color: 'var(--text-muted)',
+                                  cursor: 'pointer',
+                                }}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={layer.config?.showStates !== false}
+                                  onChange={(e) => handleUpdateLayerConfig(layer.id, { showStates: e.target.checked })}
+                                />
+                                {t('station.settings.layers.boundaryShowStates')}
+                              </label>
+                            </div>
+                          )}
                           {ctrlPressed &&
                             ['lightning', 'wspr', 'rbn', 'grayline', 'n3fjp_logged_qsos', 'voacap-heatmap'].includes(
                               layer.id,
@@ -4965,6 +5544,162 @@ export const SettingsPanel = ({
                   return result;
                 })();
               })()}
+
+              {/* Spot labels (HamClock "Spot labels" + "Min label dist") */}
+              <div
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '14px',
+                  marginTop: '12px',
+                }}
+              >
+                <div style={{ color: 'var(--accent-cyan)', fontSize: '12px', fontWeight: '600', marginBottom: '4px' }}>
+                  🏷️ {t('station.settings.layers.spotLabels.title', { defaultValue: 'Spot labels' })}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '10px', lineHeight: 1.5 }}>
+                  {t('station.settings.layers.spotLabels.help', {
+                    defaultValue:
+                      'What the labels on DX cluster and activation (POTA/SOTA/WWFF/WWBOTA) markers show, and a minimum distance from DE below which labels are hidden so nearby spots do not clutter the map.',
+                  })}
+                </div>
+                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', flex: '1 1 160px' }}>
+                    {t('station.settings.layers.spotLabels.mode', { defaultValue: 'Label text' })}
+                    <select
+                      value={mapLayers?.spotLabelMode || 'call'}
+                      onChange={(e) => onSetSpotLabelMode?.(e.target.value)}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        marginTop: '4px',
+                        padding: '8px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '6px',
+                        color: 'var(--text-primary)',
+                        fontSize: '13px',
+                      }}
+                    >
+                      {SPOT_LABEL_MODES.map((m) => (
+                        <option key={m} value={m}>
+                          {t(`station.settings.layers.spotLabels.mode.${m}`, {
+                            defaultValue: { none: 'None', call: 'Callsign', prefix: 'Prefix', freq: 'Frequency' }[m],
+                          })}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label style={{ fontSize: '11px', color: 'var(--text-muted)', flex: '1 1 160px' }}>
+                    {t('station.settings.layers.spotLabels.minDist', { defaultValue: 'Min label distance (km)' })}
+                    <input
+                      type="number"
+                      min="0"
+                      max="20000"
+                      step="50"
+                      value={mapLayers?.spotLabelMinKm ?? 0}
+                      onChange={(e) => onSetSpotLabelMinKm?.(e.target.value)}
+                      style={{
+                        display: 'block',
+                        width: '100%',
+                        boxSizing: 'border-box',
+                        marginTop: '4px',
+                        padding: '8px 10px',
+                        background: 'var(--bg-secondary)',
+                        border: '1px solid var(--border-color)',
+                        borderRadius: '6px',
+                        color: 'var(--text-primary)',
+                        fontSize: '13px',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    />
+                  </label>
+                </div>
+              </div>
+              {/* Auto space-weather layer — Aurora / D-RAP switch themselves on when it matters */}
+              <div
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: `1px solid ${config.autoSpaceWxLayers ? 'var(--accent-amber)' : 'var(--border-color)'}`,
+                  borderRadius: '8px',
+                  padding: '14px',
+                  marginTop: '16px',
+                }}
+              >
+                <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={!!config.autoSpaceWxLayers}
+                    onChange={() => onSave({ ...config, autoSpaceWxLayers: !config.autoSpaceWxLayers })}
+                    aria-label={t('station.settings.layers.autoSpaceWx.title')}
+                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                  />
+                  <span style={{ fontSize: '18px' }}>🌌</span>
+                  <div>
+                    <div
+                      style={{
+                        color: config.autoSpaceWxLayers ? 'var(--accent-amber)' : 'var(--text-primary)',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        fontFamily: 'var(--font-mono)',
+                      }}
+                    >
+                      {t('station.settings.layers.autoSpaceWx.title')}
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                      {t('station.settings.layers.autoSpaceWx.description')}
+                    </div>
+                  </div>
+                </label>
+              </div>
+
+              {/* Offline map areas — basemap tiles + EmComm data for use without internet */}
+              <div
+                style={{
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '14px',
+                  marginTop: '16px',
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '18px' }}>📦</span>
+                    <div>
+                      <div
+                        style={{
+                          color: 'var(--text-primary)',
+                          fontSize: '14px',
+                          fontWeight: '600',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        {t('offlinePacks.settings.title', { defaultValue: 'Offline map areas' })}
+                      </div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                        {t('offlinePacks.settings.description', {
+                          defaultValue:
+                            'Save the map and EmComm data for an area so the map still draws when the internet is gone',
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                  <HelpLink
+                    topic="offline-map-areas"
+                    label={t('offlinePacks.settings.title', { defaultValue: 'Offline map areas' })}
+                  />
+                </div>
+                <OfflineAreaPacks deLocation={config.location} />
+              </div>
             </div>
           )}
         </div>
@@ -5366,6 +6101,212 @@ export const SettingsPanel = ({
                       </button>
                     );
                   })}
+              </div>
+
+              {/* 4. Automation & alerts: TLE age, hams.at, Doppler, rotator */}
+              <div
+                style={{
+                  marginTop: '20px',
+                  background: 'var(--bg-tertiary)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '8px',
+                  padding: '14px',
+                }}
+              >
+                <div
+                  style={{
+                    color: 'var(--text-primary)',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    fontFamily: 'var(--font-mono)',
+                    marginBottom: '4px',
+                  }}
+                >
+                  🛰 {t('satAuto.settings.title')}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>
+                  {t('satAuto.settings.help')}
+                </div>
+
+                {(() => {
+                  const field = {
+                    width: '100%',
+                    padding: '8px',
+                    background: 'var(--bg-secondary)',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '6px',
+                    color: 'var(--text-primary)',
+                    fontSize: '13px',
+                    fontFamily: 'var(--font-mono)',
+                    boxSizing: 'border-box',
+                  };
+                  const label = {
+                    display: 'block',
+                    marginBottom: '4px',
+                    color: 'var(--text-muted)',
+                    fontSize: '10px',
+                    textTransform: 'uppercase',
+                  };
+                  const refreshTles = async () => {
+                    setTleRefreshState({ ok: null, text: '…' });
+                    try {
+                      const res = await fetch('/api/satellites/refresh', { method: 'POST' });
+                      const j = await res.json().catch(() => ({}));
+                      if (res.status === 429)
+                        setTleRefreshState({
+                          ok: false,
+                          text: t('satAuto.refreshTooSoon', { sec: j.retryAfterSec ?? '?' }),
+                        });
+                      else if (!res.ok || j.ok === false)
+                        setTleRefreshState({ ok: false, text: j.error || `HTTP ${res.status}` });
+                      else setTleRefreshState({ ok: true, text: t('satAuto.refreshQueued') });
+                    } catch (e) {
+                      setTleRefreshState({ ok: false, text: String(e?.message || e) });
+                    }
+                  };
+                  return (
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+                        gap: '12px',
+                      }}
+                    >
+                      <div>
+                        <label htmlFor="sat-max-tle-age" style={label}>
+                          {t('satAuto.settings.maxTleAge')}
+                        </label>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <input
+                            id="sat-max-tle-age"
+                            type="number"
+                            min="1"
+                            max="60"
+                            step="1"
+                            value={maxTleAgeDays}
+                            onChange={(e) => setMaxTleAgeDays(e.target.value)}
+                            style={field}
+                          />
+                          <button
+                            type="button"
+                            onClick={refreshTles}
+                            aria-label={t('satAuto.refreshTles')}
+                            title={t('satAuto.settings.refreshHelp')}
+                            style={{ ...field, width: 'auto', whiteSpace: 'nowrap', cursor: 'pointer' }}
+                          >
+                            ⟳ {t('satAuto.refreshTles')}
+                          </button>
+                        </div>
+                        {tleRefreshState && (
+                          <div
+                            style={{
+                              fontSize: '10px',
+                              marginTop: '4px',
+                              color:
+                                tleRefreshState.ok === false
+                                  ? 'var(--accent-red)'
+                                  : tleRefreshState.ok
+                                    ? 'var(--accent-green)'
+                                    : 'var(--text-muted)',
+                            }}
+                          >
+                            {tleRefreshState.text}
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <label htmlFor="sat-hamsat-key" style={label}>
+                          {t('satAuto.settings.hamsAtKey')}
+                        </label>
+                        <input
+                          id="sat-hamsat-key"
+                          type="password"
+                          autoComplete="off"
+                          value={hamsAtApiKey}
+                          onChange={(e) => setHamsAtApiKey(e.target.value)}
+                          placeholder={t('satAuto.settings.hamsAtKeyPlaceholder')}
+                          style={field}
+                        />
+                        <div style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                          {t('satAuto.settings.hamsAtHelp')}
+                        </div>
+                      </div>
+                      <div>
+                        <label htmlFor="sat-doppler-step" style={label}>
+                          {t('satAuto.settings.dopplerStep')}
+                        </label>
+                        <input
+                          id="sat-doppler-step"
+                          type="number"
+                          min="1"
+                          max="1000"
+                          step="1"
+                          value={dopplerStepHz}
+                          onChange={(e) => setDopplerStepHz(e.target.value)}
+                          style={field}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="sat-rotator-step" style={label}>
+                          {t('satAuto.settings.rotatorStep')}
+                        </label>
+                        <input
+                          id="sat-rotator-step"
+                          type="number"
+                          min="0.5"
+                          max="15"
+                          step="0.5"
+                          value={rotatorStepDeg}
+                          onChange={(e) => setRotatorStepDeg(e.target.value)}
+                          style={field}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="sat-rotator-maxel" style={label}>
+                          {t('satAuto.settings.rotatorMaxEl')}
+                        </label>
+                        <select
+                          id="sat-rotator-maxel"
+                          value={rotatorMaxEl}
+                          onChange={(e) => setRotatorMaxEl(parseInt(e.target.value, 10))}
+                          style={field}
+                        >
+                          <option value={90}>{t('satAuto.settings.rotatorMaxEl90')}</option>
+                          <option value={180}>{t('satAuto.settings.rotatorMaxEl180')}</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="sat-rotator-stop" style={label}>
+                          {t('satAuto.settings.rotatorStopAz')}
+                        </label>
+                        <select
+                          id="sat-rotator-stop"
+                          value={rotatorStopAz}
+                          onChange={(e) => setRotatorStopAz(parseInt(e.target.value, 10))}
+                          style={field}
+                        >
+                          <option value={0}>{t('satAuto.settings.rotatorStopNorth')}</option>
+                          <option value={180}>{t('satAuto.settings.rotatorStopSouth')}</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="sat-rotator-prep" style={label}>
+                          {t('satAuto.settings.preposition')}
+                        </label>
+                        <input
+                          id="sat-rotator-prep"
+                          type="number"
+                          min="0"
+                          max="60"
+                          step="1"
+                          value={rotatorPrepositionMins}
+                          onChange={(e) => setRotatorPrepositionMins(e.target.value)}
+                          style={field}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -6475,7 +7416,14 @@ export const SettingsPanel = ({
           aria-labelledby="tab-settings-alerts"
           hidden={activeTab !== 'alerts'}
         >
-          {activeTab === 'alerts' && <AudioAlertsTab callsign={config?.callsign} />}
+          {activeTab === 'alerts' && (
+            <AudioAlertsTab
+              callsign={config?.callsign}
+              timeZone={config?.timezone}
+              imperial={distUnits === 'imperial'}
+              hasLocation={Number.isFinite(config?.location?.lat) && Number.isFinite(config?.location?.lon)}
+            />
+          )}
         </div>
 
         {/* Rig Bridge Tab */}
@@ -7060,6 +8008,26 @@ export const SettingsPanel = ({
                   </div>
                 </>
               )}
+
+              {/* KiwiSDR beacon monitor — measured IBP beacon SNR via Rig Bridge */}
+              <BeaconMonitorSettings
+                value={beaconMonitor}
+                onChange={setBeaconMonitor}
+                rigEnabled={rigEnabled}
+                rigHost={rigHost}
+                rigPort={rigPort}
+                rigApiToken={rigApiToken}
+                callsign={callsign}
+                deLat={Number.isFinite(parseFloat(lat)) ? parseFloat(lat) : null}
+                deLon={Number.isFinite(parseFloat(lon)) ? parseFloat(lon) : null}
+              />
+              {/* Lightning guard relay — GPIO line for the antenna-protection relay */}
+              <LightningRelayPinSettings
+                rigEnabled={rigEnabled}
+                rigHost={rigHost}
+                rigPort={rigPort}
+                rigApiToken={rigApiToken}
+              />
             </div>
           )}
         </div>
@@ -7256,7 +8224,7 @@ function WebPushCard({ notifPermission }) {
 }
 
 /** Audio Alerts settings tab */
-function AudioAlertsTab({ callsign }) {
+function AudioAlertsTab({ callsign, timeZone, imperial = false, hasLocation = true }) {
   const { t } = useTranslation();
   const [alertSettings, setAlertSettingsState] = useState(() => getAlertSettings());
   // CQ zone derived from the callsign — the Band Openings scope default (#1191)
@@ -7337,6 +8305,14 @@ function AudioAlertsTab({ callsign }) {
 
       {/* Web Push — closed-browser space weather alerts */}
       <WebPushCard notifPermission={notifPermission} />
+
+      {/* Lightning guard — strike distance alerts + Rig Bridge antenna relay */}
+      <LightningGuardSettings
+        alertSettings={alertSettings}
+        updateSettings={updateSettings}
+        imperial={imperial}
+        hasLocation={hasLocation}
+      />
 
       {/* Volume */}
       <div
@@ -7552,6 +8528,23 @@ function AudioAlertsTab({ callsign }) {
           </div>
         );
       })}
+
+      {/* Alarm clock — daily + once-only (utils/alarmClock.js) */}
+      <div
+        style={{
+          background: 'var(--bg-tertiary)',
+          border: '1px solid var(--border-color)',
+          borderRadius: '8px',
+          padding: '14px',
+        }}
+      >
+        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '8px' }}>
+          🔔 {t('alarm.title')}
+        </div>
+        <AlarmSettingsSection timeZone={timeZone} />
+      </div>
+      {/* Spoken alerts (Web Speech API) — master toggle, voice, rate, phonetics, per-feed */}
+      <SpokenAlertsSettings alertSettings={alertSettings} updateSettings={updateSettings} />
     </div>
   );
 }

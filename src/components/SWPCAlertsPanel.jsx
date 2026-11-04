@@ -6,6 +6,7 @@
  * Data arrives via the useSWPCAlerts hook (auto-refreshes every 5 minutes).
  */
 import { useState, useEffect } from 'react';
+import { SCALE_BANDS, scaleColor as noaaScaleColor } from '../utils/noaaScales.js';
 
 // Scale chip color by level: 1–2 yellow/orange, 3+ red
 const scaleColor = (level) => {
@@ -42,7 +43,39 @@ const relativeTime = (iso, now) => {
   return `${Math.floor(hours / 24)}d ago`;
 };
 
-export const SWPCAlertsPanel = ({ data, loading, error }) => {
+/** Current NOAA R/S/G levels as three tiny chips (from the NOAA Scales feed). */
+const ScalesSummary = ({ now }) => {
+  if (!now) return null;
+  return (
+    <span
+      style={{ display: 'inline-flex', gap: '3px' }}
+      title="Current NOAA scales: R radio blackout · S solar radiation · G geomagnetic"
+    >
+      {SCALE_BANDS.map((band) => {
+        const level = now[band]?.level;
+        return (
+          <span
+            key={band}
+            style={{
+              background: level != null ? noaaScaleColor(level) : 'var(--bg-tertiary)',
+              color: level != null ? '#000' : 'var(--text-muted)',
+              padding: '1px 4px',
+              borderRadius: '3px',
+              fontSize: '9px',
+              fontWeight: 700,
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            {band}
+            {level ?? '–'}
+          </span>
+        );
+      })}
+    </span>
+  );
+};
+
+export const SWPCAlertsPanel = ({ data, loading, error, scales }) => {
   const [expanded, setExpanded] = useState(null); // productId-serial key of expanded alert
   const [now, setNow] = useState(() => Date.now());
 
@@ -77,21 +110,24 @@ export const SWPCAlertsPanel = ({ data, loading, error }) => {
         }}
       >
         <span>🚨 SPACE WX ALERTS</span>
-        {severeCount > 0 && (
-          <span
-            style={{
-              background: 'rgba(239, 68, 68, 0.3)',
-              color: '#ef4444',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              fontSize: '9px',
-              fontWeight: '700',
-              border: '1px solid #ef4444',
-            }}
-          >
-            {severeCount} ≥ LVL 2
-          </span>
-        )}
+        <span style={{ display: 'inline-flex', gap: '6px', alignItems: 'center' }}>
+          <ScalesSummary now={scales?.now} />
+          {severeCount > 0 && (
+            <span
+              style={{
+                background: 'rgba(239, 68, 68, 0.3)',
+                color: '#ef4444',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '9px',
+                fontWeight: '700',
+                border: '1px solid #ef4444',
+              }}
+            >
+              {severeCount} ≥ LVL 2
+            </span>
+          )}
+        </span>
       </div>
 
       <div style={{ flex: 1, overflowY: 'auto' }}>

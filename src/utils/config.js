@@ -7,6 +7,9 @@
  * 2. Server config (from .env file)
  * 3. Default values
  */
+
+import { readCustomTileSource, customSourceToStyle, CUSTOM_STYLE_ID } from './customTileSource.js';
+
 // Map offset for MODIS Gibs imagery to attempt to load latest global planetary coverage
 const getGIBSUrl = (offsetDays = 0) => {
   // Subtracts offsetDays and 12 hours to ensure a complete global pass
@@ -21,7 +24,17 @@ export const DEFAULT_CONFIG = {
   headerSize: 1.0, // Float multiplies base px size (0.1 to 2.0)
   locator: '',
   location: { lat: 40.015, lon: -105.2705, stationAlt: 1630 }, // Boulder, CO (default), altitude [m]
-  satellite: { minElev: 5, trackDurationMins: 45 }, // Min elevation for visibility (degrees); orbit track window (± minutes around now)
+  satellite: {
+    minElev: 5, // Min elevation for visibility (degrees)
+    trackDurationMins: 45, // orbit track window (± minutes around now)
+    maxTleAgeDays: 7, // element sets older than this are flagged stale (dashed tracks)
+    hamsAtApiKey: '', // optional hams.at personal API key (Satellite Passes → Alerts)
+    dopplerStepHz: 20, // Doppler tuning: retune the rig when the correction moves by this much
+    rotatorStepDeg: 2, // Rotator auto-track: command when the target moves by this much
+    rotatorMaxEl: 90, // Rotator elevation travel: 90 = normal, 180 = flip-capable (G-5500 style)
+    rotatorStopAz: 0, // Rotator mechanical stop azimuth (0 = north stop, 180 = south stop)
+    rotatorPrepositionMins: 10, // Swing to the AOS azimuth this many minutes before a pass
+  },
   defaultDX: { lat: 35.6762, lon: 139.6503 }, // Tokyo
   units: 'imperial', // 'imperial' or 'metric'
   allUnits: { dist: 'imperial', temp: 'imperial', press: 'imperial' },
@@ -33,7 +46,7 @@ export const DEFAULT_CONFIG = {
   },
   licenseClass: 'other', // US license class for privilege shading/warnings: 'other', 'technician', 'general', 'extra'
   theme: 'dark', // 'dark', 'light', 'legacy', or 'retro'
-  layout: 'modern', // 'modern' or 'classic'
+  layout: 'modern', // see App.jsx for the full list: 'modern', 'classic', 'dockable', 'mobile', …
   mouseZoom: 50, // Factor to affect rate of zooming with scrollwheel (1-100)
   timezone: '', // IANA timezone (e.g. 'America/Regina') — empty means consumers must fall back to browser default themselves; passing '' to Intl.DateTimeFormat throws RangeError
   use12Hour: true,
@@ -42,6 +55,8 @@ export const DEFAULT_CONFIG = {
   preventSleep: false, // Keep screen awake while app is open (tablet/kiosk mode)
   sharePresence: true, // Share callsign on the Active Users map layer
   displaySchedule: { enabled: false, sleepTime: '23:00', wakeTime: '07:00', keepSignalActive: true }, // Scheduled display on/off (#901)
+  gpsFollow: 'off', // Rig Bridge GPS plugin → DE location: 'off' | 'once' (first fix) | 'follow' (rover mode)
+  displayBrightness: { manual: 100, auto: false }, // Display tab: overlay dim / bridge backlight; auto = light sensor
   showSatellites: true,
   showPota: true,
   showDxPaths: true,
@@ -67,9 +82,34 @@ export const DEFAULT_CONFIG = {
     terminator: 60000, // 1 minute
   },
   dxClusterSource: 'dxspider-proxy',
-  customDxCluster: { enabled: false, host: '', port: 7300 },
-  udpDxCluster: { host: '', port: 12060 },
+  // loginCommands: native cluster commands sent once after login on a custom
+  // telnet cluster (e.g. "set/filter dxbm/pass 20,15"); each { cmd, enabled }.
+  customDxCluster: { enabled: false, host: '', port: 7300, loginCommands: [] },
+  // setDx: spots arriving over UDP (N1MM / DXLog / MacLoggerDX) set the DX
+  // target; show: 'all' | 'mine' (only spots entered by this station).
+  udpDxCluster: { host: '', port: 12060, setDx: false, show: 'all' },
   wsjtxRelayMulticast: { enabled: false, address: '224.0.0.1' },
+  // Alarm clock (utils/alarmClock.js): a daily alarm and a once-only alarm, HH:MM in DE local or UTC
+  alarm: {
+    daily: { time: '07:00', utc: false, armed: false },
+    once: { time: '', utc: true, armed: false, at: null, label: '' },
+  },
+  // KiwiSDR beacon monitor (Rig Bridge plugin kiwi-beacon-monitor). The
+  // browser reads measurements only when enabled; host/port/password are
+  // pushed to the bridge from Settings → Rig Bridge.
+  beaconMonitor: {
+    enabled: false,
+    host: '',
+    port: 8073,
+    password: '',
+    bands: ['20m', '17m', '15m', '12m', '10m'],
+    kiwiName: '',
+  },
+  remoteControl: { enabled: null }, // null = auto (on for local installs, off on the hosted site) — docs/API.md
+  callsignTitles: '', // up to six ';'-separated titles rotating in the callsign box (HamClock set_title)
+  grayscale: 'off', // 'off' | 'map' | 'all' — filter: grayscale(1) on the map or the whole display
+  autoSpaceWxLayers: false, // Auto-enable Aurora / D-RAP map layers when space weather warrants (Settings → Map Layers)
+  bearings: 'true', // 'true' = true north, 'magnetic' = corrected by WMM2025 declination at DE (suffix "M")
 };
 
 // Cache for server config
@@ -134,6 +174,7 @@ export const loadConfig = () => {
       panels: { ...config.panels, ...serverConfig.panels },
       dxClusterSource: serverConfig.dxClusterSource || config.dxClusterSource,
       udpDxCluster: {
+        ...config.udpDxCluster,
         host: serverConfig.dxUdpHost || config.udpDxCluster.host,
         port: parseInt(serverConfig.dxUdpPort, 10) || config.udpDxCluster.port,
       },
@@ -165,7 +206,8 @@ export const loadConfig = () => {
       // Deep-merge propagation so saved configs predating the antenna field
       // (or server-synced configs missing it) don't reset antenna to default.
       propagation: { ...config.propagation, ...localConfig.propagation },
-      udpDxCluster: localConfig.udpDxCluster || config.udpDxCluster,
+      udpDxCluster: { ...config.udpDxCluster, ...(localConfig.udpDxCluster || {}) },
+      customDxCluster: { ...config.customDxCluster, ...(localConfig.customDxCluster || {}) },
     };
   }
 
@@ -208,11 +250,14 @@ const SYNC_KEYS = [
   'openhamclock_dockLayoutPresets',
   'openhamclock_dxFavorites',
   'openhamclock_dxFilters',
+  'openhamclock_watchlists',
   'openhamclock_dxLocation',
   'openhamclock_dxLocked',
   'openhamclock_mapLayers',
   'openhamclock_mapSettings',
   'openhamclock_panelZoom',
+  'openhamclock_emcommAliases',
+  'openhamclock_emcommPanelSets',
   'openhamclock_pskActiveTab',
   'openhamclock_pskFilters',
   'openhamclock_potaFilters',
@@ -223,11 +268,15 @@ const SYNC_KEYS = [
   'openhamclock_contestSession',
   'openhamclock_freqMemories',
   'openhamclock_netSchedule',
+  'openhamclock_netControlScripts',
   'openhamclock_pskPanelMode',
   'openhamclock_bandColors',
   'openhamclock_satelliteFilters',
   'openhamclock_solarImageType',
   'openhamclock_solarPanelMode',
+  'openhamclock_graylineMargin',
+  'openhamclock_emePlannerMinElev',
+  'openhamclock_satPlannerSat',
   'openhamclock_use12Hour',
   'openhamclock_voacapColorScheme',
   'openhamclock_voacapViewMode',
@@ -425,10 +474,20 @@ export const getCartoApiKey = () => {
 };
 
 const cartoApiKey = getCartoApiKey();
+// Operator's own tile server (Settings → Map Layers → Offline map areas).
+const customStyle = customSourceToStyle(readCustomTileSource());
 
 const CARTO_ATTRIBUTION =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>';
 
+// Offline area packs (Settings → Map Layers → Offline map areas) may only be
+// downloaded from styles flagged `offlinePack: true` — tile sources whose
+// terms allow fetching an area ahead of time. Esri ArcGIS Online basemaps
+// (offline use goes through Esri's own export-tiles workflow with an ArcGIS
+// account), Google, CARTO, and OpenStreetMap's own tile servers (which ban
+// "save area for offline" outright) are deliberately not flagged; NASA GIBS
+// imagery is date-stamped and changes daily. A flagged style's tile host must
+// also be listed in public/sw-policy.js OFFLINE_TILE_HOSTS (unit-tested).
 export const MAP_STYLES = {
   dark: cartoApiKey
     ? {
@@ -495,6 +554,73 @@ export const MAP_STYLES = {
     url: 'https://services.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
     attribution: '&copy; Esri',
   },
+  usgsTopo: {
+    name: 'USGS Topo',
+    // The National Map (U.S. Geological Survey): U.S. public-domain topo
+    // tiles — roads, contours, hydrography, place names. Detailed for the
+    // United States; elsewhere only coarse world data at low zoom.
+    url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}',
+    attribution: 'USGS The National Map',
+    offlinePack: true,
+    offlineAvgTileBytes: 28 * 1024, // measured: ~10–36 KB JPEG tiles, z6–z16
+    offlineMaxZoom: 16,
+  },
+  // ── Regional offline-capable basemaps (national mapping agencies) ──────
+  // Each is an open-licence service whose terms allow copying the map data
+  // and do not forbid fetching an area ahead of time at a polite rate.
+  // `regional: true` keeps them out of the default wall-display rotation.
+  ignPlan: {
+    name: 'Plan IGN (France)',
+    // IGN Géoplateforme, Plan IGN v2. Licence Ouverte / Open Licence 2.0
+    // (Etalab); the Géoplateforme WMTS API is "non soumis à limite
+    // d'usage" (cartes.gouv.fr/cgu). France and overseas territories in
+    // detail, the world at low zoom.
+    url: 'https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&STYLE=normal&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}',
+    attribution: '&copy; <a href="https://www.ign.fr/">IGN</a> Plan IGN, Licence Ouverte Etalab 2.0',
+    offlinePack: true,
+    offlineAvgTileBytes: 50 * 1024, // measured 39–74 KB PNG, z6–z16
+    offlineMaxZoom: 18,
+    regional: true,
+  },
+  gsiStd: {
+    name: 'GSI Standard (Japan)',
+    // Geospatial Information Authority of Japan, 地理院タイル 標準地図.
+    // GSI Content Terms of Use = Public Data License 1.0 (reproduction and
+    // redistribution allowed with attribution, CC BY 4.0-compatible); the
+    // service asks only that clients not overload it.
+    url: 'https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png',
+    attribution: '<a href="https://maps.gsi.go.jp/development/ichiran.html">地理院タイル (GSI)</a>',
+    offlinePack: true,
+    offlineAvgTileBytes: 55 * 1024, // measured 9–105 KB PNG (dense Tokyo high)
+    offlineMaxZoom: 18,
+    regional: true,
+  },
+  kartverketTopo: {
+    name: 'Kartverket Topo (Norway)',
+    // Norwegian Mapping Authority topographic cache, CC BY 4.0
+    // (kartverket.no/api-og-data/vilkar-for-bruk) — attribution "© Kartverket".
+    url: 'https://cache.kartverket.no/v1/wmts/1.0.0/topo/default/webmercator/{z}/{y}/{x}.png',
+    attribution: '&copy; <a href="https://www.kartverket.no/">Kartverket</a> (CC BY 4.0)',
+    offlinePack: true,
+    offlineAvgTileBytes: 70 * 1024, // measured 1–127 KB PNG
+    offlineMaxZoom: 18,
+    regional: true,
+  },
+  gaBase: {
+    name: 'GA Base Map (Australia)',
+    // Geoscience Australia National Base Map, CC BY 4.0
+    // (© Commonwealth of Australia (Geoscience Australia)); includes
+    // OpenStreetMap-derived data (ODbL). Tiles exist to z16.
+    url: 'https://services.ga.gov.au/gis/rest/services/NationalBaseMap/MapServer/tile/{z}/{y}/{x}',
+    attribution:
+      '&copy; Commonwealth of Australia (<a href="https://www.ga.gov.au/">Geoscience Australia</a>) CC BY 4.0, &copy; OpenStreetMap contributors',
+    offlinePack: true,
+    offlineAvgTileBytes: 45 * 1024, // measured 2–114 KB PNG
+    offlineMaxZoom: 16,
+    maxNativeZoom: 16, // the service 404s past z16 — Leaflet scales z16 up
+    regional: true,
+  },
+  ...(customStyle ? { [CUSTOM_STYLE_ID]: customStyle } : {}),
   natgeo: {
     name: 'Nat Geo',
     url: 'https://services.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}',

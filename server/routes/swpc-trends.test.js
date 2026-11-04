@@ -6,7 +6,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const route = require('./swpc-trends.js');
-const { binSeries, slimWind, slimMag, slimProtons, latestValue } = route;
+const { binSeries, slimWind, slimMag, slimProtons, slimElectrons, latestValue } = route;
 
 describe('binSeries', () => {
   it('averages numeric fields into 10-minute bins, skipping nulls per-field', () => {
@@ -61,6 +61,19 @@ describe('slim transforms', () => {
     );
     expect(out).toHaveLength(1);
     expect(out[0].flux).toBe(0.23);
+  });
+
+  it('slimElectrons keeps the >=2 MeV channel and bins it', () => {
+    const out = slimElectrons(
+      [
+        { time_tag: '2026-08-28T11:30:00Z', flux: 150.5, energy: '>=2 MeV' },
+        { time_tag: '2026-08-28T11:35:00Z', flux: 250.5, energy: '>=2 MeV' },
+        { time_tag: '2026-08-28T11:35:00Z', flux: 9999, energy: '>=0.8 MeV' },
+      ],
+      now,
+    );
+    expect(out).toHaveLength(1);
+    expect(out[0].flux).toBe(200.5);
   });
 });
 
@@ -124,7 +137,7 @@ describe('GET /api/swpc/trends (route)', () => {
     expect(body.latest.proton10).toBe(0.5);
 
     await runRequest();
-    expect(ctx.fetch).toHaveBeenCalledTimes(3); // second hit from cache
+    expect(ctx.fetch).toHaveBeenCalledTimes(4); // second hit from cache
   });
 
   it('502s when every feed fails and no cache exists', async () => {

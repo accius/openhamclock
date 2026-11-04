@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<NetLoggerXML>
+ <Header>
+  <CreationDateUTC>Wed 10/14/2026 23:40:09</CreationDateUTC>
+  <Copyright>The NetLogger System 2026</Copyright>
+  <APIVersion>1.3.1</APIVersion>
+  <TimeZone>UTC</TimeZone>
+ </Header>
+ <ServerList>
+  <ResponseCode>200 OK</ResponseCode>
+  <Server>
+   <ServerName>NETLOGGER</ServerName>
+   <ServerActiveNetCount>3</ServerActiveNetCount>
+   <Net>
+    <NetName>ALL IN SIMPLEX</NetName>
+    <AltNetName>ALL IN SIMPLEX</AltNetName>
+    <Frequency>146520</Frequency>
+    <Logger>N0CALL-TEST - v3.1.7W</Logger>
+    <NetControl>N0CALL</NetControl>
+    <Date>2026-10-14 23:14:35</Date>
+    <Mode>FM</Mode>
+    <Band>2m</Band>
+    <SubscriberCount>4</SubscriberCount>
+   </Net>
+   <Net>
+    <NetName>Test &amp; Tune Net</NetName>
+    <AltNetName>T&amp;T</AltNetName>
+    <Frequency>7.272</Frequency>
+    <Logger>K1ABC-LOGGER - v3.1.7W</Logger>
+    <NetControl>K1ABC</NetControl>
+    <Date>2026-10-14 23:10:34</Date>
+    <Mode>LSB</Mode>
+    <Band>40m</Band>
+    <SubscriberCount>12</SubscriberCount>
+   </Net>
+   <Net>
+    <NetName>WEB ONLY NET</NetName>
+    <AltNetName>WEB ONLY NET</AltNetName>
+    <Frequency>www.example.org</Frequency>
+    <Logger>VE3XYZ-TEST - v3.1.7W</Logger>
+    <NetControl>VE3XYZ</NetControl>
+    <Date>2026-10-14 23:26:26</Date>
+    <Mode>FM</Mode>
+    <Band>All</Band>
+    <SubscriberCount>1</SubscriberCount>
+   </Net>
+  </Server>
+  <Server>
+   <ServerName>NETLOGGER2</ServerName>
+   <ServerActiveNetCount>1</ServerActiveNetCount>
+   <Net>
+    <NetName>County Hunters</NetName>
+    <AltNetName>County Hunters</AltNetName>
+    <Frequency>14336</Frequency>
+    <Logger>W9ZZZ-LOG - v3.1.7W</Logger>
+    <NetControl>W9ZZZ</NetControl>
+    <Date>bad date</Date>
+    <Mode>SSB</Mode>
+    <Band>20m</Band>
+    <SubscriberCount></SubscriberCount>
+   </Net>
+  </Server>
+ </ServerList>
+</NetLoggerXML>

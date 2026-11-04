@@ -293,7 +293,6 @@ export const getFlagForEntity = (entityName) => {
     Mali: '🇲🇱',
     'Cape Verde': '🇨🇻',
     Madeira: '🇵🇹', // Listed closer to Europe usually
-    'Canary Is.': '🇮🇨', // Listed closer to Europe usually
     'Ascension Is.': '🇦🇨',
     'St. Helena': '🇸🇭',
     'Tristan da Cunha': '🇹🇦',

@@ -7,3 +7,8 @@
 # renderer and its guard tests; a CRLF checkout on Windows made every heading
 # regex miss (helpTopics.test.js failures with an up-to-date manual).
 *.md text eol=lf
+
+# flmsg fixtures are byte-exact (field lengths and WRAP checksums count bytes)
+rig-bridge/lib/fixtures/flmsg/*.213 -text
+rig-bridge/lib/fixtures/flmsg/*.wrap -text
+rig-bridge/lib/fixtures/flmsg/*.m2s -text

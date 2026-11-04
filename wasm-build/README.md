@@ -1,4 +1,8 @@
-# P.533 WASM build
+# WASM builds (P.533, FT8)
+
+The FT8 decoder build lives in [`ft8/`](ft8/README.md). The rest of this page covers P.533.
+
+## P.533
 
 Compiles ITU-R P.533-14 (the `libp533` + `libp372` + `ITURHFProp` trio from
 [ITU-R-Study-Group-3/ITU-R-HF](https://github.com/ITU-R-Study-Group-3/ITU-R-HF))

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { makeDraggable } from './makeDraggable.js';
+import { displayNow, subscribeDisplayTime } from '../../utils/displayTime.js';
 
 /**
  * Gray Line Propagation Overlay Plugin v1.1.0
@@ -273,7 +274,7 @@ function unwrapAndCopyPolygon(upperPoints, lowerPoints) {
 
 export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
   const [layers, setLayers] = useState([]);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(() => displayNow());
   const [showTwilight, _setShowTwilight] = useState(() => {
     try {
       const v = localStorage.getItem('openhamclock_grayline_twilight');
@@ -321,14 +322,16 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
   const controlRef = useRef(null);
   const updateIntervalRef = useRef(null);
 
-  // Update time every minute
+  // Update time every minute — and immediately when the display time is shifted
   useEffect(() => {
     if (!enabled) return;
-    const updateTime = () => setCurrentTime(new Date());
+    const updateTime = () => setCurrentTime(displayNow());
     updateTime();
     updateIntervalRef.current = setInterval(updateTime, 60000);
+    const unsubShift = subscribeDisplayTime(updateTime);
     return () => {
       if (updateIntervalRef.current) clearInterval(updateIntervalRef.current);
+      unsubShift();
     };
   }, [enabled]);
 
@@ -342,7 +345,7 @@ export function useLayer({ enabled = false, opacity = 0.5, map = null }) {
         const panelWrapper = L.DomUtil.create('div', 'panel-wrapper');
         const container = L.DomUtil.create('div', 'grayline-control', panelWrapper);
 
-        const now = new Date();
+        const now = displayNow();
         const timeStr = now.toUTCString();
 
         container.innerHTML = `

@@ -1,11 +1,11 @@
 /**
  * EmComm Field Reports routes.
  *
- * Ingest endpoint for Winlink Express form exports forwarded by the
- * rig-bridge winlink-express-csv plugin (backlog 999.1). Winlink Express at
- * an EOC accumulates a CSV of received forms (Field Situation Reports,
- * Damage Assessments, ...) — the plugin watches that file and POSTs new rows
- * here; the EmComm layout lists them and plots those with positions.
+ * Ingest endpoint for EmComm forms forwarded by rig-bridge: Winlink Express
+ * form exports from the winlink-express-csv plugin (backlog 999.1), and
+ * NBEMS flmsg forms (ICS-213, radiograms, ...) from the fldigi plugin's
+ * folder watcher. Each plugin POSTs new forms here; the EmComm layout lists
+ * them and plots those with positions.
  *
  * Auth: mirrors POST /api/aprs/local — an open local-ingest endpoint intended
  * for the rig-bridge process on the same host (fire-and-forget POSTs with no
@@ -113,8 +113,12 @@ module.exports = function (app, ctx) {
     }
 
     const ts = typeof raw.timestamp === 'number' && Number.isFinite(raw.timestamp) ? raw.timestamp : null;
+    // Which ingest path delivered it ('winlink-express-csv', 'nbems-flmsg', …)
+    // so the panel and map can label Winlink and NBEMS traffic apart.
+    const source = cleanStr(raw.receivedVia ?? raw.source, 40).replace(/[^a-z0-9-]/gi, '');
     return {
       id,
+      source,
       callsign,
       formType,
       lat: cleanCoord(raw.lat, 90),

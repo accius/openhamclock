@@ -5,6 +5,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ariaTabKeyDown } from '../utils/ariaTabKeyDown.js';
 import { use630mBandEnabled } from '../hooks/use630mBandEnabled.js';
+import WatchlistEditor from './WatchlistEditor.jsx';
+import { useWatchlist } from '../hooks/useWatchlists.js';
 
 const BASE_BANDS = ['160m', '80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
 const MODES = [
@@ -87,9 +89,10 @@ const GRID_REGIONS = [
 ];
 
 export const ActivateFilterManager = ({ filters, onFilterChange, isOpen, onClose, name }) => {
-  const ACTIVATE_TABS = ['bands', 'grids', 'modes'];
+  const ACTIVATE_TABS = ['bands', 'grids', 'modes', 'watch'];
   const activateTabRefs = useRef({});
   const [activeTab, setActiveTab] = useState('bands');
+  const [activationWatchlist] = useWatchlist('activations');
   const [customGrid, setCustomGrid] = useState('');
   const [band630mEnabled] = use630mBandEnabled();
   const bands = band630mEnabled ? ['630m', ...BASE_BANDS] : BASE_BANDS;
@@ -473,6 +476,18 @@ export const ActivateFilterManager = ({ filters, onFilterChange, isOpen, onClose
           >
             Modes {filters?.modes?.length ? `(${filters.modes.length})` : ''}
           </button>
+          <button
+            role="tab"
+            id="tab-activate-watch"
+            aria-selected={activeTab === 'watch'}
+            aria-controls="panel-activate-watch"
+            tabIndex={activeTab === 'watch' ? 0 : -1}
+            ref={(el) => (activateTabRefs.current['watch'] = el)}
+            onClick={() => setActiveTab('watch')}
+            style={tabStyle(activeTab === 'watch')}
+          >
+            Watch {activationWatchlist.mode !== 'off' && activationWatchlist.text.trim() ? '●' : ''}
+          </button>
         </div>
 
         {/* Tab Content */}
@@ -489,6 +504,11 @@ export const ActivateFilterManager = ({ filters, onFilterChange, isOpen, onClose
           {activeTab === 'bands' && renderBandsTab()}
           {activeTab === 'grids' && renderGridsTab()}
           {activeTab === 'modes' && renderModesTab()}
+          {activeTab === 'watch' && (
+            <div>
+              <WatchlistEditor listKey="activations" title="Activation watch list (POTA / SOTA / WWFF / WWBOTA)" />
+            </div>
+          )}
         </div>
 
         {/* Footer */}

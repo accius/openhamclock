@@ -342,7 +342,6 @@ export const useWeather = (location, allUnits = { dist: 'imperial', temp: 'imper
       if (debounceRef.current) clearTimeout(debounceRef.current);
       if (retryRef.current) clearTimeout(retryRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location?.lat, location?.lon, sourceTick]);
 
   // Convert raw API data to display data based on current units

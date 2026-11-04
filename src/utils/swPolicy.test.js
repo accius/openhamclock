@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
   API_CACHE_MAX_ENTRIES,
+  OFFLINE_PACK_CACHE,
+  OFFLINE_TILE_HOSTS,
+  isPersistentCacheName,
+  isOfflineTileHost,
   normalizeVersion,
   cacheNames,
   staleCacheNames,
@@ -9,6 +13,8 @@ import {
   isCacheableApiResponse,
   keysToPrune,
 } from './swPolicy';
+import { MAP_STYLES } from './config.js';
+import { offlinePackStyleIds } from './offlineTiles.js';
 
 const ORIGIN = 'https://openhamclock.com';
 const req = (over = {}) => ({
@@ -28,6 +34,9 @@ describe('classifyRequest', () => {
   it('classifies hashed bundles and static content as assets', () => {
     expect(classifyRequest(req({ url: `${ORIGIN}/assets/index-Ck2f9a.js` }))).toBe('asset');
     expect(classifyRequest(req({ url: `${ORIGIN}/assets/vendor-abc123.css` }))).toBe('asset');
+    // Self-hosted Leaflet + fonts: the map cannot start offline without them
+    expect(classifyRequest(req({ url: `${ORIGIN}/vendor/leaflet/leaflet.js` }))).toBe('asset');
+    expect(classifyRequest(req({ url: `${ORIGIN}/vendor/fonts/fonts.css` }))).toBe('asset');
     expect(classifyRequest(req({ url: `${ORIGIN}/icons/icon-192.png` }))).toBe('asset');
     expect(classifyRequest(req({ url: `${ORIGIN}/wasm/p533.wasm` }))).toBe('asset');
     expect(classifyRequest(req({ url: `${ORIGIN}/geo/cq-zones.geojson` }))).toBe('asset');
@@ -61,7 +70,7 @@ describe('classifyRequest', () => {
   });
 
   it('bypasses unrecognized same-origin paths and junk input', () => {
-    expect(classifyRequest(req({ url: `${ORIGIN}/vendor/leaflet/leaflet.js` }))).toBe('bypass');
+    expect(classifyRequest(req({ url: `${ORIGIN}/vendors.txt` }))).toBe('bypass');
     expect(classifyRequest(req({ url: `${ORIGIN}/metrics` }))).toBe('bypass');
     expect(classifyRequest(null)).toBe('bypass');
     expect(classifyRequest(req({ url: 'not a url', origin: undefined }))).toBe('bypass');
@@ -77,6 +86,8 @@ describe('isStreamingApiPath', () => {
   it('matches the known SSE endpoints and generic /api/**/stream', () => {
     expect(isStreamingApiPath('/api/pskreporter/stream')).toBe(true);
     expect(isStreamingApiPath('/api/rig-bridge/relay/stream')).toBe(true);
+    // Decoder panel: KiwiSDR audio through the Cloud Relay never ends
+    expect(isStreamingApiPath('/api/rig-bridge/relay/audio')).toBe(true);
     expect(isStreamingApiPath('/api/foo/stream')).toBe(true);
     expect(isStreamingApiPath('/api/foo/stream/')).toBe(true);
     expect(isStreamingApiPath('/api/solar')).toBe(false);
@@ -157,5 +168,67 @@ describe('keysToPrune', () => {
     const pruned = keysToPrune(keys);
     expect(pruned).toHaveLength(10);
     expect(pruned[0]).toBe('k0');
+  });
+});
+
+describe('offline area packs', () => {
+  const USGS = 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/9/193/106';
+
+  it('routes tiles from offline-pack hosts through the worker', () => {
+    expect(classifyRequest(req({ url: USGS, mode: 'cors' }))).toBe('tile');
+    expect(classifyRequest(req({ url: USGS, mode: 'no-cors' }))).toBe('tile');
+  });
+
+  it('still bypasses every other cross-origin request, navigations, and non-GET', () => {
+    expect(
+      classifyRequest(req({ url: 'https://services.arcgisonline.com/ArcGIS/rest/services/x/MapServer/tile/1/0/0' })),
+    ).toBe('bypass');
+    expect(classifyRequest(req({ url: 'https://tile.openstreetmap.org/1/0/0.png' }))).toBe('bypass');
+    expect(classifyRequest(req({ url: USGS, mode: 'navigate' }))).toBe('bypass');
+    expect(classifyRequest(req({ url: USGS, method: 'POST' }))).toBe('bypass');
+  });
+
+  it('host matching is exact (no suffix tricks)', () => {
+    expect(isOfflineTileHost('basemap.nationalmap.gov')).toBe(true);
+    expect(isOfflineTileHost('BASEMAP.NATIONALMAP.GOV')).toBe(true);
+    expect(isOfflineTileHost('evil.basemap.nationalmap.gov.example')).toBe(false);
+    expect(isOfflineTileHost('')).toBe(false);
+  });
+
+  it('the pack cache survives version changes', () => {
+    expect(isPersistentCacheName(OFFLINE_PACK_CACHE)).toBe(true);
+    expect(isPersistentCacheName('ohc-26.5.0-x-app')).toBe(false);
+    const all = ['ohc-26.5.0-old-app', 'ohc-26.5.0-old-api', OFFLINE_PACK_CACHE];
+    expect(staleCacheNames(all, '26.6.0-new')).toEqual(['ohc-26.5.0-old-app', 'ohc-26.5.0-old-api']);
+  });
+
+  it('every offline-pack basemap is served by a host the worker routes', () => {
+    const ids = offlinePackStyleIds(MAP_STYLES);
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) {
+      const host = new URL(MAP_STYLES[id].url.replace(/\{[^}]+\}/g, '0')).hostname;
+      expect(OFFLINE_TILE_HOSTS).toContain(host);
+    }
+  });
+
+  it('no style from a provider that forbids bulk/offline download is flagged', () => {
+    for (const id of offlinePackStyleIds(MAP_STYLES)) {
+      expect(MAP_STYLES[id].url).not.toMatch(/arcgisonline\.com|google\.com|cartocdn\.com|tile\.openstreetmap\.org/);
+    }
+  });
+});
+
+describe('server-sent event streams are never intercepted', () => {
+  const ORIGIN2 = 'https://openhamclock.com';
+  it('bypasses EventSource requests by Accept header and /stream/<id> paths', () => {
+    const base = { method: 'GET', mode: 'cors', origin: ORIGIN2 };
+    expect(
+      classifyRequest({ ...base, url: `${ORIGIN2}/api/logsync/wavelog/events`, accept: 'text/event-stream' }),
+    ).toBe('bypass');
+    expect(classifyRequest({ ...base, url: `${ORIGIN2}/api/pskreporter/stream/K0CJH` })).toBe('bypass');
+    expect(classifyRequest({ ...base, url: `${ORIGIN2}/api/incident/abc/stream?x=1` })).toBe('bypass');
+    expect(classifyRequest({ ...base, url: `${ORIGIN2}/api/logsync/wavelog/events`, accept: 'application/json' })).toBe(
+      'api',
+    );
   });
 });

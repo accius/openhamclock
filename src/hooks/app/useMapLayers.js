@@ -26,6 +26,10 @@ export default function useMapLayers() {
     showAPRSLabels: false,
     aprsIconScale: 1, // APRS symbol + tag size multiplier (#1214)
     showMeshCom: true,
+    // Spot marker labels (DX cluster / activations): 'none' | 'call' | 'prefix' | 'freq',
+    // and the HamClock "Min label dist" — labels closer to DE than this (km) are hidden.
+    spotLabelMode: 'call',
+    spotLabelMinKm: 0,
   };
 
   const [mapLayers, setMapLayers] = useState(() => {
@@ -124,6 +128,19 @@ export default function useMapLayers() {
     [],
   );
   const toggleMeshCom = useCallback(() => setMapLayers((prev) => ({ ...prev, showMeshCom: !prev.showMeshCom })), []);
+  const setSpotLabelMode = useCallback(
+    (mode) =>
+      setMapLayers((prev) => ({
+        ...prev,
+        spotLabelMode: ['none', 'call', 'prefix', 'freq'].includes(mode) ? mode : 'call',
+      })),
+    [],
+  );
+  const setSpotLabelMinKm = useCallback(
+    (km) =>
+      setMapLayers((prev) => ({ ...prev, spotLabelMinKm: Math.max(0, Math.min(20000, Math.round(Number(km) || 0))) })),
+    [],
+  );
 
   return {
     mapLayers,
@@ -150,5 +167,7 @@ export default function useMapLayers() {
     setAprsIconScale,
     cycleAprsIconScale,
     toggleMeshCom,
+    setSpotLabelMode,
+    setSpotLabelMinKm,
   };
 }

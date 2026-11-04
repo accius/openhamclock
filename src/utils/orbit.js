@@ -104,7 +104,7 @@ export default class Orbit {
     let pass = false;
     let ongoingPass = false;
     let lastElevation = null;
-    // eslint-disable-next-line no-unmodified-loop-condition -- date is mutated via setMinutes/setSeconds
+    // date is mutated in the loop body via setMinutes/setSeconds
     while (date < endDate) {
       const positionEcf = this.positionECF(date);
       if (!positionEcf) {

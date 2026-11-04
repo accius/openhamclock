@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseAprsMessage, messagesForStation, isDuplicateMessage } from './aprsMessage.js';
+import { parseAprsMessage, messagesForStation, isDuplicateMessage, parseAprsAck, applyAprsAck } from './aprsMessage.js';
 
 const line = (body) => `N8TAG-7>APY5D1,WIDE1-1:${body}`;
 
@@ -24,6 +24,7 @@ describe('parseAprsMessage', () => {
         action: 'checkin',
         netName: 'TESTNET',
         status: 'AVAILABLE',
+        alias: 'EMCOMM',
       });
     }
   });
@@ -53,17 +54,35 @@ describe('parseAprsMessage', () => {
       action: 'checkin',
       netName: 'TESTNET',
       status: 'AT THE EOC',
+      alias: 'EMCOMM',
     });
     expect(parseAprsMessage(line(':EMCOMM   :cq testnet')).netCommand).toEqual({
       action: 'checkin',
       netName: 'TESTNET',
       status: '',
+      alias: 'EMCOMM',
     });
     expect(parseAprsMessage(line(':EMCOMM   :U TESTNET')).netCommand).toEqual({
       action: 'checkout',
       netName: 'TESTNET',
+      alias: 'EMCOMM',
     });
-    expect(parseAprsMessage(line(':W1AW     :CQ TESTNET')).netCommand).toBeNull();
+  });
+
+  it('records the address of a check-in sent to any net address (#1237)', () => {
+    expect(parseAprsMessage(line(':W8ROC    :CQ HAMCO at Station 1')).netCommand).toEqual({
+      action: 'checkin',
+      netName: 'HAMCO',
+      status: 'AT STATION 1',
+      alias: 'W8ROC',
+    });
+    expect(parseAprsMessage(line(':W8ROC-10 :U HAMCO')).netCommand).toMatchObject({
+      action: 'checkout',
+      alias: 'W8ROC-10',
+    });
+    // Ordinary text and bulletins are not net commands
+    expect(parseAprsMessage(line(':W1AW     :see you on the net')).netCommand).toBeNull();
+    expect(parseAprsMessage(line(':BLN1     :CQ NET tonight')).netCommand).toBeNull();
   });
 
   it('flags bulletins and skips acks, rejs and non-messages', () => {
@@ -135,5 +154,99 @@ describe('isDuplicateMessage (#1230)', () => {
 
   it('ignores our own sent messages', () => {
     expect(isDuplicateMessage([{ ...base, direction: 'sent' }], { ...base, timestamp: t0 + 1 })).toBe(false);
+  });
+});
+
+describe('acks mark sent messages delivered (#1247)', () => {
+  it('parses ack and rej frames, nothing else', () => {
+    expect(parseAprsAck('KE8PLM-9>APY400,WIDE1-1::K0CJH-9  :ack12')).toEqual({
+      from: 'KE8PLM-9',
+      to: 'K0CJH-9',
+      msgId: '12',
+      state: 'acked',
+    });
+    expect(parseAprsAck('KE8PLM-9>APY400::K0CJH-9  :rej7\r')).toMatchObject({ msgId: '7', state: 'rejected' });
+    expect(parseAprsAck('KE8PLM-9>APY400::K0CJH-9  :hello{12')).toBeNull();
+    expect(parseAprsAck('KE8PLM-9>APY400:!3900.11N/08411.80W-')).toBeNull();
+  });
+
+  it('matches the id and the station it was sent to', () => {
+    const sent = { direction: 'sent', to: 'KE8PLM-9', msgId: '12', delivery: 'pending', text: 'x' };
+    const other = { direction: 'sent', to: 'N8TAG', msgId: '12', delivery: 'pending', text: 'y' };
+    const msgs = [sent, other];
+    expect(applyAprsAck(msgs, parseAprsAck('KE8PLM-9>APY400::K0CJH-9  :ack12'))).toBe(sent);
+    expect(sent.delivery).toBe('acked');
+    expect(other.delivery).toBe('pending');
+    expect(applyAprsAck(msgs, parseAprsAck('W1AW>APY400::K0CJH-9  :ack99'))).toBeNull();
+    // A later rej never downgrades a delivered message
+    applyAprsAck(msgs, parseAprsAck('KE8PLM-9>APY400::K0CJH-9  :rej12'));
+    expect(sent.delivery).toBe('acked');
+    expect(messagesForStation(msgs, 'KE8PLM-9')[0]).toMatchObject({ msgId: '12', delivery: 'acked' });
+  });
+});
+
+// Frames as heard by KE8PLM's DireWolf (#1252, #1253)
+const TH_D75 = 'KE8PLM-9>APK005,W8BLV,WIDE1*,WIDE2-1:';
+const IGATED_ACK = 'W8EH>APU25N,W8BLV,WIDE1*,WIDE2-1:}KE8PLM-9>APFII0,TCPIP,W8EH*::KE8PLM   :ack687\r';
+
+describe('reply-ack ids are not part of the text (#1252)', () => {
+  it('takes "{MM}AA" off the text; the id is MM', () => {
+    expect(parseAprsMessage(TH_D75 + ':KE8PLM   :got it{0D}682')).toMatchObject({ text: 'got it', msgId: '0D' });
+    expect(parseAprsMessage(TH_D75 + ':KE8PLM   :hi{0D}')).toMatchObject({ text: 'hi', msgId: '0D' });
+    expect(parseAprsMessage(TH_D75 + ':KE8PLM   :hi{0D}682\r')).toMatchObject({ text: 'hi', msgId: '0D' });
+    expect(parseAprsMessage(TH_D75 + ':KE8PLM   :hi{687')).toMatchObject({ text: 'hi', msgId: '687' });
+  });
+
+  it('net check-in status and check-out are clean', () => {
+    const cq = parseAprsMessage(TH_D75 + ':EMCOMM   :CQ TESTNET INSERVICE{0C}681');
+    expect(cq.text).toBe('CQ TESTNET INSERVICE');
+    expect(cq.netCommand).toMatchObject({ action: 'checkin', netName: 'TESTNET', status: 'INSERVICE' });
+    const u = parseAprsMessage(TH_D75 + ':EMCOMM   :U Testnet{0E}682');
+    expect(u.text).toBe('U Testnet');
+    expect(u.netCommand).toMatchObject({ action: 'checkout', netName: 'TESTNET' });
+  });
+
+  it('the trailing AA acks our message AA to that station', () => {
+    const sent = { direction: 'sent', to: 'KE8PLM-9', msgId: '682', delivery: 'pending', text: 'x' };
+    const ack = parseAprsAck(TH_D75 + ':KE8PLM   :got it{0D}682');
+    expect(ack).toEqual({ from: 'KE8PLM-9', to: 'KE8PLM', msgId: '682', state: 'acked' });
+    expect(applyAprsAck([sent], ack)).toBe(sent);
+    expect(sent.delivery).toBe('acked');
+    // "{MM}" alone acks nothing
+    expect(parseAprsAck(TH_D75 + ':KE8PLM   :hi{0D}')).toBeNull();
+  });
+});
+
+describe('acks relayed by an igate in a third-party wrapper (#1253)', () => {
+  it('unwraps the frame and trims the CR after the id', () => {
+    expect(parseAprsAck(IGATED_ACK)).toEqual({ from: 'KE8PLM-9', to: 'KE8PLM', msgId: '687', state: 'acked' });
+    expect(parseAprsMessage(IGATED_ACK)).toBeNull();
+  });
+
+  it('marks the sent message delivered', () => {
+    const sent = {
+      direction: 'sent',
+      to: 'KE8PLM-9',
+      msgId: '687',
+      delivery: 'pending',
+      text: 'Test Message for Ack5',
+    };
+    expect(applyAprsAck([sent], parseAprsAck(IGATED_ACK))).toBe(sent);
+    expect(sent.delivery).toBe('acked');
+  });
+
+  it('rejects and messages are unwrapped the same way', () => {
+    expect(parseAprsAck('W8EH>APU25N:}KE8PLM-9>APFII0,TCPIP,W8EH*::ke8plm   :rej687\r')).toMatchObject({
+      from: 'KE8PLM-9',
+      to: 'KE8PLM',
+      msgId: '687',
+      state: 'rejected',
+    });
+    expect(parseAprsMessage('W8EH>APU25N:}KE8PLM-9>APFII0,TCPIP,W8EH*::KE8PLM   :hello{12\r')).toMatchObject({
+      from: 'KE8PLM-9',
+      to: 'KE8PLM',
+      text: 'hello',
+      msgId: '12',
+    });
   });
 });

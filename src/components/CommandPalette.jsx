@@ -40,6 +40,7 @@ const LAYOUT_IDS = [
   'hunter',
   'weather',
   'airtraffic',
+  'mobile',
 ];
 const SETTINGS_TAB_IDS = [
   'station',

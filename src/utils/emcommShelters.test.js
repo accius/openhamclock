@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { aprsShelterStatus, aprsReportToShelter, mergeShelters } from './emcommShelters.js';
+import { aggregateResourceTokens, aprsShelterStatus, aprsReportToShelter, mergeShelters } from './emcommShelters.js';
+import { parseResourceTokens } from '../../server/utils/aprsParser.js';
 
 const fema = [
   { id: 1, name: 'Central High School', lat: 40.0, lon: -105.0, status: 'OPEN' },
@@ -94,5 +95,38 @@ describe('mergeShelters', () => {
   it('handles empty inputs', () => {
     expect(mergeShelters([], [])).toEqual([]);
     expect(mergeShelters(null, null)).toEqual([]);
+  });
+});
+
+describe('aggregateResourceTokens (#1254)', () => {
+  const station = (comment) => ({ tokens: parseResourceTokens(comment).tokens });
+
+  it('totals spaced, spaceless and mixed-case reports under one canonical key', () => {
+    const agg = aggregateResourceTokens([
+      station('[Beds 180/200] [Water 170/190]'),
+      station('[BEDS10/20][water5/10]'),
+      station('[beds 1/2] [FOOD40] [Fuel-5] [MED!] [PowerOK]'),
+      station('[Food 10] [fuel -15]'),
+    ]);
+    const byKey = Object.fromEntries(agg.map((a) => [a.key, a]));
+    expect(Object.keys(byKey).sort()).toEqual(['Beds', 'Food', 'Fuel', 'Med', 'Power', 'Water']);
+    expect(byKey.Beds.capacity).toEqual([
+      { current: 180, max: 200 },
+      { current: 10, max: 20 },
+      { current: 1, max: 2 },
+    ]);
+    expect(byKey.Water.capacity).toEqual([
+      { current: 170, max: 190 },
+      { current: 5, max: 10 },
+    ]);
+    expect(byKey.Food.quantities).toBe(50);
+    expect(byKey.Fuel.needs).toBe(-20);
+    expect(byKey.Med.statuses.critical).toBe(1);
+    expect(byKey.Power.statuses.ok).toBe(1);
+  });
+
+  it('is empty when no station carries tokens', () => {
+    expect(aggregateResourceTokens([{ tokens: [] }, {}])).toEqual([]);
+    expect(aggregateResourceTokens(undefined)).toEqual([]);
   });
 });

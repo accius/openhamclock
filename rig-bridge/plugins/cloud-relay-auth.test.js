@@ -130,6 +130,47 @@ describe('paired bridge (commandKey set)', () => {
     expect(JSON.stringify(pushes)).not.toContain(signLib.deriveReadToken(KEY, SESSION));
     inst.disconnect();
   });
+
+  it('reports refused commands back as relay-cmd-refused events, rate-limited', async () => {
+    const { inst, pushes } = await setup({ commandKey: KEY });
+    inst._executeCommand({ type: 'setPTT', payload: { ptt: true } });
+    inst._executeCommand({ type: 'setPTT', payload: { ptt: true } }); // same type + reason: not repeated
+    inst._executeCommand({
+      type: 'indicators',
+      payload: {},
+      auth: signCommand('9'.repeat(64), SESSION, 'indicators', {}),
+    });
+    await vi.waitFor(() => expect(pushes.some((p) => p.pluginEvents)).toBe(true));
+    const ev = pushes.flatMap((p) => p.pluginEvents || []);
+    expect(ev.map((e) => [e.event, e.source, e.data.type, e.data.reason])).toEqual([
+      ['relay-cmd-refused', 'cloud-relay', 'setPTT', 'unsigned'],
+      ['relay-cmd-refused', 'cloud-relay', 'indicators', 'bad-signature'],
+    ]);
+    inst.disconnect();
+  });
+});
+
+describe('answers for commands that carry a requestId', () => {
+  it('an applied indicators command comes back as relay-cmd-result; a refused one always as relay-cmd-refused', async () => {
+    const { inst, radio, pushes } = await setup({ commandKey: KEY });
+    const payload = { satVisible: false, countdown: 'off', lightningRelay: false, requestId: 'ind-1' };
+    inst._executeCommand({ type: 'indicators', payload, auth: signCommand(KEY, SESSION, 'indicators', payload) });
+    // two refusals of the same type + reason, each with its own requestId: both reported
+    inst._executeCommand({ type: 'indicators', payload: { requestId: 'ind-2' } });
+    inst._executeCommand({ type: 'indicators', payload: { requestId: 'ind-3' } });
+    await vi.waitFor(() => {
+      const ev = pushes.flatMap((p) => p.pluginEvents || []);
+      expect(ev.filter((e) => e.data.requestId).length).toBe(3);
+    });
+    const ev = pushes.flatMap((p) => p.pluginEvents || []);
+    expect(radio.map((r) => r.url)).toEqual(['/api/indicators']);
+    expect(ev.find((e) => e.data.requestId === 'ind-1')).toMatchObject({
+      event: 'relay-cmd-result',
+      data: { type: 'indicators', ok: true, status: 200 },
+    });
+    expect(ev.filter((e) => e.event === 'relay-cmd-refused').map((e) => e.data.requestId)).toEqual(['ind-2', 'ind-3']);
+    inst.disconnect();
+  });
 });
 
 describe('bridge not yet re-paired (no commandKey)', () => {

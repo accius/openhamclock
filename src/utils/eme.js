@@ -160,6 +160,67 @@ export function computeSkyTracks(now, de, dx, { hours = 24, stepMin = 20 } = {})
   return { de: trackFor(de), dx: trackFor(dx) };
 }
 
+/** Speed of light, km/s — for the round-trip echo delay readout. */
+const C_KM_S = 299792.458;
+
+/**
+ * Moon elevation at both ends on a regular grid — the EME planner's plot.
+ * @returns {Array<{t:Date, de:number|null, dx:number|null, distanceKm:number}>}
+ */
+export function computeElevationSeries(start, de, dx, { hours = 48, stepMin = 10 } = {}) {
+  const out = [];
+  if (!hasPos(de) && !hasPos(dx)) return out;
+  const n = Math.floor((hours * 60) / stepMin);
+  for (let i = 0; i <= n; i++) {
+    const t = new Date(start.getTime() + i * stepMin * 60_000);
+    const pos = getMoonPosition(t);
+    out.push({
+      t,
+      de: hasPos(de) ? getMoonAzEl(t, de.lat, de.lon).elevation : null,
+      dx: hasPos(dx) ? getMoonAzEl(t, dx.lat, dx.lon).elevation : null,
+      distanceKm: pos.distanceKm,
+    });
+  }
+  return out;
+}
+
+/**
+ * Click-a-point readout: az/el at both ends, distance, path-loss delta and
+ * round-trip delay at instant `t`.
+ */
+export function emePointReadout(t, de, dx) {
+  const pos = getMoonPosition(t);
+  const view = (loc) => (hasPos(loc) ? getMoonAzEl(t, loc.lat, loc.lon) : null);
+  const deV = view(de);
+  const dxV = view(dx);
+  return {
+    t,
+    de: deV ? { azimuth: deV.azimuth, elevation: deV.elevation } : null,
+    dx: dxV ? { azimuth: dxV.azimuth, elevation: dxV.elevation } : null,
+    distanceKm: pos.distanceKm,
+    pathDeltaDb: moonPathDeltaDb(pos.distanceKm),
+    delayS: (2 * pos.distanceKm) / C_KM_S,
+    mutual: !!(deV && dxV && deV.elevation >= 0 && dxV.elevation >= 0),
+  };
+}
+
+/**
+ * Decorate mutual windows with the best (lowest) path-loss delta inside each
+ * — "min degradation" for the planner table. Mutates nothing.
+ */
+export function withWindowDegradation(windows, stepMin = 15) {
+  return (windows || []).map((w) => {
+    let best = Infinity;
+    for (let t = w.start.getTime(); t <= w.end.getTime(); t += stepMin * 60_000) {
+      const d = moonPathDeltaDb(getMoonPosition(new Date(t)).distanceKm);
+      if (d < best) best = d;
+    }
+    const last = moonPathDeltaDb(getMoonPosition(w.end).distanceKm);
+    if (last < best) best = last;
+    return { ...w, minDegradationDb: Number.isFinite(best) ? best : null };
+  });
+}
+
 /** Is this frequency (MHz) inside an amateur EME band? */
 export function isEmeBand(freqMHz) {
   const f = Number(freqMHz);

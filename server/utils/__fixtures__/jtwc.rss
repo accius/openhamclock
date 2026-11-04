@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+    <channel>
+        <title>JTWC TROPICAL CYCLONE INFORMATION FEED</title>
+        <link>https://s3.amazonaws.com/www.metoc.navy.mil/jtwc/jtwc.html</link>
+        <description>JTWC Tropical Cyclone Information</description>
+        <pubDate>Wed, 14 Oct 2026 23:32:01 +0000</pubDate>
+        <lastBuildDate>Wed, 14 Oct 2026 23:32:01 +0000</lastBuildDate>
+        <generator>ContentFeeder 2.0</generator>
+        <image>
+            <url>https://s3.amazonaws.com/www.metoc.navy.mil/jtwc/jtwc.html</url>
+            <title>JTWC TROPICAL CYCLONE INFORMATION FEED</title>
+            <link>https://s3.amazonaws.com/www.metoc.navy.mil/jtwc/jtwc.html</link>
+        </image>
+        <item>
+            <title>Current Northwest Pacific/North Indian Ocean* Tropical Systems</title>
+            <link>https://s3.amazonaws.com/www.metoc.navy.mil/jtwc/jtwc.html</link>
+            <description><![CDATA[<p><b>Tropical Depression  28W (Twentyeight) Warning #12 </b><br>
+<b>Issued at 14/2100Z<b>
+
+<ul>
+<li><a href='https://www.metoc.navy.mil/jtwc/products/wp2826web.txt' target='newwin'>TC Warning Text </a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/wp2826.gif' target='newwin'>TC Warning Graphic</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/wp2826prog.txt' target='newwin'>Prognostic Reasoning</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/wp2826.tcw' target='newwin'>JMV 3.0 Data</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/wp2826.kmz' target='newwin'>Google Earth Overlay</a> <img src='https://www.metoc.navy.mil/jtwc/img/kml.jpg'></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/28W_141800sair.jpg' target='newwin'>IR Satellite Imagery</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/wp2826fix.txt' target='newwin'>Satellite Fix Bulletin</a></li>
+ </ul>
+<br>
+<p><b>Tropical Depression  29W (Twentynine) Warning #02 </b><br>
+<b>Issued at 14/2100Z<b>
+
+<ul>
+<li><a href='https://www.metoc.navy.mil/jtwc/products/wp2926web.txt' target='newwin'>TC Warning Text </a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/wp2926.gif' target='newwin'>TC Warning Graphic</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/wp2926prog.txt' target='newwin'>Prognostic Reasoning</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/wp2926.tcw' target='newwin'>JMV 3.0 Data</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/wp2926.kmz' target='newwin'>Google Earth Overlay</a> <img src='https://www.metoc.navy.mil/jtwc/img/kml.jpg'></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/29W_141800sair.jpg' target='newwin'>IR Satellite Imagery</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/wp2926fix.txt' target='newwin'>Satellite Fix Bulletin</a></li>
+ </ul>
+<br>
+ <p><i>* Includes Bay of Bengal and Arabian Sea</i>
+]]></description>
+            <author>CDO.JTWC.fct@navy.mil (JTWC CDO)</author>
+            <category>Northwest Pacific/North Indian Ocean* Tropical Systems</category>
+            <guid>NWPAC-NIO-WARNINGS</guid>
+            <pubDate>Wed, 14 Oct 26 23:32:01 +0000</pubDate>
+        </item>
+        <item>
+            <title>Current Central/Eastern Pacific Tropical Systems</title>
+            <link>https://s3.amazonaws.com/www.metoc.navy.mil/jtwc/jtwc.html</link>
+            <description><![CDATA[<p><b><p><b>Tropical Storm  21E (Trudy) Warning #06 </b><br>
+<b>Issued at 14/2200Z<b>
+
+<ul>
+<li><a href='https://www.metoc.navy.mil/jtwc/products/ep2126web.txt' target='newwin'>TC Warning Text </a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/ep2126.gif' target='newwin'>TC Warning Graphic</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/ep2126.tcw' target='newwin'>JMV 3.0 Data</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/ep2126.kmz' target='newwin'>Google Earth Overlay</a> <img src='https://www.metoc.navy.mil/jtwc/img/kml.jpg'></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/21E_1418000sair.jpg' target='newwin'>IR Satellite Imagery</a></li>
+ </ul>
+Hurricane  20E (Simon) Warning #30 </b><br>
+<b>Issued at 14/2200Z<b>
+
+<ul>
+<li><a href='https://www.metoc.navy.mil/jtwc/products/ep2026web.txt' target='newwin'>TC Warning Text </a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/ep2026.gif' target='newwin'>TC Warning Graphic</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/ep2026.tcw' target='newwin'>JMV 3.0 Data</a></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/ep2026.kmz' target='newwin'>Google Earth Overlay</a> <img src='https://www.metoc.navy.mil/jtwc/img/kml.jpg'></li>
+ <li><a href='https://www.metoc.navy.mil/jtwc/products/20E_1418000sair.jpg' target='newwin'>IR Satellite Imagery</a></li>
+ </ul>
+]]></description>
+            <author>CDO.JTWC.fct@navy.mil (JTWC CDO)</author>
+            <category>Central/Eastern Pacific Tropical Systems</category>
+            <guid>EPAC-CPAC-WARNINGS</guid>
+            <pubDate>Wed, 14 Oct 26 23:32:01 +0000</pubDate>
+        </item>
+        <item>
+            <title>Current Southern Hemisphere Tropical Systems</title>
+            <link>https://s3.amazonaws.com/www.metoc.navy.mil/jtwc/jtwc.html</link>
+            <description><![CDATA[<ul><li><font color='red'>No Current Tropical Cyclone Warnings.</font></li></ul>
+]]></description>
+            <author>CDO.JTWC.fct@navy.mil (JTWC CDO)</author>
+            <category>Southern Hemisphere Tropical Systems</category>
+            <guid>SH-WARNINGS</guid>
+            <pubDate>Wed, 14 Oct 26 23:32:01 +0000</pubDate>
+        </item>
+        <item>
+            <title>Current Significant Tropical Weather Advisories</title>
+            <link>https://s3.amazonaws.com/www.metoc.navy.mil/jtwc/jtwc.html</link>
+            <description><![CDATA[<ul>
+      <li><b><a href="https://www.metoc.navy.mil/jtwc/products/abpwweb.txt" target='newwin'>ABPW10 (Western/South Pacific Ocean)</a><br>
+
+      <font color=red>Reissued at 14/1800Z</font></li>
+      <li><b><a href="https://www.metoc.navy.mil/jtwc/products/abioweb.txt" target='newwin'>ABIO10 (Indian Ocean)</a><br>
+
+      Issued at 14/1800Z</b></li>
+<li><a href='https://www.metoc.navy.mil/jtwc/products/abpwsair.jpg' target='newwin'>Satellite Image</a></li>
+</ul>]]></description>
+            <author>CDO.JTWC.fct@navy.mil (JTWC CDO)</author>
+            <category>Significant Tropical Weather Advisories</category>
+            <guid>TROPICAL-ADVISORIES</guid>
+            <pubDate>Wed, 14 Oct 26 23:32:01 +0000</pubDate>
+        </item>
+    </channel>
+</rss>

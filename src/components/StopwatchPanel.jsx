@@ -102,6 +102,46 @@ export const StopwatchPanel = () => {
   const resetCd = () => updateCd({ endsAt: null, remaining: cd.duration, duration: cd.duration });
   const setDuration = (ms) => updateCd({ endsAt: null, remaining: ms, duration: ms });
 
+  // Remote control: `ohc:stopwatch` {action: reset|run|stop|lap|countdown, minutes?}
+  // (POST /api/control/stopwatch). `lap` has no lap list here — it pauses,
+  // which freezes the reading like a lap button would.
+  const remoteRef = useRef(null);
+  remoteRef.current = { sw, cd, swRunning, cdRunning, swElapsed, cdRemaining };
+  useEffect(() => {
+    const onRemote = (e) => {
+      const { action, minutes } = e.detail || {};
+      const s = remoteRef.current;
+      const now = Date.now();
+      switch (action) {
+        case 'reset':
+          updateSw({ startAt: null, accumulated: 0 });
+          updateCd({ endsAt: null, remaining: s.cd.duration, duration: s.cd.duration });
+          break;
+        case 'run':
+          setTab('stopwatch');
+          if (!s.swRunning) updateSw({ startAt: now, accumulated: s.sw.accumulated });
+          break;
+        case 'stop':
+        case 'lap':
+          if (s.swRunning) updateSw({ startAt: null, accumulated: s.swElapsed });
+          if (s.cdRunning) updateCd({ ...s.cd, endsAt: null, remaining: Math.max(0, s.cdRemaining) });
+          break;
+        case 'countdown': {
+          const ms = Math.round((Number(minutes) || 0) * 60000);
+          if (ms > 0) {
+            setTab('countdown');
+            updateCd({ endsAt: now + ms, remaining: 0, duration: ms });
+          }
+          break;
+        }
+        default:
+          break;
+      }
+    };
+    window.addEventListener('ohc:stopwatch', onRemote);
+    return () => window.removeEventListener('ohc:stopwatch', onRemote);
+  }, []);
+
   const tabBtn = (id, label) => (
     <button
       type="button"

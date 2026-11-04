@@ -43,12 +43,40 @@ export const ALERT_FEEDS = {
   contests: { label: 'Contests', defaultTone: 'simple' },
   'contest-start': { label: 'Contest Starts', defaultTone: 'chime', eventful: true },
   'sat-pass': { label: 'Satellite Passes', defaultTone: 'ping', eventful: true },
+  'sat-alerts': { label: 'Satellite Alerts (hams.at)', defaultTone: 'two-tone', eventful: true },
   'band-openings': { label: 'Band Openings', defaultTone: 'low-tone', eventful: true },
-  lightning: { label: 'Lightning Proximity', defaultTone: 'chirp' },
   swpc: { label: 'Space Weather', defaultTone: 'chime' },
+  // Alarm clock (utils/alarmClock.js): armed alarms always ring; this entry
+  // picks the tone and whether a browser notification accompanies it.
+  alarm: { label: 'Alarm Clock', defaultTone: 'chime', eventful: true },
+  'beacon-opening': { label: 'Beacon Openings (KiwiSDR monitor)', defaultTone: 'chirp', eventful: true },
+  'grid-change': { label: 'Grid Change (Rover)', defaultTone: 'two-tone', eventful: true },
+  // Opportunity feed (#P8): a new top-5 entry that is at least a new DXCC.
+  opportunity: { label: 'Opportunities (new DXCC)', defaultTone: 'two-tone', eventful: true },
+  hamalert: { label: 'HamAlert', defaultTone: 'two-tone', eventful: true },
 };
 
 const LS_KEY = 'ohc_audio_alerts';
+
+/**
+ * The old "Lightning Proximity" tone feed (`settings.lightning`: a fixed 30 km
+ * alert while the map layer was shown) is now part of the lightning guard.
+ * An enabled old feed turns the guard on with the same tone, notification
+ * and speech choices; the old key is dropped either way. Pure.
+ * @returns {{ settings: object, migrated: boolean }}
+ */
+export function migrateLegacyLightning(settings) {
+  if (!settings || typeof settings !== 'object' || !('lightning' in settings)) return { settings, migrated: false };
+  const { lightning: old, ...rest } = settings;
+  if (old && old.enabled && !rest.lightningGuard) {
+    rest.lightningGuard = {
+      enabled: true,
+      tone: typeof old.tone === 'string' && old.tone ? old.tone : 'chirp',
+      channels: { tone: true, speech: !!old.speak, notify: !!old.notify, push: false },
+    };
+  }
+  return { settings: rest, migrated: true };
+}
 
 export function getAlertSettings() {
   const defaults = {};
@@ -60,7 +88,12 @@ export function getAlertSettings() {
   try {
     const stored = localStorage.getItem(LS_KEY);
     if (stored) {
-      const parsed = JSON.parse(stored);
+      const { settings: parsed, migrated } = migrateLegacyLightning(JSON.parse(stored));
+      if (migrated) {
+        try {
+          localStorage.setItem(LS_KEY, JSON.stringify(parsed));
+        } catch {}
+      }
       return { ...defaults, ...parsed };
     }
   } catch {}

@@ -4,7 +4,9 @@ import { useRig } from '../contexts/RigContext';
 
 const OnAirPanel = () => {
   const { t } = useTranslation();
-  const { ptt } = useRig();
+  const { ptt: rigPtt, onAir } = useRig();
+  // Rig PTT (CAT) or the GPIO plugin's PTT / ON-AIR sense input
+  const ptt = !!(rigPtt || onAir);
 
   return (
     <div

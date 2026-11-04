@@ -12,6 +12,8 @@ import { useWorkedBefore } from '../hooks/useWorkedBefore.js';
 import { useAwards } from '../hooks/useAwards.js';
 import { spotBadge } from '../utils/awards.js';
 import { requestLogQso } from '../services/logbookStore.js';
+import { useCompiledWatchlist } from '../hooks/useWatchlists.js';
+import { spotIota, iotaName } from '../utils/iota.js';
 
 export const ActivatePanel = ({
   mapDefs,
@@ -63,6 +65,11 @@ export const ActivatePanel = ({
   // is not in the log at all (ATNO), 'new-band' = entity worked but not on
   // the spot's band. Null for everyone until the logbook has QSOs.
   const { getSpotStatus: getAwardStatus } = useAwards();
+  // Activation watch list in Red mode — Only/Not filtering happens upstream
+  // (App.jsx ActivateFilter), so here it is purely a highlight.
+  const watch = useCompiledWatchlist('activations');
+  const isWatchRed = (spot) =>
+    watch.mode === 'red' && !!watch.matcher && watch.matcher({ call: spot.call, freq: spot.freq, grid: spot.grid });
   const staleMinutes = lastUpdated ? Math.floor((Date.now() - lastUpdated) / 60000) : null;
   const isStale = staleMinutes !== null && staleMinutes >= 5;
   const checkedTime = lastChecked ? new Date(lastChecked).toISOString().substr(11, 5) + 'z' : '';
@@ -278,11 +285,15 @@ export const ActivatePanel = ({
               >
                 <div
                   role="row"
+                  data-watch-red={isWatchRed(spot) ? '1' : undefined}
                   style={{
                     display: 'grid',
                     gridTemplateColumns: '62px 72px 58px 1fr auto',
                     gap: '4px',
                     cursor: 'pointer',
+                    background: isWatchRed(spot) ? 'rgba(255, 68, 68, 0.12)' : undefined,
+                    borderLeft: isWatchRed(spot) ? '2px solid var(--accent-red)' : '2px solid transparent',
+                    paddingLeft: '2px',
                   }}
                   onMouseEnter={() => onHoverSpot?.(spot)}
                   onMouseLeave={() => onHoverSpot?.(null)}
@@ -504,6 +515,26 @@ export const ActivatePanel = ({
                   <div
                     style={{ textAlign: 'center', fontStyle: 'italic', color: 'var(--text-muted)', fontSize: '11px' }}
                   >
+                    {spotIota(spot) && (
+                      <span
+                        title={`IOTA ${spotIota(spot)}${iotaName(spotIota(spot)) ? ` — ${iotaName(spotIota(spot))}` : ''}`}
+                        style={{
+                          marginRight: '5px',
+                          padding: '0 3px',
+                          fontSize: '8px',
+                          fontStyle: 'normal',
+                          fontWeight: '700',
+                          letterSpacing: '0.5px',
+                          color: 'var(--accent-cyan)',
+                          background: 'rgba(0, 221, 255, 0.12)',
+                          border: '1px solid rgba(0, 221, 255, 0.5)',
+                          borderRadius: '2px',
+                          verticalAlign: 'middle',
+                        }}
+                      >
+                        {spotIota(spot)}
+                      </span>
+                    )}
                     {spot.comments}
                   </div>
                 )}

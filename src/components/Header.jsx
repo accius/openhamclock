@@ -3,11 +3,20 @@
  * Top bar with callsign, clocks, weather, and controls.
  * Responsive: wraps gracefully on tablet, collapses to essentials on mobile.
  */
+import { useTranslation } from 'react-i18next';
 import { IconGear, IconExpand, IconShrink } from './Icons.jsx';
 import DonateButton from './DonateButton.jsx';
 import { ctyLookup, isCtyLoaded } from '../utils/ctyLookup';
 import { getFlagUrl } from '../utils/countryFlags';
 import { formatTemperature, formatTemperatureBoth } from '../utils/formatWeather.js';
+import useDisplayTime from '../hooks/app/useDisplayTime.js';
+import { formatOffset } from '../utils/displayTime.js';
+import { AlarmIndicator } from './AlarmIndicator.jsx';
+import { LightningGuardIndicator } from './LightningGuardIndicator.jsx';
+import useSessionFlag from '../hooks/app/useSessionFlag.js';
+import { resolveCallsignBox } from '../utils/titles.js';
+import { KIOSK_UNLOCK_REQUEST_EVENT } from '../hooks/app/useKioskLock.js';
+import { hasPin as kioskHasPin, lock as kioskLock } from '../utils/kioskLock.js';
 
 export const Header = ({
   config,
@@ -29,8 +38,20 @@ export const Header = ({
   showUpdateButton,
   breakpoint = 'desktop',
 }) => {
+  const { t } = useTranslation();
   const isMobile = breakpoint === 'mobile';
   const isTablet = breakpoint === 'tablet';
+  // Display-time shift (Time Shift scrubber): the clocks show the shifted time
+  // and a red NOT REAL TIME badge; clicking the badge snaps back to now.
+  const { offsetMs: timeOffsetMs, shifted: timeShifted, reset: resetDisplayTime } = useDisplayTime();
+
+  // Rotating titles (Settings → Station → Callsign box titles, or the remote
+  // /title command), kiosk padlock and demo-mode indicator. The header
+  // re-renders every second (clock props), which is what advances the title.
+  const titleOverride = useSessionFlag('titleOverride');
+  const kioskLocked = useSessionFlag('kioskLocked');
+  const demoMode = useSessionFlag('demoMode');
+  const callsignBox = resolveCallsignBox(config.callsign, config.callsignTitles, titleOverride);
 
   const scale = config.headerSize > 0 && config.headerSize <= 10 ? config.headerSize : 1;
   const callsignSize = `${(isMobile ? 16 : 22) * scale}px`;
@@ -60,19 +81,55 @@ export const Header = ({
       <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? '4px' : '12px', flexShrink: 0 }}>
         <span
           style={{
-            fontSize: callsignSize,
+            fontSize: callsignBox.isTitle ? `calc(${callsignSize} * 0.8)` : callsignSize,
             fontWeight: '900',
-            color: 'var(--accent-amber)',
+            color: callsignBox.fg || 'var(--accent-amber)',
+            background: callsignBox.bg || undefined,
+            padding: callsignBox.bg ? '0 6px' : undefined,
+            borderRadius: callsignBox.bg ? '4px' : undefined,
             cursor: 'pointer',
             fontFamily: 'Orbitron, monospace',
             whiteSpace: 'nowrap',
             lineHeight: 1,
           }}
           onClick={onSettingsClick}
-          title="Click for settings"
+          title={callsignBox.isTitle ? config.callsign : 'Click for settings'}
         >
-          {config.callsign}
+          {callsignBox.text}
         </span>
+        {(kioskLocked || kioskHasPin()) && (
+          <button
+            type="button"
+            onClick={() => {
+              if (kioskLocked) window.dispatchEvent(new Event(KIOSK_UNLOCK_REQUEST_EVENT));
+              else kioskLock();
+            }}
+            aria-label={kioskLocked ? t('header.kiosk.locked') : t('header.kiosk.lock')}
+            title={kioskLocked ? t('header.kiosk.locked') : t('header.kiosk.lock')}
+            aria-pressed={kioskLocked}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: 0,
+              cursor: 'pointer',
+              fontSize: `${(isMobile ? 12 : 15) * scale}px`,
+              lineHeight: 1,
+              color: kioskLocked ? 'var(--accent-amber)' : 'var(--text-muted)',
+            }}
+          >
+            {kioskLocked ? '🔒' : '🔓'}
+          </button>
+        )}
+        {demoMode && (
+          <span
+            role="img"
+            aria-label={t('header.demo.running')}
+            title={t('header.demo.running')}
+            style={{ fontSize: `${(isMobile ? 12 : 15) * scale}px`, lineHeight: 1 }}
+          >
+            🏃
+          </span>
+        )}
         {(() => {
           const info = isCtyLoaded() ? ctyLookup(config.callsign) : null;
           const flagUrl = info ? getFlagUrl(info.entity) : null;
@@ -125,6 +182,32 @@ export const Header = ({
                 {utcDate}
               </span>
             )}
+            {timeShifted && (
+              <button
+                type="button"
+                onClick={resetDisplayTime}
+                title={`Display time is ${formatOffset(timeOffsetMs)} from now — click to return to real time`}
+                aria-label={`Not real time: display shifted ${formatOffset(timeOffsetMs)}. Click to return to real time`}
+                style={{
+                  background: '#ff4d4d',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  padding: '2px 6px',
+                  fontSize: `${10 * scale}px`,
+                  fontWeight: 700,
+                  letterSpacing: '0.5px',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                  whiteSpace: 'nowrap',
+                  animation: 'pulse 2s infinite',
+                }}
+              >
+                NOT REAL TIME {formatOffset(timeOffsetMs)}
+              </button>
+            )}
+            <AlarmIndicator timeZone={config.timezone} />
+            <LightningGuardIndicator />
           </div>
         ) : (
           <div

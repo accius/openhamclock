@@ -8,14 +8,17 @@
  * Leaflet handles pan/zoom; canvas syncs to Leaflet's view state.
  */
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import { nearestCity, formatPopulation } from '../utils/nearestCity.js';
 import { useTranslation } from 'react-i18next';
 import { getBandColor, getBandFromFreq } from '../utils/callsign.js';
 import { latLonToMaidenhead } from '../utils/geo.js';
+import { formatBearing } from '../utils/bearing.js';
 import { MAP_STYLES } from '../utils/config.js';
 import { createTileReprojector } from '../utils/tileReproject.js';
 import { createAzimuthalCRS } from '../utils/azimuthalCRS.js';
 import { matchesDXSpotPath } from '../utils/dxClusterSpotMatcher';
 import { ACTIVITY_COLORS } from '../utils/activityColors.js';
+import { useHistoryScrubbing } from '../hooks/useHistoryScrubbing.js';
 
 // ── Projection Math ────────────────────────────────────────
 const DEG = Math.PI / 180;
@@ -144,6 +147,8 @@ export default function AzimuthalMap({
   onMapReady,
 }) {
   const canvasRef = useRef(null);
+  // History Playback scrubbed into the past → hide the live DX cluster paths
+  const historyScrubbing = useHistoryScrubbing();
   const containerRef = useRef(null);
   const leafletDivRef = useRef(null);
   const leafletMapRef = useRef(null);
@@ -235,10 +240,14 @@ export default function AzimuthalMap({
           DEG +
           360) %
         360;
+      const city = nearestCity(e.latlng.lat, e.latlng.lng, 100);
+      const cityText = city
+        ? `  ${city.name} (${formatPopulation(city.population)})${city.km >= 5 ? ` ${Math.round(city.km)} km` : ''}`
+        : '';
       setTooltip({
         x: e.containerPoint.x,
         y: e.containerPoint.y,
-        text: `${e.latlng.lat.toFixed(1)}°, ${e.latlng.lng.toFixed(1)}°  ${latLonToMaidenhead({ lat: e.latlng.lat, lon: e.latlng.lng })}  ${Math.round(p.dist)} km  ${Math.round(bearing)}°`,
+        text: `${e.latlng.lat.toFixed(1)}°, ${e.latlng.lng.toFixed(1)}°  ${latLonToMaidenhead({ lat: e.latlng.lat, lon: e.latlng.lng })}  ${Math.round(p.dist)} km  ${formatBearing(bearing, lat0, lon0)}${cityText}`,
       });
     });
     map.on('mouseout', () => setTooltip(null));
@@ -540,8 +549,8 @@ export default function AzimuthalMap({
       ctx.fillText(bearingLabels[b / 30], lx, ly);
     }
 
-    // ── DX Cluster paths ─────────────────────────────────
-    if (showDXPaths && dxPaths?.length > 0) {
+    // ── DX Cluster paths (hidden while History Playback replays the past) ──
+    if (showDXPaths && !historyScrubbing && dxPaths?.length > 0) {
       dxPaths.forEach((path) => {
         if (!path.dxLat || !path.dxLon) return;
         const band = bandFromAnyFrequency(path.freq);
@@ -883,6 +892,7 @@ export default function AzimuthalMap({
     deLocation,
     dxLocation,
     dxPaths,
+    historyScrubbing,
     dxFilters,
     mapBandFilter,
     showDXPaths,

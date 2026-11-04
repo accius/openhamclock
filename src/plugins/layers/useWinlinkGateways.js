@@ -8,6 +8,14 @@
  * Multiple channels per callsign are aggregated into a single marker — popup
  * lists every (frequency, mode) combo. Filters: band group, service code,
  * and mode family.
+ *
+ * Reachability: the shared runner (services/winlinkReachStore.js) predicts
+ * HF reachability for nearby gateways. Whenever it has results — because the
+ * Winlink panel's Reachable view, the EmComm list, or this layer's own
+ * Reachability filter asked for them — markers are coloured Good / Marginal
+ * / Closed / Off the air instead of by mode and unpredicted gateways shrink
+ * to grey dots. Setting the filter to anything but "All" makes the layer
+ * request predictions itself (shared cache — never a duplicate run).
  */
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { esc } from '../../utils/escapeHtml.js';
@@ -19,6 +27,17 @@ import {
   winlinkModeLabel,
   winlinkModeFamily,
 } from '../../utils/winlinkModes.js';
+import { STATUS_COLORS, passesReachFilter, reachMarkerStyle } from '../../utils/winlinkReach.js';
+import {
+  REACH_PRIORITY,
+  getReachState,
+  releaseReach,
+  requestReach,
+  subscribeReach,
+} from '../../services/winlinkReachStore.js';
+import { loadConfig } from '../../utils/config.js';
+import { reachPopupLine } from '../../utils/winlinkReachPopup.js';
+import i18n from '../../lang/i18n';
 import { makeDraggable } from './makeDraggable.js';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 
@@ -76,7 +95,22 @@ function aggregateByCallsign(rows) {
   return [...byCall.values()];
 }
 
-function popupHtml(gw) {
+const REACH_LEGEND = [
+  ['good', 'winlinkReach.status.good', 'Good'],
+  ['marginal', 'winlinkReach.status.marginal', 'Marginal'],
+  ['closed', 'winlinkReach.status.closed', 'Closed'],
+  ['offair', 'winlinkReach.status.offair', 'Off the air'],
+  ['unknown', 'winlinkReach.layer.notPredicted', 'Not predicted'],
+];
+
+/** Redraw at most once a second while predictions stream in. */
+const REACH_REDRAW_MS = 1000;
+
+function reachLine(entry) {
+  return reachPopupLine(entry, (k, o) => i18n.t(k, o));
+}
+
+function popupHtml(gw, reachEntry = null) {
   const rows = gw.channels
     .slice() // don't mutate
     .sort((a, b) => a.frequency - b.frequency)
@@ -102,17 +136,27 @@ function popupHtml(gw) {
     <div style="font-family:var(--font-mono);font-size:11px;min-width:200px;">
       <div style="font-weight:700;font-size:13px;margin-bottom:2px;">${esc(gw.callsign)}</div>
       <div style="color:var(--text-muted);font-size:10px;margin-bottom:6px;">Grid ${esc(gw.gridsquare)} • ${esc(services)}${hours ? ` • ${esc(hours)} UTC` : ''}</div>
+      ${reachLine(reachEntry)}
       <table style="border-collapse:collapse;font-size:10px;">${rows}</table>
       <div style="font-size:9px;color:var(--text-muted);margin-top:6px;padding-top:4px;border-top:1px solid var(--border-color);">${gw.channels.length} channel${gw.channels.length === 1 ? '' : 's'}</div>
     </div>`;
 }
 
-export function useLayer({ enabled = false, opacity = 0.85, map = null }) {
+export function useLayer({ enabled = false, opacity = 0.85, map = null, deLat = null, deLon = null }) {
   const [rows, setRows] = useState([]);
   const [error, setError] = useState(null);
   const [bandFilter, setBandFilter] = useState('all');
   const [serviceFilter, setServiceFilter] = useState('all');
   const [familyFilter, setFamilyFilter] = useState('all');
+  const [reachFilter, setReachFilter] = useState('all');
+  const [reach, setReach] = useState(getReachState);
+  const [propConfig, setPropConfig] = useState(() => {
+    try {
+      return loadConfig()?.propagation || null;
+    } catch {
+      return null;
+    }
+  });
 
   const layersRef = useRef([]);
   const controlRef = useRef(null);
@@ -121,6 +165,8 @@ export function useLayer({ enabled = false, opacity = 0.85, map = null }) {
   const bandFilterRef = useRef(bandFilter);
   const serviceFilterRef = useRef(serviceFilter);
   const familyFilterRef = useRef(familyFilter);
+  const reachFilterRef = useRef(reachFilter);
+  reachFilterRef.current = reachFilter;
   bandFilterRef.current = bandFilter;
   serviceFilterRef.current = serviceFilter;
   familyFilterRef.current = familyFilter;
@@ -154,6 +200,48 @@ export function useLayer({ enabled = false, opacity = 0.85, map = null }) {
     return () => clearInterval(id);
   }, [enabled, fetchGateways]);
 
+  // Shared reachability results — redraws coalesced while predictions stream in.
+  useEffect(() => {
+    if (!enabled) return undefined;
+    let timer = null;
+    setReach(getReachState());
+    const unsub = subscribeReach(() => {
+      if (timer) return;
+      timer = setTimeout(() => {
+        timer = null;
+        setReach(getReachState());
+      }, REACH_REDRAW_MS);
+    });
+    return () => {
+      unsub();
+      if (timer) clearTimeout(timer);
+    };
+  }, [enabled]);
+
+  // Station power/antenna for a layer-only run (the panel supplies them when open).
+  useEffect(() => {
+    const onConfig = (e) => setPropConfig(e.detail?.propagation || null);
+    window.addEventListener('openhamclock-config-change', onConfig);
+    return () => window.removeEventListener('openhamclock-config-change', onConfig);
+  }, []);
+
+  // A filter other than "All" asks the shared runner for predictions on its own.
+  const wantReach = enabled && reachFilter !== 'all';
+  const propPower = propConfig?.power;
+  const propAntenna = propConfig?.antenna;
+  useEffect(() => {
+    if (!wantReach) return undefined;
+    requestReach('layer', {
+      priority: REACH_PRIORITY.layer,
+      deLocation: Number.isFinite(deLat) && Number.isFinite(deLon) ? { lat: deLat, lon: deLon } : null,
+      propConfig: { power: propPower, antenna: propAntenna },
+    });
+  }, [wantReach, deLat, deLon, propPower, propAntenna]);
+  useEffect(() => {
+    if (!wantReach) return undefined;
+    return () => releaseReach('layer');
+  }, [wantReach]);
+
   // Broadcast the aggregated gateway list (callsign + lat/lon + channels) to
   // the text view panel (#1002). Rows change hourly at most.
   useEffect(() => {
@@ -182,8 +270,12 @@ export function useLayer({ enabled = false, opacity = 0.85, map = null }) {
     const bf = bandFilterRef.current;
     const sf = serviceFilterRef.current;
     const ff = familyFilterRef.current;
+    const reachOn = !!(reach?.active && reach.byCall);
+    const byCall = reachOn ? reach.byCall : null;
+    const rf = reachOn ? reachFilterRef.current : 'all';
 
     const visible = gateways.filter((gw) => {
+      if (rf !== 'all' && !passesReachFilter(byCall[gw.callsign], rf)) return false;
       const channels = gw.channels.filter((c) => {
         if (bf !== 'all' && freqToBandGroup(c.frequency) !== bf) return false;
         if (sf !== 'all' && c.serviceCode !== sf) return false;
@@ -207,25 +299,31 @@ export function useLayer({ enabled = false, opacity = 0.85, map = null }) {
       // first family that has a visible channel so it's deterministic.
       const channelsForColor = gw.visibleChannels || gw.channels;
       const fam = winlinkModeFamily(channelsForColor[0]?.mode);
-      const color = fam ? fam.color : WINLINK_MODE_UNKNOWN_COLOR;
+      const reachEntry = byCall ? byCall[gw.callsign] : null;
+      // Under reachability colouring, gateways that were not predicted (out
+      // of range / over the cap) shrink to grey dots so the ones that matter stand out.
+      const style = reachMarkerStyle(byCall, gw.callsign, {
+        opacity,
+        modeColor: fam ? fam.color : WINLINK_MODE_UNKNOWN_COLOR,
+      });
 
       replicatePoint(gw.lat, gw.lon).forEach(([lat, lon]) => {
         const marker = L.circleMarker([lat, lon], {
-          radius: 4,
-          fillColor: color,
+          radius: style.radius,
+          fillColor: style.fillColor,
           color: '#000',
           weight: 0.5,
-          opacity: opacity,
-          fillOpacity: opacity * 0.85,
+          opacity: style.opacity,
+          fillOpacity: style.fillOpacity,
         });
-        marker.bindPopup(popupHtml({ ...gw, channels: channelsForColor }));
+        marker.bindPopup(popupHtml({ ...gw, channels: channelsForColor }, reachEntry));
         group.addLayer(marker);
       });
     });
 
     group.addTo(map);
     layersRef.current.push(group);
-  }, [map, enabled, rows, opacity, bandFilter, serviceFilter, familyFilter]);
+  }, [map, enabled, rows, opacity, bandFilter, serviceFilter, familyFilter, reach, reachFilter]);
 
   // Control panel
   useEffect(() => {
@@ -269,13 +367,29 @@ export function useLayer({ enabled = false, opacity = 0.85, map = null }) {
               ${WINLINK_MODE_FAMILIES.map((f) => `<option value="${f.id}">${f.label}</option>`).join('')}
             </select>
           </div>
-          <div style="font-size:9px;color:var(--text-muted);padding-top:6px;border-top:1px solid var(--border-color);display:flex;flex-wrap:wrap;gap:4px;">
+          <div style="margin-bottom:6px;">
+            <label style="font-size:11px;">${esc(i18n.t('winlinkReach.layer.label', { defaultValue: 'Reachability:' }))}</label>
+            <select id="winlink-reach" style="width:100%;background:var(--bg-tertiary);color:var(--text-primary);border:1px solid var(--border-color);padding:3px;font-size:11px;">
+              <option value="all">${esc(i18n.t('winlinkReach.layer.all', { defaultValue: 'All gateways' }))}</option>
+              <option value="reachable">${esc(i18n.t('winlinkReach.layer.reachable', { defaultValue: 'Predicted reachable' }))}</option>
+              <option value="good">${esc(i18n.t('winlinkReach.layer.good', { defaultValue: 'Good only' }))}</option>
+            </select>
+            <div id="winlink-reach-hint" style="font-size:9px;color:var(--text-muted);margin-top:3px;"></div>
+          </div>
+          <div id="winlink-legend-mode" style="font-size:9px;color:var(--text-muted);padding-top:6px;border-top:1px solid var(--border-color);display:flex;flex-wrap:wrap;gap:4px;">
             ${WINLINK_MODE_FAMILIES.map((f) => `<span style="display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${f.color};"></span>${f.label}</span>`).join('')}
+          </div>
+          <div id="winlink-legend-reach" style="font-size:9px;color:var(--text-muted);padding-top:6px;border-top:1px solid var(--border-color);display:none;flex-wrap:wrap;gap:4px;">
+            ${REACH_LEGEND.map(
+              ([st, key, fallback]) =>
+                `<span style="display:inline-flex;align-items:center;gap:3px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${STATUS_COLORS[st]};"></span>${esc(i18n.t(key, { defaultValue: fallback }))}</span>`,
+            ).join('')}
           </div>`;
 
         const bandSel = div.querySelector('#winlink-band');
         const svcSel = div.querySelector('#winlink-service');
         const modeSel = div.querySelector('#winlink-mode');
+        const reachSel = div.querySelector('#winlink-reach');
 
         if (bandSel) {
           bandSel.value = bandFilterRef.current;
@@ -288,6 +402,10 @@ export function useLayer({ enabled = false, opacity = 0.85, map = null }) {
         if (modeSel) {
           modeSel.value = familyFilterRef.current;
           modeSel.addEventListener('change', (e) => setFamilyFilter(e.target.value));
+        }
+        if (reachSel) {
+          reachSel.value = reachFilterRef.current;
+          reachSel.addEventListener('change', (e) => setReachFilter(e.target.value));
         }
 
         L.DomEvent.disableClickPropagation(div);
@@ -330,6 +448,31 @@ export function useLayer({ enabled = false, opacity = 0.85, map = null }) {
       }
     };
   }, [map, enabled]);
+
+  // Reachability hint + legend swap — follows the shared runner.
+  useEffect(() => {
+    if (!enabled || !controlRef.current) return;
+    const root = controlRef.current.getContainer();
+    if (!root) return;
+    const on = !!(reach?.active && reach.byCall);
+    const hint = root.querySelector('#winlink-reach-hint');
+    const modeLegend = root.querySelector('#winlink-legend-mode');
+    const reachLegend = root.querySelector('#winlink-legend-reach');
+    if (hint) {
+      hint.textContent = on
+        ? i18n.t('winlinkReach.layer.on', {
+            defaultValue: 'Coloured by predicted reachability for {{hour}}:00z',
+            hour: String(reach.hour ?? '--').padStart(2, '0'),
+          })
+        : reach?.active && reach.running
+          ? i18n.t('winlinkReach.layer.predicting', { defaultValue: 'Predicting reachability…' })
+          : i18n.t('winlinkReach.layer.off2', {
+              defaultValue: 'Choose a reachability filter to colour gateways by predicted HF reachability.',
+            });
+    }
+    if (modeLegend) modeLegend.style.display = on ? 'none' : 'flex';
+    if (reachLegend) reachLegend.style.display = on ? 'flex' : 'none';
+  }, [enabled, reach]);
 
   // Stats line — updates whenever rows change
   useEffect(() => {

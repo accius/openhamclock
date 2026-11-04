@@ -245,6 +245,9 @@ module.exports = function (app, ctx) {
     // Don't expose API keys/passwords - only public config
     res.json({
       version: APP_VERSION,
+      // Port of the optional LAN HTTPS listener (server/utils/lanHttps.js) —
+      // the Decoder panel links plain-http visitors to it.
+      lanHttpsPort: Number(process.env.HTTPS_PORT) > 0 ? Number(process.env.HTTPS_PORT) : null,
 
       // Station info (from .env or config.json)
       callsign: CONFIG.callsign,

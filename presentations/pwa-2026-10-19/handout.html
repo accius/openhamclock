@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>OpenHamClock Handout</title>
+    <style>
+      @page {
+        size: Letter;
+        margin: 0.5in 0.55in;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        font-size: 9.6pt;
+        line-height: 1.38;
+        color: #111;
+        background: #fff;
+      }
+      .page {
+        height: 10in;
+        display: flex;
+        flex-direction: column;
+        page-break-after: always;
+        overflow: hidden;
+      }
+      .page:last-child {
+        page-break-after: auto;
+      }
+      header.top {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        border-bottom: 2px solid #111;
+        padding-bottom: 3pt;
+        margin-bottom: 8pt;
+      }
+      header.top b {
+        font-size: 9pt;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      header.top span {
+        font-size: 8pt;
+        color: #555;
+      }
+      h1 {
+        font-size: 24pt;
+        margin: 0 0 2pt;
+        letter-spacing: -0.01em;
+      }
+      h2 {
+        font-size: 12.5pt;
+        margin: 9pt 0 4pt;
+        padding-bottom: 2pt;
+        border-bottom: 1px solid #bbb;
+      }
+      h2 .n {
+        display: inline-block;
+        width: 15pt;
+        height: 15pt;
+        line-height: 15pt;
+        text-align: center;
+        border-radius: 50%;
+        background: #111;
+        color: #fff;
+        font-size: 8.5pt;
+        margin-right: 4pt;
+        vertical-align: 1pt;
+      }
+      h3 {
+        font-size: 10pt;
+        margin: 6pt 0 2pt;
+      }
+      p {
+        margin: 0 0 4pt;
+      }
+      ul,
+      ol {
+        margin: 0 0 4pt;
+        padding-left: 14pt;
+      }
+      li {
+        margin: 0 0 2pt;
+      }
+      .lead {
+        font-size: 11pt;
+        color: #333;
+        margin-bottom: 8pt;
+      }
+      .muted {
+        color: #555;
+      }
+      .mono {
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
+      }
+      .cols {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 14pt;
+      }
+      .cols.wide-left {
+        grid-template-columns: 1.35fr 1fr;
+      }
+      .cols.wide-right {
+        grid-template-columns: 1fr 1.35fr;
+      }
+      .cols > * {
+        min-width: 0;
+      }
+      img {
+        max-width: 100%;
+        display: block;
+        border: 1px solid #999;
+        border-radius: 3pt;
+      }
+      .cap {
+        font-size: 7.5pt;
+        color: #555;
+        margin-top: 2pt;
+        text-align: center;
+      }
+      table {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 8.8pt;
+        margin: 2pt 0 4pt;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 3pt 5pt;
+        border-bottom: 1px solid #ccc;
+      }
+      th {
+        font-size: 7.5pt;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: #555;
+        border-bottom: 1.5px solid #111;
+      }
+      td:first-child {
+        font-family: 'SF Mono', Menlo, monospace;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .box {
+        border: 1.5px solid #111;
+        border-radius: 4pt;
+        padding: 5pt 8pt;
+        margin: 6pt 0;
+      }
+      .box b:first-child {
+        text-transform: uppercase;
+        font-size: 8pt;
+        letter-spacing: 0.06em;
+        margin-right: 4pt;
+      }
+      .tag {
+        display: inline-block;
+        font-family: 'SF Mono', Menlo, monospace;
+        font-weight: 700;
+        font-size: 8pt;
+        border: 1px solid #111;
+        border-radius: 2pt;
+        padding: 0 3pt;
+      }
+      .notes {
+        flex: 1;
+        margin-top: 8pt;
+        min-height: 0.6in;
+        display: flex;
+        flex-direction: column;
+      }
+      .notes b {
+        font-size: 8pt;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: #555;
+      }
+      .notes div {
+        flex: 1;
+        background-image: repeating-linear-gradient(to bottom, transparent 0, transparent 21pt, #bbb 21pt, #bbb 22pt);
+      }
+      /* Annotated overview */
+      .annot {
+        position: relative;
+        align-self: start;
+        margin-top: 10pt;
+      }
+      .annot img {
+        width: 100%;
+      }
+      .annot .z {
+        position: absolute;
+        border: 1.5pt solid #000;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .annot .z i {
+        position: absolute;
+        top: 2pt;
+        left: 2pt;
+        width: 13pt;
+        height: 13pt;
+        line-height: 13pt;
+        border-radius: 50%;
+        background: #fff;
+        color: #000;
+        font-style: normal;
+        font-weight: 800;
+        font-size: 8pt;
+        text-align: center;
+        border: 1pt solid #000;
+      }
+      .legend {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+      .legend li {
+        margin-bottom: 3pt;
+      }
+      .legend .k {
+        display: inline-block;
+        width: 13pt;
+        height: 13pt;
+        line-height: 12pt;
+        border-radius: 50%;
+        border: 1pt solid #000;
+        text-align: center;
+        font-weight: 800;
+        font-size: 8pt;
+        margin-right: 4pt;
+      }
+      .steps {
+        counter-reset: s;
+        list-style: none;
+        padding: 0;
+      }
+      .steps li {
+        counter-increment: s;
+        padding-left: 18pt;
+        position: relative;
+        margin-bottom: 3pt;
+      }
+      .steps li::before {
+        content: counter(s);
+        position: absolute;
+        left: 0;
+        top: 0.5pt;
+        width: 13pt;
+        height: 13pt;
+        line-height: 13pt;
+        text-align: center;
+        border-radius: 50%;
+        background: #111;
+        color: #fff;
+        font-weight: 700;
+        font-size: 8pt;
+      }
+      footer {
+        font-size: 7.5pt;
+        color: #777;
+        border-top: 1px solid #ccc;
+        padding-top: 3pt;
+        margin-top: 6pt;
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- PAGE 1 -->
+    <section class="page">
+      <header class="top">
+        <b>OpenHamClock · Guided Tour</b><span>Penn Wireless Association · W3SK · October 19, 2026</span>
+      </header>
+      <h1>OpenHamClock</h1>
+      <p class="lead">
+        A free, open-source dashboard in your web browser that puts what's happening on the air on one screen: space
+        weather, live spots, propagation for your location, parks and summits, DXpeditions and contests.
+        <b>openhamclock.com</b> · no account, no download, no ads.
+      </p>
+
+      <div class="cols wide-right">
+        <div>
+          <h2>Getting started</h2>
+          <ol class="steps">
+            <li>Open <b>openhamclock.com</b> in any browser: computer, tablet or phone.</li>
+            <li>
+              Enter your <b>callsign</b> and <b>grid square</b>. "Use my current location" fills in the grid for you.
+            </li>
+            <li>You're on the <b>Modern</b> layout (the default). Others: Settings → Display → Layout.</li>
+            <li><b>Click your callsign</b> (top left) to open Settings at any time.</li>
+          </ol>
+          <p class="muted">
+            Settings are saved in your browser, on that device. To install it like an app: iPhone Safari Share → Add to
+            Home Screen; Android Chrome ⋮ → Install app; Chrome/Edge on a computer, the install icon in the address bar.
+          </p>
+          <div class="box"><b>Rule of thumb</b> High <b>SFI</b> and low <b>K</b> = a good HF day.</div>
+          <h2>The Modern layout</h2>
+          <ul class="legend">
+            <li><span class="k">1</span><b>Header</b>: clocks and space weather</li>
+            <li><span class="k">2</span><b>DE / DX</b>: your station and your target</li>
+            <li><span class="k">3</span><b>Solar</b>: the sun, its numbers, flares</li>
+            <li><span class="k">4</span><b>Propagation</b>: which bands work, and when</li>
+            <li><span class="k">5</span><b>Map</b></li>
+            <li><span class="k">6</span><b>DX cluster</b>: who's being spotted</li>
+            <li><span class="k">7</span><b>PSKReporter</b>: who hears you</li>
+            <li><span class="k">8</span><b>DXpeditions, parks &amp; summits, contests</b></li>
+          </ul>
+          <p class="muted">Left side = conditions. Right side = activity. Middle = where it all is.</p>
+        </div>
+        <div class="annot">
+          <img src="img/modern-full.jpg" alt="Modern layout" />
+          <div class="z" style="left: 0; top: 0; width: 100%; height: 5.2%"><i>1</i></div>
+          <div class="z" style="left: 3%; top: 5.2%; width: 18%; height: 33.8%"><i>2</i></div>
+          <div class="z" style="left: 3%; top: 39.5%; width: 18%; height: 35%"><i>3</i></div>
+          <div class="z" style="left: 3%; top: 75%; width: 18%; height: 24.5%"><i>4</i></div>
+          <div class="z" style="left: 21.6%; top: 5.2%; width: 57.4%; height: 94.3%"><i>5</i></div>
+          <div class="z" style="left: 79.5%; top: 5.2%; width: 20%; height: 33%"><i>6</i></div>
+          <div class="z" style="left: 79.5%; top: 38.5%; width: 20%; height: 20%"><i>7</i></div>
+          <div class="z" style="left: 79.5%; top: 58.8%; width: 20%; height: 40.7%"><i>8</i></div>
+        </div>
+      </div>
+      <div class="notes">
+        <b>Notes</b>
+        <div></div>
+      </div>
+      <footer><span>openhamclock.com · Manual: Settings → Help</span><span>1 / 4</span></footer>
+    </section>
+
+    <!-- PAGE 2 -->
+    <section class="page">
+      <header class="top"><b>OpenHamClock · Guided Tour</b><span>Header · DE / DX · Map</span></header>
+
+      <h2><span class="n">1</span>Header: clocks and space weather</h2>
+      <p>
+        <b>UTC</b> is the time used by every log, spot, contest and DXpedition (EDT = UTC−4; EST = UTC−5). Click
+        <b>LOCAL</b> to switch 12/24 hour. Click your <b>callsign</b> for Settings, the <b>version</b> for what's new.
+      </p>
+      <table>
+        <tr>
+          <th style="width: 9%"></th>
+          <th style="width: 47%">What it is</th>
+          <th>How to read it (app colors)</th>
+        </tr>
+        <tr>
+          <td>SFI</td>
+          <td>
+            Solar Flux Index: the sun's radio output at 10.7 cm; a stand-in for how hard it's ionizing the upper
+            atmosphere
+          </td>
+          <td>Higher is better, especially 15–10 m. ~70 quiet sun · 120+ good · 150+ excellent</td>
+        </tr>
+        <tr>
+          <td>K</td>
+          <td>Planetary K-index: geomagnetic disturbance, 0–9, over 3 hours</td>
+          <td>Low is better. 0–2 quiet. 4+ shows red: absorption, noise, aurora</td>
+        </tr>
+        <tr>
+          <td>SSN</td>
+          <td>Sunspot number</td>
+          <td>Rises and falls with SFI over the 11-year cycle</td>
+        </tr>
+        <tr>
+          <td>A</td>
+          <td>A-index: the whole day's geomagnetic disturbance in one number</td>
+          <td>&lt;10 green · 10–19 amber · 20+ red</td>
+        </tr>
+        <tr>
+          <td>SW</td>
+          <td>Solar wind speed, km/s</td>
+          <td>&lt;500 green · 500–699 amber · 700+ red. Fast wind stirs up the field</td>
+        </tr>
+        <tr>
+          <td>Word</td>
+          <td>Geomagnetic field summary from N0NBH (HamQSL)</td>
+          <td>QUIET green · ACTIVE or any STORM red · anything else amber</td>
+        </tr>
+      </table>
+
+      <div class="cols">
+        <div>
+          <h2><span class="n">2</span>DE: your station</h2>
+          <ul>
+            <li>"DE" is telegraph shorthand for "from": <b>your end</b>.</li>
+            <li>
+              <b>Grid square</b>, e.g. <span class="mono">FN20nc</span>: FN = 20°×10° field, 20 = 2°×1° square, nc = a
+              few miles. Most of Lower Bucks is FN20.
+            </li>
+            <li>Lat/long: every distance and heading is measured from here.</li>
+            <li>
+              <b>Sunrise → sunset</b> (local). Low bands improve after dark; gray-line openings happen around these
+              times.
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h2><span class="n">2</span>DX: your target</h2>
+          <ul>
+            <li><b>Local time</b> at their end</li>
+            <li><b>Beam Dir</b>: short-path great-circle heading. Japan from here is ~332°, over the pole.</li>
+            <li><b>Distance</b> along that path, and their sunrise/sunset in UTC</li>
+            <li>
+              <b>Set it</b> by clicking the map, typing a grid or callsign + Enter, picking from <b>DXCC</b>, or
+              clicking any spot. ★ = favorites, 🔒 = stop map clicks moving it.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <h2><span class="n">5</span>The map</h2>
+      <div class="cols wide-left">
+        <ul>
+          <li>
+            Shaded side = night. Its edge is the <b>gray line</b>: low-band signals travel unusually far along it.
+          </li>
+          <li>☀ = where the sun is directly overhead; the moon icon = where the moon is.</li>
+          <li>
+            <b>Each line is a spot</b>, from the station that heard to the station heard, colored by band (same colors
+            everywhere in the app).
+          </li>
+          <li>The <b>band bar</b> at the bottom filters the map to one band. The ticker is DX news.</li>
+        </ul>
+        <ul>
+          <li><b>Flat</b>: everyday view; choose a basemap.</li>
+          <li><b>Azimuthal</b>: centered on you; a straight line out from the center is your true beam heading.</li>
+          <li><b>3D</b>: a globe.</li>
+          <li>Left toolbar: zoom, lock, show/hide callsigns, night darkness.</li>
+        </ul>
+      </div>
+      <div class="notes">
+        <b>Notes</b>
+        <div></div>
+      </div>
+      <footer><span>openhamclock.com</span><span>2 / 4</span></footer>
+    </section>
+
+    <!-- PAGE 3 -->
+    <section class="page">
+      <header class="top"><b>OpenHamClock · Guided Tour</b><span>Solar · Propagation</span></header>
+
+      <h2><span class="n">3</span>Solar pane: four views (button at top right; ▶ rotates them)</h2>
+      <div class="cols">
+        <ul>
+          <li>
+            <b>Image</b>: live from NASA's Solar Dynamics Observatory. Dark patches are <b>coronal holes</b>, the source
+            of fast solar wind that arrives 2–4 days later (watch K climb).
+          </li>
+          <li><b>Indices</b>: SFI, K, SSN, solar wind with a word rating, a trend, and a 24-hour K forecast.</li>
+          <li><b>Lunar</b>: moon phase and position, for EME.</li>
+        </ul>
+        <div>
+          <b>X-ray: flares.</b> Classes <b class="mono">B → C → M → X</b>, each 10× the one before.
+          <ul>
+            <li>B, C: background, little effect.</li>
+            <li>
+              <b>M, X</b>: HF <b>radio blackout</b> on the sunlit side of Earth, starting within minutes and lasting
+              minutes to hours.
+            </li>
+          </ul>
+          <p class="muted">Bands die at midday? Check X-ray before you check the coax.</p>
+        </div>
+      </div>
+
+      <h2><span class="n">4</span>Propagation pane: which bands, to there, and when</h2>
+      <div class="cols wide-left">
+        <div>
+          <p>
+            <b>Chart view</b>: a prediction for the path <b>from your DE to your DX</b>. Rows = bands, columns = 24
+            hours (UTC); the white box is now. Green = likely, yellow/orange = possible, red/dark = unlikely. It uses
+            the ITU's HF model (ITU-R P.533, the physics behind VOACAP), calculated in your browser with your mode,
+            power and antenna (default SSB, 100 W).
+          </p>
+          <p class="muted">
+            Example (FN20 → Tokyo, SSB, Oct 19): 40/30 m best ~08–14 UTC (our night); 17/15 m window ~21–00 UTC (5–8 PM
+            EDT).
+          </p>
+          <h3>MUF and LUF</h3>
+          <ul>
+            <li>
+              <b>MUF</b>, maximum usable frequency: the highest frequency the ionosphere typically bends back on this
+              path now. Well above it, the signal goes into space.
+            </li>
+            <li><b>LUF</b>, lowest usable frequency: below it, daytime absorption eats the signal.</li>
+            <li>Bands between them <i>can</i> work; signal strength decides whether they do.</li>
+          </ul>
+        </div>
+        <div>
+          <img src="img/prop-chart.jpg" alt="Propagation chart" style="max-height: 2.3in; margin: 0 auto" />
+          <div class="cap">Chart view: FN20 → Tokyo, SSB, 100 W</div>
+          <div class="box">
+            <b>Mode matters</b> FT8 decodes far below the noise; SSB needs a signal well above it. Switch the mode to
+            FT8 and "closed" bands often open.
+          </div>
+          <div class="box">
+            <b>General vs. your path</b> "15 m GOOD" means open somewhere. The chart says whether <i>your</i> signal
+            reaches <i>that</i> place. Use the first to decide whether to get on, the second to decide where to point.
+          </div>
+          <p><b>Bars view</b>: the same prediction for this hour, best band first.</p>
+          <p>
+            <b>Bands view</b>: N0NBH's general GOOD / FAIR / POOR per band, day and night, plus VHF (aurora, sporadic-E)
+            and noise.
+          </p>
+        </div>
+      </div>
+      <div class="notes">
+        <b>Notes</b>
+        <div></div>
+      </div>
+      <footer><span>openhamclock.com</span><span>3 / 4</span></footer>
+    </section>
+
+    <!-- PAGE 4 -->
+    <section class="page">
+      <header class="top"><b>OpenHamClock · Guided Tour</b><span>Activity · Routine · Settings</span></header>
+
+      <div class="cols">
+        <div>
+          <h2><span class="n">6</span>DX cluster</h2>
+          <p>
+            A <b>spot</b> is a report that a station was heard on a frequency, from other hams or from automatic
+            receivers (the <b>Reverse Beacon Network</b>, RBN), shared over the worldwide DX cluster network.
+          </p>
+          <p>Row: frequency (colored by band) · callsign · mode · <i>de</i> spotter · age.</p>
+          <ul>
+            <li><b>Click a row</b>: makes it your DX target and shows it on the map.</li>
+            <li><b>🎧</b>: listen on a nearby web receiver (KiwiSDR), already tuned.</li>
+            <li><b>50/162</b>: rows shown / spots received. Search and filters narrow it.</li>
+            <li>
+              With your log imported: <span class="tag">NEW</span> new country · <span class="tag">BAND</span> new on
+              this band · <span class="tag">DUPE</span> already worked · <span class="tag">✓</span> worked on another
+              band/mode
+            </li>
+          </ul>
+        </div>
+        <div>
+          <h2><span class="n">7</span>PSKReporter</h2>
+          <p>Digital-mode software (WSJT-X, JTDX…) reports every station it decodes to PSKReporter.info.</p>
+          <ul>
+            <li><b>▲ Heard</b>: stations that decoded <i>you</i>. <b>▼ Hearing</b>: stations you decoded.</li>
+            <li>Numbers are SNR in dB. Gold ★ = you hear each other: a contact is likely.</li>
+            <li>
+              "Waiting for spots… (TX to see reports)" = you haven't transmitted yet. Call CQ on FT8 for a few minutes
+              and watch the map: a free antenna test.
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <h2><span class="n">8</span>Programs and calendars</h2>
+      <div class="cols">
+        <ul>
+          <li><b>POTA</b> Parks on the Air · <b>SOTA</b> Summits on the Air</li>
+          <li><b>WWFF</b> World Wide Flora &amp; Fauna · <b>WWBOTA</b> Bunkers on the Air</li>
+          <li>
+            Row: activator · reference (e.g. US-11290 is a park; hover for its name) · frequency · UTC time · comment
+            ("RBN" = heard by a skimmer)
+          </li>
+        </ul>
+        <ul>
+          <li><b>DXpeditions</b> (NG3K calendar): ● NOW on the air today; SOON coming up.</li>
+          <li><b>Contests</b> (WA7BNM calendar): LIVE with time left; upcoming with start time.</li>
+        </ul>
+      </div>
+
+      <div class="cols">
+        <div>
+          <h2>Ten seconds before you turn the radio on</h2>
+          <ol class="steps">
+            <li><b>Header</b>: SFI up, K low?</li>
+            <li><b>X-ray</b>: any M or X flare? Day side may be blacked out.</li>
+            <li><b>Propagation</b>: set a DX target; read the chart for band and time.</li>
+            <li><b>Map + cluster</b>: is anyone actually getting through? Filter to that band.</li>
+            <li><b>Listen</b>: 🎧 on a spot, then tune the radio. POTA = easiest contacts.</li>
+          </ol>
+        </div>
+        <div>
+          <h2>Settings (icons down the left edge)</h2>
+          <p>
+            <b>Station</b> call, grid, units · <b>Display</b> layout, theme, text size · <b>Map Layers</b> MUF map,
+            aurora, radar, grid squares · <b>Satellites</b> · <b>Alerts</b> sounds/notifications · <b>Profiles</b> save
+            &amp; share setups · <b>Integrations</b> logbooks, QRZ · <b>Help</b> the full manual
+          </p>
+          <p>
+            <b>Ctrl+K</b> (⌘K on Mac): type what you want, e.g. "aurora", "classic".<br />
+            Other layouts: Classic, Dockable (80+ panes), Contest, EmComm and more.
+          </p>
+        </div>
+      </div>
+      <div class="notes">
+        <b>Notes</b>
+        <div></div>
+      </div>
+      <footer>
+        <span>openhamclock.com · Chris Hetherington, K0CJH · chris@cjhlighting.com</span><span>4 / 4</span>
+      </footer>
+    </section>
+  </body>
+</html>

@@ -14,6 +14,14 @@ const warn = (message) => {
   process.exit(0);
 };
 
+const FALLBACK = {
+  p533: 'runtime will use REST fallback',
+  ft8: 'the Decoder panel FT8 tab will report the decoder as not installed',
+};
+const warnPackage = (name, message) => {
+  console.error(`⚠  fetch-wasm: ${name}: ${message} — skipping (${FALLBACK[name] || 'feature unavailable'})`);
+};
+
 const download = (url, dest) => {
   return new Promise((resolve, reject) => {
     const request = https.get(url, (response) => {
@@ -51,7 +59,7 @@ const sha256File = async (filePath) => {
 };
 
 /**
- * Verify checksum of files in destination folder. File p533.sha256 should exist and contain checksum information.
+ * Verify checksum of files in destination folder. The package's .sha256 file should exist and contain checksum information.
  * @param {*} destDir Destination directory where files are downloaded.
  * @param {*} filesExpected List of expected files to verify, the first file in the list should be the checksum file (e.g. p533.sha256) and the rest are files to verify (e.g. p533.mjs, p533.wasm).
  * @returns returns true if checksum file exists and matches, false if checksum file is missing or invalid
@@ -85,57 +93,80 @@ const verifyChecksum = async (destDir, filesExpected) => {
   return true;
 };
 
+/**
+ * WASM packages published to the wasm-latest release by
+ * .github/workflows/build-wasm.yml. Each is fetched independently: a missing
+ * asset (e.g. ft8 before CI has published it for the first time) or a network
+ * failure only skips that package — the app falls back (P.533 → REST
+ * prediction, FT8 → tab shows "decoder not installed") and the build goes on.
+ */
+const PACKAGES = [
+  { name: 'p533', files: ['p533.sha256', 'p533.mjs', 'p533.wasm'] },
+  { name: 'ft8', files: ['ft8.sha256', 'ft8.mjs', 'ft8.wasm'] },
+];
+
+async function fetchPackage({ name, files: filesExpected }) {
+  // download checksum file to a temporary file first, then replace existing file only on success
+  {
+    const checksumFileName = filesExpected[0];
+    const url = `${BASE_URL}/${checksumFileName}`;
+    const dest = path.join(DEST_DIR, checksumFileName);
+    const tmpDest = dest + '.tmp';
+    try {
+      fs.rmSync(tmpDest, { force: true });
+      await download(url, tmpDest);
+      fs.rmSync(dest, { force: true }); // overwrite existing file only after successful download
+      fs.renameSync(tmpDest, dest);
+    } catch (err) {
+      // cleanup temp file on error, let the caller handle the warning
+      try {
+        fs.rmSync(tmpDest, { force: true });
+      } catch (e) {}
+      throw err;
+    }
+  }
+
+  // if checksum is OK then skip else do a full download of all files and verify again
+  if (await verifyChecksum(DEST_DIR, filesExpected)) {
+    console.log(`✓ fetch-wasm: ${name} already installed at '${DEST_DIR}'`);
+    return;
+  }
+  console.log(`→ fetch-wasm: downloading ${name} from '${BASE_URL}'...`);
+  for (const filename of filesExpected.slice(1)) {
+    await download(`${BASE_URL}/${filename}`, path.join(DEST_DIR, filename));
+  }
+  if ((await verifyChecksum(DEST_DIR, filesExpected)) === false) {
+    // never leave a half-verified package behind for the app to load
+    for (const filename of filesExpected) fs.rmSync(path.join(DEST_DIR, filename), { force: true });
+    throw new Error(`sha256 mismatch, verifyChecksum failed after ${name} download`);
+  }
+  console.log(`✓ fetch-wasm: ${name} installed to '${DEST_DIR}'`);
+  console.log(
+    filesExpected
+      .slice(1)
+      .map((f) => `- ${f}`)
+      .join('\n'),
+  );
+}
+
 (async () => {
   try {
     if (!fs.existsSync(DEST_DIR)) {
       fs.mkdirSync(DEST_DIR, { recursive: true });
     }
-
-    const filesExpected = ['p533.sha256', 'p533.mjs', 'p533.wasm'];
-
-    // download checksum file to a temporary file first, then replace existing file only on success
-    {
-      const checksumFileName = 'p533.sha256';
-      const url = `${BASE_URL}/${checksumFileName}`;
-      const dest = path.join(DEST_DIR, checksumFileName);
-      const tmpDest = dest + '.tmp';
-      try {
-        fs.rmSync(tmpDest, { force: true });
-        await download(url, tmpDest);
-        fs.rmSync(dest, { force: true }); // overwrite existing file only after successful download
-        fs.renameSync(tmpDest, dest);
-      } catch (err) {
-        // cleanup temp file on error, let outer try/catch handle the warning
-        try {
-          fs.rmSync(tmpDest, { force: true });
-        } catch (e) {}
-        throw err;
-      }
-    }
-
-    // if checksum is OK then skip else do a full download of all files and verify again
-    if (await verifyChecksum(DEST_DIR, filesExpected)) {
-      console.log(`✓ fetch-wasm: existing files installed at '${DEST_DIR}'`);
-    } else {
-      console.log(`→ fetch-wasm: downloading from '${BASE_URL}'...`);
-
-      for (const filename of filesExpected) {
-        const url = `${BASE_URL}/${filename}`;
-        const dest = path.join(DEST_DIR, filename);
-        await download(url, dest);
-      }
-
-      if ((await verifyChecksum(DEST_DIR, filesExpected)) === false)
-        throw new Error(`sha256 mismatch, verifyChecksum failed after WASM package download`);
-
-      console.log(`✓ fetch-wasm: installed to '${DEST_DIR}'`);
-
-      const installed = fs.readdirSync(DEST_DIR).filter((name) => /p533\.(mjs|wasm)$/.test(name));
-      if (installed.length > 0) {
-        console.log(installed.map((name) => `- ${name}`).join('\n'));
-      }
-    }
   } catch (error) {
     warn(error.message);
+  }
+  const only = (process.env.WASM_PACKAGES || '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  for (const pkg of PACKAGES) {
+    if (only.length && !only.includes(pkg.name)) continue;
+    try {
+      await fetchPackage(pkg);
+    } catch (error) {
+      warnPackage(pkg.name, error.message);
+    }
   }
 })();

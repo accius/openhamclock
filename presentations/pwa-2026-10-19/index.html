@@ -1,0 +1,1413 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenHamClock Guided Tour</title>
+    <meta
+      name="description"
+      content="OpenHamClock, pane by pane: what each part of the Modern layout shows, what the numbers mean, and how to get started. Talk for the Penn Wireless Association (W3SK)."
+    />
+
+    <link rel="icon" href="../../public/favicon-32x32.png" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reset.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/black.css" id="theme" />
+
+    <style>
+      :root {
+        --ohc-bg: #0b1220;
+        --ohc-bg-soft: #111a2e;
+        --ohc-text: #e6edf3;
+        --ohc-muted: #a3b1c6;
+        --ohc-cyan: #22d3ee;
+        --ohc-amber: #fbbf24;
+        --ohc-green: #4ade80;
+        --ohc-red: #ff4466;
+        --ohc-purple: #a78bfa;
+        --ohc-rule: #1e293b;
+      }
+      body.reveal-viewport,
+      .reveal-viewport {
+        background: var(--ohc-bg);
+      }
+      .reveal {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        color: var(--ohc-text);
+        font-size: 30px;
+      }
+      .reveal .slides {
+        text-align: left;
+      }
+      .reveal .slides section {
+        padding: 0 0.5em;
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .reveal h1,
+      .reveal h2,
+      .reveal h3 {
+        color: var(--ohc-text);
+        text-transform: none;
+        letter-spacing: -0.01em;
+        font-weight: 700;
+      }
+      .reveal h2 {
+        font-size: 1.55em;
+        line-height: 1.1;
+        margin-bottom: 0.45em;
+      }
+      .reveal h3 {
+        font-size: 0.92em;
+        color: var(--ohc-cyan);
+        margin: 0 0 0.25em;
+      }
+      .reveal p {
+        line-height: 1.38;
+        margin: 0.35em 0;
+      }
+      .reveal strong {
+        color: var(--ohc-amber);
+      }
+      .reveal a {
+        color: var(--ohc-cyan);
+      }
+      .reveal ul {
+        margin: 0 0 0 1em;
+      }
+      .reveal li {
+        margin: 0.28em 0;
+        line-height: 1.32;
+      }
+      .reveal .muted {
+        color: var(--ohc-muted);
+      }
+      .reveal .small {
+        font-size: 0.78em;
+      }
+      .reveal .xsmall {
+        font-size: 0.62em;
+      }
+      .reveal .slide-number {
+        color: var(--ohc-muted);
+        background: transparent;
+      }
+      .reveal section img {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+        margin: 0;
+      }
+      .kicker {
+        display: inline-block;
+        font-size: 0.5em;
+        font-weight: 600;
+        color: var(--ohc-cyan);
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        margin-bottom: 0.5em;
+      }
+      .center {
+        text-align: center !important;
+      }
+      .gradient {
+        background: linear-gradient(90deg, var(--ohc-cyan), var(--ohc-amber));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      .g {
+        color: var(--ohc-green);
+        font-weight: 700;
+      }
+      .a {
+        color: var(--ohc-amber);
+        font-weight: 700;
+      }
+      .r {
+        color: var(--ohc-red);
+        font-weight: 700;
+      }
+      .c {
+        color: var(--ohc-cyan);
+        font-weight: 700;
+      }
+      .mono {
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
+      }
+      kbd {
+        background: var(--ohc-bg);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 4px;
+        padding: 0.05em 0.35em;
+        font-family: 'SF Mono', Menlo, monospace;
+        color: var(--ohc-amber);
+        font-size: 0.9em;
+      }
+
+      /* Title */
+      .title-slide h1 {
+        font-size: 3.2em;
+        margin-bottom: 0.1em;
+      }
+      .title-slide .tagline {
+        font-size: 1.1em;
+        color: var(--ohc-muted);
+        margin-bottom: 1.5em;
+      }
+      .title-slide .meta {
+        font-size: 0.72em;
+        color: var(--ohc-muted);
+        line-height: 1.6;
+      }
+      .title-slide .meta strong {
+        color: var(--ohc-text);
+      }
+      .reveal section img.logo {
+        width: 130px;
+        height: 130px;
+        margin: 0 auto 0.3em;
+        display: block;
+      }
+
+      /* Layout helpers */
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.1em;
+        align-items: start;
+      }
+      .two-col.text-wide {
+        grid-template-columns: 1.45fr 1fr;
+      }
+      .two-col > * {
+        min-width: 0;
+      }
+      .shot {
+        display: block;
+        max-width: 100%;
+        max-height: 560px;
+        margin: 0 auto;
+        border: 1px solid var(--ohc-rule);
+        border-radius: 8px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+      }
+      .shot.mid {
+        max-height: 470px;
+      }
+      .shot.wide {
+        max-height: none;
+        width: 100%;
+      }
+      .shots {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.7em;
+        align-items: start;
+      }
+      .shots.four {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .shots figure {
+        margin: 0;
+        min-width: 0;
+      }
+      .shots img {
+        width: 100%;
+        border: 1px solid var(--ohc-rule);
+        border-radius: 6px;
+      }
+      .shots figcaption {
+        font-size: 0.55em;
+        color: var(--ohc-muted);
+        text-align: center;
+        margin-top: 0.3em;
+      }
+
+      /* Definition table */
+      table.defs {
+        border-collapse: collapse;
+        width: 100%;
+        font-size: 0.62em;
+        margin: 0;
+      }
+      table.defs th,
+      table.defs td {
+        border: 0;
+        border-bottom: 1px solid var(--ohc-rule);
+        padding: 0.36em 0.5em;
+        vertical-align: top;
+        text-align: left;
+        line-height: 1.3;
+      }
+      table.defs th {
+        color: var(--ohc-muted);
+        font-weight: 600;
+        font-size: 0.85em;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      table.defs td:first-child {
+        font-family: 'SF Mono', Menlo, monospace;
+        color: var(--ohc-cyan);
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      /* Callout */
+      .callout {
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-left: 4px solid var(--ohc-amber);
+        border-radius: 8px;
+        padding: 0.5em 0.8em;
+        font-size: 0.72em;
+        margin-top: 0.6em;
+      }
+      .callout.cyan {
+        border-left-color: var(--ohc-cyan);
+      }
+
+      /* Annotated overview */
+      .annot {
+        position: relative;
+        display: inline-block;
+        height: 600px;
+      }
+      .reveal .annot img {
+        height: 600px;
+        max-height: none;
+        max-width: none;
+        display: block;
+        border-radius: 6px;
+        border: 1px solid var(--ohc-rule);
+      }
+      .annot .zone {
+        position: absolute;
+        border: 2px solid var(--ohc-amber);
+        border-radius: 6px;
+        background: rgba(251, 191, 36, 0.08);
+      }
+      .annot .zone span,
+      .legend b {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.35em;
+        height: 1.35em;
+        border-radius: 50%;
+        background: var(--ohc-amber);
+        color: var(--ohc-bg);
+        font-weight: 800;
+      }
+      .annot .zone span {
+        position: absolute;
+        top: 4px;
+        left: 4px;
+        font-size: 18px;
+      }
+      .legend {
+        list-style: none;
+        margin: 0 !important;
+        padding: 0;
+        font-size: 0.74em;
+      }
+      .legend li {
+        display: grid;
+        grid-template-columns: 1.7em 1fr;
+        align-items: center;
+        margin: 0 0 0.35em !important;
+      }
+      .legend li b {
+        font-size: 0.8em;
+      }
+
+      /* Numbered steps */
+      .steps {
+        list-style: none;
+        margin: 0 !important;
+        padding: 0;
+        counter-reset: step;
+      }
+      .steps li {
+        counter-increment: step;
+        display: grid;
+        grid-template-columns: 1.7em 1fr;
+        gap: 0.5em;
+        align-items: start;
+        margin: 0 0 0.5em !important;
+      }
+      .steps li::before {
+        content: counter(step);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 1.4em;
+        height: 1.4em;
+        border-radius: 50%;
+        background: var(--ohc-cyan);
+        color: var(--ohc-bg);
+        font-weight: 800;
+      }
+      .steps li span {
+        display: block;
+        font-size: 0.72em;
+        color: var(--ohc-muted);
+        margin-top: 0.1em;
+      }
+
+      /* Cards */
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.6em;
+      }
+      .cards.two {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .cards.four {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .card {
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 10px;
+        padding: 0.55em 0.7em;
+        min-width: 0;
+      }
+      .card p {
+        font-size: 0.66em;
+        margin: 0;
+        color: var(--ohc-muted);
+      }
+
+      /* Badges like the app's */
+      .badge {
+        display: inline-block;
+        font-weight: 800;
+        padding: 0.05em 0.4em;
+        border-radius: 4px;
+        font-family: 'SF Mono', Menlo, monospace;
+      }
+      .badge.new {
+        background: rgba(255, 68, 102, 0.2);
+        color: var(--ohc-red);
+      }
+      .badge.band {
+        background: rgba(255, 140, 50, 0.2);
+        color: #ff8c32;
+      }
+      .badge.dupe {
+        background: rgba(251, 191, 36, 0.2);
+        color: var(--ohc-amber);
+      }
+      .badge.worked {
+        background: rgba(74, 222, 128, 0.15);
+        color: var(--ohc-green);
+      }
+
+      /* Band color chips (same palette as the app) */
+      .bands {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3em;
+        font-family: 'SF Mono', Menlo, monospace;
+        font-size: 0.6em;
+        font-weight: 700;
+      }
+      .bands span {
+        padding: 0.1em 0.45em;
+        border-radius: 4px;
+        color: #0b1220;
+      }
+
+      /* URL card */
+      .url-card {
+        margin: 0.4em auto 0;
+        max-width: 80%;
+        text-align: center;
+        padding: 1.1em 1em 1em;
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 14px;
+      }
+      .url-card .url {
+        display: block;
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
+        font-size: 2.2em;
+        line-height: 1.1;
+        font-weight: 700;
+        margin-bottom: 0.4em;
+      }
+      .url-card .cta {
+        display: inline-block;
+        padding: 0.45em 1.2em;
+        border: 1px solid var(--ohc-cyan);
+        border-radius: 8px;
+        color: var(--ohc-cyan) !important;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.75em;
+      }
+      .url-card .hint {
+        margin-top: 0.8em;
+        color: var(--ohc-muted);
+        font-size: 0.6em;
+      }
+      .seventythree {
+        font-size: 3.4em;
+        font-weight: 800;
+        line-height: 1;
+        margin: 0.1em 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <!-- 1. Title -->
+        <section class="title-slide center">
+          <img src="../shared-2026-10/icon-512.png" alt="OpenHamClock logo" class="logo" />
+          <div class="kicker">Penn Wireless Association · W3SK · October 19, 2026</div>
+          <h1 class="gradient">OpenHamClock</h1>
+          <p class="tagline">A guided tour: what every pane shows, and what the numbers mean.</p>
+          <p class="meta">
+            <strong>Chris Hetherington · K0CJH</strong><br />
+            openhamclock.com
+          </p>
+          <aside class="notes">
+            Good evening, in the room and on Zoom. I'm Chris, K0CJH, and I develop OpenHamClock. Tonight is a guided
+            tour. We'll go through the screen one pane at a time, and for each one I'll explain what it shows, where the
+            data comes from, and how to read the numbers. Most of those numbers aren't specific to OpenHamClock; solar
+            flux and the K-index are things every HF operator runs into, so this is really a propagation and operating
+            primer with a tool attached. If you have a laptop or phone, open openhamclock.com and follow along.
+          </aside>
+        </section>
+
+        <!-- 2. What it is -->
+        <section>
+          <div class="kicker">What it is</div>
+          <h2>One screen for what's happening on the air</h2>
+          <div class="two-col text-wide">
+            <div>
+              <p>
+                OpenHamClock is a free, open-source dashboard that runs in a web browser. It pulls dozens of public data
+                sources onto one map centered on <strong>your station</strong>:
+              </p>
+              <ul class="small">
+                <li>Space weather from <strong>NOAA</strong> and live images of the sun from <strong>NASA</strong></li>
+                <li>Who's being heard right now: the <strong>DX cluster</strong> and <strong>PSKReporter</strong></li>
+                <li>Parks, summits, DXpeditions and contests</li>
+                <li>A propagation prediction calculated for <strong>your</strong> location</li>
+              </ul>
+              <p class="small muted">No account, no download, no ads. Your settings stay in your own browser.</p>
+            </div>
+            <img src="img/modern-full.jpg" alt="OpenHamClock, Modern layout" class="shot mid" />
+          </div>
+          <aside class="notes">
+            In one sentence: OpenHamClock is a free dashboard in your web browser that puts what's happening on the air
+            on one screen. Space weather from NOAA, live images of the sun from NASA, who's being heard right now from
+            the DX cluster and PSKReporter, parks and summits on the air, DXpeditions, contests, and a propagation
+            prediction calculated for your own location. Same idea as the original HamClock you've seen on Raspberry
+            Pis, built from scratch for the web. No account, nothing to install, and your settings live in your browser.
+            The screenshots tonight were taken this morning with the club call, W3SK, in FN20, so the live numbers
+            tonight will be different.
+          </aside>
+        </section>
+
+        <!-- 3. Getting started -->
+        <section>
+          <div class="kicker">Getting started</div>
+          <h2>About a minute to set up</h2>
+          <ol class="steps">
+            <li>
+              <div>
+                Open <strong>openhamclock.com</strong>
+                <span>Any modern browser: computer, tablet or phone.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                Enter your <strong>callsign</strong> and <strong>grid square</strong>
+                <span
+                  >It asks on your first visit. "Use my current location" fills in the grid from your device's
+                  location.</span
+                >
+              </div>
+            </li>
+            <li>
+              <div>
+                You're on the <strong>Modern</strong> layout, which is the default
+                <span>That's the layout we're touring tonight. Others are under Settings → Display → Layout.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Click your callsign</strong> (top left) to open Settings at any time
+                <span>Station details, units, 12/24-hour time, themes, map layers and alerts all live there.</span>
+              </div>
+            </li>
+          </ol>
+          <aside class="notes">
+            Getting started takes about a minute. Open openhamclock.com. The first time you visit, it asks for your
+            callsign and grid square; if you don't know your grid, the "Use my current location" button works it out
+            from your device. You land on the Modern layout, which is the default and the one we're touring tonight; the
+            others are under Settings, Display, and I'll show a few at the end. The one thing to remember: click your
+            callsign at the top left and Settings opens.
+          </aside>
+        </section>
+
+        <!-- 4. Overview -->
+        <section>
+          <div class="kicker">The Modern layout</div>
+          <div class="two-col" style="grid-template-columns: auto 1fr; gap: 1em; align-items: center">
+            <div class="annot">
+              <img src="img/modern-full.jpg" alt="Modern layout with numbered zones" />
+              <div class="zone" style="left: 0%; top: 0%; width: 100%; height: 5.2%"><span>1</span></div>
+              <div class="zone" style="left: 3%; top: 5.2%; width: 18%; height: 33.8%"><span>2</span></div>
+              <div class="zone" style="left: 3%; top: 39.5%; width: 18%; height: 35%"><span>3</span></div>
+              <div class="zone" style="left: 3%; top: 75%; width: 18%; height: 24.5%"><span>4</span></div>
+              <div class="zone" style="left: 21.6%; top: 5.2%; width: 57.4%; height: 94.3%"><span>5</span></div>
+              <div class="zone" style="left: 79.5%; top: 5.2%; width: 20%; height: 33%"><span>6</span></div>
+              <div class="zone" style="left: 79.5%; top: 38.5%; width: 20%; height: 20%"><span>7</span></div>
+              <div class="zone" style="left: 79.5%; top: 58.8%; width: 20%; height: 40.7%"><span>8</span></div>
+            </div>
+            <div>
+              <h2 style="font-size: 1.2em">Eight areas</h2>
+              <ol class="legend">
+                <li><b>1</b>Header: clocks and space weather</li>
+                <li><b>2</b>DE and DX: your station and your target</li>
+                <li><b>3</b>Solar: the sun, its numbers, flares</li>
+                <li><b>4</b>Propagation: which bands work, when</li>
+                <li><b>5</b>The map</li>
+                <li><b>6</b>DX cluster: who's being spotted</li>
+                <li><b>7</b>PSKReporter: who hears you</li>
+                <li><b>8</b>DXpeditions, parks &amp; summits, contests</li>
+              </ol>
+              <p class="xsmall muted" style="margin-top: 0.8em">
+                Left side: <strong>conditions</strong>. Right side: <strong>activity</strong>. Middle: where it all is.
+              </p>
+            </div>
+          </div>
+          <aside class="notes">
+            Here's the map of the screen, and we'll take it in this order. Across the top, the header: clocks and a
+            strip of space-weather numbers. The left column is about conditions: your station and your target, the sun,
+            and the propagation prediction. The right column is about activity: who's being spotted on the cluster,
+            who's hearing you, and the DXpeditions, park and summit activators and contests going on now. The map in the
+            middle shows where all of it is. A good habit: the left side tells you whether the bands are worth getting
+            on, and the right side tells you who's there.
+          </aside>
+        </section>
+
+        <!-- 5. Header: clocks -->
+        <section>
+          <div class="kicker">1 · Header</div>
+          <h2>Clocks: UTC and local</h2>
+          <img src="img/header-clocks.jpg" alt="Header with callsign, UTC and local clocks" class="shot wide" />
+          <div class="two-col" style="margin-top: 0.7em">
+            <ul class="small">
+              <li>
+                <span class="c">UTC</span> is the time every log, contest, DXpedition and spot uses. 16:36 UTC was 12:36
+                here this morning (EDT is UTC−4; from Nov 1, EST is UTC−5).
+              </li>
+              <li><span class="a">LOCAL</span> is your own clock. Click it to switch between 12 and 24 hour.</li>
+            </ul>
+            <ul class="small">
+              <li><strong>Callsign</strong>: click it to open Settings.</li>
+              <li><strong>Version</strong>: click it to see what changed in the latest release.</li>
+              <li>The flag comes from your callsign prefix.</li>
+            </ul>
+          </div>
+          <aside class="notes">
+            The left half of the header is your callsign and two clocks. UTC is the one that matters for radio: every
+            log entry, spot, contest and DXpedition schedule is in UTC, so having it big on the screen saves the
+            conversion in your head. We're on daylight time now, UTC minus four, and from November first it's minus
+            five. The local clock is next to it; click it to toggle twelve and twenty-four hour. Click your callsign to
+            open Settings, and click the version number to see what changed in the latest release.
+          </aside>
+        </section>
+
+        <!-- 6. Header: space weather -->
+        <section>
+          <div class="kicker">1 · Header</div>
+          <h2>The space-weather strip</h2>
+          <img
+            src="img/header-spacewx.jpg"
+            alt="Space weather numbers in the header"
+            class="shot"
+            style="max-height: 56px; margin: 0"
+          />
+          <table class="defs" style="margin-top: 0.5em">
+            <tr>
+              <th></th>
+              <th>What it is</th>
+              <th>How to read it</th>
+            </tr>
+            <tr>
+              <td>SFI</td>
+              <td>
+                Solar Flux Index: the sun's radio output at 10.7 cm, a stand-in for how hard it's ionizing the upper
+                atmosphere
+              </td>
+              <td>Higher is better for HF, especially 15–10 m. About 70 is a quiet sun; 120+ good; 150+ excellent.</td>
+            </tr>
+            <tr>
+              <td>K</td>
+              <td>Planetary K-index: how disturbed Earth's magnetic field is, 0–9, over 3 hours</td>
+              <td>
+                <span class="g">Low is better.</span> 0–2 quiet. <span class="r">4 and up turns red</span>: absorption,
+                noise, aurora.
+              </td>
+            </tr>
+            <tr>
+              <td>SSN</td>
+              <td>Sunspot number</td>
+              <td>Rises and falls with SFI over the 11-year solar cycle.</td>
+            </tr>
+            <tr>
+              <td>A</td>
+              <td>A-index: the whole day's geomagnetic disturbance in one number</td>
+              <td>
+                <span class="g">Under 10 green</span>, <span class="a">10–19 amber</span>,
+                <span class="r">20+ red</span>.
+              </td>
+            </tr>
+            <tr>
+              <td>SW</td>
+              <td>Solar wind speed, km/s</td>
+              <td>
+                <span class="g">Under 500 green</span>, <span class="a">500–699 amber</span>,
+                <span class="r">700+ red</span>. Fast wind stirs up the field.
+              </td>
+            </tr>
+            <tr>
+              <td>WORD</td>
+              <td>Geomagnetic field summary from N0NBH (HamQSL)</td>
+              <td>QUIET is green. ACTIVE or any STORM is red.</td>
+            </tr>
+          </table>
+          <p class="small" style="margin-top: 0.45em">
+            <strong>Rule of thumb:</strong> high SFI and low K is a good HF day. This morning: SFI 137, K 0.33. Good.
+          </p>
+          <aside class="notes">
+            The right half of the header is the space-weather strip, and this is the slide to take home. SFI, the solar
+            flux index, is the sun's radio output at 10.7 centimeters. It stands in for how strongly the sun is ionizing
+            the upper atmosphere, and more ionization opens the higher bands: 15, 12 and 10 meters. Around 70 is a quiet
+            sun, 120 and up is good, 150 and up is excellent. K is the planetary K-index, 0 to 9, measuring how
+            disturbed Earth's magnetic field is over the last three hours. Here low is good; at 4 and up the app turns
+            it red, because a disturbed field means more absorption and noise, and, for the VHF crowd, aurora. SSN, the
+            sunspot number, tracks SFI over the eleven-year cycle. A is the A-index, the whole day's disturbance in one
+            number. SW is solar wind speed in kilometers per second; fast wind is what stirs up the field. The word at
+            the end is the geomagnetic summary from N0NBH's HamQSL service; this morning it said INACTIVE. One thing to
+            remember: high SFI and low K is a good HF day. This morning was 137 and a third.
+          </aside>
+        </section>
+
+        <!-- 7. DE -->
+        <section>
+          <div class="kicker">2 · DE: your station</div>
+          <div class="two-col text-wide">
+            <div>
+              <h2>"DE" means this end</h2>
+              <ul class="small">
+                <li>
+                  <span class="a mono">FN20nc</span> is your <strong>Maidenhead grid square</strong>. FN is a 20°×10°
+                  field, 20 is a 2°×1° square, and "nc" narrows it to a few miles. Most of Lower Bucks is FN20.
+                </li>
+                <li>Latitude and longitude: every distance and heading is measured from here.</li>
+                <li>
+                  <span class="a">07:14</span> → <span style="color: var(--ohc-purple); font-weight: 700">18:14</span>:
+                  your sunrise and sunset, local time. The low bands improve after dark, and gray-line openings happen
+                  around these two times.
+                </li>
+                <li>Local weather. The arrow opens wind, humidity, pressure and alerts.</li>
+              </ul>
+            </div>
+            <img src="img/de.jpg" alt="DE panel" class="shot" style="max-height: 300px" />
+          </div>
+          <aside class="notes">
+            On the left, the first pane is DE, old telegraph shorthand for "from", as in "W3SK de K0CJH". It means your
+            end of the contact. The big amber code is your Maidenhead grid square, which works in three steps: two
+            letters for a field twenty degrees by ten, two digits for a square two degrees by one, and two more letters
+            to narrow it to a few miles. Contesters and VHF operators exchange the four-character version; most of us
+            are FN20. Under it, latitude and longitude, which every distance and heading on the screen is measured from.
+            Then sunrise and sunset in local time. Those matter: the low bands come alive after dark, and the gray line
+            passes over you right around those two times. And your local weather, with more detail behind the arrow.
+          </aside>
+        </section>
+
+        <!-- 8. DX -->
+        <section>
+          <div class="kicker">2 · DX: your target</div>
+          <div class="two-col text-wide">
+            <div>
+              <h2>The station or place you're aiming at</h2>
+              <ul class="small">
+                <li><strong>Local time at their end</strong>. 1:36 AM in Tokyo is worth knowing before you call.</li>
+                <li>
+                  <strong>Beam Dir</strong>: the short-path heading from you to them. 332° from here to Japan: over the
+                  pole, not west across the Pacific.
+                </li>
+                <li><strong>Distance</strong> along that great-circle path</li>
+                <li><strong>Their sunrise → sunset, in UTC</strong></li>
+              </ul>
+              <div class="callout cyan">
+                <strong>Set the target:</strong> click anywhere on the map, type a grid or callsign and press Enter,
+                pick a country from <strong>DXCC</strong>, or click any spot. <strong>★</strong> saves favorites;
+                <strong>🔒</strong> stops map clicks from moving it.
+              </div>
+            </div>
+            <img src="img/dx.jpg" alt="DX panel" class="shot" style="max-height: 420px" />
+          </div>
+          <aside class="notes">
+            Below that is DX: the station or place you're trying to reach. It starts out on Tokyo. You get the local
+            time at their end: this says 1:36 in the morning in Tokyo, so whoever you're calling is a night owl. Beam
+            direction is the short-path great-circle heading. Notice it's 332 degrees, north-northwest, over the pole,
+            not west across the Pacific, because the shortest route on a globe isn't a straight line on a flat map. Then
+            the distance along that path, and their sunrise and sunset in UTC. To change the target: click anywhere on
+            the map, type a grid or callsign and press Enter, pick a country from the DXCC list, or click a spot on the
+            right. The star saves favorites, and the lock stops stray clicks from moving it. The propagation pane
+            follows whatever target is set here.
+          </aside>
+        </section>
+
+        <!-- 9. Map -->
+        <section>
+          <div class="kicker">5 · The map</div>
+          <div class="two-col" style="grid-template-columns: 1fr 1.05fr">
+            <div>
+              <h2>Reading the map</h2>
+              <ul class="small">
+                <li>
+                  The <strong>shaded side is night</strong>. Its edge is the <strong>gray line</strong>: low-band
+                  signals travel unusually far along it.
+                </li>
+                <li>☀ marks where the sun is directly overhead; the moon icon, where the moon is.</li>
+                <li>
+                  <strong>Each line is a spot</strong>: from the station that heard to the station heard, colored by
+                  band. Hover one for details.
+                </li>
+                <li>The <strong>band bar</strong> at the bottom filters the map to one band.</li>
+                <li>The <strong>ticker</strong> runs DX news headlines.</li>
+              </ul>
+              <div class="bands" style="margin-top: 0.5em">
+                <span style="background: #ff6666">160</span><span style="background: #ff9966">80</span
+                ><span style="background: #ffcc66">40</span><span style="background: #99ff66">30</span
+                ><span style="background: #66ff99">20</span><span style="background: #66ffcc">17</span
+                ><span style="background: #66ccff">15</span><span style="background: #6699ff">12</span
+                ><span style="background: #9966ff">10</span><span style="background: #ff66ff">6</span>
+              </div>
+              <p class="xsmall muted">The same band colors are used everywhere in the app.</p>
+            </div>
+            <img src="img/map.jpg" alt="The map with spot paths" class="shot" style="max-height: 580px" />
+          </div>
+          <aside class="notes">
+            The map is the middle of everything. The shaded half is night, and it moves through the day. The boundary is
+            the gray line: twilight, where the D layer that soaks up low-band signals in daytime has faded on one side
+            and not yet built up on the other. Signals along it, especially on 160, 80 and 40, can go remarkably far.
+            The sun symbol marks where the sun is directly overhead, and the moon likewise. Each colored line is a spot,
+            running from the station that heard the signal to the station that was heard, colored by band. Those colors
+            are used everywhere, so a green frequency in the cluster list is 20 meters. Click a band on the bar at the
+            bottom to show only that band. The ticker is DX news. This morning you can see 20 and 17 meters wide open
+            from North America into Europe.
+          </aside>
+        </section>
+
+        <!-- 10. Projections -->
+        <section>
+          <div class="kicker">5 · The map</div>
+          <h2>Three ways to draw the world</h2>
+          <div class="shots">
+            <figure>
+              <img src="../shared-2026-10/map-flat.jpg" alt="Flat map" />
+              <figcaption><strong>Flat</strong>: the everyday view, with a choice of basemaps.</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/map-azimuthal.jpg" alt="Azimuthal map" />
+              <figcaption>
+                <strong>Azimuthal</strong>: centered on you. A straight line out from the center is your true beam
+                heading.
+              </figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/map-globe.jpg" alt="3D globe" />
+              <figcaption><strong>3D</strong>: a globe. Great-circle paths look the way they really are.</figcaption>
+            </figure>
+          </div>
+          <p class="small muted" style="margin-top: 0.6em">
+            Top of the map: projection and basemap. Left toolbar: zoom, lock, show/hide callsigns, and a slider for how
+            dark the night side is drawn.
+          </p>
+          <aside class="notes">
+            The buttons at the top of the map switch projections. Flat is the everyday view, and the drop-down next to
+            it picks the basemap: dark, satellite, terrain and so on. Azimuthal is the one beam owners should know: it's
+            centered on your station, so a straight line out from the middle points exactly where you'd turn the
+            antenna, which is why the path to Japan goes over the top. 3D is a globe you can spin. The toolbar on the
+            left of the map has zoom, a lock, a button to show or hide callsign labels, and a slider for how dark the
+            night side is drawn.
+          </aside>
+        </section>
+
+        <!-- 11. Solar -->
+        <section>
+          <div class="kicker">3 · Solar</div>
+          <div class="two-col" style="grid-template-columns: 1fr 0.72fr 0.72fr; gap: 0.8em">
+            <div>
+              <h2>The sun, live</h2>
+              <p class="small">Four views: the button at top right flips them, ▶ rotates them automatically.</p>
+              <ul class="small">
+                <li>
+                  <strong>Image</strong>: NASA's Solar Dynamics Observatory. Dark patches are
+                  <strong>coronal holes</strong>, the source of fast solar wind that reaches us 2–4 days later.
+                </li>
+                <li><strong>Indices</strong>: the header numbers with a rating, a trend, and a 24 h K forecast</li>
+                <li><strong>X-ray</strong>: solar flares (next slide)</li>
+                <li><strong>Lunar</strong>: moon phase and position, for EME</li>
+              </ul>
+            </div>
+            <img src="img/solar-image.jpg" alt="Solar image view" class="shot" style="max-height: 500px" />
+            <img src="img/solar-indices.jpg" alt="Solar indices view" class="shot" style="max-height: 500px" />
+          </div>
+          <aside class="notes">
+            Below DX on the left is the Solar pane, with four views; the small button at top right flips between them
+            and the play button rotates them. First, a live image of the sun from NASA's Solar Dynamics Observatory. The
+            drop-down picks the wavelength; the default, Corona, is the most useful for us because it shows coronal
+            holes, the big dark patches. Fast solar wind streams out of them, and when one faces Earth, expect the
+            K-index to climb two to four days later. The indices view repeats the header numbers with a plain-English
+            rating and a trend: SFI 137 rated Good, K 0.33 Very Quiet, and the colored bars are the K forecast for the
+            next 24 hours. The other two views are X-ray flux, next, and the moon, for the moonbounce crowd.
+          </aside>
+        </section>
+
+        <!-- 12. X-ray -->
+        <section>
+          <div class="kicker">3 · Solar · X-ray view</div>
+          <div class="two-col text-wide">
+            <div>
+              <h2>Flares and sudden blackouts</h2>
+              <p class="small">
+                Satellites measure the sun's X-rays. Flares are graded by peak strength, and
+                <strong>each class is 10× the one before</strong>:
+              </p>
+              <p style="font-size: 1.1em; font-weight: 800; margin: 0.3em 0" class="mono">
+                <span class="g">B</span> → <span class="a">C</span> → <span style="color: #ff8c32">M</span> →
+                <span class="r">X</span>
+              </p>
+              <ul class="small">
+                <li>B and C: background, little or no effect</li>
+                <li>
+                  <strong>M and X</strong>: an HF <strong>radio blackout</strong> on the sunlit side of Earth, starting
+                  within minutes and lasting minutes to hours
+                </li>
+              </ul>
+              <div class="callout">
+                Bands go dead in the middle of the day? Check this view first. If X-ray just spiked, it isn't your
+                radio.
+              </div>
+            </div>
+            <img src="img/solar-xray.jpg" alt="X-ray flux view" class="shot" style="max-height: 400px" />
+          </div>
+          <aside class="notes">
+            The X-ray view is the one to check when things go wrong. Satellites watch the sun's X-ray output, and flares
+            are graded B, C, M and X, each ten times stronger than the last. B and C are background. An M or X flare
+            ionizes the lowest layer of the atmosphere on the daylit side of Earth so strongly that it absorbs HF, and
+            the bands go quiet within minutes. That's a radio blackout, and it lasts from minutes to a couple of hours.
+            So if you're on 20 meters in the afternoon and everything vanishes, look here before you start checking
+            coax. This morning was B5 with a peak around C2: nothing to worry about.
+          </aside>
+        </section>
+
+        <!-- 13. Propagation chart -->
+        <section>
+          <div class="kicker">4 · Propagation</div>
+          <div class="two-col text-wide">
+            <div>
+              <h2>Which bands, to there, and when</h2>
+              <ul class="small">
+                <li>A prediction for the path <strong>from your DE to your DX</strong>, not a general forecast</li>
+                <li>Rows are bands, columns are the 24 hours (UTC). <strong>The white box is now.</strong></li>
+                <li>
+                  Color is reliability: <span class="g">green</span> likely,
+                  <span class="a">yellow/orange</span> possible, <span class="r">red</span>/dark unlikely.
+                </li>
+                <li>
+                  Uses the ITU's HF model (ITU-R P.533, the physics behind VOACAP), calculated in your browser with your
+                  mode, power and antenna (default SSB, 100 W).
+                </li>
+              </ul>
+              <div class="callout cyan">
+                <strong>Reading it:</strong> FN20 → Tokyo, SSB. 40 and 30 m are best roughly 08–14 UTC (our night). 17
+                and 15 m have an evening window around 21–00 UTC. 10 m: no.
+              </div>
+            </div>
+            <img src="img/prop-chart.jpg" alt="Propagation chart" class="shot" style="max-height: 520px" />
+          </div>
+          <aside class="notes">
+            The bottom pane on the left is the propagation prediction, and the key point is that it's for a specific
+            path: from your station to whatever DX target you've set. Rows are bands, columns are the hours of the day
+            in UTC, and the white box is right now. Green means the signal will probably get through on most days; red
+            and dark mean probably not. It runs the ITU's HF propagation model, the same physics VOACAP is built on, in
+            your browser with today's solar numbers. Reading it for Tokyo on SSB at 100 watts: 40 and 30 meters are the
+            best bet from roughly 08 to 14 UTC, our overnight. Then there's an evening window on 17 and 15 meters around
+            21 to 00 UTC, which is 5 to 8 PM here. So if you want Japan on SSB tonight, try 17 or 15 around dinner time.
+          </aside>
+        </section>
+
+        <!-- 14. MUF/LUF/bars -->
+        <section>
+          <div class="kicker">4 · Propagation</div>
+          <div class="two-col text-wide">
+            <div>
+              <h2>MUF, LUF, and the mode you're using</h2>
+              <ul class="small">
+                <li>
+                  <span class="a">MUF</span>, maximum usable frequency: the highest frequency the ionosphere will
+                  typically bend back to earth on this path right now. Much above it, the signal goes into space.
+                </li>
+                <li>
+                  <span class="c">LUF</span>, lowest usable frequency: below it, daytime absorption eats the signal.
+                </li>
+                <li>
+                  Bands <strong>between the two</strong> can work; signal strength decides whether they do. Right now,
+                  only 20 and 30 m show any chance.
+                </li>
+                <li><strong>Bars view</strong>: the same prediction for this hour only, best band first.</li>
+              </ul>
+              <div class="callout">
+                <strong>Mode matters.</strong> FT8 can be decoded far below the noise; SSB needs a signal well above it.
+                Switch the mode drop-down to FT8 and bands that are "closed" for SSB often open up.
+              </div>
+            </div>
+            <img src="img/prop-bars.jpg" alt="Propagation bars view" class="shot" style="max-height: 520px" />
+          </div>
+          <aside class="notes">
+            Two numbers at the top of the propagation pane are worth learning. MUF, maximum usable frequency, is the
+            highest frequency the ionosphere will typically reflect back to earth on this path right now; go well above
+            it and your signal heads off into space. It's a median, not a hard wall, which is why 20 meters at 14
+            megahertz still shows a 22 percent chance against an 11 megahertz MUF. LUF, lowest usable frequency, is the
+            floor: below it, the daytime D layer absorbs the signal. Bands between the two can work, and whether they
+            actually do depends on how much signal arrives. That's why 40 meters shows zero at midday even though it's
+            above the LUF. The bars view is the same thing for the current hour, best first. The drop-downs set your
+            mode, power and antenna, and mode makes a big difference: FT8 decodes well below the noise, SSB needs a
+            signal comfortably above it. Switch to FT8 and you'll often see bands open that were "closed" for SSB, which
+            matches what you see on the waterfall.
+          </aside>
+        </section>
+
+        <!-- 15. Band conditions -->
+        <section>
+          <div class="kicker">4 · Propagation · bands view</div>
+          <div class="two-col text-wide">
+            <div>
+              <h2>General band conditions</h2>
+              <ul class="small">
+                <li>
+                  From N0NBH's widely used HamQSL report: each band rated <span class="g">GOOD</span> /
+                  <span class="a">FAIR</span> / <span class="r">POOR</span>, for day and for night
+                </li>
+                <li><strong>VHF conditions</strong>: aurora and sporadic-E openings on 6 m and up</li>
+                <li><strong>Noise</strong>: expected background noise, in S-units</li>
+              </ul>
+              <div class="callout cyan">
+                <strong>General vs. your path.</strong> This morning 15 m was rated GOOD overall, while the prediction
+                for FN20 → Tokyo on SSB said 0% at that hour. Both are right: one is about the band, the other is about
+                <em style="color: var(--ohc-amber)">your</em> signal to <em style="color: var(--ohc-amber)">that</em>
+                place.
+              </div>
+            </div>
+            <img src="img/prop-bands.jpg" alt="Band conditions view" class="shot" style="max-height: 520px" />
+          </div>
+          <aside class="notes">
+            Flip the propagation pane once more and you get general band conditions, from N0NBH's HamQSL report that
+            you've probably seen on QRZ pages. Each band gets good, fair or poor, for day and for night, plus VHF notes
+            for aurora and sporadic E, and the expected noise level. A useful lesson from this morning: the general
+            report said 15 meters was GOOD, and the path prediction to Tokyo said zero percent at that hour. They don't
+            contradict each other. The general report means the band is open somewhere; the path prediction is about
+            whether your signal reaches that particular place. Use the general one to decide whether to turn the radio
+            on, and the path one to decide where to point.
+          </aside>
+        </section>
+
+        <!-- 16. DX cluster -->
+        <section>
+          <div class="kicker">6 · DX cluster</div>
+          <div class="two-col text-wide">
+            <div>
+              <h2>Who's being heard, right now</h2>
+              <p class="small">
+                A <strong>spot</strong> is a report that a station was heard on a frequency. Spots come from other hams
+                and from automatic receivers (the <strong>Reverse Beacon Network</strong>, RBN), shared over the
+                worldwide DX cluster network.
+              </p>
+              <p class="small">
+                Each row: <span class="c">frequency</span> (colored by band) · callsign · mode ·
+                <em class="muted">de</em> the spotter · how long ago
+              </p>
+              <ul class="small">
+                <li><strong>Click a row</strong> to make it your DX target and show it on the map.</li>
+                <li><strong>🎧</strong> listens on a nearby web receiver (KiwiSDR), already tuned to it.</li>
+                <li><strong>"50/162"</strong>: 50 rows shown of 162 spots received. Search and filters narrow it.</li>
+              </ul>
+              <p class="xsmall muted">
+                With your log imported: <span class="badge new">NEW</span> new country ·
+                <span class="badge band">BAND</span> new on this band · <span class="badge dupe">DUPE</span> already
+                worked · <span class="badge worked">✓</span> worked on another band or mode
+              </p>
+            </div>
+            <img src="img/cluster.jpg" alt="DX cluster panel" class="shot" style="max-height: 560px" />
+          </div>
+          <aside class="notes">
+            Over to the right side. The DX cluster goes back to the packet radio days: a network of nodes where hams
+            post "I just heard this station on this frequency." Today most spots come from the Reverse Beacon Network,
+            automatic receivers that decode CW and digital signals and post them, which is why there are so many CW and
+            FT8 spots. Each row is the frequency colored by band, the callsign, the mode, who spotted it, and how long
+            ago. Click a row and it becomes your DX target and appears on the map. The headphones open a KiwiSDR, a
+            web-based receiver, near the station and tuned to that frequency, so you can hear it from a laptop. "50 of
+            162" means 50 rows shown out of 162 spots received; the search and filter buttons narrow it by band, mode or
+            continent. And if you import your log, spots get tagged: NEW for a country you've never worked, BAND for one
+            you need on this band, DUPE if you've already worked them here.
+          </aside>
+        </section>
+
+        <!-- 17. PSKReporter -->
+        <section>
+          <div class="kicker">7 · PSKReporter</div>
+          <div class="two-col text-wide">
+            <div>
+              <h2>Who hears <span class="c">you</span></h2>
+              <p class="small">
+                Digital-mode software (WSJT-X, JTDX and others) uploads every station it decodes to PSKReporter.info.
+                This pane pulls the reports involving your callsign.
+              </p>
+              <ul class="small">
+                <li><span class="g">▲ Heard</span>: stations that decoded <strong>your</strong> signal</li>
+                <li><span class="c">▼ Hearing</span>: stations <strong>you</strong> decoded</li>
+                <li>Numbers are signal-to-noise in dB. A gold ★ means you hear each other: a contact is likely.</li>
+                <li>The drop-down sets how many minutes of reports to keep.</li>
+              </ul>
+              <div class="callout">
+                <strong>"Waiting for spots… (TX to see reports)"</strong> just means you haven't transmitted yet. Call
+                CQ on FT8 for a few minutes and watch the map: a free, honest test of your antenna.
+              </div>
+            </div>
+            <img src="img/psk.jpg" alt="PSKReporter panel" class="shot" style="max-height: 360px" />
+          </div>
+          <aside class="notes">
+            Next is PSKReporter. When you run FT8 or other digital modes, your software reports every station it decodes
+            to a website called PSKReporter, and so does everyone else's. This pane pulls out the reports involving your
+            callsign. Heard is everyone who decoded you, Hearing is everyone you decoded, each with a signal-to-noise
+            figure, and they appear on the map. A gold star means you're hearing each other, which is when a contact is
+            likely. "Waiting for spots" is normal: nobody can report hearing you until you transmit. Call CQ on FT8 for
+            five minutes and watch the map fill in. That's the cheapest, most honest antenna test there is. The WSJT-X
+            tab shows decodes from your own copy of WSJT-X, if you connect it.
+          </aside>
+        </section>
+
+        <!-- 18. Activations -->
+        <section>
+          <div class="kicker">8 · Parks, summits &amp; more</div>
+          <div class="two-col text-wide">
+            <div>
+              <h2>On-the-air programs</h2>
+              <div class="cards two">
+                <div class="card">
+                  <h3>POTA</h3>
+                  <p>Parks on the Air: operating portable from a park</p>
+                </div>
+                <div class="card">
+                  <h3>SOTA</h3>
+                  <p>Summits on the Air: portable from a mountaintop</p>
+                </div>
+                <div class="card">
+                  <h3>WWFF</h3>
+                  <p>World Wide Flora &amp; Fauna: nature reserves</p>
+                </div>
+                <div class="card">
+                  <h3>WWBOTA</h3>
+                  <p>Worldwide Bunkers on the Air: historic bunkers</p>
+                </div>
+              </div>
+              <p class="small" style="margin-top: 0.5em">
+                Each row: activator · <strong>reference</strong> (US-11290 is a park ID; hover for its name) · frequency
+                · time (UTC). The second line is the spot's comment: mode, signal report, or "RBN" if a skimmer heard
+                them.
+              </p>
+            </div>
+            <img src="img/pota.jpg" alt="POTA panel" class="shot" style="max-height: 320px" />
+          </div>
+          <aside class="notes">
+            Below that are the on-the-air programs, one tab each. POTA, Parks on the Air, is the one most of you know:
+            operators set up portable in a park, and everyone else hunts them. SOTA is the same from a mountain summit,
+            WWFF is nature reserves, and WWBOTA is historic bunkers. Each row is the activator, the reference number for
+            the park or summit (hover it for the name), frequency and time. The second line is the spot's comment: often
+            the mode and a signal report, or "RBN" with a level, meaning a Reverse Beacon Network skimmer heard them.
+            Activators are usually running low power and want contacts, so this is one of the friendliest places on the
+            bands to find someone to work.
+          </aside>
+        </section>
+
+        <!-- 19. DXpeditions + contests -->
+        <section>
+          <div class="kicker">8 · DXpeditions &amp; contests</div>
+          <h2>What's on the calendar</h2>
+          <div class="two-col">
+            <div>
+              <img src="img/dxped.jpg" alt="DXpeditions panel" class="shot" style="max-height: 150px; margin: 0" />
+              <p class="small" style="margin-top: 0.5em">
+                <strong>DXpeditions</strong>: teams operating from rare places, from NG3K's announced-DXpeditions
+                calendar. <span class="g">● NOW</span> means on the air today; <span class="c">SOON</span> means coming
+                up. This morning: C5R in The Gambia.
+              </p>
+            </div>
+            <div>
+              <img src="img/contests.jpg" alt="Contests panel" class="shot" style="max-height: 200px; margin: 0" />
+              <p class="small" style="margin-top: 0.5em">
+                <strong>Contests</strong>: from the WA7BNM Contest Calendar. <span class="r">LIVE</span> ones show the
+                time left; upcoming ones show when they start. Click a name for details.
+              </p>
+            </div>
+          </div>
+          <aside class="notes">
+            The last two panes on the right are calendars. DXpeditions lists teams operating from rare places, from
+            NG3K's calendar, the long-standing reference. NOW means on the air today; this morning that included C5R in
+            The Gambia. If you're chasing countries, check it before the weekend. Contests comes from the WA7BNM contest
+            calendar: what's live with the time remaining, and what's coming up. Click a name for the details. It also
+            explains why 20 meters is wall-to-wall on a Saturday afternoon.
+          </aside>
+        </section>
+
+        <!-- 20. Workflow -->
+        <section>
+          <div class="kicker">Putting it together</div>
+          <h2>Ten seconds before you turn the radio on</h2>
+          <ol class="steps">
+            <li>
+              <div>
+                <strong>Header</strong>: SFI up and K low?
+                <span>High flux and a quiet field: the higher bands are worth a look.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>X-ray</strong>: any M or X flare?
+                <span>If the day side is blacked out, wait, or use the night-side bands.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Propagation</strong>: set a DX target and read the chart
+                <span>Which band, and what time, for the place you want.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Map and cluster</strong>: is anyone actually getting through?
+                <span>Lines on the map are proof. Filter to the band you picked.</span>
+              </div>
+            </li>
+            <li>
+              <div>
+                <strong>Listen</strong>: 🎧 on a spot, then tune the radio
+                <span>Parks and summits are the easiest contacts on any given day.</span>
+              </div>
+            </li>
+          </ol>
+          <aside class="notes">
+            Here's how it fits together as a ten-second routine before you sit down to operate. Glance at the header: is
+            the flux up and the K low? Check the X-ray view: any big flare? If so, the daylight side is blacked out for
+            a while. Set a DX target, wherever you want to work, and read the propagation chart for which band and what
+            time. Then check the map and the cluster for proof: predictions are predictions, but lines on the map are
+            people actually getting through. Filter to your band. Then listen, on the web SDR with the headphones button
+            or on your own radio. And if you just want contacts, the POTA tab is the easiest place to find them.
+          </aside>
+        </section>
+
+        <!-- 21. Settings rail -->
+        <section>
+          <div class="kicker">Making it yours</div>
+          <h2>The icons down the left edge</h2>
+          <p class="small muted">Each one opens Settings at that tab.</p>
+          <div class="cards four" style="margin-top: 0.5em">
+            <div class="card">
+              <h3>Station</h3>
+              <p>Callsign, grid, units, time zone</p>
+            </div>
+            <div class="card">
+              <h3>Display</h3>
+              <p>Layout, theme, text size, 12/24 h</p>
+            </div>
+            <div class="card">
+              <h3>Map Layers</h3>
+              <p>MUF map, aurora, weather radar, grid squares and more</p>
+            </div>
+            <div class="card">
+              <h3>Satellites</h3>
+              <p>Which satellites to track, and their passes</p>
+            </div>
+            <div class="card">
+              <h3>Alerts</h3>
+              <p>A sound or notification when something you want shows up</p>
+            </div>
+            <div class="card">
+              <h3>Profiles</h3>
+              <p>Save setups and share them with a code</p>
+            </div>
+            <div class="card">
+              <h3>Integrations</h3>
+              <p>Logbook services, QRZ and others</p>
+            </div>
+            <div class="card">
+              <h3>Help</h3>
+              <p>The full user manual, built in</p>
+            </div>
+          </div>
+          <p class="small" style="margin-top: 0.6em">
+            Shortcut: <kbd>Ctrl</kbd>+<kbd>K</kbd> (<kbd>⌘</kbd>+<kbd>K</kbd> on a Mac), then type what you want:
+            "aurora", "classic", "satellites".
+          </p>
+          <aside class="notes">
+            Down the left edge is a strip of icons, and each opens Settings at a specific tab. Station is your callsign,
+            grid, units and time zone. Display is where you change layout, color theme and text size, worth knowing if
+            the screen is across the room. Map Layers adds overlays: the MUF map, aurora, weather radar, grid squares
+            and a few dozen more. Satellites; Alerts, which can beep or pop up a notification when a station you want
+            appears; Profiles for saving setups; Integrations for logbook services; and Help, the full manual. If you'd
+            rather type than hunt: Control-K, or Command-K on a Mac, and type what you want.
+          </aside>
+        </section>
+
+        <!-- 22. Other layouts -->
+        <section>
+          <div class="kicker">Beyond Modern</div>
+          <h2>Other layouts, and many more panes</h2>
+          <div class="shots four">
+            <figure>
+              <img src="../shared-2026-10/layout-classic.jpg" alt="Classic layout" />
+              <figcaption><strong>Classic</strong>: the traditional HamClock look</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/layout-dockable.jpg" alt="Dockable layout" />
+              <figcaption><strong>Dockable</strong>: build your own from 80+ panes</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/layout-contest.jpg" alt="Contest layout" />
+              <figcaption><strong>Contest</strong>: rate, multipliers, dupes</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/layout-emcomm.jpg" alt="EmComm layout" />
+              <figcaption><strong>EmComm</strong>: NWS alerts, shelters, net roster</figcaption>
+            </figure>
+          </div>
+          <p class="small" style="margin-top: 0.6em">
+            Also: a <strong>logbook</strong> that imports your ADIF file and drives the NEW/BAND tags, satellite passes,
+            weather and more. With an optional helper program, <strong>clicking a spot can tune your radio</strong>; ask
+            me after if you want to set that up.
+          </p>
+          <aside class="notes">
+            Modern is one of about a dozen layouts. Classic looks like the original HamClock, for a dedicated screen.
+            Dockable lets you build your own from more than eighty panes. Contest has a rate meter, multipliers and a
+            dupe sheet. EmComm is an emergency communications dashboard with weather alerts, shelters and a net roster,
+            which may interest the ARES folks. There's a logbook that imports your ADIF file, which is what turns on the
+            NEW and BAND tags. And with a small optional helper program, clicking a spot tunes your radio; that's a talk
+            of its own, so grab me after if you're interested.
+          </aside>
+        </section>
+
+        <!-- 23. Demo -->
+        <section class="center">
+          <div class="kicker">Live</div>
+          <div class="url-card">
+            <span class="url gradient">openhamclock.com</span>
+            <a class="cta" href="https://openhamclock.com" target="_blank" rel="noopener">Open the live site →</a>
+            <div class="hint">Presenter: press <kbd>L</kbd> to open the live site in a new tab</div>
+          </div>
+          <aside class="notes">
+            [Press L or switch to the warmed-up tab. About five minutes.] 1. Header: read tonight's SFI and K aloud and
+            say whether it's a good night. 2. Solar: flip to X-ray, then indices. 3. Click a spot in the cluster: the DX
+            target, beam heading and map path all change. 4. Propagation: read the chart for that path, switch SSB to
+            FT8 and watch it change, then flip to bands. 5. Band bar: click 20 m to filter the map. 6. Map: switch to
+            Azimuthal and point out the beam heading. 7. Ctrl-K, type "classic", then back to "modern". [Back to the
+            slides.]
+          </aside>
+        </section>
+
+        <!-- 24. Install -->
+        <section>
+          <div class="kicker">Optional</div>
+          <h2>Install it like an app</h2>
+          <div class="cards">
+            <div class="card">
+              <h3>iPhone / iPad</h3>
+              <p>In Safari: <strong>Share</strong> → <strong>Add to Home Screen</strong></p>
+            </div>
+            <div class="card">
+              <h3>Android</h3>
+              <p>
+                In Chrome: <strong>⋮</strong> menu → <strong>Add to Home screen</strong> or <strong>Install app</strong>
+              </p>
+            </div>
+            <div class="card">
+              <h3>Windows / Mac</h3>
+              <p>In Chrome or Edge: the <strong>install</strong> icon at the right of the address bar</p>
+            </div>
+          </div>
+          <p class="small muted" style="margin-top: 0.7em">
+            Want a dedicated screen in the shack? An old laptop works, or a Raspberry Pi: one setup script turns it into
+            a full-screen display that starts on boot.
+          </p>
+          <aside class="notes">
+            You can install it like an app, so it opens in its own window. On an iPhone, Share then Add to Home Screen
+            in Safari; on Android, the three-dot menu in Chrome; on a computer, the install icon in the address bar in
+            Chrome or Edge. And for a screen on the shack wall that's always on, an old laptop works fine, or a
+            Raspberry Pi with our setup script, which boots straight into a full-screen display.
+          </aside>
+        </section>
+
+        <!-- 25. Thanks -->
+        <section class="center" data-background-color="#0a0e1a">
+          <img
+            src="../shared-2026-10/icon-512.png"
+            alt="OpenHamClock logo"
+            class="logo"
+            style="width: 90px; height: 90px"
+          />
+          <div class="kicker">Thank you</div>
+          <p class="gradient" style="font-size: 1.6em; font-weight: 800; margin: 0.1em 0">openhamclock.com</p>
+          <p class="small muted">
+            Manual: Settings → Help · Questions later: chris@cjhlighting.com<br />Happy to help anyone set it up after
+            the meeting.
+          </p>
+          <div class="seventythree gradient">73</div>
+          <p class="small" style="margin-top: 0.3em">Questions?</p>
+          <aside class="notes">
+            Thanks to Penn Wireless for having me. The full manual is built in under Settings, Help, and I'm happy to
+            sit down with anyone after the meeting and set it up on a phone or laptop. What questions do you have?
+            [Paste openhamclock.com into the Zoom chat.]
+          </aside>
+        </section>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/notes/notes.js"></script>
+    <script>
+      Reveal.initialize({
+        width: 1280,
+        height: 720,
+        margin: 0.04,
+        minScale: 0.2,
+        maxScale: 2.0,
+        hash: true,
+        slideNumber: 'c/t',
+        controls: true,
+        progress: true,
+        transition: 'slide',
+        backgroundTransition: 'fade',
+        plugins: [RevealNotes],
+        keyboard: {
+          76: () => window.open('https://openhamclock.com', '_blank'), // 'L' opens live site
+        },
+      });
+    </script>
+  </body>
+</html>

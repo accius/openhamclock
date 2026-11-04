@@ -151,3 +151,92 @@ describe('buildSwpcPushPayload', () => {
     expect(long.body.endsWith('…')).toBe(true);
   });
 });
+
+describe('lightning guard push helpers', () => {
+  it('builds payloads from validated numbers only', () => {
+    expect(helpers.buildLightningPushPayload({ level: 'warn', distanceKm: 41, bearingDeg: 270 })).toEqual({
+      title: 'Lightning warning',
+      body: 'Nearest strike 41 km W',
+      tag: 'ohc-lightning',
+    });
+    expect(helpers.buildLightningPushPayload({ level: 'alarm', distanceKm: 8, imperial: true }).body).toBe(
+      'Nearest strike 5.0 mi',
+    );
+    expect(helpers.buildLightningPushPayload({ level: 'clear', relay: false })).toEqual({
+      title: 'Lightning all clear',
+      body: 'No strikes nearby for the all-clear time · antenna relay released',
+      tag: 'ohc-lightning',
+    });
+    expect(helpers.buildLightningPushPayload({ level: 'alarm', distanceKm: 'abc' }).body).toBe('');
+    expect(helpers.buildLightningPushPayload({ level: 'boom' })).toBeNull();
+    expect(helpers.buildLightningPushPayload(null)).toBeNull();
+  });
+
+  it('throttles: minimum gap, and no repeat of the same level within ten minutes', () => {
+    expect(helpers.shouldPushLightning(null, 'warn', NOW)).toBe(true);
+    const last = { at: NOW, level: 'warn' };
+    expect(helpers.shouldPushLightning(last, 'alarm', NOW + 5000)).toBe(false);
+    expect(helpers.shouldPushLightning(last, 'alarm', NOW + helpers.LIGHTNING_PUSH_MIN_GAP_MS)).toBe(true);
+    expect(helpers.shouldPushLightning(last, 'warn', NOW + 5 * 60 * 1000)).toBe(false);
+    expect(helpers.shouldPushLightning(last, 'warn', NOW + helpers.LIGHTNING_PUSH_REPEAT_MS)).toBe(true);
+  });
+});
+
+describe('targeted lightning push helpers', () => {
+  const sub = (n) => ({
+    endpoint: `https://push.example.com/sub/${n}`,
+    keys: { p256dh: 'p', auth: 'a' },
+  });
+
+  it('sanitizes prefs (rounded location, clamped radii, alarm inside warn)', () => {
+    expect(helpers.sanitizeLightningPrefs({ lat: 40.019, lon: -105.271, warnKm: 900, alarmKm: 999 })).toEqual({
+      lat: 40.02,
+      lon: -105.27,
+      warnKm: 500,
+      alarmKm: 500,
+      imperial: false,
+    });
+    expect(helpers.sanitizeLightningPrefs({ lat: 'x', lon: 1 })).toBeNull();
+    expect(helpers.sanitizeLightningPrefs(null)).toBeNull();
+  });
+
+  it('targets only opted-in subscriptions in range, nearest first, bounded', () => {
+    const store = { subscriptions: {}, pushedAlerts: {} };
+    for (const n of [1, 2, 3, 4]) helpers.addSubscription(store, sub(n), 10, NOW);
+    helpers.setLightningPrefs(store, sub(1).endpoint, { lat: 40, lon: -105 });
+    helpers.setLightningPrefs(store, sub(2).endpoint, { lat: 40.2, lon: -105 });
+    helpers.setLightningPrefs(store, sub(3).endpoint, { lat: 10, lon: 10 });
+    const t = helpers.lightningTargets(store, { lat: 40.21, lon: -105, timestamp: NOW });
+    expect(t.map((x) => x.endpoint)).toEqual([sub(2).endpoint, sub(1).endpoint]);
+    expect(t[0].level).toBe('alarm');
+    expect(t[1].level).toBe('alarm'); // ~23 km
+    expect(helpers.lightningTargets(store, { lat: 40.21, lon: -105, timestamp: NOW }, 1)).toHaveLength(1);
+  });
+
+  it('validates posted strikes', () => {
+    expect(helpers.sanitizeStrike({ lat: 1, lon: 2, timestamp: NOW }, NOW)).toEqual({ lat: 1, lon: 2, timestamp: NOW });
+    expect(helpers.sanitizeStrike({ lat: 1, lon: 2, timestamp: NOW - 20 * 60 * 1000 }, NOW)).toBeNull();
+    expect(helpers.sanitizeStrike({ lat: 1, lon: 2, timestamp: NOW + 10 * 60 * 1000 }, NOW)).toBeNull();
+    expect(helpers.sanitizeStrike({ lat: 100, lon: 2, timestamp: NOW }, NOW)).toBeNull();
+  });
+
+  it('per-subscription throttle', () => {
+    const last = { at: NOW, level: 'warn', km: 40 };
+    expect(helpers.shouldPushLightningTo(null, 'warn', 40, NOW)).toBe(true);
+    expect(helpers.shouldPushLightningTo(last, 'alarm', 20, NOW + 5000)).toBe(false); // min gap
+    expect(helpers.shouldPushLightningTo(last, 'alarm', 20, NOW + 30000)).toBe(true); // escalation
+    expect(helpers.shouldPushLightningTo(last, 'warn', 30, NOW + 5 * 60000)).toBe(false);
+    expect(helpers.shouldPushLightningTo(last, 'warn', 19, NOW + 60000)).toBe(false); // halved, < 2 min
+    expect(helpers.shouldPushLightningTo(last, 'warn', 19, NOW + 3 * 60000)).toBe(true);
+    expect(helpers.shouldPushLightningTo(last, 'warn', 39, NOW + 10 * 60000)).toBe(true); // repeat window over
+  });
+
+  it('keyed limiter is per key, windowed and bounded', () => {
+    const allow = helpers.makeKeyedLimiter(2, 1000, 2);
+    expect([allow('a', 0), allow('a', 1), allow('a', 2)]).toEqual([true, true, false]);
+    expect(allow('b', 2)).toBe(true);
+    expect(allow('a', 1000)).toBe(true); // new window
+    allow('c', 1001); // evicts the oldest key
+    expect(allow('b', 1002)).toBe(true);
+  });
+});

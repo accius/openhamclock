@@ -7,14 +7,16 @@
  *   - solar wind plasma (speed km/s, density p/cc)  — rtsw_wind_1m
  *   - interplanetary magnetic field (Bt, Bz nT)      — rtsw_mag_1m
  *   - GOES integral proton flux (>=10 MeV pfu)       — integral-protons-1-day
+ *   - GOES integral electron flux (>=2 MeV)          — integral-electrons-1-day
  *
- * GET /api/swpc/trends → { wind, mag, protons, latest, fetchedAt }
+ * GET /api/swpc/trends → { wind, mag, protons, electrons, latest, fetchedAt }
  * each series: [{ t: epochMs, ...values }]
  */
 
 const WIND_URL = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_wind_1m.json';
 const MAG_URL = 'https://services.swpc.noaa.gov/json/rtsw/rtsw_mag_1m.json';
 const PROTON_URL = 'https://services.swpc.noaa.gov/json/goes/primary/integral-protons-1-day.json';
+const ELECTRON_URL = 'https://services.swpc.noaa.gov/json/goes/primary/integral-electrons-1-day.json';
 
 const CACHE_TTL = 10 * 60 * 1000;
 const BIN_MS = 10 * 60 * 1000;
@@ -89,6 +91,20 @@ function slimProtons(raw, now = Date.now()) {
   );
 }
 
+// GOES >=2 MeV electrons: the geosynchronous-satellite-charging channel.
+// The feed carries only the >=2 MeV energy, but filter anyway in case SWPC
+// adds >=0.8 MeV the way the proton product carries several energies.
+function slimElectrons(raw, now = Date.now()) {
+  const cutoff = now - WINDOW_MS;
+  return binSeries(
+    raw
+      .filter((r) => r.energy === '>=2 MeV')
+      .map((r) => ({ t: Date.parse(r.time_tag), flux: r.flux }))
+      .filter((r) => r.t >= cutoff),
+    ['flux'],
+  );
+}
+
 /** Last non-null value of a field in a binned series. */
 function latestValue(series, field) {
   for (let i = series.length - 1; i >= 0; i--) {
@@ -119,27 +135,31 @@ module.exports = function (app, ctx) {
       const data = await ctx.upstream.fetch('swpc:trends', async () => {
         // Feeds are independent — a dead one degrades to an empty series
         // instead of taking the whole panel down.
-        const [wind, mag, protons] = await Promise.allSettled([
+        const [wind, mag, protons, electrons] = await Promise.allSettled([
           fetchJson(WIND_URL),
           fetchJson(MAG_URL),
           fetchJson(PROTON_URL),
+          fetchJson(ELECTRON_URL),
         ]);
         const windSeries = wind.status === 'fulfilled' ? slimWind(wind.value) : [];
         const magSeries = mag.status === 'fulfilled' ? slimMag(mag.value) : [];
         const protonSeries = protons.status === 'fulfilled' ? slimProtons(protons.value) : [];
-        if (!windSeries.length && !magSeries.length && !protonSeries.length) {
+        const electronSeries = electrons.status === 'fulfilled' ? slimElectrons(electrons.value) : [];
+        if (!windSeries.length && !magSeries.length && !protonSeries.length && !electronSeries.length) {
           throw new Error('all SWPC trend feeds failed or empty');
         }
         return {
           wind: windSeries,
           mag: magSeries,
           protons: protonSeries,
+          electrons: electronSeries,
           latest: {
             speed: latestValue(windSeries, 'speed'),
             density: latestValue(windSeries, 'density'),
             bt: latestValue(magSeries, 'bt'),
             bz: latestValue(magSeries, 'bz'),
             proton10: latestValue(protonSeries, 'flux'),
+            electron2: latestValue(electronSeries, 'flux'),
           },
           fetchedAt: new Date().toISOString(),
         };
@@ -159,4 +179,5 @@ module.exports.binSeries = binSeries;
 module.exports.slimWind = slimWind;
 module.exports.slimMag = slimMag;
 module.exports.slimProtons = slimProtons;
+module.exports.slimElectrons = slimElectrons;
 module.exports.latestValue = latestValue;

@@ -91,23 +91,55 @@ module.exports = function (app, ctx) {
         return res.json(noaaCache.solarIndices.data);
       }
 
-      const [fluxRes, kIndexRes, kForecastRes, sunspotRes, sfiSummaryRes, magRes, kpEstRes] = await Promise.allSettled([
-        fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json'),
-        fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
-        fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json'),
-        fetch('https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json'),
-        fetch('https://services.swpc.noaa.gov/products/summary/10cm-flux.json'),
-        fetch('https://services.swpc.noaa.gov/products/solar-wind/mag-1-day.json'),
-        fetch('https://services.swpc.noaa.gov/json/planetary_k_index_1m.json'),
-      ]);
+      const [fluxRes, kIndexRes, kForecastRes, sunspotRes, sfiSummaryRes, magRes, kpEstRes, electronRes, dstRes] =
+        await Promise.allSettled([
+          fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json'),
+          fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json'),
+          fetch('https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json'),
+          fetch('https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json'),
+          fetch('https://services.swpc.noaa.gov/products/summary/10cm-flux.json'),
+          fetch('https://services.swpc.noaa.gov/products/solar-wind/mag-1-day.json'),
+          fetch('https://services.swpc.noaa.gov/json/planetary_k_index_1m.json'),
+          fetch('https://services.swpc.noaa.gov/json/goes/primary/integral-electrons-1-day.json'),
+          fetch('https://services.swpc.noaa.gov/products/kyoto-dst.json'),
+        ]);
 
       const result = {
         sfi: { current: null, history: [] },
         kp: { current: null, history: [], forecast: [] },
         ssn: { current: null, history: [] },
         bz: { current: null },
+        // GOES >=2 MeV electron flux (e/(cm²·s·sr)) — the satellite-charging channel
+        electron: { current: null, time: null },
+        // Kyoto Dst (nT) via SWPC mirror; the Dst panel uses /api/swpc/dst for the series
+        dst: { current: null, time: null },
         timestamp: new Date().toISOString(),
       };
+
+      // Electron flux: last valid >=2 MeV sample
+      if (electronRes.status === 'fulfilled' && electronRes.value.ok) {
+        try {
+          const data = await electronRes.value.json();
+          for (let i = (data?.length || 0) - 1; i >= 0; i--) {
+            const r = data[i];
+            if (r?.energy === '>=2 MeV' && Number.isFinite(r.flux)) {
+              result.electron = { current: Math.round(r.flux * 10) / 10, time: r.time_tag || null };
+              break;
+            }
+          }
+        } catch {}
+      }
+
+      // Dst: newest hourly value
+      if (dstRes.status === 'fulfilled' && dstRes.value.ok) {
+        try {
+          const data = await dstRes.value.json();
+          const last = Array.isArray(data) ? data[data.length - 1] : null;
+          if (last && Number.isFinite(Number(last.dst))) {
+            result.dst = { current: Number(last.dst), time: last.time_tag || null };
+          }
+        } catch {}
+      }
 
       // SFI current: prefer SWPC summary
       if (sfiSummaryRes.status === 'fulfilled' && sfiSummaryRes.value.ok) {
@@ -246,77 +278,98 @@ module.exports = function (app, ctx) {
   const SOLAR_CYCLE_TTL = 24 * 60 * 60 * 1000;
   const SOLAR_CYCLE_FROM = '2015-01';
 
+  // Shared by the route and by /api/propagation (display-time month SSN):
+  // cached 24 h, one upstream fetch in flight at a time, stale data served
+  // if a refresh fails.
+  let solarCycleInFlight = null;
+
+  async function fetchSolarCycle() {
+    const [obsRes, predRes] = await Promise.allSettled([
+      fetch('https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json', {
+        headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
+        signal: AbortSignal.timeout(15000),
+      }),
+      fetch('https://services.swpc.noaa.gov/products/solar-cycle-25-ssn-predicted-range.json', {
+        headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
+        signal: AbortSignal.timeout(15000),
+      }),
+    ]);
+
+    const result = { observed: [], predicted: [], timestamp: new Date().toISOString() };
+
+    // Observed: { time-tag 'YYYY-MM', ssn, smoothed_ssn, f10.7, ... }
+    // NOAA uses -1 as "not yet available" for smoothed values.
+    if (obsRes.status === 'fulfilled' && obsRes.value.ok) {
+      const data = await obsRes.value.json();
+      if (Array.isArray(data)) {
+        result.observed = data
+          .filter((d) => typeof d['time-tag'] === 'string' && d['time-tag'] >= SOLAR_CYCLE_FROM)
+          .map((d) => ({
+            t: d['time-tag'],
+            ssn: Number.isFinite(d.ssn) && d.ssn >= 0 ? Math.round(d.ssn * 10) / 10 : null,
+            smoothed:
+              Number.isFinite(d.smoothed_ssn) && d.smoothed_ssn >= 0 ? Math.round(d.smoothed_ssn * 10) / 10 : null,
+            sfi: Number.isFinite(d['f10.7']) && d['f10.7'] >= 0 ? Math.round(d['f10.7'] * 10) / 10 : null,
+          }));
+      }
+    }
+
+    // Predicted range: { time-tag 'YYYY-MM', smoothed_ssn_min, smoothed_ssn_max }
+    if (predRes.status === 'fulfilled' && predRes.value.ok) {
+      const data = await predRes.value.json();
+      if (Array.isArray(data)) {
+        result.predicted = data
+          .filter(
+            (d) =>
+              typeof d['time-tag'] === 'string' &&
+              Number.isFinite(d.smoothed_ssn_min) &&
+              Number.isFinite(d.smoothed_ssn_max),
+          )
+          .map((d) => ({
+            t: d['time-tag'],
+            min: Math.max(0, Math.round(d.smoothed_ssn_min * 10) / 10),
+            max: Math.max(0, Math.round(d.smoothed_ssn_max * 10) / 10),
+          }));
+        // The feed's tail runs to 2040 with near-zero values — trim the
+        // dead years (predicted max under 5 ≈ solar minimum) so the
+        // chart's x-domain ends where the cycle effectively does.
+        while (result.predicted.length && result.predicted[result.predicted.length - 1].max < 5) {
+          result.predicted.pop();
+        }
+      }
+    }
+
+    if (result.observed.length === 0 && result.predicted.length === 0) {
+      throw new Error('Both SWPC solar-cycle feeds returned no data');
+    }
+
+    solarCycleCache.data = result;
+    solarCycleCache.timestamp = Date.now();
+    return result;
+  }
+
+  async function getSolarCycle() {
+    if (solarCycleCache.data && Date.now() - solarCycleCache.timestamp < SOLAR_CYCLE_TTL) {
+      return solarCycleCache.data;
+    }
+    if (!solarCycleInFlight) {
+      solarCycleInFlight = fetchSolarCycle().finally(() => {
+        solarCycleInFlight = null;
+      });
+    }
+    try {
+      return await solarCycleInFlight;
+    } catch (error) {
+      if (solarCycleCache.data) return { ...solarCycleCache.data, stale: true };
+      throw error;
+    }
+  }
+
   app.get('/api/solar-cycle', async (req, res) => {
     try {
-      if (solarCycleCache.data && Date.now() - solarCycleCache.timestamp < SOLAR_CYCLE_TTL) {
-        return res.json(solarCycleCache.data);
-      }
-
-      const [obsRes, predRes] = await Promise.allSettled([
-        fetch('https://services.swpc.noaa.gov/json/solar-cycle/observed-solar-cycle-indices.json', {
-          headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
-          signal: AbortSignal.timeout(15000),
-        }),
-        fetch('https://services.swpc.noaa.gov/products/solar-cycle-25-ssn-predicted-range.json', {
-          headers: { 'User-Agent': `OpenHamClock/${APP_VERSION}` },
-          signal: AbortSignal.timeout(15000),
-        }),
-      ]);
-
-      const result = { observed: [], predicted: [], timestamp: new Date().toISOString() };
-
-      // Observed: { time-tag 'YYYY-MM', ssn, smoothed_ssn, f10.7, ... }
-      // NOAA uses -1 as "not yet available" for smoothed values.
-      if (obsRes.status === 'fulfilled' && obsRes.value.ok) {
-        const data = await obsRes.value.json();
-        if (Array.isArray(data)) {
-          result.observed = data
-            .filter((d) => typeof d['time-tag'] === 'string' && d['time-tag'] >= SOLAR_CYCLE_FROM)
-            .map((d) => ({
-              t: d['time-tag'],
-              ssn: Number.isFinite(d.ssn) && d.ssn >= 0 ? Math.round(d.ssn * 10) / 10 : null,
-              smoothed:
-                Number.isFinite(d.smoothed_ssn) && d.smoothed_ssn >= 0 ? Math.round(d.smoothed_ssn * 10) / 10 : null,
-              sfi: Number.isFinite(d['f10.7']) && d['f10.7'] >= 0 ? Math.round(d['f10.7'] * 10) / 10 : null,
-            }));
-        }
-      }
-
-      // Predicted range: { time-tag 'YYYY-MM', smoothed_ssn_min, smoothed_ssn_max }
-      if (predRes.status === 'fulfilled' && predRes.value.ok) {
-        const data = await predRes.value.json();
-        if (Array.isArray(data)) {
-          result.predicted = data
-            .filter(
-              (d) =>
-                typeof d['time-tag'] === 'string' &&
-                Number.isFinite(d.smoothed_ssn_min) &&
-                Number.isFinite(d.smoothed_ssn_max),
-            )
-            .map((d) => ({
-              t: d['time-tag'],
-              min: Math.max(0, Math.round(d.smoothed_ssn_min * 10) / 10),
-              max: Math.max(0, Math.round(d.smoothed_ssn_max * 10) / 10),
-            }));
-          // The feed's tail runs to 2040 with near-zero values — trim the
-          // dead years (predicted max under 5 ≈ solar minimum) so the
-          // chart's x-domain ends where the cycle effectively does.
-          while (result.predicted.length && result.predicted[result.predicted.length - 1].max < 5) {
-            result.predicted.pop();
-          }
-        }
-      }
-
-      if (result.observed.length === 0 && result.predicted.length === 0) {
-        throw new Error('Both SWPC solar-cycle feeds returned no data');
-      }
-
-      solarCycleCache.data = result;
-      solarCycleCache.timestamp = Date.now();
-      res.json(result);
+      res.json(await getSolarCycle());
     } catch (error) {
       logErrorOnce('Solar Cycle', error.message);
-      if (solarCycleCache.data) return res.json({ ...solarCycleCache.data, stale: true });
       res.status(502).json({ error: 'Failed to fetch solar cycle data' });
     }
   });
@@ -841,5 +894,5 @@ module.exports = function (app, ctx) {
   }
 
   // Return shared state that other modules need
-  return { n0nbhCache, parseN0NBHxml, prewarmN0NBH };
+  return { n0nbhCache, parseN0NBHxml, prewarmN0NBH, getSolarCycle };
 };

@@ -88,6 +88,7 @@ module.exports = function (app, ctx) {
   // SatNOGS Transmitter DB radio metadata.
   const SATNOGS_TRANSMITTER_CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
   const SATNOGS_TRANSMITTER_MAX_RECORDS = 500;
+  const SATNOGS_TRANSMITTERS_PER_SAT = 16; // per-satellite cap on the Doppler picker list
   const SATNOGS_TRANSMITTER_REQUEST_TIMEOUT = 8000;
   // One request at a time with a breather between them: four-wide bursts got
   // SatNOGS throttling us every day, ~40 relay timeouts in two minutes,
@@ -142,6 +143,7 @@ module.exports = function (app, ctx) {
       }
     });
     delete satellite.satnogs;
+    delete satellite.transmitters;
     delete satellite.radioMetadataAttribution;
   };
 
@@ -325,6 +327,22 @@ module.exports = function (app, ctx) {
         invert: tx.invert === true || tx.invert === 'true',
         tone: String(tx.tone || tx.uplink_tone || '').trim(),
       }));
+
+    // Every active transmitter, beacons and telemetry included, for the
+    // Doppler tuner's transmitter picker. Same ordering as the popup (best
+    // first). Capped so a chatty catalogue entry stays small on the wire.
+    metadata.transmitters = selected.slice(0, SATNOGS_TRANSMITTERS_PER_SAT).map((tx) => ({
+      uuid: String(tx.uuid || '').trim(),
+      mode: describeSatnogsMode(tx) || String(tx.mode || '').trim() || 'Unknown',
+      type: String(tx.type || '').trim(),
+      description: String(tx.description || '').trim(),
+      uplinkLowHz: hzOrNull(tx.uplink_low),
+      uplinkHighHz: hzOrNull(tx.uplink_high) || hzOrNull(tx.uplink_low),
+      downlinkLowHz: hzOrNull(tx.downlink_low),
+      downlinkHighHz: hzOrNull(tx.downlink_high) || hzOrNull(tx.downlink_low),
+      invert: tx.invert === true || tx.invert === 'true',
+      baud: Number.isFinite(Number(tx.baud)) && Number(tx.baud) > 0 ? Number(tx.baud) : null,
+    }));
 
     return metadata;
   };
@@ -1301,6 +1319,36 @@ module.exports = function (app, ctx) {
     };
 
     sendSatelliteData(ommCache || {});
+  });
+
+  // Forced element-set refresh (Settings → Satellites → "Refresh TLEs").
+  // Marks every tracked satellite stale so the state machine re-fetches on
+  // its next 15 s tick. Write-authenticated and rate limited like the other
+  // mutating routes, plus a global cool-down so a room full of browsers
+  // cannot turn this into an upstream hammer.
+  const FORCE_REFRESH_MIN_INTERVAL = 10 * 60 * 1000;
+  let lastForcedRefreshAt = 0;
+  app.post('/api/satellites/refresh', ctx.writeLimiter, ctx.requireWriteAuth, (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const now = Date.now();
+    const waitMs = lastForcedRefreshAt + FORCE_REFRESH_MIN_INTERVAL - now;
+    if (waitMs > 0) {
+      res.setHeader('Retry-After', String(Math.ceil(waitMs / 1000)));
+      return res
+        .status(429)
+        .json({ ok: false, error: 'TLE refresh already requested recently', retryAfterSec: Math.ceil(waitMs / 1000) });
+    }
+    lastForcedRefreshAt = now;
+    let count = 0;
+    Object.values(HAM_SATELLITES).forEach((s) => {
+      s.ommTimestamp = 0;
+      delete s.backoffCelestrakUntil;
+      delete s.backoffSatnogsUntil;
+      delete s.backoffSpaceTrackUntil;
+      count++;
+    });
+    logInfo(`[Satellites] Forced TLE refresh requested for ${count} satellites`);
+    res.json({ ok: true, satellites: count, note: 'refresh queued; new elements arrive on the next fetch cycle' });
   });
 
   // Satellite debug endpoint — shows which are missing, which are resolved, and which have un-utilized downloaded data

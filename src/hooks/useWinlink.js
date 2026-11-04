@@ -23,8 +23,8 @@ export function useWinlink() {
     try {
       const res = await apiFetch('/api/winlink/status');
       if (!res || !res.ok) {
-        // No status endpoint (404/5xx) or rate-limited: stop "loading" so the
-        // panel shows its not-enabled state instead of "Loading..." forever.
+        // No status endpoint (or rate-limited): stop "loading" — the panel's
+        // Reachable view works from the gateway list alone.
         if (mountedRef.current) setLoading(false);
         return;
       }

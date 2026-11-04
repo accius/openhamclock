@@ -53,6 +53,12 @@ const APRSPanel = ({
     setDwellMinutes,
     dwellOptions = [60],
     clearStations,
+    internetAprs = { enabled: true, radiusKm: 250 },
+    setInternetAprs,
+    internetArea = null,
+    radiusOptions = [250],
+    serverInternetEnabled = true,
+    serverInternetReason = null,
   } = aprsData || {};
 
   const { t } = useTranslation();
@@ -60,6 +66,7 @@ const APRSPanel = ({
 
   const [search, setSearch] = useState('');
   const [showGroupManager, setShowGroupManager] = useState(false);
+  const [showInternetSettings, setShowInternetSettings] = useState(false);
   const [newGroupName, setNewGroupName] = useState('');
   const [addCallInput, setAddCallInput] = useState('');
   const [addCallTarget, setAddCallTarget] = useState('');
@@ -203,6 +210,26 @@ const APRSPanel = ({
           </span>
         </div>
         <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          {typeof setInternetAprs === 'function' && (
+            <button
+              onClick={() => setShowInternetSettings(!showInternetSettings)}
+              title={t('aprsPanel.internet.buttonTitle')}
+              aria-label={t('aprsPanel.internet.buttonTitle')}
+              aria-expanded={showInternetSettings}
+              style={{
+                background: showInternetSettings ? 'var(--accent-cyan)' : 'var(--bg-tertiary)',
+                border: '1px solid var(--border-color)',
+                borderRadius: '4px',
+                padding: '3px 6px',
+                fontSize: '11px',
+                color: showInternetSettings ? '#000' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}
+            >
+              ⚙
+            </button>
+          )}
           <button
             onClick={() => setShowGroupManager(!showGroupManager)}
             title={t('aprsPanel.groupsButtonTitle')}
@@ -280,6 +307,109 @@ const APRSPanel = ({
           )}
         </div>
       </div>
+
+      {/* Internet APRS settings — per viewer: on/off and radius around the station */}
+      {showInternetSettings && typeof setInternetAprs === 'function' && (
+        <div
+          style={{
+            padding: '8px',
+            borderBottom: '1px solid var(--border-color)',
+            background: 'var(--bg-tertiary)',
+            fontSize: '11px',
+          }}
+        >
+          <div style={{ fontWeight: '600', color: 'var(--text-primary)', marginBottom: '6px' }}>
+            {t('aprsPanel.internet.title')}
+          </div>
+          {!serverInternetEnabled ? (
+            <div style={{ color: 'var(--text-muted)' }}>
+              {t(
+                serverInternetReason === 'no-callsign'
+                  ? 'aprsPanel.internet.serverNoCallsign'
+                  : 'aprsPanel.internet.serverOff',
+              )}
+            </div>
+          ) : (
+            <>
+              <div style={{ color: 'var(--text-muted)', marginBottom: '8px' }}>
+                {t('aprsPanel.internet.description')}
+              </div>
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '6px' }}>
+                {[
+                  { on: true, label: t('aprsPanel.internet.on') },
+                  { on: false, label: t('aprsPanel.internet.off') },
+                ].map((opt) => {
+                  const isActive = internetAprs.enabled === opt.on;
+                  return (
+                    <button
+                      key={String(opt.on)}
+                      onClick={() => setInternetAprs({ enabled: opt.on })}
+                      aria-pressed={isActive}
+                      style={{
+                        padding: '2px 7px',
+                        fontSize: '10px',
+                        borderRadius: '3px',
+                        border: isActive ? '1px solid var(--accent-green)' : '1px solid var(--border-color)',
+                        background: isActive ? 'var(--accent-green)' : 'transparent',
+                        color: isActive ? '#000' : 'var(--text-secondary)',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                        fontWeight: isActive ? '600' : '400',
+                      }}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+                <span style={{ flex: 1 }} />
+                <label
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px',
+                    fontSize: '10px',
+                    color: 'var(--text-muted)',
+                    opacity: internetAprs.enabled ? 1 : 0.5,
+                  }}
+                >
+                  {t('aprsPanel.internet.radius')}
+                  <select
+                    value={internetAprs.radiusKm}
+                    disabled={!internetAprs.enabled}
+                    onChange={(e) => setInternetAprs({ radiusKm: Number(e.target.value) })}
+                    aria-label={t('aprsPanel.internet.radius')}
+                    style={{
+                      background: 'var(--bg-secondary)',
+                      color: 'var(--text-secondary)',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: '3px',
+                      fontSize: '10px',
+                      padding: '1px 3px',
+                      fontFamily: 'inherit',
+                    }}
+                  >
+                    {radiusOptions.map((km) => (
+                      <option key={km} value={km}>
+                        {formatDistance(km, units)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {internetAprs.enabled && (
+                <div style={{ color: 'var(--text-muted)', fontSize: '10px' }}>
+                  {internetArea
+                    ? t('aprsPanel.internet.centre', {
+                        lat: internetArea.lat.toFixed(2),
+                        lon: internetArea.lon.toFixed(2),
+                      })
+                    : t('aprsPanel.internet.noLocation')}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {/* Source selector — All / Internet / Local RF */}
       <div

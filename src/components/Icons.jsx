@@ -735,6 +735,14 @@ export const LiKeyboard = glyph(
     <line x1="8.5" y1="14.5" x2="15.5" y2="14.5" />
   </>,
 );
+// Terminal window — Cluster Console panel (raw telnet session text)
+export const LiTerminal = glyph(
+  <>
+    <rect x="3" y="5" width="18" height="14" rx="2" />
+    <path d="M7 9.5 10 12l-3 2.5" />
+    <line x1="12" y1="15" x2="17" y2="15" />
+  </>,
+);
 export const LiMail = glyph(
   <>
     <rect x="3.5" y="6" width="17" height="13" rx="2" />
@@ -807,6 +815,28 @@ export const LiSunMoon = glyph(
     <path d="M16 6.5a6.2 6.2 0 1 0 5.5 9.2 7 7 0 0 1-5.5-9.2z" />
   </>,
 );
+// Planners (P4): gray-line sunrise over a horizon, moon with a timeline, satellite over DE/DX
+export const LiGraylinePlan = glyph(
+  <>
+    <line x1="3" y1="15.5" x2="21" y2="15.5" />
+    <path d="M7 15.5a5 5 0 0 1 10 0" />
+    <path d="M12 5.5v2M5.5 8.5l1.4 1.4M18.5 8.5l-1.4 1.4" />
+    <line x1="4" y1="19.5" x2="20" y2="19.5" strokeDasharray="2 2" />
+  </>,
+);
+export const LiEmePlan = glyph(
+  <>
+    <path d="M15 4a6 6 0 1 0 5.5 8.5A6.8 6.8 0 0 1 15 4z" />
+    <polyline points="3,19 6,13 9,17 12,10 15,16" />
+  </>,
+);
+export const LiSatPlan = glyph(
+  <>
+    <circle cx="12" cy="8" r="1.8" />
+    <path d="M6.5 8h3.7M13.8 8h3.7" />
+    <polyline points="3,20 7,13 11,18 15,12 19,17 21,15" />
+  </>,
+);
 export const LiTrendWave = glyph(
   <>
     <polyline points="3,7.5 7,12 10,9 14.5,16.5 17.5,13 21,16" />
@@ -864,6 +894,108 @@ export const LiStopwatch = glyph(
     <line x1="12" y1="3.5" x2="12" y2="6.5" />
   </>,
 );
+// Net Control: a desk microphone
+export const LiMic = glyph(
+  <>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M6 11a6 6 0 0 0 12 0" />
+    <line x1="12" y1="17" x2="12" y2="20.5" />
+    <line x1="8.5" y1="20.5" x2="15.5" y2="20.5" />
+  </>,
+);
+// Rover: a car on a grid line
+export const LiRover = glyph(
+  <>
+    <path d="M4 15.5 5.5 10.5h13l1.5 5" />
+    <rect x="3" y="15.5" width="18" height="3.5" rx="1" />
+    <circle cx="7.5" cy="19.5" r="1.6" />
+    <circle cx="16.5" cy="19.5" r="1.6" />
+    <line x1="2" y1="7" x2="22" y2="7" strokeDasharray="2 2" />
+  </>,
+);
+// Environment sensors: thermometer
+export const LiThermometer = glyph(
+  <>
+    <path d="M10 4a2 2 0 0 1 4 0v9.3a4 4 0 1 1-4 0z" />
+    <line x1="12" y1="9" x2="12" y2="16" />
+    <circle cx="12" cy="17" r="1.2" />
+  </>,
+);
+
+// Horseshoe magnet — Dst (ring current)
+export const LiMagnet = glyph(
+  <>
+    <path d="M6 4v8a6 6 0 0 0 12 0V4" />
+    <line x1="6" y1="8" x2="9.5" y2="8" />
+    <line x1="14.5" y1="8" x2="18" y2="8" />
+    <line x1="9.5" y1="4" x2="9.5" y2="12" />
+    <line x1="14.5" y1="4" x2="14.5" y2="12" />
+  </>,
+);
+// Partially covered disk — eclipse
+export const LiEclipse = glyph(
+  <>
+    <circle cx="12" cy="12" r="8" />
+    <path d="M12 4a8 8 0 0 1 0 16 6 6 0 0 0 0-16z" fill="currentColor" stroke="none" />
+  </>,
+);
+// Ringed planet
+export const LiPlanet = glyph(
+  <>
+    <circle cx="12" cy="12" r="5" />
+    <path d="M3.5 15.5c3-1 8.5-3.5 12.5-6.5s6-5.5 4.5-6.5-7 .5-11 3.5-8 7-6 9.5z" />
+  </>,
+);
+// Rocket — space launches
+export const LiRocket = glyph(
+  <>
+    <path d="M12 3c3 2.5 4.5 6 4.5 10l-1.5 3h-6L7.5 13C7.5 9 9 5.5 12 3z" />
+    <circle cx="12" cy="10.5" r="1.5" />
+    <path d="M7.5 13 5 16.5h3M16.5 13 19 16.5h-3M10.5 16v4l1.5-1.5 1.5 1.5v-4" />
+  </>,
+);
+
+// Weather, marine and hazards panels (v26.11)
+export const LiCyclone = glyph(
+  <>
+    <circle cx="12" cy="12" r="2.6" />
+    <path d="M12 9.4c0-3.4 2.4-5.6 5.6-6.2" />
+    <path d="M14.6 12c3.4 0 5.6 2.4 6.2 5.6" />
+    <path d="M12 14.6c0 3.4-2.4 5.6-5.6 6.2" />
+    <path d="M9.4 12c-3.4 0-5.6-2.4-6.2-5.6" />
+  </>,
+);
+export const LiFlag = glyph(
+  <>
+    <line x1="5" y1="21" x2="5" y2="3" />
+    <path d="M5 4h12l-2.5 4 2.5 4H5" />
+  </>,
+);
+export const LiBuoy = glyph(
+  <>
+    <circle cx="12" cy="12" r="8" />
+    <circle cx="12" cy="12" r="3" />
+    <line x1="12" y1="4" x2="12" y2="9" />
+    <line x1="12" y1="15" x2="12" y2="20" />
+    <line x1="4" y1="12" x2="9" y2="12" />
+    <line x1="15" y1="12" x2="20" y2="12" />
+  </>,
+);
+export const LiWind = glyph(
+  <>
+    <path d="M3 8h11a2.5 2.5 0 1 0-2.5-2.5" />
+    <path d="M3 12h15a2.5 2.5 0 1 1-2.5 2.5" />
+    <path d="M3 16h8a2 2 0 1 1-2 2" />
+  </>,
+);
+export const LiFax = glyph(
+  <>
+    <rect x="3" y="7" width="18" height="12" rx="2" />
+    <path d="M7 7V4h10v3" />
+    <line x1="7" y1="12" x2="17" y2="12" />
+    <line x1="7" y1="15" x2="13" y2="15" />
+  </>,
+);
 
 /**
  * PANEL_ICONS — panel id → line-icon component.
@@ -873,6 +1005,32 @@ export const LiStopwatch = glyph(
  * deliberately absent: plugins keep their emoji string (documented
  * contract) via the PanelIcon fallback below.
  */
+// Balloon on a string — HAB / pico-balloon panel and layer
+export const LiBalloon = glyph(
+  <>
+    <path d="M12 3.5a5.5 6.5 0 0 1 5.5 6.5c0 3.6-3 6.5-5.5 7.5-2.5-1-5.5-3.9-5.5-7.5A5.5 6.5 0 0 1 12 3.5z" />
+    <path d="M11 17.5h2l-.6 1.3h-.8z" />
+    <path d="M12 18.8c-.8 1 .8 1.6 0 2.7" />
+  </>,
+);
+export const LiClipboard = glyph(
+  <>
+    <rect x="5" y="4.5" width="14" height="17" rx="2" />
+    <path d="M9 4.5V3h6v1.5" />
+    <line x1="8.5" y1="10" x2="15.5" y2="10" />
+    <line x1="8.5" y1="13.5" x2="15.5" y2="13.5" />
+    <line x1="8.5" y1="17" x2="12.5" y2="17" />
+  </>,
+);
+
+export const LiHeadphones = glyph(
+  <>
+    <path d="M4.5 15.5V12a7.5 7.5 0 0 1 15 0v3.5" />
+    <rect x="3.5" y="14" width="4" height="6.5" rx="1.5" />
+    <rect x="16.5" y="14" width="4" height="6.5" rx="1.5" />
+  </>,
+);
+
 export const PANEL_ICONS = {
   'world-map': LiMapFold,
   'map-list-view': LiEye,
@@ -914,6 +1072,7 @@ export const PANEL_ICONS = {
   'rig-control': LiRadio,
   'freq-memories': LiFreq,
   'net-schedule': LiClock,
+  'net-control': LiMic,
   'callsign-search': LiSearch,
   'dx-news': LiNews,
   'solar-cycle': LiCycle,
@@ -925,6 +1084,7 @@ export const PANEL_ICONS = {
   meshtastic: LiNodes,
   meshcom: LiLink,
   'digital-modes': LiActivity,
+  decoder: LiHeadphones,
   winlink: LiMail,
   'sat-passes': LiSatPass,
   'amsat-status': LiSatCheck,
@@ -937,6 +1097,28 @@ export const PANEL_ICONS = {
   'world-clocks': LiGlobeClock,
   stopwatch: LiStopwatch,
   'aircraft-nearby': LiPlane,
+  'grayline-planner': LiGraylinePlan,
+  'eme-planner': LiEmePlan,
+  'sat-planner': LiSatPlan,
+  'cluster-console': LiTerminal,
+  rover: LiRover,
+  'env-sensors': LiThermometer,
+  opportunities: LiTarget,
+  'solar-outlook': LiCycle,
+  benchmark: LiHeardBy,
+  'noaa-scales': LiSignal,
+  dst: LiMagnet,
+  eclipse: LiEclipse,
+  planets: LiPlanet,
+  'space-launches': LiRocket,
+  tropical: LiCyclone,
+  'fire-weather': LiFlag,
+  marine: LiBuoy,
+  windy: LiWind,
+  wefax: LiFax,
+  hamalert: LiBell,
+  balloons: LiBalloon,
+  'ics-forms': LiClipboard,
 };
 
 /**

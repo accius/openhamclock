@@ -40,6 +40,17 @@ export function useTheme() {
     } catch {}
   }, []);
 
+  /* Follow theme changes made elsewhere (remote-control /theme command,
+     config.applyTheme) so the Settings picker never writes a stale value back. */
+  useEffect(() => {
+    const onExternal = (e) => {
+      const next = e.detail?.theme;
+      if (next && next !== 'custom') setTheme((cur) => (cur === next ? cur : next));
+    };
+    window.addEventListener('openhamclock-theme-change', onExternal);
+    return () => window.removeEventListener('openhamclock-theme-change', onExternal);
+  }, []);
+
   /* Theme switching */
   useEffect(() => {
     if (theme === 'custom') {

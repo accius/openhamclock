@@ -32,6 +32,7 @@ const {
   IS_PACKAGED,
   PORT,
   HOST,
+  BIND_HOST,
   API_WRITE_KEY,
   METRICS_AUTH_KEY,
   ITURHFPROP_URL,
@@ -98,6 +99,7 @@ const { endpointStats, writeLimiter, ingestLimiter, requireWriteAuth, INTERNAL_T
   CONFIG,
   PORT,
   TRUST_PROXY: config.TRUST_PROXY,
+  TRUST_CLOUDFLARE: config.TRUST_CLOUDFLARE,
   API_WRITE_KEY,
   CORS_ORIGINS,
 });
@@ -301,6 +303,7 @@ require('./server/routes/repeaters')(app, ctx); // hearham.com repeater director
 require('./server/routes/pota-spot')(app, ctx); // POTA activator self-spotting + park lookup
 require('./server/routes/aprs')(app, ctx);
 require('./server/routes/field-reports')(app, ctx); // EmComm field reports (Winlink Express CSV ingest)
+require('./server/routes/incident')(app, ctx); // shared EmComm incident: roster, event log, reports across sites
 require('./server/routes/wsjtx')(app, ctx);
 require('./server/routes/n1mm')(app, ctx);
 require('./server/routes/openapi')(app, ctx); // Open QSO-layer API (#1015) — see docs/API.md
@@ -313,6 +316,24 @@ require('./server/routes/config-routes')(app, ctx);
 require('./server/routes/geo-time')(app, ctx);
 require('./server/routes/admin')(app, ctx);
 require('./server/routes/push')(app, ctx); // Web Push (dormant without VAPID keys); needs swpc-alerts exports
+require('./server/routes/ibp')(app, ctx); // NCDXF/IBP beacon SNR measurements from Rig Bridge KiwiSDR monitors
+require('./server/routes/hams-at')(app, ctx); // hams.at satellite pass alerts (key passed through, never stored)
+require('./server/routes/control')(app, ctx); // Remote-control API + phone remote (docs/API.md#remote-control-api)
+require('./server/routes/solar-outlook')(app, ctx); // SWPC 27-day outlook (Contests pills + Solar Outlook panel)
+require('./server/routes/benchmark')(app, ctx); // Station benchmark — taps the RBN stream via ctx.onRbnSpot
+require('./server/routes/mqtt-publish')(app, ctx); // Outbound MQTT + Home Assistant discovery (dormant without MQTT_PUBLISH_URL)
+require('./server/routes/noaa-scales')(app, ctx); // NOAA R/S/G scales + 3-day forecast (NOAA Scales panel)
+require('./server/routes/dst')(app, ctx); // Kyoto Dst index with SWPC fallback (Dst panel)
+require('./server/routes/space-wx-activity')(app, ctx); // aurora peak + D-RAP max for the auto space-weather layer
+require('./server/routes/space-launches')(app, ctx); // Launch Library 2 upcoming launches (Space Launches panel + layer)
+require('./server/routes/tropical')(app, ctx); // NHC + JTWC tropical cyclones (Tropical panel + layer)
+require('./server/routes/fire-weather')(app, ctx); // NWS Red Flag / Fire Weather Watch alerts
+require('./server/routes/ndbc')(app, ctx); // NDBC buoy observations (Marine panel + layer)
+require('./server/routes/wefax')(app, ctx); // NWS radiofax chart catalogue + GIF proxy (WEFAX panel)
+require('./server/routes/motd')(app, ctx); // Message of the day (env MOTD or /api/admin/motd)
+require('./server/routes/netlogger')(app, ctx); // NetLogger live nets proxy (60 s cache)
+require('./server/routes/hamalert')(app, ctx); // HamAlert server feed (dormant without HAMALERT_USER/PASS)
+require('./server/routes/balloons')(app, ctx); // SondeHub Amateur balloon telemetry proxy (2 min cache)
 
 // Subsystem health background refresher (read by /api/health).
 const health = require('./server/health');
@@ -368,7 +389,9 @@ app.use((err, req, res, next) => {
 });
 
 // ── Start server ──
-app.listen(PORT, '0.0.0.0', () => {
+// BIND_HOST (server/config.js): every interface by default; 127.0.0.1 keeps
+// the server on this machine.
+app.listen(PORT, BIND_HOST, () => {
   // The startup banner is ~40 lines; write it straight to stdout so the
   // console rate limiter (20-line burst) cannot drop the "Server running at"
   // line that tells the user where to point their browser.
@@ -395,8 +418,10 @@ app.listen(PORT, '0.0.0.0', () => {
   const displayHost = HOST === '0.0.0.0' ? 'localhost' : HOST;
   say(`  \uD83C\uDF10 OpenHamClock v${APP_VERSION}`);
   say(`  \uD83C\uDF10 Server running at http://${displayHost}:${PORT}`);
-  if (HOST === '0.0.0.0') {
+  if (BIND_HOST === '0.0.0.0' || BIND_HOST === '::') {
     say(`  \uD83D\uDD17 Network access: http://<your-ip>:${PORT}`);
+  } else {
+    say(`  \uD83D\uDD12 Listening on ${BIND_HOST} only (BIND_HOST)`);
   }
   say('  \uD83D\uDCE1 API proxy enabled for NOAA, POTA, SOTA, DX Cluster');
   say(`  \uD83D\uDCCB Log level: ${LOG_LEVEL} (set LOG_LEVEL=debug for verbose)`);
@@ -479,6 +504,11 @@ app.listen(PORT, '0.0.0.0', () => {
   if (IS_PACKAGED && process.stdout.isTTY && process.env.OPEN_BROWSER !== 'false') {
     openInBrowser(`http://localhost:${PORT}`);
   }
+
+  // Optional HTTPS on the LAN (HTTPS_PORT) — a secure context for browsers
+  // opening a Pi's dashboard by IP, which microphone access (Decoder panel)
+  // requires. See server/utils/lanHttps.js.
+  require('./server/utils/lanHttps').startLanHttps(app, { dataDir: path.join(ROOT_DIR, 'data'), host: BIND_HOST });
 });
 
 function openInBrowser(url) {

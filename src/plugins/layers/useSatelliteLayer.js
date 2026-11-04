@@ -4,6 +4,8 @@ import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { replicatePoint, replicatePath } from '../../utils/geo.js';
 import { deriveSatelliteTelemetry } from '../../utils/satelliteTelemetry.js';
 import { openSatellitePredict as openSatellitePredictShared } from '../../utils/satellitePredict.js';
+import { formatTleAge } from '../../utils/tleAge.js';
+import { getSatAutomation, setDopplerEnabled, setRotatorMode } from '../../utils/satAutomationStore.js';
 
 export const metadata = {
   id: 'satellites',
@@ -46,6 +48,17 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
   useEffect(() => {
     sessionStorage.setItem('selected_satellites', JSON.stringify(selectedSats));
   }, [selectedSats]);
+
+  // Remote control: `ohc:select-satellite` {names: string[]} replaces the
+  // selection (POST /api/control/satellite; [] = none).
+  useEffect(() => {
+    const onSelect = (e) => {
+      const names = Array.isArray(e.detail?.names) ? e.detail.names.filter((n) => typeof n === 'string') : [];
+      setSelectedSats(names);
+    };
+    window.addEventListener('ohc:select-satellite', onSelect);
+    return () => window.removeEventListener('ohc:select-satellite', onSelect);
+  }, []);
 
   // Helper to add/remove satellites from the active view
   const toggleSatellite = (name) => {
@@ -197,6 +210,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
     win.style.right = `${winPos.right}px`;
 
     const activeSats = satellites.filter((s) => selectedSats.includes(s.name));
+    const autoState = getSatAutomation();
 
     const titleBar = `
       <div class="sat-data-window-title"
@@ -387,6 +401,29 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
             : ''
         }
 
+        <tr style="background-color: var(--bg-secondary); color: ${sat.tleStale ? 'var(--accent-amber)' : 'var(--text-muted)'};">
+          <td style="padding: 0 2px;">${t('satAuto.tleAge')}:</td>
+          <td align="right" style="padding: 0 2px;">${sat.tleStale ? '⚠ ' : ''}${formatTleAge(sat.tleAgeDays)}</td>
+        </tr>
+        ${
+          sat.omm
+            ? `<tr><td colSpan="2" style="padding: 2px 0;">
+          <div style="display:flex; gap:4px;">
+            <button data-action="sat-doppler" data-sat-name="${safeStr(sat.name)}" aria-pressed="${autoState.doppler && autoState.satName === sat.name}"
+              style="flex:1; padding:2px 0; min-height:0; font-size:10px; font-weight:bold; border-radius:3px; cursor:pointer;
+                background:${autoState.doppler && autoState.satName === sat.name ? 'var(--accent-cyan)' : 'var(--bg-primary)'};
+                color:${autoState.doppler && autoState.satName === sat.name ? 'var(--bg-primary)' : 'var(--accent-cyan)'};
+                border:1px solid var(--accent-cyan);">${t('satAuto.doppler')}</button>
+            <button data-action="sat-track" data-sat-name="${safeStr(sat.name)}" aria-pressed="${autoState.rotatorMode === 'sat' && autoState.satName === sat.name}"
+              style="flex:1; padding:2px 0; min-height:0; font-size:10px; font-weight:bold; border-radius:3px; cursor:pointer;
+                background:${autoState.rotatorMode === 'sat' && autoState.satName === sat.name ? 'var(--accent-amber)' : 'var(--bg-primary)'};
+                color:${autoState.rotatorMode === 'sat' && autoState.satName === sat.name ? 'var(--bg-primary)' : 'var(--accent-amber)'};
+                border:1px solid var(--accent-amber);">${t('satAuto.track')}</button>
+          </div>
+        </td></tr>`
+            : ''
+        }
+
         <tr><td colSpan="2">
           <button
             class="sat-open-predict"
@@ -464,6 +501,10 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
 
       if (config?.showTracks !== false && sat.track) {
         const pathCoords = sat.track.map((p) => [p[0], p[1]]);
+        // Stale element sets (older than Settings → Satellites → max TLE age)
+        // draw dashed so a track from week-old elements is not mistaken for
+        // a fresh prediction.
+        const staleDash = sat.tleStale ? '6, 8' : undefined;
         replicatePath(pathCoords).forEach((coords) => {
           if (isSelected) {
             for (let i = 0; i < coords.length - 1; i++) {
@@ -475,6 +516,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                 weight: 6,
                 opacity: fade * 0.3 * globalOpacity,
                 lineCap: 'round',
+                dashArray: staleDash,
                 interactive: false,
               }).addTo(layerGroupRef.current);
               window.L.polyline([coords[i], coords[i + 1]], {
@@ -482,6 +524,7 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
                 weight: 2,
                 opacity: fade * globalOpacity,
                 lineCap: 'round',
+                dashArray: staleDash,
                 interactive: false,
               }).addTo(layerGroupRef.current);
             }
@@ -606,6 +649,24 @@ export const useLayer = ({ map, enabled, satellites, setSatellites, opacity, con
         e.preventDefault();
         const name = actionEl.dataset.satName;
         if (name) toggleSatellite(name);
+        return;
+      }
+
+      // Automation switches — state lives in the shared store; the hooks in
+      // DockableApp do the tuning/turning. The window re-renders on the next
+      // 5 s satellite tick, so flip the button's look right away too.
+      if (action === 'sat-doppler' || action === 'sat-track') {
+        e.stopPropagation();
+        e.preventDefault();
+        const name = actionEl.dataset.satName;
+        if (!name) return;
+        const on = actionEl.getAttribute('aria-pressed') === 'true';
+        if (action === 'sat-doppler') setDopplerEnabled(!on, name);
+        else setRotatorMode(on ? 'off' : 'sat', name);
+        const accent = action === 'sat-doppler' ? 'var(--accent-cyan)' : 'var(--accent-amber)';
+        actionEl.setAttribute('aria-pressed', String(!on));
+        actionEl.style.background = !on ? accent : 'var(--bg-primary)';
+        actionEl.style.color = !on ? 'var(--bg-primary)' : accent;
         return;
       }
     };

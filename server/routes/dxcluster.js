@@ -8,6 +8,7 @@ const net = require('net');
 const { maidenheadToLatLon, normalizeFrequencyToMHz, getBandFromHz } = require('../utils/grid.js');
 const { areDXPathsDuplicate, collapseDuplicateDXPaths } = require('../utils/dxClusterPathIdentity');
 const { isPrivateIP, validateCustomHost } = require('../utils/ssrf');
+const { validateClusterCommand, parseLoginCommands } = require('../utils/clusterCommands');
 const clusterStatus = require('../utils/clusterStatus');
 
 module.exports = function (app, ctx) {
@@ -305,6 +306,63 @@ module.exports = function (app, ctx) {
     return `${node.host}:${node.port}:${loginCallsign}`;
   }
 
+  // ── Cluster console ────────────────────────────────────────────────────
+  // Every custom session keeps the last CONSOLE_MAX_LINES lines of raw text it
+  // received (and the commands we typed) so the Cluster Console panel can show
+  // the node's own output — filter confirmations, sh/dx tables, announcements.
+  const CONSOLE_MAX_LINES = 500;
+  const CONSOLE_LINE_MAX = 200;
+  const CONSOLE_SEND_MIN_INTERVAL_MS = 1000; // 1 command/s per session
+  const LOGIN_COMMAND_SPACING_MS = 400;
+
+  function pushConsoleLine(session, dir, text) {
+    if (!session) return;
+    const clean = String(text || '')
+      .replace(/[\x00-\x09\x0B-\x1F\x7F]/g, '')
+      .replace(/\r$/, '')
+      .slice(0, CONSOLE_LINE_MAX);
+    if (!session.console) session.console = [];
+    session.consoleSeq = (session.consoleSeq || 0) + 1;
+    session.console.push({ seq: session.consoleSeq, t: Date.now(), dir, text: clean });
+    if (session.console.length > CONSOLE_MAX_LINES) {
+      session.console.splice(0, session.console.length - CONSOLE_MAX_LINES);
+    }
+  }
+
+  // Write one validated command to the node and echo it into the console.
+  function writeClusterCommand(session, command) {
+    if (!session?.client || !session.connected || session.loginRejected) return false;
+    try {
+      session.client.write(`${command}\r\n`);
+      pushConsoleLine(session, 'tx', command);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Send the user's login commands (set/filter …, set/skimmer …) once per
+  // connection, spaced out so a node that echoes slowly never sees a burst.
+  function sendLoginCommands(session) {
+    const commands = Array.isArray(session?.loginCommands) ? session.loginCommands : [];
+    if (commands.length === 0) return;
+    session.loginCommandsSentKey = session.loginCommandsKey;
+    session.lastLoginCommandsSentAt = Date.now();
+    commands.forEach((command, i) => {
+      setTimeout(
+        () => {
+          if (session.client && session.connected && session.authenticated && !session.loginRejected) {
+            logInfo(
+              `[DX Cluster] Sending login command to ${session.node.host}:${session.node.port} as ${session.loginCallsign}: ${command}`,
+            );
+            writeClusterCommand(session, command);
+          }
+        },
+        LOGIN_COMMAND_SPACING_MS * (i + 1),
+      );
+    });
+  }
+
   function addCustomSessionSpot(session, spot) {
     const now = Date.now();
     const spotTs = Number.isFinite(spot.timestampMs) ? spot.timestampMs : now;
@@ -484,6 +542,7 @@ module.exports = function (app, ctx) {
         if (session.client && session.connected && !session.loginSent && !session.loginRejected) {
           session.loginSent = true;
           session.client.write(`${session.loginCallsign}\r\n`);
+          pushConsoleLine(session, 'tx', session.loginCallsign);
         }
       }, 1200);
 
@@ -530,6 +589,7 @@ module.exports = function (app, ctx) {
       ) {
         session.loginSent = true;
         client.write(`${session.loginCallsign}\r\n`);
+        pushConsoleLine(session, 'tx', session.loginCallsign);
       }
 
       // BUMP: our callsign was taken over by another login (cannibalization). Can
@@ -575,12 +635,18 @@ module.exports = function (app, ctx) {
                 `[DX Cluster] Sending command: sh/dx 25 to ${session.node.host}:${session.node.port} as ${session.loginCallsign}`,
               );
               session.client.write('sh/dx 25\r\n');
+              pushConsoleLine(session, 'tx', 'sh/dx 25');
               session.initialSnapshotDone = true;
             }
             // Enable ongoing stream where supported.
             setTimeout(() => {
               if (session.client && session.connected && !session.loginRejected) {
                 session.client.write('set/dx\r\n');
+                pushConsoleLine(session, 'tx', 'set/dx');
+                // User-configured login commands follow the stock pair, once
+                // per connection (a reconnect re-sends them: node-side state
+                // like filters survives, but set/skimmer-style toggles may not).
+                sendLoginCommands(session);
               }
             }, 700);
           }
@@ -590,6 +656,7 @@ module.exports = function (app, ctx) {
       const lines = session.buffer.split('\n');
       session.buffer = lines.pop() || '';
       for (const line of lines) {
+        pushConsoleLine(session, 'rx', line);
         const parsed = parseDXSpiderSpotLine(line);
         if (parsed) {
           addCustomSessionSpot(session, parsed);
@@ -628,17 +695,26 @@ module.exports = function (app, ctx) {
   // OpenHamClock to sysops); custom clusters keep the user's callsign as-is.
   // Returns null instead of dialing when no valid callsign is available —
   // a cluster node never sees GUEST or a junk login from us.
-  function getOrCreateCustomSession(node, userCallsign = null, appendSsid = false) {
+  function getOrCreateCustomSession(node, userCallsign = null, appendSsid = false, loginCommands = []) {
     const loginCallsign = getDxClusterLoginCallsign(userCallsign, appendSsid);
     if (!isValidCallsign(loginCallsign)) return null;
     const key = buildCustomSessionKey(node, loginCallsign);
     let session = customDxSessions.get(key);
+    const commands = Array.isArray(loginCommands) ? loginCommands : [];
+    const commandsKey = commands.join('\n');
 
     if (!session) {
       session = {
         key,
         node,
         loginCallsign,
+        loginCommands: commands,
+        loginCommandsKey: commandsKey,
+        loginCommandsSentKey: null,
+        lastLoginCommandsSentAt: 0,
+        console: [],
+        consoleSeq: 0,
+        lastConsoleSendAt: 0,
         client: null,
         connected: false,
         connecting: false,
@@ -672,6 +748,21 @@ module.exports = function (app, ctx) {
       connectCustomSession(session);
     } else {
       session.lastUsedAt = Date.now();
+      // The user edited their login commands: adopt the new list and, on a
+      // live authenticated connection, send it now rather than waiting for the
+      // next reconnect. Rate-limited so a flapping settings save can't burst.
+      if (commandsKey !== session.loginCommandsKey) {
+        session.loginCommands = commands;
+        session.loginCommandsKey = commandsKey;
+        if (
+          session.connected &&
+          session.authenticated &&
+          commands.length > 0 &&
+          Date.now() - (session.lastLoginCommandsSentAt || 0) > 10000
+        ) {
+          sendLoginCommands(session);
+        }
+      }
       // Nudge a reconnect only when genuinely idle AND no backoff is pending/parked.
       // NEVER clear a pending reconnect timer from a poll — that force-connect on every
       // poll is what truncated backoff to the poll interval and revived rejected
@@ -982,6 +1073,87 @@ module.exports = function (app, ctx) {
       logErrorOnce('DX Cluster', `Spot relay failed: ${err.message}`);
       res.status(502).json({ error: 'Could not reach the cluster — try again shortly' });
     }
+  });
+
+  // ============================================
+  // CLUSTER CONSOLE — raw text of the user's own telnet session
+  // ============================================
+  // Read-only view plus a single command line. Both resolve the session the
+  // same way /paths does (host + port + the caller's login callsign), so a
+  // browser only ever sees the session it would itself have opened. Sessions
+  // are never created here — the panel is a window onto the feed the DX
+  // Cluster panel already keeps alive.
+  const consoleHostCache = new Map(); // hostname → { ip, ts } (5-min TTL; spares DNS on the 2 s poll)
+  const CONSOLE_HOST_TTL = 5 * 60 * 1000;
+
+  async function resolveConsoleSession(source) {
+    if (IS_HOSTED) {
+      return { status: 400, error: 'The hosted site has no telnet sessions. Run your own OpenHamClock.' };
+    }
+    const host = String(source.host || CONFIG.dxClusterHost || '').trim();
+    const parsedPort = parseInt(source.port, 10);
+    const port = Number.isFinite(parsedPort) ? parsedPort : CONFIG.dxClusterPort;
+    const userCallsign = String(CONFIG.dxClusterCallsign || source.callsign || '').trim();
+    const loginCallsign = getDxClusterLoginCallsign(userCallsign, false);
+    if (!isValidCallsign(loginCallsign)) return { status: 400, error: 'A valid callsign is required' };
+    if (!host) return { status: 400, error: 'No custom cluster host configured' };
+    if (!(port >= 1 && port <= 65535)) return { status: 400, error: 'Port must be between 1 and 65535' };
+
+    let cached = consoleHostCache.get(host);
+    if (!cached || Date.now() - cached.ts > CONSOLE_HOST_TTL) {
+      const hostCheck = await validateCustomHost(host);
+      if (!hostCheck.ok) return { status: 400, error: `Custom host rejected: ${hostCheck.reason}` };
+      cached = { ip: hostCheck.resolvedIP, ts: Date.now() };
+      consoleHostCache.set(host, cached);
+      if (consoleHostCache.size > 50) consoleHostCache.delete(consoleHostCache.keys().next().value);
+    }
+    const key = buildCustomSessionKey({ host: cached.ip, port }, loginCallsign);
+    return { session: customDxSessions.get(key) || null, host, port, loginCallsign };
+  }
+
+  app.get('/api/dxcluster/console', async (req, res) => {
+    const r = await resolveConsoleSession(req.query);
+    if (r.error) return res.status(r.status).json({ error: r.error });
+    const { session } = r;
+    const since = parseInt(req.query.since, 10);
+    const lines = session?.console ? session.console.filter((l) => !(since >= 0) || l.seq > since) : [];
+    res.json({
+      exists: !!session,
+      connected: !!session?.connected,
+      authenticated: !!session?.authenticated,
+      parked: !!session?.parked,
+      node: { host: r.host, port: r.port },
+      loginCallsign: r.loginCallsign,
+      seq: session?.consoleSeq || 0,
+      lines,
+    });
+  });
+
+  app.post('/api/dxcluster/console/send', ctx.writeLimiter, ctx.requireWriteAuth, async (req, res) => {
+    const r = await resolveConsoleSession(req.body || {});
+    if (r.error) return res.status(r.status).json({ error: r.error });
+    const { session } = r;
+    if (!session) {
+      return res.status(409).json({ error: 'No telnet session for this cluster — open the DX Cluster panel first' });
+    }
+    if (!session.connected || !session.authenticated) {
+      return res.status(409).json({ error: 'Session is not connected / logged in yet' });
+    }
+    const v = validateClusterCommand(req.body?.command);
+    if (!v.ok) return res.status(400).json({ error: v.reason });
+    const now = Date.now();
+    if (now - (session.lastConsoleSendAt || 0) < CONSOLE_SEND_MIN_INTERVAL_MS) {
+      return res.status(429).json({ error: 'One command per second, please' });
+    }
+    session.lastConsoleSendAt = now;
+    session.lastUsedAt = now;
+    if (!writeClusterCommand(session, v.command)) {
+      return res.status(502).json({ error: 'Could not write to the cluster socket' });
+    }
+    logInfo(
+      `[DX Cluster] Console command to ${session.node.host}:${session.node.port} as ${session.loginCallsign}: ${v.command}`,
+    );
+    res.json({ ok: true, seq: session.consoleSeq });
   });
 
   // Get available DX cluster sources
@@ -1700,7 +1872,8 @@ module.exports = function (app, ctx) {
           `[DX Paths] Using custom telnet session: ${resolvedHost}:${customPort} as ${getDxClusterLoginCallsign(userCallsign, false)}`,
         );
         const customNode = { host: resolvedHost, port: customPort };
-        const session = getOrCreateCustomSession(customNode, userCallsign);
+        const { commands: loginCommands } = parseLoginCommands(req.query.cmds);
+        const session = getOrCreateCustomSession(customNode, userCallsign, false, loginCommands);
         // Take the most recent spots from persistent session buffer. (session is
         // null only if the callsign guard trips — already validated above.)
         const customSpots = (session?.spots || []).slice(0, 100).map((s) => ({

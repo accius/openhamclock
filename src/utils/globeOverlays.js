@@ -741,7 +741,6 @@ export const GLOBE_OVERLAY_PAINTERS = {
   floods: paintFloods,
   'history-playback': paintHistoryPlayback,
   lightning: paintLightning,
-  aprs: paintAprs,
 };
 
 // Plugin layer ids the globe can draw itself. Aircraft and Logbook QSOs have
@@ -749,4 +748,6 @@ export const GLOBE_OVERLAY_PAINTERS = {
 // markers + great-circle arcs like DX spots) — but they belong here so their
 // enabled/opacity state reaches Globe3D and they stay out of WorldMap's
 // suppressed-layers note (like satellites).
-export const GLOBE_OVERLAY_LAYER_IDS = [...Object.keys(GLOBE_OVERLAY_PAINTERS), 'aircraft', 'logbook-qsos'];
+// APRS too since #1234: drawn as native points so it stays sharp when zoomed
+// (paintAprs is kept for the 2D canvas contract and its tests).
+export const GLOBE_OVERLAY_LAYER_IDS = [...Object.keys(GLOBE_OVERLAY_PAINTERS), 'aprs', 'aircraft', 'logbook-qsos'];

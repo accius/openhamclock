@@ -16,6 +16,9 @@ const fs = require('fs');
 const { getClientIP } = require('../utils/helpers');
 const crypto = require('crypto');
 const { validateCustomHost } = require('../utils/ssrf');
+const { registerRelayAudio } = require('./relayAudio');
+
+const { sanitizeRelayIndicators, queueRelayCommand } = require('../utils/relay-indicators');
 
 module.exports = function (app, ctx) {
   const { ROOT_DIR, logInfo, logWarn, requireWriteAuth, RIG_BRIDGE_RELAY_KEY } = ctx;
@@ -139,6 +142,50 @@ module.exports = function (app, ctx) {
       waiter.resolve(commands);
     }
     relayCommandWaiters.delete(sessionId);
+  }
+
+  // ─── Relayed plugin events (fldigi / NBEMS) ───────────────────────────
+  // rig-bridge's cloud relay pushes these as `pluginEvents` with the same
+  // { event, source, data } shape as its local /stream. Only known events are
+  // fanned out, each capped in size; the latest fldigi status and receive-text
+  // tail are kept so a browser that opens the stream later starts populated.
+  const RELAYED_PLUGIN_EVENTS = new Set([
+    'fldigi',
+    'fldigi-rx',
+    'nbems-form',
+    'fldigi-cmd-result',
+    'relay-cmd-refused',
+    'relay-cmd-result',
+  ]);
+  const PLUGIN_EVENT_MAX_BYTES = 20000;
+  const FLDIGI_RX_TAIL = 4000;
+
+  function relayPluginEvents(session, events, sseClients) {
+    for (const ev of events.slice(0, 50)) {
+      if (!ev || typeof ev !== 'object' || !RELAYED_PLUGIN_EVENTS.has(ev.event)) continue;
+      if (!ev.data || typeof ev.data !== 'object') continue;
+      let json;
+      try {
+        const source = ev.event === 'relay-cmd-refused' || ev.event === 'relay-cmd-result' ? 'cloud-relay' : 'fldigi';
+        json = JSON.stringify({ type: 'plugin', event: ev.event, source, data: ev.data });
+      } catch {
+        continue;
+      }
+      if (json.length > PLUGIN_EVENT_MAX_BYTES) continue;
+      if (ev.event === 'fldigi') session.fldigiStatus = ev.data;
+      if (ev.event === 'fldigi-rx') {
+        const text = typeof ev.data.text === 'string' ? ev.data.text : '';
+        session.fldigiRx = (ev.data.reset ? text : (session.fldigiRx || '') + text).slice(-FLDIGI_RX_TAIL);
+      }
+      if (!sseClients) continue;
+      for (const client of sseClients) {
+        try {
+          client.write(`data: ${json}\n\n`);
+        } catch (e) {
+          sseClients.delete(client);
+        }
+      }
+    }
   }
 
   function getRelaySession(sessionId) {
@@ -491,6 +538,27 @@ module.exports = function (app, ctx) {
         }
       }
 
+      // HamAlert spots from the rig-bridge hamalert plugin — fan out to this
+      // session's SSE clients with the same envelope the local /stream uses,
+      // so useHamAlert handles both paths identically. Bounded per push.
+      if (Array.isArray(req.body.hamAlerts) && req.body.hamAlerts.length > 0 && sseClients && sseClients.size > 0) {
+        for (const alert of req.body.hamAlerts.slice(0, 50)) {
+          if (!alert || typeof alert !== 'object' || typeof alert.call !== 'string') continue;
+          const sseMsg = `data: ${JSON.stringify({ type: 'plugin', event: 'hamalert', source: 'hamalert', data: alert })}\n\n`;
+          for (const client of sseClients) {
+            try {
+              client.write(sseMsg);
+            } catch (e) {
+              sseClients.delete(client);
+            }
+          }
+        }
+      }
+
+      if (Array.isArray(req.body.pluginEvents) && req.body.pluginEvents.length > 0) {
+        relayPluginEvents(session, req.body.pluginEvents, sseClients && sseClients.size > 0 ? sseClients : null);
+      }
+
       res.json({ ok: true });
     } catch (err) {
       logWarn(`[RigBridge] relay/state push error: ${err.message}`);
@@ -553,6 +621,18 @@ module.exports = function (app, ctx) {
         : { type: 'state', connected: false, freq: 0, mode: '', ptt: false, relayActive: false };
       try {
         res.write(`data: ${JSON.stringify(initState)}\n\n`);
+        // Replay the latest fldigi status and receive tail (NBEMS panel)
+        const s = relaySessions.get(sessionId);
+        if (s?.fldigiStatus) {
+          res.write(
+            `data: ${JSON.stringify({ type: 'plugin', event: 'fldigi', source: 'fldigi', data: s.fldigiStatus })}\n\n`,
+          );
+        }
+        if (s?.fldigiRx) {
+          res.write(
+            `data: ${JSON.stringify({ type: 'plugin', event: 'fldigi-rx', source: 'fldigi', data: { text: s.fldigiRx, reset: true } })}\n\n`,
+          );
+        }
       } catch (e) {
         return; // Client already disconnected
       }
@@ -657,17 +737,19 @@ module.exports = function (app, ctx) {
       }
 
       const session = relaySessions.get(sessionId);
+      if (type === 'indicators' && !sanitizeRelayIndicators(payload)) {
+        return res.status(400).json({ error: 'Invalid indicators payload' });
+      }
       if (session.commandAuth === 'hmac-sha256' && !cleanAuth) {
         return res.status(401).json({
           error:
             'Rig Bridge requires signed commands — re-run Connect Cloud Relay in Settings → Rig Bridge on this browser',
         });
       }
-      session.commands.push({ type, payload, ...(cleanAuth ? { auth: cleanAuth } : {}), timestamp: Date.now() });
-
-      if (session.commands.length > 50) {
-        session.commands = session.commands.slice(-50);
-      }
+      // Display indicators (incl. the lightning relay request) are state, not
+      // actions: only the newest is kept queued, whitelisted (see utils). The
+      // end-to-end signature travels with the command, untouched.
+      session.commands = queueRelayCommand(session.commands, type, payload, Date.now(), cleanAuth);
 
       // Wake any long-polling rig-bridge connection — delivers command immediately
       // instead of waiting for the next poll tick (up to pollInterval ms).
@@ -774,6 +856,23 @@ module.exports = function (app, ctx) {
       logWarn(`[RigBridge] relay/commands error: ${err.message}`);
       if (!res.headersSent) res.json({ commands: [] });
     }
+  });
+
+  // ─── Cloud Relay: KiwiSDR audio for the Decoder panel (opt-in) ────────
+  // See relayAudio.js. The browser sends its signed kiwiAudioStart/Tune through
+  // /relay/command like any other command; this route only carries audio.
+  registerRelayAudio(app, {
+    requireRelayAuth,
+    // Same read rule as /relay/stream: header token, or a one-time ticket
+    canRead: (req, sessionId) => {
+      const verdict = checkRelayRead(sessionId, req.headers['x-relay-read']);
+      if (verdict === 'ok' || verdict === 'legacy') return 'ok';
+      if (verdict === 'denied' && redeemStreamTicket(req.query.ticket, sessionId)) return 'ok';
+      return verdict;
+    },
+    hasSession: (sessionId) => relaySessions.has(sessionId),
+    logInfo,
+    logWarn,
   });
 
   // ─── Cloud Relay: Configure ─────────────────────────────────────────

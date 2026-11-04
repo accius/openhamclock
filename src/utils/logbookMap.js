@@ -28,6 +28,28 @@ export const logbookLinesShown = (pointCount) => pointCount <= MAX_LOGBOOK_LINES
 const qsoBand = (q) => q?.band || (q?.freq ? getBandFromFreq(q.freq) : '') || '';
 
 /**
+ * Where a QSO is on the map: the grid square when it is a valid one, else the
+ * DXCC entity's position from cty.dat (approximate — `approx: true`). Shared
+ * by the map layers and the QSO form, which moves the DX marker as you type.
+ * @returns {{ lat, lon, approx, place } | null}
+ */
+export const qsoPosition = (call, gridsquare, lookup = ctyLookup) => {
+  const grid = String(gridsquare || '')
+    .trim()
+    .toUpperCase(); // ADIF files often log grids in lower case
+  const fromGrid = grid ? maidenheadToLatLon(grid) : null;
+  if (fromGrid) return { lat: fromGrid.lat, lon: fromGrid.lon, approx: false, place: grid };
+  const c = String(call || '')
+    .trim()
+    .toUpperCase();
+  const cty = c ? lookup(c) : null;
+  if (cty && Number.isFinite(cty.lat) && Number.isFinite(cty.lon)) {
+    return { lat: cty.lat, lon: cty.lon, approx: true, place: cty.entity || '' };
+  }
+  return null;
+};
+
+/**
  * Group filtered QSOs into map points: one per position and band.
  * @param {Array<object>} qsos logbook records
  * @param {object} [opts] { filter, lookup } — lookup(call) → { lat, lon, entity } | null
@@ -37,30 +59,13 @@ export const buildLogbookMapPoints = (qsos, { filter, lookup = ctyLookup } = {})
   const groups = new Map();
   for (const q of Array.isArray(qsos) ? qsos : []) {
     if (!q || !q.call || !qsoMatchesFilter(q, filter)) continue;
-    let pos = null;
-    let approx = false;
-    let place = '';
-    const grid = String(q.gridsquare || '')
-      .trim()
-      .toUpperCase(); // ADIF files often log grids in lower case
-    if (grid) {
-      pos = maidenheadToLatLon(grid);
-      place = grid;
-    }
-    if (!pos) {
-      const cty = lookup(q.call);
-      if (cty && Number.isFinite(cty.lat) && Number.isFinite(cty.lon)) {
-        pos = { lat: cty.lat, lon: cty.lon };
-        approx = true;
-        place = cty.entity || '';
-      }
-    }
+    const pos = qsoPosition(q.call, q.gridsquare, lookup);
     if (!pos) continue;
     const band = qsoBand(q);
     const key = `${pos.lat.toFixed(2)},${pos.lon.toFixed(2)}|${band}`;
     let g = groups.get(key);
     if (!g) {
-      g = { lat: pos.lat, lon: pos.lon, band, approx, place, qsos: [] };
+      g = { lat: pos.lat, lon: pos.lon, band, approx: pos.approx, place: pos.place, qsos: [] };
       groups.set(key, g);
     }
     g.qsos.push(q);

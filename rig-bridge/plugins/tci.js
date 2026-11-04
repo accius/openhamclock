@@ -197,7 +197,7 @@ module.exports = {
       if (reconnectTimer || wasExplicitlyDisconnected) return;
       reconnectTimer = setTimeout(() => {
         reconnectTimer = null;
-        connect(); // eslint-disable-line no-use-before-define
+        connect();
       }, 5000);
     }
 

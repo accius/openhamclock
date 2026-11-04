@@ -102,6 +102,8 @@ export const SpaceWxTrendsPanel = () => {
   const bzColor = latest.bz != null && latest.bz < -5 ? '#ef4444' : latest.bz < 0 ? '#fbbf24' : '#4ade80';
   const speedColor = latest.speed > 600 ? '#ef4444' : latest.speed > 450 ? '#fbbf24' : 'var(--accent-cyan)';
   const protonColor = latest.proton10 >= 10 ? '#ef4444' : latest.proton10 >= 1 ? '#fbbf24' : '#4ade80';
+  // GOES ≥2 MeV electrons: 1000 is NOAA's satellite-charging alert threshold
+  const electronColor = latest.electron2 >= 1000 ? '#ef4444' : latest.electron2 >= 100 ? '#fbbf24' : '#4ade80';
 
   return (
     <div className="panel" style={{ padding: '8px', height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -159,6 +161,25 @@ export const SpaceWxTrendsPanel = () => {
               <Sparkline
                 points={(data.protons || []).map((p) => ({ t: p.t, v: p.flux }))}
                 color={protonColor}
+                logScale
+              />
+            </TrendBlock>
+
+            <TrendBlock
+              title="ELECTRON FLUX ≥2 MeV"
+              value={
+                latest.electron2 != null
+                  ? latest.electron2 >= 1000
+                    ? `${(latest.electron2 / 1000).toFixed(1)}k`
+                    : Math.round(latest.electron2)
+                  : null
+              }
+              unit="e/cm²·s·sr"
+              valueColor={electronColor}
+            >
+              <Sparkline
+                points={(data.electrons || []).map((p) => ({ t: p.t, v: p.flux }))}
+                color={electronColor}
                 logScale
               />
             </TrendBlock>

@@ -10,7 +10,10 @@
   },
   "mac": {
     "hardenedRuntime": false,
-    "gatekeeperAssess": false
+    "gatekeeperAssess": false,
+    "extendInfo": {
+      "NSMicrophoneUsageDescription": "OpenHamClock listens to your receiver's audio (sound-card or line input) to decode CW in the Decoder panel."
+    }
   },
   "linux": {
     "target": ["AppImage", "deb"],

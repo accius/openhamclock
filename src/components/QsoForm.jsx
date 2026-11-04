@@ -26,11 +26,19 @@
  *   onDelete — optional; shows the Delete button (edit mode)
  *   myGrid   — operator grid stamped into record.my_gridsquare
  *   autoFocusCall — focus the callsign input on mount (popup host)
+ *   onDXChange, dxLocation, dxCallsign — optional; when given, the DX marker
+ *     follows the typed call (country) or grid, and goes back where it was if
+ *     the form closes without saving (hooks/useQsoDxFollow.js)
  */
 import { useRef, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useAwards } from '../hooks/useAwards.js';
+import { useWorkedBefore } from '../hooks/useWorkedBefore.js';
+import { spotBadge } from '../utils/awards.js';
+import SpotBadge from './SpotBadge.jsx';
 import { getBandFromFreq } from '../utils/callsign.js';
 import { useRig } from '../contexts/RigContext.jsx';
+import useQsoDxFollow from '../hooks/useQsoDxFollow.js';
 import { tunedSpotForRig } from '../services/logbookStore.js';
 
 export const BANDS = [
@@ -149,7 +157,18 @@ const formFromPrefill = (prefill, rigFreqMHz, rigMode) => {
   return merged;
 };
 
-export const QsoForm = ({ prefill, editQso, onSaved, onCancel, onDelete, myGrid, autoFocusCall = false }) => {
+export const QsoForm = ({
+  prefill,
+  editQso,
+  onSaved,
+  onCancel,
+  onDelete,
+  myGrid,
+  autoFocusCall = false,
+  onDXChange,
+  dxLocation,
+  dxCallsign,
+}) => {
   const { t } = useTranslation();
 
   // Rig state is optional — the form renders inside RigProvider in the app,
@@ -169,10 +188,25 @@ export const QsoForm = ({ prefill, editQso, onSaved, onCancel, onDelete, myGrid,
     editQso ? formFromQso(editQso) : formFromPrefill(prefill, rigFreqMHz, rigMode),
   );
 
+  const dxFollow = useQsoDxFollow({ call: form.call, grid: form.gridsquare, onDXChange, dxLocation, dxCallsign });
+
   const callInputRef = useRef(null);
   useEffect(() => {
     if (autoFocusCall) callInputRef.current?.focus();
   }, [autoFocusCall]);
+
+  // NEW / BAND / DUPE / ✓ for the call as it is typed — the same label the DX
+  // cluster shows, from the form's frequency and mode. Not when editing: the
+  // QSO being edited is itself in the log and would always read as a dupe.
+  const { getSpotStatus: getAwardStatus } = useAwards();
+  const { getStatus: getWorkedStatus } = useWorkedBefore();
+  const typedCall = form.call.trim().toUpperCase();
+  const formFreqMHz = parseFloat(form.freq);
+  const freqForBadge = Number.isFinite(formFreqMHz) && formFreqMHz > 0 ? formFreqMHz : undefined;
+  const callBadge =
+    !editing && typedCall
+      ? spotBadge(getAwardStatus(typedCall, freqForBadge), getWorkedStatus(typedCall, freqForBadge, form.mode))
+      : null;
 
   const setField = (name, value) => setForm((f) => ({ ...f, [name]: value }));
 
@@ -197,6 +231,7 @@ export const QsoForm = ({ prefill, editQso, onSaved, onCancel, onDelete, myGrid,
     const call = form.call.trim().toUpperCase();
     if (!call) return;
     const freqNum = parseFloat(form.freq);
+    dxFollow.markSaved(); // logged: the DX marker stays on this station
     onSaved({
       call,
       qso_date: form.qso_date.trim(),
@@ -230,16 +265,33 @@ export const QsoForm = ({ prefill, editQso, onSaved, onCancel, onDelete, myGrid,
       }}
     >
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr 0.8fr auto', gap: '4px' }}>
-        <input
-          ref={callInputRef}
-          type="text"
-          required
-          placeholder={t('logbook.form.call', { defaultValue: 'Callsign' })}
-          aria-label={t('logbook.form.call', { defaultValue: 'Callsign' })}
-          value={form.call}
-          onChange={(e) => setField('call', e.target.value.toUpperCase())}
-          style={{ ...inputStyle, textTransform: 'uppercase', fontWeight: 700 }}
-        />
+        <div style={{ position: 'relative', minWidth: 0 }}>
+          <input
+            ref={callInputRef}
+            type="text"
+            required
+            placeholder={t('logbook.form.call', { defaultValue: 'Callsign' })}
+            aria-label={t('logbook.form.call', { defaultValue: 'Callsign' })}
+            value={form.call}
+            onChange={(e) => setField('call', e.target.value.toUpperCase())}
+            style={{
+              ...inputStyle,
+              boxSizing: 'border-box',
+              textTransform: 'uppercase',
+              fontWeight: 700,
+              // Room for the label so typed text never runs under it. Always
+              // set (6px = inputStyle's own) so React never drops it next to
+              // the padding shorthand.
+              paddingRight: callBadge ? '38px' : '6px',
+            }}
+          />
+          {callBadge && (
+            <SpotBadge
+              badge={callBadge}
+              style={{ position: 'absolute', right: '4px', top: '50%', transform: 'translateY(-50%)', marginLeft: 0 }}
+            />
+          )}
+        </div>
         <input
           type="text"
           placeholder="YYYYMMDD"
@@ -360,7 +412,14 @@ export const QsoForm = ({ prefill, editQso, onSaved, onCancel, onDelete, myGrid,
             ? t('logbook.form.save', { defaultValue: 'Save' })
             : t('logbook.form.log', { defaultValue: 'Log QSO' })}
         </button>
-        <button type="button" onClick={onCancel} style={smallBtnStyle(false)}>
+        <button
+          type="button"
+          onClick={() => {
+            dxFollow.restore();
+            onCancel?.();
+          }}
+          style={smallBtnStyle(false)}
+        >
           {t('logbook.form.cancel', { defaultValue: 'Cancel' })}
         </button>
         {rigFreqMHz && (

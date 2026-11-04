@@ -29,7 +29,9 @@ export function isPushSupported() {
 
 /**
  * Ask the server whether push is configured and get the VAPID public key.
- * Resolves { configured: boolean, publicKey?: string }. Network failures
+ * Resolves { configured: boolean, publicKey?: string, lightning?: boolean,
+ * lightningBroadcast?: boolean } (lightning: targeted lightning pushes are
+ * available; lightningBroadcast: the server's station-wide override is on). Network failures
  * report configured: false — the UI treats that the same as dormant.
  */
 export async function getServerPushStatus() {
@@ -37,7 +39,14 @@ export async function getServerPushStatus() {
     const res = await apiFetch('/api/push/vapid-key');
     if (!res) return { configured: false };
     const data = await res.json().catch(() => null);
-    if (res.ok && data?.publicKey) return { configured: true, publicKey: data.publicKey };
+    if (res.ok && data?.publicKey) {
+      return {
+        configured: true,
+        publicKey: data.publicKey,
+        lightning: !!data.lightning,
+        lightningBroadcast: !!data.lightningBroadcast,
+      };
+    }
     return { configured: false };
   } catch {
     return { configured: false };
@@ -138,6 +147,69 @@ export async function sendTestPush() {
     if (res?.ok) return { ok: true };
     const data = await res?.json().catch(() => null);
     return { ok: false, error: data?.error || 'failed' };
+  } catch {
+    return { ok: false, error: 'failed' };
+  }
+}
+
+/**
+ * Opt this browser's push subscription in to lightning pushes for a station
+ * location and radii (prefs), or out (null). The server stores the location
+ * rounded to 0.01° with the subscription. Resolves { ok, reason? } — reason
+ * 'not-subscribed' when this browser has no push subscription yet.
+ *
+ * @param {{ lat: number, lon: number, warnKm: number, alarmKm: number, imperial?: boolean } | null} prefs
+ */
+export async function setLightningPushPrefs(prefs) {
+  const subscription = await getPushSubscription();
+  if (!subscription) return { ok: prefs === null, reason: 'not-subscribed' };
+  try {
+    const res = await apiFetch('/api/push/lightning/prefs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ endpoint: subscription.endpoint, lightning: prefs }),
+    });
+    if (!res) return { ok: false, reason: 'backoff' };
+    return res.ok ? { ok: true } : { ok: false, reason: `HTTP ${res.status}` };
+  } catch {
+    return { ok: false, reason: 'failed' };
+  }
+}
+
+/**
+ * Lightning guard → server → the push subscribers it concerns. The server
+ * computes, for every subscription that opted in (setLightningPushPrefs),
+ * whether this strike falls inside ITS radius and pushes only to those;
+ * all-clear and simulated strikes go back to this browser only.
+ * Never throws; resolves { ok, error? }.
+ *
+ * @param {{ level: 'warn'|'alarm'|'clear', strike?: {lat:number, lon:number, timestamp:number}|null,
+ *           simulated?: boolean, closer?: boolean, imperial?: boolean, relay?: boolean|null }} report
+ */
+export async function sendLightningPush(report) {
+  const subscription = await getPushSubscription();
+  if (!subscription) return { ok: false, error: 'not-subscribed' };
+  try {
+    const s = report?.strike;
+    const res = await apiFetch('/api/push/lightning', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        endpoint: subscription.endpoint,
+        level: report?.level,
+        strike:
+          s && Number.isFinite(s.lat) && Number.isFinite(s.lon)
+            ? { lat: Math.round(s.lat * 1000) / 1000, lon: Math.round(s.lon * 1000) / 1000, timestamp: s.timestamp }
+            : null,
+        simulated: report?.simulated === true,
+        closer: report?.closer === true,
+        imperial: report?.imperial === true,
+        relay: typeof report?.relay === 'boolean' ? report.relay : null,
+      }),
+    });
+    if (!res) return { ok: false, error: 'backoff' };
+    const data = await res.json().catch(() => null);
+    return res.ok ? { ok: true, ...(data || {}) } : { ok: false, error: data?.error || `HTTP ${res.status}` };
   } catch {
     return { ok: false, error: 'failed' };
   }

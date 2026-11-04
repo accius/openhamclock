@@ -59,8 +59,66 @@
     "ohcUrl": "http://localhost:8080",
     "verbose": false
   },
+  "beaconMonitor": {
+    "enabled": false,
+    "host": "",
+    "port": 8073,
+    "password": "",
+    "bands": ["20m", "17m", "15m", "12m", "10m"],
+    "callsign": "",
+    "grid": "",
+    "serverForward": true,
+    "ohcUrl": "http://localhost:3000",
+    "ohcApiKey": "",
+    "verbose": false
+  },
+  "kiwiAudio": {
+    "enabled": false,
+    "host": "",
+    "port": 8073,
+    "password": "",
+    "beaconMonitor": "pause"
+  },
+  "mqtt": {
+    "enabled": false,
+    "url": "mqtt://127.0.0.1:1883",
+    "username": "",
+    "password": "",
+    "prefix": "openhamclock",
+    "haDiscovery": true,
+    "publishInterval": 60000
+  },
+  "fldigi": {
+    "enabled": false,
+    "url": "http://127.0.0.1:7362",
+    "pollInterval": 1000,
+    "rxBufferChars": 4000,
+    "maxTxSeconds": 600,
+    "callsign": "",
+    "txPrependCr": false,
+    "txPrependDe": false,
+    "txAppendCr": false,
+    "flmsgEnabled": true,
+    "flmsgDirs": "",
+    "flmsgPollInterval": 15,
+    "flmsgMaxAgeHours": 72,
+    "flmsgIncludeLocal": false,
+    "flmsgDateFormat": "auto",
+    "serverForward": true,
+    "ohcUrl": "http://localhost:3000",
+    "verbose": false
+  },
   "tls": {
     "enabled": false,
     "certGenerated": false
+  },
+  "wavelogForward": {
+    "enabled": false,
+    "url": "https://log.example.com",
+    "apiKey": "",
+    "stationProfileId": "",
+    "udpPort": 12060,
+    "udpBindAddress": "",
+    "verbose": false
   }
 }

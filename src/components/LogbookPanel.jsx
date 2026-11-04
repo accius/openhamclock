@@ -34,6 +34,9 @@ import GroupLogSection from './GroupLogSection.jsx';
 import { IconMap } from './Icons.jsx';
 import { MAX_LOGBOOK_LINES, logbookLinesShown, useLogbookMapPoints } from '../utils/logbookMap.js';
 import QsoForm, { BANDS, inputStyle, smallBtnStyle } from './QsoForm.jsx';
+import WatchlistEditor from './WatchlistEditor.jsx';
+import { useCompiledWatchlist } from '../hooks/useWatchlists.js';
+import { applyWatchlist } from '../utils/watchlistSpec.js';
 
 const MAX_ROWS = 200;
 
@@ -49,7 +52,7 @@ const readMapLayerOn = () => {
   }
 };
 
-export const LogbookPanel = ({ userCallsign, myGrid }) => {
+export const LogbookPanel = ({ userCallsign, myGrid, onDXChange, dxLocation, dxCallsign }) => {
   const { t } = useTranslation();
   const { showPopup } = useCallsignPopup();
   const { qsos, add, update, remove, importAdif, exportAdif, stats } = useLogbook();
@@ -82,6 +85,9 @@ export const LogbookPanel = ({ userCallsign, myGrid }) => {
   const [search, setSearch] = useState('');
   const [bandFilter, setBandFilter] = useState('');
   const [modeFilter, setModeFilter] = useState('');
+  // HamClock-style watch list for logbook rows (Red highlights, Only/Not filter)
+  const [showWatch, setShowWatch] = useState(false);
+  const logWatch = useCompiledWatchlist('logbook');
   const [importSummary, setImportSummary] = useState(null); // {imported, skipped} | {error}
   // Group session UI opens automatically when a session is being resumed.
   const [showGroup, setShowGroup] = useState(() => {
@@ -178,10 +184,14 @@ export const LogbookPanel = ({ userCallsign, myGrid }) => {
     [qsos],
   );
 
-  const filtered = useMemo(() => {
+  const { items: filtered, red: watchRed } = useMemo(() => {
     const filter = { band: bandFilter, mode: modeFilter, search };
-    return sorted.filter((rec) => qsoMatchesFilter(rec, filter));
-  }, [sorted, search, bandFilter, modeFilter]);
+    return applyWatchlist(
+      sorted.filter((rec) => qsoMatchesFilter(rec, filter)),
+      logWatch,
+      (q) => ({ call: q.call, freq: q.freq, grid: q.gridsquare, band: q.band }),
+    );
+  }, [sorted, search, bandFilter, modeFilter, logWatch]);
 
   // Mirror the filter for the "Logbook QSOs" map layer, so the map shows what
   // the table lists. Reset on unmount: with no panel there is no visible
@@ -423,6 +433,9 @@ export const LogbookPanel = ({ userCallsign, myGrid }) => {
             prefill={formInit.prefill || undefined}
             editQso={formInit.qso || undefined}
             myGrid={myGrid}
+            onDXChange={onDXChange}
+            dxLocation={dxLocation}
+            dxCallsign={dxCallsign}
             onSaved={handleFormSaved}
             onCancel={() => {
               setShowForm(false);
@@ -470,6 +483,27 @@ export const LogbookPanel = ({ userCallsign, myGrid }) => {
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => setShowWatch((v) => !v)}
+            aria-pressed={showWatch}
+            aria-label={t('logbook.watchButton', { defaultValue: 'Watch list' })}
+            title={t('logbook.watchTooltip', {
+              defaultValue: 'Watch list: highlight (Red), show only (Only) or hide (Not) matching QSOs',
+            })}
+            style={{
+              ...smallBtnStyle,
+              color: logWatch.matcher ? 'var(--accent-red)' : undefined,
+              borderColor: logWatch.matcher ? 'var(--accent-red)' : undefined,
+            }}
+          >
+            {t('logbook.watchButton', { defaultValue: 'Watch' })}
+          </button>
+        </div>
+      )}
+      {showWatch && stats.total > 0 && (
+        <div style={{ marginBottom: '6px' }}>
+          <WatchlistEditor listKey="logbook" compact />
         </div>
       )}
 
@@ -549,7 +583,12 @@ export const LogbookPanel = ({ userCallsign, myGrid }) => {
                 padding: '4px 6px',
                 borderRadius: '3px',
                 marginBottom: '1px',
-                background: i % 2 === 0 ? 'rgba(255,255,255,0.03)' : 'transparent',
+                background: watchRed.has(qso)
+                  ? 'rgba(255, 68, 68, 0.12)'
+                  : i % 2 === 0
+                    ? 'rgba(255,255,255,0.03)'
+                    : 'transparent',
+                borderLeft: watchRed.has(qso) ? '2px solid var(--accent-red)' : '2px solid transparent',
                 cursor: 'pointer',
               }}
             >

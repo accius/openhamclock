@@ -10,6 +10,8 @@
  * (src/hooks/app/useIdleClock.js).
  */
 import { useEffect, useState } from 'react';
+import { displayNow, isTimeShifted } from '../utils/displayTime.js';
+import { AlarmIndicator } from '../components/AlarmIndicator.jsx';
 
 const PRIMARY_KEY = 'openhamclock_clockPrimary'; // 'utc' | 'local'
 
@@ -60,15 +62,16 @@ function zoneLabel(date, timeZone) {
 }
 
 export default function ClockLayout({ config, use12Hour = false, deGrid }) {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(() => displayNow());
   const [primary, setPrimary] = useState(readPrimary);
+  const shifted = isTimeShifted();
 
   // One tick per second, aligned to the second boundary so the display never
   // lags a whole second behind the wall clock.
   useEffect(() => {
     let timer;
     const tick = () => {
-      const d = new Date();
+      const d = displayNow(); // follows the display-time shift, like the header clocks
       setNow(d);
       timer = setTimeout(tick, 1000 - d.getMilliseconds());
     };
@@ -136,6 +139,21 @@ export default function ClockLayout({ config, use12Hour = false, deGrid }) {
         }}
       >
         {bigLabel}
+        {shifted && (
+          <span
+            style={{
+              marginLeft: '1em',
+              padding: '0.1em 0.5em',
+              borderRadius: '4px',
+              background: '#ff4d4d',
+              color: '#fff',
+              fontSize: '0.7em',
+              letterSpacing: '0.1em',
+            }}
+          >
+            NOT REAL TIME
+          </span>
+        )}
       </div>
       <button
         type="button"
@@ -182,6 +200,16 @@ export default function ClockLayout({ config, use12Hour = false, deGrid }) {
         </span>
         <span style={{ fontWeight: 600 }}>{small.time}</span>
         {small.suffix && <span style={{ fontSize: '0.4em', color: 'var(--text-secondary)' }}>{small.suffix}</span>}
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          left: 'clamp(12px, 2vw, 32px)',
+          bottom: 'clamp(10px, 2vh, 28px)',
+          fontSize: 'clamp(12px, 2vw, 28px)',
+        }}
+      >
+        <AlarmIndicator size="large" />
       </div>
       {(callsign || deGrid) && (
         <div

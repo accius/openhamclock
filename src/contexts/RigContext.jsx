@@ -5,6 +5,21 @@ import { canTransmit, getLicenseClass, normalizeLicenseClass } from '../utils/pr
 import { showToast } from '../utils/toast.js';
 import { isRelayConfigured, setRelayConfigured, setRelaySessionId } from '../utils/relaySession.js';
 import { sendRelayCommand, relayReadHeaders, relayStreamUrl } from '../utils/relaySign';
+
+// "Rig Bridge refused the command" — at most once a minute, whatever the
+// command (tune, mode, PTT, indicators, NBEMS).
+let lastRefusalToastAt = 0;
+function notifyRelayRefused() {
+  const now = Date.now();
+  if (now - lastRefusalToastAt < 60000) return;
+  lastRefusalToastAt = now;
+  showToast(
+    i18n.t('app.rigControl.relayRefused', {
+      defaultValue: 'Rig Bridge refused the command — re-pair Cloud Relay in Settings → Rig Bridge',
+    }),
+    { variant: 'warning' },
+  );
+}
 import { setTunedSpot } from '../services/logbookStore.js';
 
 // Default config
@@ -38,7 +53,7 @@ const toHz = (freqInput) => {
   return 0;
 };
 
-const buildRigUrl = (rigConfig) => {
+export const buildRigUrl = (rigConfig) => {
   const host = rigConfig?.host?.trim();
   if (!host) return DEFAULT_RIG_URL;
 
@@ -91,6 +106,7 @@ export const RigProvider = ({ children, rigConfig }) => {
     freq: 0,
     mode: '',
     ptt: false,
+    onAir: false, // hardware PTT / ON-AIR sense line (rig-bridge GPIO plugin)
     width: 0,
     lastUpdate: 0,
   });
@@ -126,6 +142,19 @@ export const RigProvider = ({ children, rigConfig }) => {
       })()
     : '';
   const isCloudRelay = !!cloudRelaySession;
+
+  // The bridge reports commands it refused (unsigned, expired, replayed, bad
+  // signature) as a 'relay-cmd-refused' plugin event — tell the user how to fix it.
+  useEffect(() => {
+    if (!isCloudRelay) return undefined;
+    const onData = (e) => {
+      const d = e?.detail;
+      // NBEMS commands report their own refusal in the NBEMS panel
+      if (d?.type === 'plugin' && d.event === 'relay-cmd-refused' && d.data?.type !== 'fldigi') notifyRelayRefused();
+    };
+    window.addEventListener('rig-plugin-data', onData);
+    return () => window.removeEventListener('rig-plugin-data', onData);
+  }, [isCloudRelay]);
 
   // Build auth headers — only set when a token is configured
   const apiToken = rigConfig?.apiToken?.trim() || '';
@@ -322,6 +351,7 @@ export const RigProvider = ({ children, rigConfig }) => {
               mode: data.mode,
               width: data.width,
               ptt: data.ptt,
+              onAir: !!data.onAir,
               lastUpdate: Date.now(),
             }));
           } else if (data.type === 'update') {
@@ -370,7 +400,10 @@ export const RigProvider = ({ children, rigConfig }) => {
       if (isCloudRelay) {
         // Route through OHC server relay, signed with this browser's command key
         const r = await sendRelayCommand(cloudRelaySession, type, payload);
-        if (!r.ok) console.error(`[RigContext] Cloud relay command failed: ${r.error}`);
+        if (!r.ok) {
+          console.error(`[RigContext] Cloud relay command failed: ${r.error}`);
+          if (r.status === 401) notifyRelayRefused();
+        }
         return null; // No status code in relay mode
       }
       return null; // Caller handles direct mode
@@ -633,6 +666,11 @@ export const RigProvider = ({ children, rigConfig }) => {
     // between direct rig-bridge requests and OHC server proxying.
     rigUrl,
     isCloudRelay,
+    // Relay session — hooks that send their own relay commands (useFldigi) use it
+    cloudRelaySession,
+    // Cloud Relay session id (null when the bridge is reached directly) — the
+    // Decoder panel streams KiwiSDR audio through it.
+    relaySession: cloudRelaySession || null,
     setFreq,
     setMode,
     setPTT,

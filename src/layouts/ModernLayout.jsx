@@ -363,7 +363,6 @@ export default function ModernLayout(props) {
             </span>
           </span>
           <span>
-            <span style={{ color: 'var(--text-muted)' }}>{t('app.dxLocation.sp')} </span>
             <span style={{ color: 'var(--accent-cyan)', fontWeight: '600' }}>
               {(() => {
                 const km = calculateDistance(config.location.lat, config.location.lon, dxLocation.lat, dxLocation.lon);

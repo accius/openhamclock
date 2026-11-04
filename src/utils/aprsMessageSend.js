@@ -5,9 +5,10 @@
  * Directly to the Rig Bridge this browser uses (POST <rigUrl>/aprs/message),
  * or, without a direct bridge (Cloud Relay, rig control off), POST
  * /api/aprs/message → server → rig-bridge APRS TNC plugin on localhost:5555.
- * Used by the EmComm layout's MSG composer.
+ * Shared by the EmComm layout's MSG composer and the ICS 213 composer so
+ * there is exactly one place that knows the endpoint and payload.
  */
-const APRS_MSG_MAX = 67; // APRS message text limit
+import { APRS_MSG_MAX } from './icsForms.js';
 
 /**
  * The Rig Bridge base URL to transmit through directly, or null to go via
@@ -54,20 +55,35 @@ export async function sendAprsMessage({ to, message, rigUrl = null }, fetchImpl 
         body,
       });
       if (!res?.ok) return { ok: false, error: await errorFrom(res, 'Rig Bridge: ') };
+      // Rig Bridge answers with a message id when it will wait for an ack (#1247)
+      let msgId = null;
+      try {
+        msgId = (await res.json())?.msgId || null;
+      } catch {
+        /* older Rig Bridge: no body */
+      }
       // History only — a failure here must not report the transmission as failed
       fetchImpl('/api/aprs/message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: addressee, message: text, recordOnly: true }),
+        body: JSON.stringify({ to: addressee, message: text, recordOnly: true, ...(msgId ? { msgId } : {}) }),
       }).catch?.(() => {});
-      return { ok: true };
+      return { ok: true, msgId };
     }
     const res = await fetchImpl('/api/aprs/message', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body,
     });
-    if (res?.ok) return { ok: true };
+    if (res?.ok) {
+      let msgId = null;
+      try {
+        msgId = (await res.json())?.msgId || null;
+      } catch {
+        /* no body */
+      }
+      return { ok: true, msgId };
+    }
     return { ok: false, error: await errorFrom(res) };
   } catch (e) {
     return {
@@ -75,4 +91,20 @@ export async function sendAprsMessage({ to, message, rigUrl = null }, fetchImpl 
       error: rigUrl ? `Rig Bridge not reachable at ${rigUrl}` : e?.message || 'Network error',
     };
   }
+}
+
+/**
+ * Send several parts in order (e.g. a split ICS 213), stopping at the first
+ * failure so a half-sent message is never silently reported as complete.
+ * @returns {Promise<{ sent: number, total: number, error?: string }>}
+ */
+export async function sendAprsParts(to, parts, fetchImpl = globalThis.fetch, rigUrl = null) {
+  const list = Array.isArray(parts) ? parts : [];
+  let sent = 0;
+  for (const part of list) {
+    const r = await sendAprsMessage({ to, message: part, rigUrl }, fetchImpl);
+    if (!r.ok) return { sent, total: list.length, error: r.error };
+    sent++;
+  }
+  return { sent, total: list.length };
 }

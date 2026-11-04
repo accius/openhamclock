@@ -4,9 +4,23 @@
  */
 
 const dgram = require('dgram');
+const rateLimit = require('express-rate-limit');
 
 module.exports = function (app, ctx) {
   const { CONFIG, logDebug, logInfo, logWarn, logErrorOnce, writeLimiter, requireWriteAuth } = ctx;
+
+  // Auto-track (satellite / DX) sends at most one command per second, which
+  // the shared 20/min write limiter would throttle mid-pass. The rotator
+  // routes are local-only (provider 'none' on hosted installs), so a
+  // dedicated 120/min budget is safe.
+  const turnLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { ok: false, error: 'Too many rotator commands' },
+  });
+  void writeLimiter;
 
   // Default to 'none' so hosted/cloud instances don't try to reach a LAN rotator.
   // Self-hosted users must explicitly set ROTATOR_PROVIDER=pstrotator_udp.
@@ -157,6 +171,10 @@ module.exports = function (app, ctx) {
     );
   }
 
+  // Expose the control functions to sibling routes (the remote-control API
+  // forwards POST /api/control/rotator here) without a loopback HTTP hop.
+  ctx.rotatorControl = { setAzimuth, stop: stopRotator, enabled: ROTATOR_PROVIDER !== 'none' };
+
   // --- REST API ---
   // These are now synchronous reads of cached state — zero async work per request.
 
@@ -176,7 +194,7 @@ module.exports = function (app, ctx) {
     });
   });
 
-  app.post('/api/rotator/turn', writeLimiter, requireWriteAuth, async (req, res) => {
+  app.post('/api/rotator/turn', turnLimiter, requireWriteAuth, async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
       const { azimuth } = req.body || {};
@@ -197,7 +215,7 @@ module.exports = function (app, ctx) {
     }
   });
 
-  app.post('/api/rotator/stop', writeLimiter, requireWriteAuth, async (req, res) => {
+  app.post('/api/rotator/stop', turnLimiter, requireWriteAuth, async (req, res) => {
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
     try {
       const result = await stopRotator();

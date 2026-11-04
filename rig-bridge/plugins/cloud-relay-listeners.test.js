@@ -7,7 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import EventEmitter from 'events';
 import relay from './cloud-relay.js';
 
-const EVENTS = ['decode', 'aprs', 'meshcom'];
+const EVENTS = ['decode', 'aprs', 'meshcom', 'hamalert', 'fldigi', 'fldigi-rx', 'nbems-form', 'fldigi-cmd-result'];
 const counts = (bus) => Object.fromEntries(EVENTS.map((e) => [e, bus.listenerCount(e)]));
 const zero = Object.fromEntries(EVENTS.map((e) => [e, 0]));
 const one = Object.fromEntries(EVENTS.map((e) => [e, 1]));

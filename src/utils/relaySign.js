@@ -225,6 +225,37 @@ export async function signRelayCommand(session, type, payload, { key = getComman
   return { v: 1, ts, nonce, sig: await hmacHex(key, signedText(session, ts, nonce, type, payload)) };
 }
 
+let relayRequestSeq = 0;
+/** A requestId for a relayed command whose outcome the caller wants to hear about. */
+export function newRelayRequestId(prefix = 'rq') {
+  return `${prefix}-${Date.now().toString(36)}-${(relayRequestSeq++).toString(36)}`;
+}
+
+/**
+ * Wait for Rig Bridge's answer to a relayed command that carried `requestId`:
+ * a 'relay-cmd-result' (done, ok or not) or a 'relay-cmd-refused' (signature
+ * refused) plugin event arriving over the relay stream. Resolves with
+ * { ok, status?, reason?, timeout? } — never rejects.
+ */
+export function waitForRelayAnswer(requestId, timeoutMs = 15000) {
+  return new Promise((resolve) => {
+    let timer = null;
+    const finish = (r) => {
+      clearTimeout(timer);
+      window.removeEventListener('rig-plugin-data', onData);
+      resolve(r);
+    };
+    const onData = (e) => {
+      const d = e?.detail;
+      if (d?.type !== 'plugin' || d.data?.requestId !== requestId) return;
+      if (d.event === 'relay-cmd-result') finish({ ok: !!d.data.ok, status: d.data.status });
+      else if (d.event === 'relay-cmd-refused') finish({ ok: false, status: 401, reason: d.data.reason });
+    };
+    window.addEventListener('rig-plugin-data', onData);
+    timer = setTimeout(() => finish({ ok: false, timeout: true }), timeoutMs);
+  });
+}
+
 /**
  * Queue a command for Rig Bridge through the hosted server, signed when this
  * browser holds the command key.

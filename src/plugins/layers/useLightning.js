@@ -2,12 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { makeDraggable } from './makeDraggable.js';
-import { ALERT_FEEDS, getAlertSettings, playTone } from '../../utils/audioAlerts';
-import { showAlertNotification } from '../../utils/notifications';
+import { lzwDecode, subscribeStrikes } from '../../utils/lightningFeed.js';
 
 // Lightning Detection Plugin - Real-time lightning strike visualization
-// Data source: Blitzortung.org WebSocket API
-// Update: Real-time via WebSocket
+// Data source: Blitzortung.org WebSocket API (shared feed, utils/lightningFeed.js)
+// Update: Real-time, batched once a second
 
 export const metadata = {
   id: 'lightning',
@@ -20,34 +19,10 @@ export const metadata = {
   version: '2.0.1',
 };
 
-// LZW decompression - Blitzortung uses LZW compression for WebSocket data
-// Exported for the 3D globe's lightning overlay, which opens its own
-// Blitzortung socket (the Leaflet layer hooks never mount in globe mode).
-export function lzwDecode(compressed) {
-  const dict = {};
-  const data = compressed.split('');
-  let currChar = data[0];
-  let oldPhrase = currChar;
-  const out = [currChar];
-  let code = 256;
-  let phrase;
-
-  for (let i = 1; i < data.length; i++) {
-    const currCode = data[i].charCodeAt(0);
-    if (currCode < 256) {
-      phrase = data[i];
-    } else {
-      phrase = dict[currCode] ? dict[currCode] : oldPhrase + currChar;
-    }
-    out.push(phrase);
-    currChar = phrase.charAt(0);
-    dict[code] = oldPhrase + currChar;
-    code++;
-    oldPhrase = phrase;
-  }
-
-  return out.join('');
-}
+// LZW decoding and the Blitzortung socket live in utils/lightningFeed.js —
+// one reference-counted stream shared with the 3D globe overlay and the
+// lightning guard. lzwDecode stays re-exported here for older imports.
+export { lzwDecode };
 
 // Haversine formula for distance calculation
 function calculateDistance(lat1, lon1, lat2, lon2) {
@@ -61,21 +36,6 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
     Math.cos((lat1 * Math.PI) / 180) * Math.cos((lat2 * Math.PI) / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return { km: Rkm * c, miles: Rmiles * c };
-}
-
-// Compass bearing from station to strike (0–360°)
-function calculateBearing(lat1, lon1, lat2, lon2) {
-  const φ1 = (lat1 * Math.PI) / 180;
-  const φ2 = (lat2 * Math.PI) / 180;
-  const Δλ = ((lon2 - lon1) * Math.PI) / 180;
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
-  return (Math.atan2(y, x) * (180 / Math.PI) + 360) % 360;
-}
-
-function bearingToCardinal(deg) {
-  const dirs = ['north', 'north-east', 'east', 'south-east', 'south', 'south-west', 'west', 'north-west'];
-  return dirs[Math.round(deg / 45) % 8];
 }
 
 // Strike age colors (fading over time)
@@ -93,14 +53,9 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
   const [lightningData, setLightningData] = useState([]);
   const [statsControl, setStatsControl] = useState(null);
   const proximityControlRef = useRef(null); // Use ref instead of state to avoid re-renders
-  const [wsKey, setWsKey] = useState(null);
   const [thunderCircles, setThunderCircles] = useState([]);
-  const wsRef = useRef(null); // Single WebSocket connection
-  const reconnectTimerRef = useRef(null);
   const strikesBufferRef = useRef([]);
   const previousStrikeIds = useRef(new Set());
-  const currentServerIndexRef = useRef(0); // Track which server we're using
-  const connectionAttemptsRef = useRef(0); // Track connection attempts
 
   // Low memory mode limits
   const MAX_STRIKES = lowMemoryMode ? 100 : 500;
@@ -128,148 +83,19 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
   }, [enabled, lightningData]);
   useEffect(() => () => window.dispatchEvent(new CustomEvent('mapdata:lightning', { detail: { enabled: false } })), []);
 
-  // Fetch WebSocket key from Blitzortung (fallback to 111)
+  // Strikes from the shared Blitzortung feed (batched once a second there).
+  // Keep the last 30 minutes, capped for low-memory mode.
   useEffect(() => {
-    if (enabled && !wsKey) {
-      console.info('[Lightning] Using WebSocket key 111 (Blitzortung standard)');
-      setWsKey(111); // Standard Blitzortung key
-    }
-  }, [enabled, wsKey]);
-
-  // Connect to Blitzortung WebSocket with fallback servers
-  useEffect(() => {
-    if (!enabled || !wsKey) return;
-
-    // Available Blitzortung WebSocket servers (tested and verified online)
-    // ws3, ws4, ws5, ws6, ws9, ws10 have certificate issues as of 2026-02
-    const servers = [
-      'wss://ws8.blitzortung.org', // Primary (most reliable)
-      'wss://ws7.blitzortung.org', // Backup 1
-      'wss://ws2.blitzortung.org', // Backup 2
-      'wss://ws1.blitzortung.org', // Backup 3
-    ];
-
-    const connectWebSocket = () => {
-      try {
-        const serverUrl = servers[currentServerIndexRef.current];
-        console.debug(`[Lightning] Connecting to ${serverUrl} (attempt ${connectionAttemptsRef.current + 1})...`);
-
-        const ws = new WebSocket(serverUrl);
-        wsRef.current = ws;
-
-        ws.onopen = () => {
-          console.debug(`[Lightning] Connected to ${serverUrl}, sending key:`, wsKey);
-          ws.send(JSON.stringify({ a: wsKey }));
-          connectionAttemptsRef.current = 0; // Reset attempts on success
-        };
-
-        ws.onmessage = (event) => {
-          try {
-            // Decompress LZW-compressed data
-            const decompressed = lzwDecode(event.data);
-            const data = JSON.parse(decompressed);
-
-            // Parse lightning strike data
-            // Format: { time: timestamp, lat: latitude, lon: longitude, alt: altitude, pol: polarity, mds: signal }
-            if (data.time && data.lat != null && data.lon != null) {
-              const strike = {
-                id: `strike_${data.time}_${data.lat}_${data.lon}`,
-                lat: parseFloat(data.lat),
-                lon: parseFloat(data.lon),
-                timestamp: parseInt(data.time / 1000000),
-                intensity: Math.abs(data.pol || 0),
-                polarity: (data.pol || 0) >= 0 ? 'positive' : 'negative',
-                altitude: data.alt || 0,
-                signal: data.mds || 0,
-              };
-
-              // Add to buffer
-              strikesBufferRef.current.push(strike);
-
-              // Keep only strikes within retention window
-              const cutoffTime = Date.now() - STRIKE_RETENTION_MS;
-              strikesBufferRef.current = strikesBufferRef.current
-                .filter((s) => s.timestamp > cutoffTime)
-                .slice(-MAX_STRIKES); // Keep only most recent MAX_STRIKES
-
-              // Update state every second to batch updates
-              if (!reconnectTimerRef.current) {
-                reconnectTimerRef.current = setTimeout(() => {
-                  setLightningData([...strikesBufferRef.current]);
-                  reconnectTimerRef.current = null;
-                }, 1000);
-              }
-            }
-          } catch (err) {
-            console.error('[Lightning] Error parsing WebSocket message:', err);
-          }
-        };
-
-        ws.onerror = (error) => {
-          console.error(`[Lightning] WebSocket error on ${servers[currentServerIndexRef.current]}:`, error);
-          connectionAttemptsRef.current++;
-
-          // Try next server if this one fails
-          if (connectionAttemptsRef.current >= 3) {
-            console.debug(`[Lightning] Failed to connect after 3 attempts, trying next server...`);
-            currentServerIndexRef.current = (currentServerIndexRef.current + 1) % servers.length;
-            connectionAttemptsRef.current = 0;
-          }
-        };
-
-        ws.onclose = () => {
-          const serverUrl = servers[currentServerIndexRef.current];
-          console.debug(`[Lightning] WebSocket closed for ${serverUrl}`);
-          wsRef.current = null;
-
-          // Increment connection attempts
-          connectionAttemptsRef.current++;
-
-          // Try next server if too many failed attempts on current server
-          if (connectionAttemptsRef.current >= 3) {
-            console.debug(`[Lightning] Too many failures on ${serverUrl}, rotating to next server...`);
-            currentServerIndexRef.current = (currentServerIndexRef.current + 1) % servers.length;
-            connectionAttemptsRef.current = 0;
-          }
-
-          // Reconnect after 5 seconds if still enabled
-          if (enabled) {
-            console.debug(`[Lightning] Reconnecting to ${servers[currentServerIndexRef.current]} in 5s...`);
-            setTimeout(connectWebSocket, 5000);
-          }
-        };
-      } catch (err) {
-        console.error(`[Lightning] Error connecting to ${servers[currentServerIndexRef.current]}:`, err);
-        connectionAttemptsRef.current++;
-
-        // Try next server on connection error
-        if (connectionAttemptsRef.current >= 3) {
-          console.debug(`[Lightning] Too many connection errors, trying next server...`);
-          currentServerIndexRef.current = (currentServerIndexRef.current + 1) % servers.length;
-          connectionAttemptsRef.current = 0;
-        }
-
-        // Retry after 10 seconds
-        if (enabled) {
-          setTimeout(connectWebSocket, 10000);
-        }
-      }
-    };
-
-    connectWebSocket();
-
-    return () => {
-      if (wsRef.current) {
-        console.debug('[Lightning] Closing WebSocket connection');
-        wsRef.current.close();
-        wsRef.current = null;
-      }
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
-      }
-    };
-  }, [enabled, wsKey]);
+    if (!enabled) return undefined;
+    const unsubscribe = subscribeStrikes((batch) => {
+      const cutoffTime = Date.now() - STRIKE_RETENTION_MS;
+      strikesBufferRef.current = [...strikesBufferRef.current, ...batch]
+        .filter((s) => s.timestamp > cutoffTime)
+        .slice(-MAX_STRIKES);
+      setLightningData([...strikesBufferRef.current]);
+    });
+    return unsubscribe;
+  }, [enabled, MAX_STRIKES]);
 
   // Render strike markers with animation
   useEffect(() => {
@@ -652,38 +478,9 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
         panel.style.boxShadow = '0 0 20px rgba(255, 0, 0, 0.8)';
         panel.style.transition = 'all 0.3s ease';
 
-        // Play alert tone via audio alerts system (if enabled in settings)
-        const alertSettings = getAlertSettings();
-        const lightningConf = alertSettings.lightning;
-        if (lightningConf?.enabled) {
-          playTone(lightningConf.tone, alertSettings.volume ?? 0.5);
-        }
-
-        // Announce the closest nearby strike for screen-reader users
-        const closest = nearbyNewStrikes.reduce((a, b) => {
-          const da = calculateDistance(stationLat, stationLon, a.lat, a.lon);
-          const db = calculateDistance(stationLat, stationLon, b.lat, b.lon);
-          return da.km <= db.km ? a : b;
-        });
-        const dist = calculateDistance(stationLat, stationLon, closest.lat, closest.lon);
-        const bearing = calculateBearing(stationLat, stationLon, closest.lat, closest.lon);
-        document.dispatchEvent(
-          new CustomEvent('lightning:proximity', {
-            detail: {
-              distanceKm: Math.round(dist.km),
-              distanceMiles: Math.round(dist.miles * 10) / 10,
-              direction: bearingToCardinal(bearing),
-            },
-          }),
-        );
-
-        if (alertSettings.notifications && lightningConf?.notify) {
-          showAlertNotification({
-            feedId: 'lightning',
-            title: ALERT_FEEDS.lightning?.label || 'Lightning Proximity',
-            body: `Strike ${Math.round(dist.km)} km / ${Math.round(dist.miles)} mi ${bearingToCardinal(bearing)} of your station`,
-          });
-        }
+        // Sound, speech, notifications and the screen-reader announcement
+        // come from the lightning guard (Settings → Alerts → Lightning guard),
+        // which watches the same feed with or without this layer.
       } else {
         // No nearby strikes - restore normal appearance
         panel.style.border = '1px solid var(--border-color)';

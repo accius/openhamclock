@@ -253,6 +253,12 @@ module.exports = function (app, ctx) {
 
           rbnSpotCount++;
           ctx.rbnHealth.lastSpotAt = timestamp;
+          // Tap for downstream consumers (station benchmark, routes/benchmark.js).
+          if (typeof ctx.onRbnSpot === 'function') {
+            try {
+              ctx.onRbnSpot(spot);
+            } catch {}
+          }
         }
       }
     });
@@ -1268,5 +1274,39 @@ module.exports = function (app, ctx) {
   });
 
   // Return shared state
-  return { rbnSpotsByDX, rbnApiCaches };
+  /**
+   * Synchronous best-effort location of a spotted station (no HTTP):
+   * cluster spot cache → RBN location cache → shared callsign cache →
+   * prefix centroid (flagged precise:false). Used by routes/benchmark.js.
+   */
+  function rbnLocateStationSync(call, band) {
+    const dxCall = (call || '').toUpperCase();
+    if (!dxCall) return null;
+    const clusterLoc = lookupClusterSpotLocation(dxCall, band);
+    if (clusterLoc) return { lat: clusterLoc.lat, lon: clusterLoc.lon, grid: clusterLoc.grid, precise: true };
+    // Prefix centroid for this call — cached lookups that landed exactly on
+    // it came from the prefix fallback, not a callbook, so they are coarse.
+    let centroid = null;
+    try {
+      const prefixLoc = estimateLocationFromPrefix(extractBaseCallsign ? extractBaseCallsign(dxCall) : dxCall);
+      const coords = prefixLoc?.grid ? maidenheadToLatLon(prefixLoc.grid) : null;
+      if (coords) centroid = { lat: coords.lat, lon: coords.lon, grid: prefixLoc.grid };
+    } catch {}
+    const isCentroid = (lat, lon) =>
+      !!centroid && Math.abs(lat - centroid.lat) < 0.01 && Math.abs(lon - centroid.lon) < 0.01;
+    const cached = callsignLocationCache.get(dxCall);
+    if (cached && !cached._failed && Number.isFinite(cached.lat)) {
+      return { lat: cached.lat, lon: cached.lon, grid: cached.grid, precise: !isCentroid(cached.lat, cached.lon) };
+    }
+    const shared = getCachedCallsignLookup(dxCall);
+    if (shared) {
+      const precise =
+        shared.source !== 'prefix' && shared.source !== 'hamqth-dxcc' && !isCentroid(shared.lat, shared.lon);
+      return { lat: shared.lat, lon: shared.lon, grid: shared.grid || null, precise };
+    }
+    if (centroid) return { ...centroid, precise: false };
+    return null;
+  }
+
+  return { rbnSpotsByDX, rbnApiCaches, rbnLocateStationSync };
 };

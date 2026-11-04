@@ -8,6 +8,7 @@ import { DXCallsignInput } from '../components/DXCallsignInput.jsx';
 import { DXFavorites } from '../components/DXFavorites.jsx';
 import { getReadableBandColorForFreq, getBandColorForBand } from '../utils';
 import { calculateBearing, calculateDistance, formatDistance } from '../utils/geo.js';
+import { formatBearing } from '../utils/bearing.js';
 import { findDXPathForSpot, matchesDXSpotPath } from '../utils/dxClusterSpotMatcher';
 import CallsignLink from '../components/CallsignLink.jsx';
 import DonateButton from '../components/DonateButton.jsx';
@@ -911,7 +912,7 @@ export default function ClassicLayout(props) {
                   <DXLocalTime currentTime={currentTime} timezone={dxTimezone} solarTimezone={dxSolarFallback} />
                 )}
                 <div style={{ marginTop: '6px', color: '#ff8800', fontSize: '18px', fontWeight: '600' }}>
-                  <span>{bearing != null ? `${bearing}°` : '--°'}</span>
+                  <span>{bearing != null ? formatBearing(bearing, deLat, deLon) : '--°'}</span>
                   <span style={{ marginLeft: '12px' }}>{distStr}</span>
                 </div>
               </div>
@@ -956,6 +957,7 @@ export default function ClassicLayout(props) {
             onToggleSatellites={toggleSatellites}
             hoveredSpot={hoveredSpot}
             hideOverlays={true}
+            controlsBottomInset={56}
             callsign={config.callsign}
             lowMemoryMode={config.lowMemoryMode}
             allUnits={config.allUnits}
@@ -1475,6 +1477,7 @@ export default function ClassicLayout(props) {
             onToggleSatellites={toggleSatellites}
             hoveredSpot={hoveredSpot}
             hideOverlays={true}
+            controlsBottomInset={66}
             callsign={config.callsign}
             lowMemoryMode={config.lowMemoryMode}
             allUnits={config.allUnits}

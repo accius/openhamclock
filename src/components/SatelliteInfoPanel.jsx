@@ -11,6 +11,8 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { deriveSatelliteTelemetry } from '../utils/satelliteTelemetry.js';
 import { openSatellitePredict } from '../utils/satellitePredict.js';
+import { formatTleAge } from '../utils/tleAge.js';
+import SatelliteAutomationControls from './SatelliteAutomationControls.jsx';
 
 const rowStyle = (bg, fg) => ({
   background: bg,
@@ -285,6 +287,12 @@ export default function SatelliteInfoPanel({ satellites, selected, allUnits, con
                       {d.tone && (
                         <Row label={t('station.settings.satellites.tone')} value={d.tone} bg={metaBg} fg={metaFg} />
                       )}
+                      <Row
+                        label={t('satAuto.tleAge')}
+                        value={`${sat.tleStale ? '⚠ ' : ''}${formatTleAge(sat.tleAgeDays)}`}
+                        bg={metaBg}
+                        fg={sat.tleStale ? 'var(--accent-amber)' : metaFg}
+                      />
 
                       <tr>
                         <td colSpan={2}>
@@ -314,6 +322,8 @@ export default function SatelliteInfoPanel({ satellites, selected, allUnits, con
                       </tr>
                     </tbody>
                   </table>
+
+                  {sat.omm && <SatelliteAutomationControls sat={sat} compact />}
 
                   {d.notes && (
                     <div

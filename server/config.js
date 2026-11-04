@@ -59,6 +59,11 @@ if (fs.existsSync(envPath)) {
 
 const PORT = Number(process.env.PORT) || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
+// Interface the HTTP and LAN HTTPS listeners bind to. HOST only names the
+// address shown in the startup banner; binding has always been every
+// interface, and many installs reach their dashboard from phones that way, so
+// that stays the default. BIND_HOST=127.0.0.1 keeps the server on this machine.
+const BIND_HOST = process.env.BIND_HOST || '0.0.0.0';
 
 // Trust proxy setting
 const TRUST_PROXY =
@@ -69,6 +74,11 @@ const TRUST_PROXY =
     : process.env.RAILWAY_ENVIRONMENT || process.env.RAILWAY_PROJECT_ID
       ? 1
       : false;
+
+// Take the client IP from Cloudflare's CF-Connecting-IP header. Only safe when
+// the origin is reachable exclusively through Cloudflare (anyone reaching it
+// directly can forge the header), so it is off unless explicitly enabled.
+const TRUST_CLOUDFLARE = process.env.TRUST_CLOUDFLARE === 'true' || process.env.TRUST_CLOUDFLARE === '1';
 
 // Security: API key for write operations
 const API_WRITE_KEY = process.env.API_WRITE_KEY || '';
@@ -294,7 +304,9 @@ module.exports = {
   IS_PACKAGED,
   PORT,
   HOST,
+  BIND_HOST,
   TRUST_PROXY,
+  TRUST_CLOUDFLARE,
   API_WRITE_KEY,
   METRICS_AUTH_KEY,
   ITURHFPROP_URL,

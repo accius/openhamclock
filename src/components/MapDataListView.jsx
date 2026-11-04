@@ -16,6 +16,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { calculateBearing, calculateDistance, formatDistance } from '../utils/geo.js';
+import { formatBearing } from '../utils/bearing.js';
 
 const COMPASS_8 = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
 const compass8 = (deg) => COMPASS_8[Math.round(deg / 45) % 8];
@@ -127,6 +128,8 @@ function bearingDistanceLabel(deLat, deLon, lat, lon, units) {
   const distanceKm = calculateDistance(deLat, deLon, lat, lon);
   return {
     bearing,
+    // "123°" or "116°M" per Settings → Station → Bearings
+    bearingText: formatBearing(bearing, deLat, deLon),
     compass: compass8(bearing),
     distance: formatDistance(distanceKm, units),
     distanceKm,
@@ -177,7 +180,7 @@ export default function MapDataListView({
         </td>
         <td style={tdStyle}>{spot.call || '?'}</td>
         <td style={tdStyle} aria-label={bearingAria(bd)}>
-          {bd ? `${bd.bearing}° ${bd.compass} · ${bd.distance}` : '—'}
+          {bd ? `${bd.bearingText} ${bd.compass} · ${bd.distance}` : '—'}
         </td>
         <td style={tdStyle} aria-label={minutes != null ? ageAriaLabel(minutes, t) : undefined}>
           {ageDisplay(minutes, t)}
@@ -238,7 +241,7 @@ export default function MapDataListView({
           <span className="visually-hidden"> {t('mapDataListView.aria.megahertz')}</span>
         </td>
         <td style={tdStyle} aria-label={bearingAria(bd)}>
-          {bd ? `${bd.bearing}° ${bd.compass} · ${bd.distance}` : '—'}
+          {bd ? `${bd.bearingText} ${bd.compass} · ${bd.distance}` : '—'}
         </td>
         <td style={tdStyle} aria-label={minutes != null ? ageAriaLabel(minutes, t) : undefined}>
           {ageDisplay(minutes, t)}
@@ -262,7 +265,7 @@ export default function MapDataListView({
       return (
         <tr key={`strike-${strike.id || i}`}>
           <td style={tdStyle} aria-label={bearingAria(bd)}>
-            {bd ? `${bd.bearing}° ${bd.compass} · ${bd.distance}` : '—'}
+            {bd ? `${bd.bearingText} ${bd.compass} · ${bd.distance}` : '—'}
           </td>
           <td style={tdStyle} aria-label={t('mapDataListView.aria.kiloamperes', { value: strike.intensity })}>
             {strike.intensity} kA
@@ -303,7 +306,7 @@ export default function MapDataListView({
             {plane.speed_kn != null ? `${Math.round(plane.speed_kn)} kn` : '—'}
           </td>
           <td style={tdStyle} aria-label={bearingAria(bd)}>
-            {bd ? `${bd.bearing}° ${bd.compass} · ${bd.distance}` : '—'}
+            {bd ? `${bd.bearingText} ${bd.compass} · ${bd.distance}` : '—'}
           </td>
         </tr>
       );
@@ -328,7 +331,7 @@ export default function MapDataListView({
             {more}
           </td>
           <td style={tdStyle} aria-label={bearingAria(bd)}>
-            {bd ? `${bd.bearing}° ${bd.compass} · ${bd.distance}` : '—'}
+            {bd ? `${bd.bearingText} ${bd.compass} · ${bd.distance}` : '—'}
           </td>
         </tr>
       );

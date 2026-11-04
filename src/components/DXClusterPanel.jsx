@@ -2,13 +2,14 @@
  * DXClusterPanel Component
  * Displays DX cluster spots with filtering controls and ON/OFF toggle
  */
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getReadableBandColorForFreq } from '../utils/bandColors.js';
 import { matchesDXSpotPath } from '../utils/dxClusterSpotMatcher';
 import { balanceSpotWindow } from '../utils/dxClusterFilters';
 import { IconSearch, IconMap, IconGlobe } from './Icons.jsx';
 import CallsignLink from './CallsignLink.jsx';
+import SpotBadge from './SpotBadge.jsx';
 import { useCallsignPopup } from './CallsignPopupManager.jsx';
 import { classifySpotMode } from '../hooks/useBandHealth.js';
 import { useWorkedBefore } from '../hooks/useWorkedBefore.js';
@@ -17,6 +18,8 @@ import { spotBadge } from '../utils/awards.js';
 import { apiFetch } from '../utils/apiFetch';
 import { getListenUrl, loadNearbyReceivers } from '../utils/webSdr.js';
 import { requestLogQso } from '../services/logbookStore.js';
+import { useCompiledWatchlist } from '../hooks/useWatchlists.js';
+import { spotIota, iotaName } from '../utils/iota.js';
 
 // Mirrors the server-side validator — good enough to gate the Spot button.
 const isValidCallsign = (call) =>
@@ -69,6 +72,25 @@ export const DXClusterPanel = ({
   // not in the log at all (ATNO), 'new-band' = entity worked, but not on this
   // band. Null for everyone until the logbook has QSOs — zero-config.
   const { getSpotStatus: getAwardStatus } = useAwards();
+
+  // HamClock-style DX watch list. Only/Not filtering happens in
+  // useDXClusterData; Red mode is painted here (plus off-screen arrows).
+  const watch = useCompiledWatchlist('dx');
+  const isWatchRed = useCallback(
+    (spot) =>
+      watch.mode === 'red' && !!watch.matcher && watch.matcher({ call: spot.call, freq: spot.freq, grid: spot.dxGrid }),
+    [watch],
+  );
+
+  // ── Scroll handling: freeze the list while the user is scrolled away, show
+  // a "NEW n" jump button for spots that arrived meanwhile, and red arrows
+  // when Red-list matches sit above/below the viewport.
+  const listRef = useRef(null);
+  const frozenRef = useRef(null); // snapshot shown while scrolled away
+  const [scrolledAway, setScrolledAway] = useState(false);
+  const [scrollTick, setScrollTick] = useState(0);
+  const [redArrows, setRedArrows] = useState({ up: false, down: false });
+  const spotKey = (s) => s.id || `${s.call}-${s.freq}-${s.spotter}`;
 
   // ── Spot submission (only when this instance has an OHC Cluster) ────
   const [canSpot, setCanSpot] = useState(false);
@@ -220,11 +242,11 @@ export const DXClusterPanel = ({
     if (filters?.ituZones?.length) count++;
     if (filters?.bands?.length) count++;
     if (filters?.modes?.length) count++;
-    if (filters?.watchlist?.length) count++;
+    if (watch.matcher) count++;
     if (filters?.commentText?.length) count++;
     if (filters?.callsign) count++;
-    if (filters?.watchlistOnly) count++;
     if (filters?.dxpeditionsOnly) count++;
+    if (filters?.iotaOnly) count++;
     if (filters?.contest) count++;
     if (filters?.excludeContinents) count += filters.excludeContinents.length;
     if (filters?.excludeCqZones) count += filters.excludeCqZones.length;
@@ -260,6 +282,76 @@ export const DXClusterPanel = ({
     }
     return copy;
   }, [rawSpots, sortField]);
+
+  // While scrolled away, keep showing the snapshot taken when the user left
+  // the top so rows don't shift under the pointer; count what arrived since.
+  const displaySpots = scrolledAway && frozenRef.current ? frozenRef.current : spots;
+  const newCount = useMemo(() => {
+    if (!scrolledAway || !frozenRef.current) return 0;
+    const known = new Set(frozenRef.current.map(spotKey));
+    return spots.filter((s) => !known.has(spotKey(s))).length;
+  }, [spots, scrolledAway]);
+
+  const handleListScroll = useCallback(() => {
+    const el = listRef.current;
+    if (!el) return;
+    const away = el.scrollTop > 4;
+    if (away !== scrolledAway) {
+      frozenRef.current = away ? spots : null;
+      setScrolledAway(away);
+    }
+    setScrollTick((n) => n + 1);
+  }, [scrolledAway, spots]);
+
+  const jumpToTop = useCallback(() => {
+    frozenRef.current = null;
+    setScrolledAway(false);
+    if (listRef.current) listRef.current.scrollTop = 0;
+  }, []);
+
+  const scrollToRed = useCallback((direction) => {
+    const el = listRef.current;
+    if (!el) return;
+    const rows = Array.from(el.querySelectorAll('[data-watch-red="1"]'));
+    const top = el.scrollTop;
+    const bottom = top + el.clientHeight;
+    const target =
+      direction === 'up'
+        ? rows.filter((r) => r.offsetTop + r.offsetHeight <= top).pop()
+        : rows.find((r) => r.offsetTop >= bottom);
+    if (target) el.scrollTop = Math.max(0, target.offsetTop - 4);
+  }, []);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el || watch.mode !== 'red' || !watch.matcher) {
+      setRedArrows((prev) => (prev.up || prev.down ? { up: false, down: false } : prev));
+      return;
+    }
+    const rows = el.querySelectorAll('[data-watch-red="1"]');
+    const top = el.scrollTop;
+    const bottom = top + el.clientHeight;
+    let up = false;
+    let down = false;
+    rows.forEach((r) => {
+      if (r.offsetTop + r.offsetHeight <= top) up = true;
+      else if (r.offsetTop >= bottom) down = true;
+    });
+    setRedArrows((prev) => (prev.up === up && prev.down === down ? prev : { up, down }));
+  }, [displaySpots, scrollTick, watch, showSpotter]);
+
+  const overlayButtonStyle = {
+    position: 'absolute',
+    right: '10px',
+    zIndex: 2,
+    padding: '2px 8px',
+    borderRadius: '10px',
+    fontSize: '10px',
+    fontFamily: 'var(--font-mono)',
+    fontWeight: '700',
+    cursor: 'pointer',
+    boxShadow: '0 1px 4px rgba(0,0,0,0.4)',
+  };
 
   return (
     <div
@@ -357,6 +449,29 @@ export const DXClusterPanel = ({
           >
             <IconSearch size={10} style={{ verticalAlign: 'middle', marginRight: '3px' }} />
             {filterCount > 0 ? filterCount : ''}
+          </button>
+          <button
+            type="button"
+            onClick={() => onFilterChange?.({ ...filters, iotaOnly: filters?.iotaOnly ? undefined : true })}
+            title={t('dxClusterPanel.iota.toggleTooltip', {
+              defaultValue: 'Show only spots with an IOTA reference (panel and map)',
+            })}
+            aria-label={t('dxClusterPanel.iota.toggleTooltip', {
+              defaultValue: 'Show only spots with an IOTA reference (panel and map)',
+            })}
+            aria-pressed={!!filters?.iotaOnly}
+            style={{
+              background: filters?.iotaOnly ? 'rgba(0, 221, 255, 0.25)' : 'rgba(100, 100, 100, 0.3)',
+              border: `1px solid ${filters?.iotaOnly ? 'var(--accent-cyan)' : '#666'}`,
+              color: filters?.iotaOnly ? 'var(--accent-cyan)' : '#888',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '9px',
+              fontFamily: 'var(--font-mono)',
+              cursor: 'pointer',
+            }}
+          >
+            {t('dxClusterPanel.iota.badge', { defaultValue: 'IOTA' })}
           </button>
           <button
             onClick={toggleSpotter}
@@ -526,7 +641,7 @@ export const DXClusterPanel = ({
         <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
           <div className="loading-spinner" />
         </div>
-      ) : spots.length === 0 ? (
+      ) : displaySpots.length === 0 ? (
         <div
           style={{
             textAlign: 'center',
@@ -538,316 +653,288 @@ export const DXClusterPanel = ({
           {error ? error : filterCount > 0 ? t('dxClusterPanel.noSpotsFiltered') : t('dxClusterPanel.noSpots')}
         </div>
       ) : (
-        <div
-          role="table"
-          aria-label={t('dxClusterPanel.tableLabel', { defaultValue: 'DX cluster spots' })}
-          style={{
-            flex: 1,
-            overflow: 'auto',
-            fontSize: '12px',
-            fontFamily: 'var(--font-mono)',
-          }}
-        >
-          <div className="visually-hidden" role="row">
-            <span role="columnheader">Frequency</span>
-            <span role="columnheader">Callsign</span>
-            <span role="columnheader">Mode</span>
-            {showSpotter && <span role="columnheader">Spotter</span>}
-            <span role="columnheader">Age</span>
-            <span role="columnheader">Log / Listen</span>
-          </div>
-          {spots.map((spot, i) => {
-            // Frequency can be in MHz (string like "14.070") or kHz (number like 14070)
-            let freqDisplay = '?';
-            let freqMHz = 0;
+        <div style={{ position: 'relative', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          {scrolledAway && newCount > 0 && (
+            <button
+              type="button"
+              onClick={jumpToTop}
+              aria-label={t('dxClusterPanel.newSpotsAria', {
+                defaultValue: '{{count}} new spots — jump to top',
+                count: newCount,
+              })}
+              style={{
+                ...overlayButtonStyle,
+                top: '4px',
+                left: '50%',
+                right: 'auto',
+                transform: 'translateX(-50%)',
+                background: 'var(--accent-green)',
+                color: '#000',
+                border: 'none',
+              }}
+            >
+              ↑ {t('dxClusterPanel.newSpots', { defaultValue: 'NEW {{count}}', count: newCount })}
+            </button>
+          )}
+          {redArrows.up && (
+            <button
+              type="button"
+              onClick={() => scrollToRed('up')}
+              aria-label={t('dxClusterPanel.watchAbove', { defaultValue: 'Watch list match above — scroll up' })}
+              title={t('dxClusterPanel.watchAbove', { defaultValue: 'Watch list match above — scroll up' })}
+              style={{
+                ...overlayButtonStyle,
+                top: '4px',
+                background: 'var(--accent-red)',
+                color: '#fff',
+                border: 'none',
+              }}
+            >
+              ▲
+            </button>
+          )}
+          {redArrows.down && (
+            <button
+              type="button"
+              onClick={() => scrollToRed('down')}
+              aria-label={t('dxClusterPanel.watchBelow', { defaultValue: 'Watch list match below — scroll down' })}
+              title={t('dxClusterPanel.watchBelow', { defaultValue: 'Watch list match below — scroll down' })}
+              style={{
+                ...overlayButtonStyle,
+                bottom: '4px',
+                background: 'var(--accent-red)',
+                color: '#fff',
+                border: 'none',
+              }}
+            >
+              ▼
+            </button>
+          )}
+          <div
+            ref={listRef}
+            onScroll={handleListScroll}
+            role="table"
+            aria-label={t('dxClusterPanel.tableLabel', { defaultValue: 'DX cluster spots' })}
+            style={{
+              position: 'relative',
+              flex: 1,
+              overflow: 'auto',
+              fontSize: '12px',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            <div className="visually-hidden" role="row">
+              <span role="columnheader">Frequency</span>
+              <span role="columnheader">Callsign</span>
+              <span role="columnheader">Mode</span>
+              {showSpotter && <span role="columnheader">Spotter</span>}
+              <span role="columnheader">Age</span>
+              <span role="columnheader">Log / Listen</span>
+            </div>
+            {displaySpots.map((spot, i) => {
+              // Frequency can be in MHz (string like "14.070") or kHz (number like 14070)
+              let freqDisplay = '?';
+              let freqMHz = 0;
 
-            if (spot.freq) {
-              const freqVal = parseFloat(spot.freq);
-              if (freqVal > 1000) {
-                // It's in kHz, convert to MHz
-                freqMHz = freqVal / 1000;
-                freqDisplay = freqMHz.toFixed(3);
-              } else {
-                // Already in MHz
-                freqMHz = freqVal;
-                freqDisplay = freqVal.toFixed(3);
+              if (spot.freq) {
+                const freqVal = parseFloat(spot.freq);
+                if (freqVal > 1000) {
+                  // It's in kHz, convert to MHz
+                  freqMHz = freqVal / 1000;
+                  freqDisplay = freqMHz.toFixed(3);
+                } else {
+                  // Already in MHz
+                  freqMHz = freqVal;
+                  freqDisplay = freqVal.toFixed(3);
+                }
               }
-            }
 
-            const color = getReadableBandColorForFreq(freqMHz);
-            const isHovered = matchesDXSpotPath(hoveredSpot, spot);
-            // Mode is never on the wire — DX cluster format doesn't carry it. Derive from spot.comment if
-            // it has an explicit mode keyword, otherwise fall back to frequency band-plan inference.
-            const modeInfo = classifySpotMode(spot);
-            // 'dupe' = worked on this band+mode, 'worked' = in the log on
-            // another band/mode, null = not in the log (a "new one").
-            const workedStatus = getWorkedStatus(spot.call, freqMHz, modeInfo?.mode);
-            // Award angle from the native logbook: 'new' (ATNO) / 'new-band'.
-            // spotBadge collapses both statuses into the single badge shown —
-            // precedence: new > new-band > worked/dupe.
-            const badge = spotBadge(getAwardStatus(spot.call, freqMHz), workedStatus);
-            // Web SDR "listen" link — lets rig-less users hear the station.
-            const listen = freqMHz > 0 ? getListenUrl(freqMHz * 1000, modeInfo?.mode) : null;
+              const color = getReadableBandColorForFreq(freqMHz);
+              const isHovered = matchesDXSpotPath(hoveredSpot, spot);
+              // Mode is never on the wire — DX cluster format doesn't carry it. Derive from spot.comment if
+              // it has an explicit mode keyword, otherwise fall back to frequency band-plan inference.
+              const modeInfo = classifySpotMode(spot);
+              // 'dupe' = worked on this band+mode, 'worked' = in the log on
+              // another band/mode, null = not in the log (a "new one").
+              const workedStatus = getWorkedStatus(spot.call, freqMHz, modeInfo?.mode);
+              // Award angle from the native logbook: 'new' (ATNO) / 'new-band'.
+              // spotBadge collapses both statuses into the single badge shown —
+              // precedence: new > new-band > worked/dupe.
+              const badge = spotBadge(getAwardStatus(spot.call, freqMHz), workedStatus);
+              // Web SDR "listen" link — lets rig-less users hear the station.
+              const listen = freqMHz > 0 ? getListenUrl(freqMHz * 1000, modeInfo?.mode) : null;
+              // Red watch-list match: tinted row + red callsign (Red mode only).
+              const watchRed = isWatchRed(spot);
+              // IOTA reference from the comment ("EU-005") — badge + island group tooltip.
+              const iota = spotIota(spot);
 
-            return (
-              <div
-                key={`${spot.call}-${spot.freq}-${i}`}
-                role="row"
-                onMouseEnter={() => onHoverSpot?.(spot)}
-                onMouseLeave={() => onHoverSpot?.(null)}
-                onClick={() => {
-                  onSpotClick?.(spot);
-                  onSpotSelect?.(spot);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
+              return (
+                <div
+                  key={`${spot.call}-${spot.freq}-${i}`}
+                  role="row"
+                  data-watch-red={watchRed ? '1' : undefined}
+                  onMouseEnter={() => onHoverSpot?.(spot)}
+                  onMouseLeave={() => onHoverSpot?.(null)}
+                  onClick={() => {
                     onSpotClick?.(spot);
                     onSpotSelect?.(spot);
-                  }
-                }}
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: showSpotter ? '55px 1fr auto auto auto auto' : '55px 1fr auto auto auto',
-                  gap: '6px',
-                  padding: '5px 6px',
-                  borderRadius: '3px',
-                  marginBottom: '2px',
-                  background: isHovered
-                    ? 'rgba(68, 136, 255, 0.25)'
-                    : i % 2 === 0
-                      ? 'rgba(255,255,255,0.03)'
-                      : 'transparent',
-                  cursor: 'pointer',
-                  transition: 'background 0.15s',
-                  borderLeft: isHovered ? '2px solid #4488ff' : '2px solid transparent',
-                }}
-              >
-                <div role="cell" style={{ color, fontWeight: '600' }}>
-                  {freqDisplay}
-                  <span className="visually-hidden"> megahertz</span>
-                </div>
-                <div
-                  role="cell"
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSpotClick?.(spot);
+                      onSpotSelect?.(spot);
+                    }
+                  }}
                   style={{
-                    color: 'var(--text-primary)',
-                    fontWeight: '700',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
+                    display: 'grid',
+                    gridTemplateColumns: showSpotter ? '55px 1fr auto auto auto auto' : '55px 1fr auto auto auto',
+                    gap: '6px',
+                    padding: '5px 6px',
+                    borderRadius: '3px',
+                    marginBottom: '2px',
+                    background: isHovered
+                      ? 'rgba(68, 136, 255, 0.25)'
+                      : watchRed
+                        ? 'rgba(255, 68, 68, 0.12)'
+                        : i % 2 === 0
+                          ? 'rgba(255,255,255,0.03)'
+                          : 'transparent',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s',
+                    borderLeft: isHovered
+                      ? '2px solid #4488ff'
+                      : watchRed
+                        ? '2px solid var(--accent-red)'
+                        : '2px solid transparent',
                   }}
                 >
-                  <CallsignLink
-                    call={spot.call}
-                    color="var(--text-primary)"
-                    fontWeight="700"
-                    onPopup={showPopup}
-                    location={{ grid: spot.dxGrid, lat: spot.dxLat, lon: spot.dxLon }}
-                    spot={freqMHz > 0 ? { freq: freqMHz * 1000, mode: modeInfo?.mode ?? null } : undefined}
-                  />
-                  {badge === 'new' && (
-                    <span
-                      title={t('dxClusterPanel.workedBadge.newTooltip', {
-                        defaultValue: 'New one — this DXCC entity is not in your logbook (ATNO)',
-                      })}
-                      aria-label={t('dxClusterPanel.workedBadge.newTooltip', {
-                        defaultValue: 'New one — this DXCC entity is not in your logbook (ATNO)',
-                      })}
-                      style={{
-                        marginLeft: '4px',
-                        padding: '0 3px',
-                        fontSize: '8px',
-                        fontWeight: '700',
-                        letterSpacing: '0.5px',
-                        color: '#ff4444',
-                        background: 'rgba(255, 68, 68, 0.15)',
-                        border: '1px solid rgba(255, 68, 68, 0.6)',
-                        borderRadius: '2px',
-                        verticalAlign: 'middle',
-                      }}
-                    >
-                      {t('dxClusterPanel.workedBadge.new', { defaultValue: 'NEW' })}
-                    </span>
-                  )}
-                  {badge === 'new-band' && (
-                    <span
-                      title={t('dxClusterPanel.workedBadge.newBandTooltip', {
-                        defaultValue: 'Entity worked before, but not on this band — new band slot',
-                      })}
-                      aria-label={t('dxClusterPanel.workedBadge.newBandTooltip', {
-                        defaultValue: 'Entity worked before, but not on this band — new band slot',
-                      })}
-                      style={{
-                        marginLeft: '4px',
-                        padding: '0 3px',
-                        fontSize: '8px',
-                        fontWeight: '700',
-                        letterSpacing: '0.5px',
-                        color: '#ff8844',
-                        background: 'rgba(255, 136, 68, 0.12)',
-                        border: '1px solid rgba(255, 136, 68, 0.5)',
-                        borderRadius: '2px',
-                        verticalAlign: 'middle',
-                      }}
-                    >
-                      {t('dxClusterPanel.workedBadge.newBand', { defaultValue: 'BAND' })}
-                    </span>
-                  )}
-                  {badge === 'dupe' && (
-                    <span
-                      title={t('dxClusterPanel.workedBadge.dupeTooltip', {
-                        defaultValue: 'Already in your log on this band and mode — dupe',
-                      })}
-                      aria-label={t('dxClusterPanel.workedBadge.dupeTooltip', {
-                        defaultValue: 'Already in your log on this band and mode — dupe',
-                      })}
-                      style={{
-                        marginLeft: '4px',
-                        padding: '0 3px',
-                        fontSize: '8px',
-                        fontWeight: '700',
-                        letterSpacing: '0.5px',
-                        color: '#ffaa00',
-                        background: 'rgba(255, 170, 0, 0.15)',
-                        border: '1px solid rgba(255, 170, 0, 0.6)',
-                        borderRadius: '2px',
-                        verticalAlign: 'middle',
-                      }}
-                    >
-                      {t('dxClusterPanel.workedBadge.dupe', { defaultValue: 'DUPE' })}
-                    </span>
-                  )}
-                  {badge === 'worked' && (
-                    <span
-                      title={t('dxClusterPanel.workedBadge.workedTooltip', {
-                        defaultValue: 'In your log — worked before on a different band or mode',
-                      })}
-                      aria-label={t('dxClusterPanel.workedBadge.workedTooltip', {
-                        defaultValue: 'In your log — worked before on a different band or mode',
-                      })}
-                      style={{
-                        marginLeft: '4px',
-                        fontSize: '9px',
-                        color: 'var(--text-muted)',
-                        opacity: 0.75,
-                        verticalAlign: 'middle',
-                      }}
-                    >
-                      ✓
-                    </span>
-                  )}
-                </div>
-                <div
-                  role="cell"
-                  style={{
-                    color: modeInfo?.mode ? 'var(--text-secondary)' : 'var(--text-muted)',
-                    fontStyle: modeInfo?.inferred ? 'italic' : 'normal',
-                    fontSize: '10px',
-                    alignSelf: 'center',
-                    minWidth: '32px',
-                    textAlign: 'right',
-                  }}
-                  title={
-                    modeInfo?.mode
-                      ? modeInfo.inferred
-                        ? `${modeInfo.mode} (inferred from ${modeInfo.inferredBy}, ${modeInfo.confidence} confidence)`
-                        : `${modeInfo.mode} (from spot comment)`
-                      : 'mode unknown'
-                  }
-                >
-                  {modeInfo?.mode || '—'}
-                </div>
-                {showSpotter && (
+                  <div role="cell" style={{ color, fontWeight: '600' }}>
+                    {freqDisplay}
+                    <span className="visually-hidden"> megahertz</span>
+                  </div>
                   <div
                     role="cell"
                     style={{
-                      color: 'var(--text-muted)',
-                      fontSize: '10px',
+                      color: 'var(--text-primary)',
+                      fontWeight: '700',
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
+                    }}
+                  >
+                    <CallsignLink
+                      call={spot.call}
+                      color={watchRed ? 'var(--accent-red)' : 'var(--text-primary)'}
+                      fontWeight="700"
+                      onPopup={showPopup}
+                      location={{ grid: spot.dxGrid, lat: spot.dxLat, lon: spot.dxLon }}
+                      spot={freqMHz > 0 ? { freq: freqMHz * 1000, mode: modeInfo?.mode ?? null } : undefined}
+                    />
+                    <SpotBadge badge={badge} />
+                    {iota && (
+                      <span
+                        title={`IOTA ${iota}${iotaName(iota) ? ` — ${iotaName(iota)}` : ''}`}
+                        aria-label={`IOTA ${iota}${iotaName(iota) ? `, ${iotaName(iota)}` : ''}`}
+                        style={{
+                          marginLeft: '4px',
+                          padding: '0 3px',
+                          fontSize: '8px',
+                          fontWeight: '700',
+                          letterSpacing: '0.5px',
+                          color: 'var(--accent-cyan)',
+                          background: 'rgba(0, 221, 255, 0.12)',
+                          border: '1px solid rgba(0, 221, 255, 0.5)',
+                          borderRadius: '2px',
+                          verticalAlign: 'middle',
+                        }}
+                      >
+                        {iota}
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    role="cell"
+                    style={{
+                      color: modeInfo?.mode ? 'var(--text-secondary)' : 'var(--text-muted)',
+                      fontStyle: modeInfo?.inferred ? 'italic' : 'normal',
+                      fontSize: '10px',
+                      alignSelf: 'center',
+                      minWidth: '32px',
+                      textAlign: 'right',
+                    }}
+                    title={
+                      modeInfo?.mode
+                        ? modeInfo.inferred
+                          ? `${modeInfo.mode} (inferred from ${modeInfo.inferredBy}, ${modeInfo.confidence} confidence)`
+                          : `${modeInfo.mode} (from spot comment)`
+                        : 'mode unknown'
+                    }
+                  >
+                    {modeInfo?.mode || '—'}
+                  </div>
+                  {showSpotter && (
+                    <div
+                      role="cell"
+                      style={{
+                        color: 'var(--text-muted)',
+                        fontSize: '10px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        alignSelf: 'center',
+                      }}
+                    >
+                      de{' '}
+                      <CallsignLink
+                        call={spot.spotter || '?'}
+                        color="var(--text-muted)"
+                        fontSize="10px"
+                        onPopup={showPopup}
+                        location={{ grid: spot.spotterGrid, lat: spot.spotterLat, lon: spot.spotterLon }}
+                      />
+                    </div>
+                  )}
+                  <div
+                    role="cell"
+                    aria-label={formatSpotTimeAriaLabel(spot)}
+                    style={{
+                      color: 'var(--text-muted)',
+                      fontSize: '10px',
                       alignSelf: 'center',
                     }}
                   >
-                    de{' '}
-                    <CallsignLink
-                      call={spot.spotter || '?'}
-                      color="var(--text-muted)"
-                      fontSize="10px"
-                      onPopup={showPopup}
-                      location={{ grid: spot.spotterGrid, lat: spot.spotterLat, lon: spot.spotterLon }}
-                    />
+                    {formatSpotTimeLabel(spot)}
                   </div>
-                )}
-                <div
-                  role="cell"
-                  aria-label={formatSpotTimeAriaLabel(spot)}
-                  style={{
-                    color: 'var(--text-muted)',
-                    fontSize: '10px',
-                    alignSelf: 'center',
-                  }}
-                >
-                  {formatSpotTimeLabel(spot)}
-                </div>
-                <div role="cell" style={{ alignSelf: 'center', display: 'flex', gap: '2px', alignItems: 'center' }}>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      requestLogQso({
+                  <div role="cell" style={{ alignSelf: 'center', display: 'flex', gap: '2px', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        requestLogQso({
+                          call: spot.call,
+                          freq: freqMHz > 0 ? freqMHz : undefined,
+                          mode: modeInfo?.mode || undefined,
+                          gridsquare: spot.dxGrid || undefined,
+                        });
+                      }}
+                      title={t('logbook.logFromSpotTooltip', {
+                        defaultValue: 'Log a QSO with {{call}} in your logbook',
                         call: spot.call,
-                        freq: freqMHz > 0 ? freqMHz : undefined,
-                        mode: modeInfo?.mode || undefined,
-                        gridsquare: spot.dxGrid || undefined,
-                      });
-                    }}
-                    title={t('logbook.logFromSpotTooltip', {
-                      defaultValue: 'Log a QSO with {{call}} in your logbook',
-                      call: spot.call,
-                    })}
-                    aria-label={t('logbook.logFromSpotTooltip', {
-                      defaultValue: 'Log a QSO with {{call}} in your logbook',
-                      call: spot.call,
-                    })}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      padding: 0,
-                      fontSize: '10px',
-                      cursor: 'pointer',
-                      opacity: 0.55,
-                      transition: 'opacity 0.15s',
-                      lineHeight: 1,
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.opacity = '1';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.opacity = '0.55';
-                    }}
-                  >
-                    📓+
-                  </button>
-                  {listen && (
-                    <a
-                      href={listen.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      title={t('dxClusterPanel.listenTooltip', {
-                        defaultValue: 'Listen on a web SDR ({{receiver}})',
-                        receiver: listen.name,
                       })}
-                      aria-label={t('dxClusterPanel.listenTooltip', {
-                        defaultValue: 'Listen on a web SDR ({{receiver}})',
-                        receiver: listen.name,
+                      aria-label={t('logbook.logFromSpotTooltip', {
+                        defaultValue: 'Log a QSO with {{call}} in your logbook',
+                        call: spot.call,
                       })}
                       style={{
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
                         fontSize: '10px',
-                        textDecoration: 'none',
+                        cursor: 'pointer',
                         opacity: 0.55,
                         transition: 'opacity 0.15s',
+                        lineHeight: 1,
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.opacity = '1';
@@ -856,13 +943,43 @@ export const DXClusterPanel = ({
                         e.currentTarget.style.opacity = '0.55';
                       }}
                     >
-                      🎧
-                    </a>
-                  )}
+                      📓+
+                    </button>
+                    {listen && (
+                      <a
+                        href={listen.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        title={t('dxClusterPanel.listenTooltip', {
+                          defaultValue: 'Listen on a web SDR ({{receiver}})',
+                          receiver: listen.name,
+                        })}
+                        aria-label={t('dxClusterPanel.listenTooltip', {
+                          defaultValue: 'Listen on a web SDR ({{receiver}})',
+                          receiver: listen.name,
+                        })}
+                        style={{
+                          fontSize: '10px',
+                          textDecoration: 'none',
+                          opacity: 0.55,
+                          transition: 'opacity 0.15s',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.opacity = '1';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.opacity = '0.55';
+                        }}
+                      >
+                        🎧
+                      </a>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

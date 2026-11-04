@@ -76,7 +76,7 @@ A browser window opens automatically when you launch from a desktop; otherwise g
 Good to know:
 
 - **Settings and data** (`.env`, `config.json`, `data/`) are created next to the executable on first run, so keep it in its own folder. Set `OPENHAMCLOCK_HOME=/some/dir` to store them elsewhere.
-- **LAN access:** set `HOST=0.0.0.0` in `.env` and browse to `http://<your-ip>:3001` from phones and tablets. `PORT` lives in the same file.
+- **LAN access:** browse to `http://<your-ip>:3001` from phones and tablets — the server listens on every interface by default. To keep it on this computer only, set `BIND_HOST=127.0.0.1` in `.env`. `PORT` lives in the same file.
 - **Run on boot (Linux / Pi):** save this as `/etc/systemd/system/openhamclock.service` (adjust the paths and user), then `sudo systemctl enable --now openhamclock`:
 
   ```ini
@@ -188,7 +188,7 @@ npm start
 
 `npm start` builds the frontend and starts the server; open <http://localhost:3000>. On first run a `.env` is created from `.env.example` — set `CALLSIGN` and `LOCATOR` there (or use the in-browser setup wizard) and restart with `npm start`.
 
-To reach it from phones/tablets on your LAN, set `HOST=0.0.0.0` in `.env` and browse to `http://<your-ip>:3000`.
+To reach it from phones/tablets on your LAN, browse to `http://<your-ip>:3000` (set `BIND_HOST=127.0.0.1` in `.env` to keep it on this machine only).
 
 ### Railway (cloud)
 

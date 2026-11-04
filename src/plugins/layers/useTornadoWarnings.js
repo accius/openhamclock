@@ -54,7 +54,6 @@ const ALERT_STYLES = {
     color: '#FFAA00',
     fill: '#FFAA00',
     weight: 2,
-    fillOpacity: 0.08,
     fillOpacity: 0.5,
     icon: '👁️',
     size: 20,

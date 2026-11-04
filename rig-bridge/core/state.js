@@ -24,6 +24,7 @@ const state = {
   mode: '',
   width: 0,
   ptt: false,
+  onAir: false, // hardware PTT / ON-AIR sense line (GPIO plugin)
   lastUpdate: 0,
 };
 

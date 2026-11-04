@@ -1,9 +1,11 @@
 import { describe, it, expect } from 'vitest';
+import * as mod from './propVerify.js';
 import {
   countObservedByBand,
   observedScore,
   maxAcrossContinents,
   verdictFor,
+  verdictForScore,
   buildComparison,
   pickCellReliability,
   nearestContinent,
@@ -142,5 +144,101 @@ describe('nearestContinent', () => {
     expect(nearestContinent(40.015, -105.27)).toBe('NA'); // Boulder
     expect(nearestContinent(52.5, 13.4)).toBe('EU'); // Berlin
     expect(nearestContinent(-33.9, 151.2)).toBe('OC'); // Sydney
+  });
+});
+
+describe('verdictForScore / beacon third source', () => {
+  it('applies the same ±25 tolerance to a normalized beacon score', () => {
+    expect(verdictForScore(80, 70)).toBe('agrees');
+    expect(verdictForScore(80, 20)).toBe('worse');
+    expect(verdictForScore(10, 60)).toBe('better');
+    expect(verdictForScore(5, 0)).toBe('agrees');
+    expect(verdictForScore(null, 50)).toBe('nodata');
+    expect(verdictForScore(50, undefined)).toBe('nodata');
+  });
+
+  it('buildComparison attaches beacon rows only for bands with measured data', () => {
+    const rows = buildComparison(
+      { '20m': 80, '10m': 10 },
+      { '20m': 3 },
+      { '20m': { maxSnr: 18, score: 69, n: 4 }, '15m': { maxSnr: null, score: null, n: 0 } },
+    );
+    const r20 = rows.find((r) => r.band === '20m');
+    expect(r20.beacon).toEqual({ maxSnr: 18, score: 69, n: 4, verdict: 'agrees' });
+    expect(rows.find((r) => r.band === '15m').beacon).toBeNull();
+    expect(rows.find((r) => r.band === '10m').beacon).toBeNull();
+    // Without the third argument nothing changes for existing callers.
+    expect(buildComparison({ '20m': 80 }, {}).every((r) => r.beacon === null)).toBe(true);
+  });
+});
+
+describe('DE → DX path mode', () => {
+  const { continentOf, countPathSpotsByBand, pathStatus, buildPathComparison, measurementsNear } = mod;
+
+  it('continentOf prefers the prefix, falls back to the nearest continent point, else null', () => {
+    expect(continentOf('K0CJH')).toBe('NA');
+    expect(continentOf('JA1XYZ')).toBe('AS');
+    expect(continentOf(null, 50, 10)).toBe('EU');
+    expect(continentOf(null, null, null)).toBe(null);
+  });
+
+  it('countPathSpotsByBand counts only spots whose ends sit on the two continents', () => {
+    const now = 1_000_000_000;
+    const spots = [
+      { freq: 14.2, timestamp: now - 60_000, spotter: 'K1ABC', call: 'JA1XYZ' }, // NA→AS ✓
+      { freq: 14.2, timestamp: now - 60_000, spotter: 'JA2DEF', call: 'W6XYZ' }, // AS→NA ✓ (either direction)
+      { freq: 14.2, timestamp: now - 60_000, spotter: 'K1ABC', call: 'DL1AAA' }, // NA→EU ✗
+      { freq: 7.1, timestamp: now - 60_000, spotter: null, call: 'JA1XYZ', spotterLat: 45, spotterLon: -93 }, // lat/lon end ✓
+      { freq: 7.1, timestamp: now - 60_000, spotter: null, call: 'JA1XYZ' }, // unresolvable end — skipped
+      { band: '20m', timestamp: now - 60_000, deContinentEnd: true, otherCall: 'JA3GHI' }, // PSK far end ✓
+      { band: '20m', timestamp: now - 60_000, deContinentEnd: true, otherCall: 'G4AAA' }, // PSK far end ✗
+      { freq: 14.2, timestamp: now - 20 * 60_000, spotter: 'K1ABC', call: 'JA1XYZ' }, // too old
+    ];
+    const c = countPathSpotsByBand(spots, { deContinent: 'NA', dxContinent: 'AS', now });
+    expect(c['20m']).toBe(3);
+    expect(c['40m']).toBe(1);
+    expect(c['80m']).toBe(0);
+    expect(countPathSpotsByBand(spots, { deContinent: null, dxContinent: 'AS', now })['20m']).toBe(0);
+  });
+
+  it('pathStatus gives plain-language verdicts', () => {
+    expect(pathStatus(null, 5)).toBe('nodata');
+    expect(pathStatus(80, 4)).toBe('open-confirmed');
+    expect(pathStatus(80, 1)).toBe('open-confirmed'); // some evidence is enough when the model is confident
+    expect(pathStatus(80, 0)).toBe('open-unconfirmed');
+    expect(pathStatus(5, 0)).toBe('closed');
+    expect(pathStatus(5, 1)).toBe('marginal');
+    expect(pathStatus(5, 4)).toBe('open-surprise');
+    expect(pathStatus(30, 0)).toBe('marginal');
+    expect(pathStatus(30, 3)).toBe('open-confirmed');
+    // a clearly heard beacon near DX counts as evidence
+    expect(pathStatus(5, 0, 70)).toBe('open-surprise');
+    expect(pathStatus(80, 0, 70)).toBe('open-confirmed');
+  });
+
+  it('buildPathComparison produces one row per band with status and optional beacon', () => {
+    const rows = buildPathComparison({ '20m': 80, '40m': 5 }, { '20m': 4 }, { '40m': { maxSnr: 12, score: 60, n: 2 } });
+    expect(rows.map((r) => r.band)).toEqual(['80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m']);
+    const r20 = rows.find((r) => r.band === '20m');
+    expect(r20.status).toBe('open-confirmed');
+    expect(r20.beacon).toBe(null);
+    const r40 = rows.find((r) => r.band === '40m');
+    expect(r40.beacon.score).toBe(60);
+    expect(r40.status).toBe('open-surprise');
+    expect(rows.find((r) => r.band === '80m').status).toBe('nodata');
+  });
+
+  it('measurementsNear keeps only beacons within range of the DX end', () => {
+    const beacons = [
+      { callsign: 'JA2IGY', lat: 34.5, lon: 136.5 },
+      { callsign: '4U1UN', lat: 40.7, lon: -74 },
+    ];
+    const ms = [
+      { beacon: 'JA2IGY', band: '20m', t: 1, snrDb: 10 },
+      { beacon: '4U1UN', band: '20m', t: 1, snrDb: 20 },
+    ];
+    expect(measurementsNear(ms, beacons, 35.7, 139.7).map((m) => m.beacon)).toEqual(['JA2IGY']);
+    expect(measurementsNear(ms, beacons, 0, -150)).toEqual([]);
+    expect(measurementsNear(ms, beacons, null, null)).toEqual([]);
   });
 });

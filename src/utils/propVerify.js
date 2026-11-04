@@ -130,22 +130,44 @@ export function verdictFor(predicted, count, { cap = OBSERVED_CAP, tolerance = V
 }
 
 /**
+ * Verdict for an already-normalized 0-99 observed score (third source:
+ * measured beacon SNR from a KiwiSDR beacon monitor, see ibpMeasured.js).
+ * Same tolerance as verdictFor; "both closed" is score < 15 (≈ SNR ≤ −4 dB).
+ */
+export function verdictForScore(predicted, score, { tolerance = VERDICT_TOLERANCE } = {}) {
+  if (!Number.isFinite(predicted) || !Number.isFinite(score)) return 'nodata';
+  if (predicted < 15 && score < 15) return 'agrees';
+  const diff = score - predicted;
+  if (diff > tolerance) return 'better';
+  if (diff < -tolerance) return 'worse';
+  return 'agrees';
+}
+
+/**
  * Assemble the panel's row model.
  *
  * @param {Object} predictedByBand  { band: reliability|null } (already maxed across continents)
  * @param {Object} counts           { band: spotCount }
- * @returns {Array<{band, predicted, count, observed, verdict}>} in VERIFY_BANDS order
+ * @param {Object} [beaconsByBand]  { band: { maxSnr, score, n } } from measuredBandSummary — optional
+ *                                  third source; rows get `beacon: { maxSnr, score, n, verdict }` or null
+ * @returns {Array<{band, predicted, count, observed, verdict, beacon}>} in VERIFY_BANDS order
  */
-export function buildComparison(predictedByBand = {}, counts = {}) {
+export function buildComparison(predictedByBand = {}, counts = {}, beaconsByBand = null) {
   return VERIFY_BANDS.map((band) => {
     const predicted = Number.isFinite(predictedByBand[band]) ? predictedByBand[band] : null;
     const count = counts[band] ?? 0;
+    const b = beaconsByBand && beaconsByBand[band];
+    const beacon =
+      b && Number.isFinite(b.score)
+        ? { maxSnr: b.maxSnr, score: b.score, n: b.n ?? 0, verdict: verdictForScore(predicted, b.score) }
+        : null;
     return {
       band,
       predicted,
       count,
       observed: observedScore(count),
       verdict: verdictFor(predicted, count),
+      beacon,
     };
   });
 }
@@ -172,6 +194,119 @@ export function pickCellReliability(cells, lat, lon) {
   return Number.isFinite(best?.r) ? best.r : null;
 }
 
+// ─── DE → DX path mode (the panel's primary view since 26.11) ────────────────
+//
+// The best-continent comparison above answers "is this band open to anywhere";
+// operators want "is this band open to where I am pointing". These helpers
+// score the actual DE→DX path: one P.533 prediction for that circuit, spots
+// between the two continents, and beacons near the DX end.
+
+/** Spots between the two continents needed for a path to count as evidence. */
+export const PATH_CONFIRM_COUNT = 3;
+/** Beacons within this distance of DX count as "near DX" (km). */
+export const BEACON_NEAR_DX_KM = 4000;
+
+/**
+ * Continent for a station: callsign prefix first (cty.dat), then the nearest
+ * continent point for a lat/lon, else null.
+ */
+export function continentOf(call, lat, lon) {
+  const fromCall = call ? getCallsignInfo(call)?.continent : null;
+  if (fromCall) return fromCall;
+  if (Number.isFinite(lat) && Number.isFinite(lon)) return nearestContinent(lat, lon);
+  return null;
+}
+
+/**
+ * Count spots per band whose two ends sit on the DE and DX continents (either
+ * direction). Spot shape: { freq | band, timestamp, spotter?, call?, dxLat?,
+ * dxLon?, spotterLat?, spotterLon?, deContinentEnd?: true, otherCall?,
+ * otherLat?, otherLon? } — `deContinentEnd` marks feeds already filtered to
+ * the user's own station (PSKReporter), where only the far end needs a check.
+ * Spots whose continents cannot be resolved are skipped (not guessed).
+ */
+export function countPathSpotsByBand(
+  spots,
+  { deContinent, dxContinent, now = Date.now(), windowMs = OBSERVED_WINDOW_MS } = {},
+) {
+  const counts = {};
+  for (const b of VERIFY_BANDS) counts[b] = 0;
+  if (!Array.isArray(spots) || !deContinent || !dxContinent) return counts;
+  const cutoff = now - windowMs;
+  for (const spot of spots) {
+    if (!spot) continue;
+    if (!Number.isFinite(spot.timestamp) || spot.timestamp < cutoff || spot.timestamp > now + 60_000) continue;
+    const band = VERIFY_BANDS.includes(spot.band) ? spot.band : getBandFromFreq(spot.freq);
+    if (!VERIFY_BANDS.includes(band)) continue;
+
+    let matches = false;
+    if (spot.deContinentEnd === true) {
+      const far = continentOf(spot.otherCall, spot.otherLat, spot.otherLon);
+      matches = far === dxContinent;
+    } else {
+      const a = continentOf(spot.spotter, spot.spotterLat, spot.spotterLon);
+      const b = continentOf(spot.call, spot.dxLat, spot.dxLon);
+      if (!a || !b) continue;
+      matches = (a === deContinent && b === dxContinent) || (a === dxContinent && b === deContinent);
+    }
+    if (matches) counts[band]++;
+  }
+  return counts;
+}
+
+/**
+ * Plain-language status for one band on the DE→DX path.
+ *   'open-confirmed'   model says open AND people are being spotted across the path
+ *   'open-unconfirmed' model says open, nobody spotted across the path yet
+ *   'open-surprise'    model says closed but the path is busy — the model is pessimistic
+ *   'marginal'         model between 15 and 50 %, or mixed evidence
+ *   'closed'           model says closed and nothing heard
+ *   'nodata'           no prediction for this band
+ * A measured beacon score (0–99) near DX, when present, counts as evidence
+ * the same way spots do (score ≥ 50 ≈ beacon clearly heard).
+ */
+export function pathStatus(predicted, count, beaconScore = null, { confirm = PATH_CONFIRM_COUNT } = {}) {
+  if (!Number.isFinite(predicted)) return 'nodata';
+  const heard = (Number.isFinite(count) && count >= confirm) || (Number.isFinite(beaconScore) && beaconScore >= 50);
+  const some = (Number.isFinite(count) && count > 0) || (Number.isFinite(beaconScore) && beaconScore >= 30);
+  if (predicted >= 50) return heard || some ? 'open-confirmed' : 'open-unconfirmed';
+  if (predicted < 15) return heard ? 'open-surprise' : some ? 'marginal' : 'closed';
+  return heard ? 'open-confirmed' : 'marginal';
+}
+
+/**
+ * Row model for the path view. `predictedByBand` is { band: reliability } for
+ * the single DE→DX circuit; `counts` from countPathSpotsByBand; `beaconsByBand`
+ * from measuredBandSummary over beacons near DX (optional).
+ */
+export function buildPathComparison(predictedByBand = {}, counts = {}, beaconsByBand = null) {
+  return VERIFY_BANDS.map((band) => {
+    const predicted = Number.isFinite(predictedByBand[band]) ? predictedByBand[band] : null;
+    const count = counts[band] ?? 0;
+    const b = beaconsByBand && beaconsByBand[band];
+    const beacon = b && Number.isFinite(b.score) ? { maxSnr: b.maxSnr, score: b.score, n: b.n ?? 0 } : null;
+    return {
+      band,
+      predicted,
+      count,
+      observed: observedScore(count),
+      beacon,
+      status: pathStatus(predicted, count, beacon ? beacon.score : null),
+    };
+  });
+}
+
+/** Filter beacon measurements to beacons within BEACON_NEAR_DX_KM of a point. */
+export function measurementsNear(measurements, beacons, lat, lon, maxKm = BEACON_NEAR_DX_KM) {
+  if (!Array.isArray(measurements) || !Array.isArray(beacons) || !Number.isFinite(lat) || !Number.isFinite(lon))
+    return [];
+  const near = new Set(
+    beacons.filter((b) => calculateDistance(lat, lon, b.lat, b.lon) <= maxKm).map((b) => b.callsign),
+  );
+  if (near.size === 0) return [];
+  return measurements.filter((m) => m && near.has(m.beacon));
+}
+
 export default {
   VERIFY_BANDS,
   CONTINENT_POINTS,
@@ -183,6 +318,7 @@ export default {
   observedScore,
   maxAcrossContinents,
   verdictFor,
+  verdictForScore,
   buildComparison,
   pickCellReliability,
 };

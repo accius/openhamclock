@@ -57,6 +57,7 @@ const {
   triggerHamqthLookup,
 } = require('../lib/wsjtx-enrich');
 const { CONFIG_DIR } = require('../core/config');
+const { trimQueue, takeBatch, requeue } = require('../lib/relay-queue');
 
 const RELAY_VERSION = require('../package.json').version;
 
@@ -178,6 +179,7 @@ const descriptor = {
     let consecutiveErrors = 0;
     let totalDecodes = 0;
     let totalRelayed = 0;
+    let totalDropped = 0; // oldest queued messages discarded during an outage
     let serverReachable = false;
     // Resolved at connect() time: true only when relayToServer AND url/key/session are all set
     let willRelay = false;
@@ -274,8 +276,14 @@ const descriptor = {
     function sendBatch() {
       if (sendInFlight || messageQueue.length === 0) return;
 
-      const batch = messageQueue.splice(0, messageQueue.length);
+      const batch = takeBatch(messageQueue);
       sendInFlight = true;
+
+      function retryLater() {
+        const result = requeue(messageQueue, batch);
+        messageQueue = result.queue;
+        totalDropped += result.dropped;
+      }
 
       const body = JSON.stringify({ messages: batch, session: cfg.session });
 
@@ -284,9 +292,12 @@ const descriptor = {
 
         if (err) {
           consecutiveErrors++;
-          messageQueue.unshift(...batch);
+          retryLater();
           if (consecutiveErrors <= 3 || consecutiveErrors % 10 === 0) {
-            console.error(`[WsjtxRelay] Send error (attempt ${consecutiveErrors}): ${err.message}`);
+            const dropped = totalDropped ? `, ${totalDropped} oldest msg(s) dropped` : '';
+            console.error(
+              `[WsjtxRelay] Send error (attempt ${consecutiveErrors}): ${err.message} — ${messageQueue.length} queued${dropped}`,
+            );
           }
           return;
         }
@@ -304,7 +315,7 @@ const descriptor = {
           console.error(`[WsjtxRelay] Authentication failed (${statusCode}) — check relay key`);
         } else if (statusCode >= 500) {
           consecutiveErrors++;
-          messageQueue.unshift(...batch);
+          retryLater();
           console.error(`[WsjtxRelay] Server error ${statusCode}: ${(data || '').substring(0, 100)}`);
         } else {
           consecutiveErrors++;
@@ -364,6 +375,7 @@ const descriptor = {
       // Queue raw message for server relay (unmodified — server does its own enrichment)
       if (msg.type !== WSJTX_MSG.REPLAY && willRelay) {
         messageQueue.push(msg);
+        totalDropped += trimQueue(messageQueue);
       }
 
       switch (msg.type) {

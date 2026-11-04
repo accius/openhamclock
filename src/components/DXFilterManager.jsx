@@ -6,12 +6,16 @@ import React, { useEffect, useState, useRef } from 'react';
 import { ariaTabKeyDown } from '../utils/ariaTabKeyDown.js';
 import { CONTEST_PRESETS } from '../utils/dxClusterFilters.js';
 import { use630mBandEnabled } from '../hooks/use630mBandEnabled.js';
+import { useTranslation } from 'react-i18next';
+import WatchlistEditor from './WatchlistEditor.jsx';
+import { useWatchlist } from '../hooks/useWatchlists.js';
 
 export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onClearSpots }) => {
   const DX_TABS = ['zones', 'bands', 'modes', 'watchlist', 'contest', 'text', 'exclude', 'settings'];
   const dxTabRefs = useRef({});
   const [activeTab, setActiveTab] = useState('zones');
-  const [newWatchlistCall, setNewWatchlistCall] = useState('');
+  const { t } = useTranslation();
+  const [dxWatchlist] = useWatchlist('dx');
   const [newDXExcludeCall, setNewDXExcludeCall] = useState('');
   const [newDEExcludeCall, setNewDEExcludeCall] = useState('');
   const [newCommentKeyword, setNewCommentKeyword] = useState('');
@@ -84,9 +88,10 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onCl
     if (filters?.ituZones?.length) count += filters.ituZones.length;
     if (filters?.bands?.length) count += filters.bands.length;
     if (filters?.modes?.length) count += filters.modes.length;
-    if (filters?.watchlist?.length) count += filters.watchlist.length;
+    if (dxWatchlist.mode !== 'off' && dxWatchlist.text.trim()) count += 1;
     if (filters?.commentText?.length) count += filters.commentText.length;
     if (filters?.dxpeditionsOnly) count += 1;
+    if (filters?.iotaOnly) count += 1;
     if (filters?.contest) count += 1;
 
     /* excludes */
@@ -137,16 +142,6 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onCl
     fontFamily: 'var(--font-mono)',
     fontWeight: selected ? '600' : '400',
   });
-
-  const addToWatchlist = () => {
-    if (newWatchlistCall.trim()) {
-      const current = filters?.watchlist || [];
-      if (!current.includes(newWatchlistCall.toUpperCase())) {
-        onFilterChange({ ...filters, watchlist: [...current, newWatchlistCall.toUpperCase()] });
-      }
-      setNewWatchlistCall('');
-    }
-  };
 
   const addToDXExcludeCalls = () => {
     if (newDXExcludeCall.trim()) {
@@ -403,81 +398,7 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onCl
   const renderWatchlistTab = () => (
     <div>
       <div style={{ marginBottom: '16px' }}>
-        <div style={{ fontSize: '13px', fontWeight: '600', color: 'var(--text-primary)', marginBottom: '8px' }}>
-          Watchlist - Highlight these Spot (DX) callsigns
-        </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input
-            type="text"
-            value={newWatchlistCall}
-            onChange={(e) => setNewWatchlistCall(e.target.value.toUpperCase())}
-            onKeyPress={(e) => e.key === 'Enter' && addToWatchlist()}
-            placeholder="Enter callsign..."
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              background: 'var(--bg-tertiary)',
-              border: '1px solid var(--border-color)',
-              borderRadius: '4px',
-              color: 'var(--text-primary)',
-              fontSize: '13px',
-              fontFamily: 'var(--font-mono)',
-            }}
-          />
-          <button
-            onClick={addToWatchlist}
-            style={{
-              padding: '8px 16px',
-              background: 'var(--accent-cyan)',
-              border: 'none',
-              borderRadius: '4px',
-              color: '#000',
-              fontWeight: '600',
-              cursor: 'pointer',
-            }}
-          >
-            Add
-          </button>
-        </div>
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-        {(filters?.watchlist || []).map((call) => (
-          <div key={call} style={{ ...chipStyle(true), display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {call}
-            <button
-              onClick={() => toggleArrayItem('watchlist', call)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--accent-red)',
-                cursor: 'pointer',
-                padding: 0,
-                fontSize: '14px',
-              }}
-            >
-              ×
-            </button>
-          </div>
-        ))}
-      </div>
-      <div style={{ marginTop: '16px' }}>
-        <label
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: 'var(--text-secondary)',
-            fontSize: '12px',
-            cursor: 'pointer',
-          }}
-        >
-          <input
-            type="checkbox"
-            checked={filters?.watchlistOnly || false}
-            onChange={(e) => onFilterChange({ ...filters, watchlistOnly: e.target.checked || undefined })}
-          />
-          Show only watchlist callsigns
-        </label>
+        <WatchlistEditor listKey="dx" title={t('watchlist.dxTitle', { defaultValue: 'DX cluster watch list' })} />
       </div>
       <div style={{ marginTop: '12px' }}>
         <label
@@ -499,6 +420,29 @@ export const DXFilterManager = ({ filters, onFilterChange, isOpen, onClose, onCl
         </label>
         <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', marginLeft: '24px' }}>
           Keeps spots whose callsign matches an active or upcoming DXpedition (NG3K list).
+        </div>
+      </div>
+      <div style={{ marginTop: '12px' }}>
+        <label
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            color: 'var(--text-secondary)',
+            fontSize: '12px',
+            cursor: 'pointer',
+          }}
+        >
+          <input
+            type="checkbox"
+            checked={filters?.iotaOnly || false}
+            onChange={(e) => onFilterChange({ ...filters, iotaOnly: e.target.checked || undefined })}
+          />
+          Show only IOTA spots
+        </label>
+        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px', marginLeft: '24px' }}>
+          Keeps spots whose comment names an Islands On The Air reference (EU-005, NA-067…). Applies to the panel and
+          the map; the IOTA button in the panel header toggles the same filter.
         </div>
       </div>
     </div>

@@ -13,6 +13,7 @@ import {
   getMoonPhaseEmoji,
   getMoonAzEl,
 } from '../utils/geo.js';
+import { displayNow, subscribeDisplayTime } from '../utils/displayTime.js';
 
 const TWILIGHT_LABELS = {
   day: { label: 'Daylight', color: '#fbbf24' },
@@ -100,10 +101,15 @@ const StationColumn = ({ title, astro }) => {
 };
 
 export const SunMoonPanel = ({ deLocation, dxLocation }) => {
-  const [now, setNow] = useState(() => new Date());
+  // Display time (utils/displayTime.js): follows the time-shift scrubber.
+  const [now, setNow] = useState(() => displayNow());
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
-    return () => clearInterval(id);
+    const id = setInterval(() => setNow(displayNow()), 60_000);
+    const unsub = subscribeDisplayTime(() => setNow(displayNow()));
+    return () => {
+      clearInterval(id);
+      unsub();
+    };
   }, []);
 
   const de = useMemo(

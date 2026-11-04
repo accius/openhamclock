@@ -181,6 +181,35 @@ export function computeMutualPasses(
   return passes;
 }
 
+/**
+ * Elevation at both ends on a regular grid — the satellite planner's plot.
+ * Either station may be missing (its series is null). Sub-point included so
+ * a click can report where the bird is.
+ * @returns {Array<{t:Date, de:number|null, dx:number|null, lat:number, lon:number, altKm:number}>}
+ */
+export function computeElevationSeries(omm, start, de, dx, { hours = 24, stepSec = 60 } = {}) {
+  const satrec = satrecFor(omm);
+  const deGd = makeObserver(de);
+  const dxGd = makeObserver(dx);
+  if (!satrec || (!deGd && !dxGd)) return [];
+  const out = [];
+  const n = Math.floor((hours * 3600) / stepSec);
+  for (let i = 0; i <= n; i++) {
+    const t = new Date(start.getTime() + i * stepSec * 1000);
+    const g = relayGeometry(satrec, t, deGd || dxGd, deGd ? dxGd : null);
+    if (!g) continue;
+    out.push({
+      t,
+      de: deGd ? g.de.elevation : null,
+      dx: deGd ? (g.dx ? g.dx.elevation : null) : g.de.elevation,
+      lat: g.lat,
+      lon: g.lon,
+      altKm: g.altKm,
+    });
+  }
+  return out;
+}
+
 /** Does this satellite carry a repeater/transponder we can relay through? */
 export function hasRelay(sat) {
   return Array.isArray(sat?.relayTransmitters) && sat.relayTransmitters.length > 0;

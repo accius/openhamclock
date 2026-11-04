@@ -49,6 +49,10 @@ const notify = () => {
 };
 
 export const getSnapshot = () => ({
+  active: refCount > 0,
+  // True while the user is looking at the past: live DX paths hide so the
+  // replayed spots are the only cluster paths on the map.
+  scrubbing: refCount > 0 && state.endOffsetMin > 0,
   endOffsetMin: state.endOffsetMin,
   windowMin: state.windowMin,
   playing: state.playing,
@@ -210,7 +214,14 @@ export function buildTransportControl(doc = document) {
     const to = Date.now() - snap.endOffsetMin * 60 * 1000;
     const from = to - snap.windowMin * 60 * 1000;
     const label = div.querySelector('#hist-label');
-    if (label) label.textContent = `${utcHHMM(from)} – ${utcHHMM(to)}${snap.endOffsetMin <= 0 ? ' (live edge)' : ''}`;
+    if (label) {
+      let text = `${utcHHMM(from)} – ${utcHHMM(to)}`;
+      if (snap.endOffsetMin <= 0) text += ' (live edge)';
+      else if (snap.meta?.earliest && to < snap.meta.earliest)
+        text += ` — no history before ${utcHHMM(snap.meta.earliest)}`;
+      else text += ' — live spots hidden';
+      label.textContent = text;
+    }
 
     const slider = div.querySelector('#hist-slider');
     if (slider && parseInt(slider.value, 10) !== Math.round(snap.endOffsetMin)) {

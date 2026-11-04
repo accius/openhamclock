@@ -14,6 +14,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import useCallsignLookup from '../hooks/app/useCallsignLookup.js';
 import { calculateBearing, calculateDistance, formatDistance, maidenheadToLatLon } from '../utils/geo.js';
+import { formatBearing } from '../utils/bearing.js';
 import {
   isValidCallsignQuery,
   normalizeCallsignQuery,
@@ -241,7 +242,7 @@ export const CallsignSearchPanel = ({ deLocation, units, onSetDX, dxLocked }) =>
               <div style={rowStyle}>
                 <span style={labelStyle}>{t('callsignSearch.fromDe', { defaultValue: 'From DE' })}</span>
                 <span style={{ ...valueStyle, color: 'var(--accent-green)' }}>
-                  {formatDistance(distanceKm, units)} @ {bearing}°
+                  {formatDistance(distanceKm, units)} @ {formatBearing(bearing, deLocation?.lat, deLocation?.lon)}
                 </span>
               </div>
             )}

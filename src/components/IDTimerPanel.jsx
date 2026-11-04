@@ -7,6 +7,7 @@
  * Dockable layout only.
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { COUNTDOWN_STATE_EVENT } from '../hooks/app/useHardwareIndicators.js';
 
 const ID_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 
@@ -86,6 +87,24 @@ export const IDTimerPanel = ({ callsign }) => {
     if (active) stop();
     else start();
   }, [active, start, stop]);
+
+  // Rig Bridge hardware (GPIO plugin): publish the countdown state for the
+  // green/red LEDs and alarm line, and obey the physical buttons.
+  useEffect(() => {
+    const state = active ? 'running' : showAlert || remaining <= 0 ? 'expired' : 'off';
+    window.dispatchEvent(new CustomEvent(COUNTDOWN_STATE_EVENT, { detail: { state } }));
+  }, [active, showAlert, remaining <= 0]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const onPluginData = (e) => {
+      const d = e?.detail;
+      if (!d || d.type !== 'plugin' || d.event !== 'gpio-button') return;
+      if (d.data?.button === 'countdown-restart') reset();
+      else if (d.data?.button === 'alarm-silence') setShowAlert(false);
+    };
+    window.addEventListener('rig-plugin-data', onPluginData);
+    return () => window.removeEventListener('rig-plugin-data', onPluginData);
+  }, [reset]);
 
   // Tick loop — only runs when active
   useEffect(() => {

@@ -1,0 +1,1580 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenHamClock — NCARC</title>
+    <meta
+      name="description"
+      content="OpenHamClock: a real-time amateur radio dashboard. What it is, why you would run it, how to make it yours, and what is coming next. Talk for the Northern Colorado Amateur Radio Club."
+    />
+
+    <link rel="icon" href="../../public/favicon-32x32.png" />
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reset.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/black.css" id="theme" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/monokai.css" />
+
+    <style>
+      :root {
+        --ohc-bg: #0b1220;
+        --ohc-bg-soft: #111a2e;
+        --ohc-text: #e6edf3;
+        --ohc-muted: #94a3b8;
+        --ohc-cyan: #22d3ee;
+        --ohc-amber: #fbbf24;
+        --ohc-green: #4ade80;
+        --ohc-rule: #1e293b;
+      }
+      .reveal {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        color: var(--ohc-text);
+        font-size: 32px;
+      }
+      .reveal .slides {
+        text-align: left;
+      }
+      .reveal .slides section {
+        padding: 0 0.5em;
+      }
+      body.reveal-viewport,
+      .reveal-viewport {
+        background: var(--ohc-bg);
+      }
+      .reveal h1,
+      .reveal h2,
+      .reveal h3,
+      .reveal h4 {
+        color: var(--ohc-text);
+        text-transform: none;
+        letter-spacing: -0.01em;
+        font-weight: 700;
+      }
+      .reveal h1 {
+        font-size: 2.2em;
+        line-height: 1.05;
+      }
+      .reveal h2 {
+        font-size: 1.5em;
+        line-height: 1.1;
+        margin-bottom: 0.4em;
+      }
+      .reveal h3 {
+        font-size: 1.05em;
+        color: var(--ohc-cyan);
+        margin-bottom: 0.3em;
+        margin-top: 0.4em;
+      }
+      .reveal p {
+        line-height: 1.35;
+        margin: 0.4em 0;
+      }
+      .reveal a {
+        color: var(--ohc-cyan);
+      }
+      .reveal strong {
+        color: var(--ohc-amber);
+      }
+      .reveal em {
+        color: var(--ohc-muted);
+        font-style: normal;
+      }
+      .reveal ul,
+      .reveal ol {
+        margin-left: 1em;
+      }
+      .reveal li {
+        margin: 0.15em 0;
+        line-height: 1.3;
+      }
+      .reveal .muted {
+        color: var(--ohc-muted);
+      }
+      .reveal .small {
+        font-size: 0.75em;
+      }
+      .reveal .xsmall {
+        font-size: 0.6em;
+      }
+      .reveal pre,
+      .reveal code {
+        font-family: 'SF Mono', Menlo, Consolas, monospace;
+      }
+      .reveal pre {
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 6px;
+        padding: 0.55em 0.8em;
+        box-shadow: none;
+        font-size: 0.5em;
+        width: 100%;
+      }
+      .reveal pre code {
+        white-space: pre-wrap;
+        word-break: break-all;
+        display: block;
+      }
+      .reveal code {
+        color: var(--ohc-amber);
+      }
+
+      .title-slide {
+        text-align: center !important;
+      }
+      .title-slide h1 {
+        font-size: 3.2em;
+        background: linear-gradient(90deg, var(--ohc-cyan), var(--ohc-amber));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        margin-bottom: 0.1em;
+      }
+      .title-slide .tagline {
+        color: var(--ohc-muted);
+        font-size: 1.1em;
+        margin-bottom: 2em;
+      }
+      .title-slide .meta {
+        font-size: 0.7em;
+        color: var(--ohc-muted);
+        line-height: 1.6;
+      }
+      .title-slide .meta strong {
+        color: var(--ohc-text);
+      }
+
+      .kicker {
+        display: inline-block;
+        font-size: 0.55em;
+        font-weight: 600;
+        color: var(--ohc-cyan);
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        margin-bottom: 0.5em;
+      }
+      .kicker.soon {
+        color: var(--ohc-amber);
+      }
+      .new-pill {
+        display: inline-block;
+        font-size: 0.55em;
+        font-weight: 700;
+        color: var(--ohc-bg);
+        background: var(--ohc-amber);
+        border-radius: 4px;
+        padding: 0.1em 0.5em;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        vertical-align: middle;
+        margin-left: 0.4em;
+      }
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5em;
+        align-items: start;
+      }
+      .two-col.wide-left {
+        grid-template-columns: 1.4fr 1fr;
+      }
+      .two-col.wide-right {
+        grid-template-columns: 1fr 1.4fr;
+      }
+      .stat-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.6em;
+        margin-top: 0.6em;
+      }
+      .stat {
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 8px;
+        padding: 0.5em 0.5em;
+        text-align: center;
+      }
+      .stat .num {
+        display: block;
+        font-size: 1.35em;
+        font-weight: 700;
+        color: var(--ohc-cyan);
+        line-height: 1.1;
+      }
+      .stat .label {
+        font-size: 0.5em;
+        color: var(--ohc-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+      }
+      .demo-card {
+        margin: 0.8em auto 0;
+        max-width: 80%;
+        text-align: center;
+        padding: 1.5em 1em 1.2em;
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 12px;
+      }
+      .demo-card .url {
+        display: block;
+        font-family: 'SF Mono', Menlo, monospace;
+        font-size: 2.4em;
+        line-height: 1.1;
+        background: linear-gradient(90deg, var(--ohc-cyan), var(--ohc-amber));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        letter-spacing: -0.01em;
+        margin-bottom: 0.6em;
+      }
+      .demo-card .cta {
+        display: inline-block;
+        padding: 0.6em 1.4em;
+        border: 1px solid var(--ohc-cyan);
+        border-radius: 8px;
+        color: var(--ohc-cyan) !important;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.85em;
+        letter-spacing: 0.03em;
+      }
+      .demo-card .hint {
+        margin-top: 1em;
+        color: var(--ohc-muted);
+        font-size: 0.6em;
+      }
+      .demo-card .hint kbd {
+        background: var(--ohc-bg);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 4px;
+        padding: 0.1em 0.4em;
+        font-family: 'SF Mono', Menlo, monospace;
+        color: var(--ohc-amber);
+      }
+      .closer {
+        text-align: center;
+        padding-top: 0.2em;
+      }
+      .closer p {
+        margin: 0.3em 0;
+      }
+      .closer .seventythree {
+        font-size: 3em;
+        background: linear-gradient(90deg, var(--ohc-cyan), var(--ohc-amber));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        font-weight: 800;
+        margin: 0.15em 0;
+        line-height: 1;
+      }
+      .reveal .slide-number {
+        color: var(--ohc-muted);
+        background: transparent;
+      }
+      .reveal section img {
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+      }
+      .reveal section img.title-logo {
+        width: 130px;
+        height: 130px;
+        margin: 0 auto 0.3em !important;
+        display: block;
+        filter: drop-shadow(0 4px 14px rgba(34, 211, 238, 0.15));
+      }
+      .reveal section img.closer-mark {
+        width: 80px;
+        height: auto;
+        margin: 0 auto 0.3em !important;
+        display: block;
+        opacity: 0.9;
+      }
+      .hero-shot {
+        display: block;
+        max-width: 100%;
+        max-height: 510px;
+        margin: 0.4em auto 0;
+        border: 1px solid var(--ohc-rule);
+        border-radius: 8px;
+        box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+      }
+      .side-shot {
+        width: 100%;
+        max-height: 520px;
+        border: 1px solid var(--ohc-rule);
+        border-radius: 8px;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        object-fit: contain;
+      }
+      .shot-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.8em;
+        margin: 0.7em 0 0.3em;
+        align-items: start;
+      }
+      .shot-grid.four {
+        grid-template-columns: repeat(4, 1fr);
+      }
+      .shot-grid.two {
+        grid-template-columns: repeat(2, 1fr);
+      }
+      .shot-grid img {
+        width: 100%;
+        max-height: 340px;
+        border: 1px solid var(--ohc-rule);
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        object-fit: contain;
+      }
+      .shot-grid.panels img {
+        max-height: 300px;
+      }
+      .shot-grid figure {
+        margin: 0;
+        min-width: 0;
+      }
+      .shot-grid img {
+        max-width: 100%;
+      }
+      .two-col > * {
+        min-width: 0;
+      }
+      .reveal .slides section {
+        width: 100%;
+        box-sizing: border-box;
+      }
+      .reveal h2 {
+        overflow-wrap: anywhere;
+      }
+      .hero-shot.tall {
+        max-height: 430px;
+      }
+      .shot-grid.six img {
+        max-height: 185px;
+      }
+      .shot-grid.eight img {
+        max-height: 158px;
+      }
+      .shot-grid.eight figcaption {
+        font-size: 0.42em;
+        margin-top: 0.15em;
+      }
+      .shot-grid figcaption {
+        font-size: 0.5em;
+        color: var(--ohc-muted);
+        text-align: center;
+        margin-top: 0.3em;
+      }
+      .caption {
+        text-align: center;
+        margin-top: 0.5em;
+        color: var(--ohc-muted);
+        font-size: 0.65em;
+        letter-spacing: 0.02em;
+      }
+      .install-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.8em;
+        margin-top: 0.6em;
+      }
+      .install-card {
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 8px;
+        padding: 0.7em 0.9em;
+        min-width: 0;
+        overflow: hidden;
+      }
+      .install-card h3 {
+        margin: 0 0 0.3em;
+        font-size: 0.85em;
+      }
+      .install-card pre {
+        margin: 0.2em 0;
+        font-size: 0.42em;
+        padding: 0.5em 0.7em;
+        max-width: 100%;
+        box-sizing: border-box;
+      }
+      .install-card pre code {
+        white-space: pre-wrap;
+        word-break: break-all;
+        overflow-wrap: anywhere;
+        display: block;
+      }
+      .install-card .note {
+        font-size: 0.5em;
+        color: var(--ohc-muted);
+        margin-top: 0.3em;
+      }
+      .install-card .note code {
+        color: var(--ohc-amber);
+      }
+      .contrib-callout {
+        margin-top: 0.7em;
+        padding: 0.5em 0.9em;
+        background: rgba(34, 211, 238, 0.08);
+        border-left: 3px solid var(--ohc-cyan);
+        border-radius: 4px;
+        font-size: 0.6em;
+        line-height: 1.4;
+      }
+      .contrib-callout strong {
+        color: var(--ohc-cyan);
+      }
+      .soon-callout {
+        margin-top: 0.6em;
+        padding: 0.45em 0.9em;
+        background: rgba(251, 191, 36, 0.08);
+        border-left: 3px solid var(--ohc-amber);
+        border-radius: 4px;
+        font-size: 0.6em;
+        line-height: 1.4;
+      }
+      .flow {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr auto 1fr;
+        gap: 0.6em;
+        align-items: center;
+        margin-top: 0.6em;
+      }
+      .flow .box {
+        background: var(--ohc-bg-soft);
+        border: 1px solid var(--ohc-rule);
+        border-radius: 8px;
+        padding: 0.6em 0.8em;
+        font-size: 0.65em;
+        line-height: 1.35;
+        min-height: 5.5em;
+      }
+      .flow .box strong {
+        display: block;
+        color: var(--ohc-cyan);
+        font-size: 1.05em;
+        margin-bottom: 0.2em;
+      }
+      .flow .arrow {
+        color: var(--ohc-muted);
+        font-size: 1.4em;
+      }
+      .check-list li::marker {
+        color: var(--ohc-green);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="reveal">
+      <div class="slides">
+        <!-- 1. Title -->
+        <section class="title-slide">
+          <img src="../shared-2026-10/icon-512.png" alt="OpenHamClock logo" class="title-logo" />
+          <div class="kicker">Northern Colorado Amateur Radio Club · Saturday, October 17, 2026 · Loveland</div>
+          <h1>OpenHamClock</h1>
+          <p class="tagline">
+            The one screen your shack has been missing.<br />What it is, why you'd run it, how to make it yours — and
+            what's next.
+          </p>
+          <p class="meta">
+            <strong>Chris Hetherington · K0CJH</strong><br />
+            openhamclock.com · github.com/accius/openhamclock
+          </p>
+          <aside class="notes">
+            Good morning, and thanks for having me. I'm Chris Hetherington, K0CJH, [LICENSED SINCE YEAR], and I operate
+            from [LOCATION]. I'm the developer behind OpenHamClock. Over the next forty minutes I want to cover four
+            things: what it is, why you'd want it running in your shack, how you bend it to the way you operate, and
+            what's about to ship. There's a live demo in the middle, and we'll keep time for questions at the end. The
+            site is live right now at openhamclock.com, so if you have a laptop or a phone open, feel free to follow
+            along.
+          </aside>
+        </section>
+
+        <!-- 2. In one breath -->
+        <section>
+          <div class="kicker">In one breath</div>
+          <h2>Everything happening on the air — on one screen, in any browser.</h2>
+          <ul>
+            <li>DX cluster, POTA / SOTA, PSKReporter, DXpeditions, contests — filtered the way <em>you</em> operate</li>
+            <li>Real propagation physics (ITU-R P.533, the VOACAP model) run live for <em>your</em> QTH</li>
+            <li>Satellites, APRS, space weather, a native logbook with awards</li>
+            <li>Click a spot → your radio tunes</li>
+            <li>Free, open source (MIT), runs anywhere a browser does</li>
+          </ul>
+          <p class="muted small" style="margin-top: 1em">
+            Cloud-hosted at <strong>openhamclock.com</strong> — or self-host on a Raspberry Pi, a Mac, a Linux box,
+            Windows, or Docker.
+          </p>
+          <aside class="notes">
+            In one breath: OpenHamClock is everything happening on the air, on one screen, in any browser. The DX
+            cluster, parks and summits, PSKReporter, DXpeditions, contests. Propagation that's actually computed for
+            your location, not a screenshot from somewhere else. Satellites, APRS, space weather, and a logbook that
+            knows what you still need. And when you click a spot, your radio tunes. It's free and open source. Quick
+            hands: who runs the original HamClock on a Pi today? Who has a cluster page or PSKReporter bookmarked? Who
+            has more than four browser tabs open in the shack right now? Right. That's the problem this solves.
+          </aside>
+        </section>
+
+        <!-- 3. Dedication -->
+        <section>
+          <div class="kicker">Standing on shoulders</div>
+          <h2>For WB0OEW.</h2>
+          <div class="two-col">
+            <div>
+              <p>
+                Elwood Downey, <strong>WB0OEW (SK)</strong>, built the original HamClock — the one on Raspberry Pis in
+                shacks around the world for years.
+              </p>
+              <p>
+                OpenHamClock is a ground-up rewrite for the modern web. Same spirit, new foundation — and a lot more of
+                the hobby on one screen.
+              </p>
+            </div>
+            <div>
+              <p class="muted small"><strong>From the original HamClock</strong></p>
+              <ul class="small">
+                <li>Single-screen situational awareness</li>
+                <li>Map + clocks + space weather</li>
+                <li>Honest data, no fluff</li>
+              </ul>
+              <p class="muted small" style="margin-top: 1em"><strong>What OpenHamClock adds</strong></p>
+              <ul class="small">
+                <li>Web-native, any screen size, 16 languages</li>
+                <li>Rig control, WSJT-X, logbook, EmComm built in</li>
+                <li>Plugins for maps, panels and radios</li>
+                <li>Open source from day one</li>
+              </ul>
+            </div>
+          </div>
+          <aside class="notes">
+            Before anything new, I want to acknowledge where this comes from. Elwood Downey, WB0OEW, built the original
+            HamClock, the little dashboard you've seen on Raspberry Pis everywhere. Elwood became a Silent Key early
+            this year. OpenHamClock is not a fork of his code; it's a ground-up rewrite for the web. But the goal is
+            exactly his: one screen that tells an operator what's happening in the world. The dedication in the license
+            file is real. [Pause, then advance.]
+          </aside>
+        </section>
+
+        <!-- 4. Why -->
+        <section>
+          <div class="kicker">Why would I run this?</div>
+          <h2>Because the shack has an eight-tab problem.</h2>
+          <div class="two-col">
+            <div>
+              <h3>Before</h3>
+              <ul class="small">
+                <li>A cluster page. PSKReporter. A VOACAP site.</li>
+                <li>POTA app. SOTAwatch. A satellite tracker.</li>
+                <li>SWPC for space weather. A weather app.</li>
+                <li>Your logger. Your rig's control program.</li>
+                <li>None of them know about each other.</li>
+              </ul>
+            </div>
+            <div>
+              <h3>After</h3>
+              <ul class="small check-list">
+                <li>One screen, one glance, all of it live</li>
+                <li>Everything on <em>one map</em> with <em>your</em> station at the center</li>
+                <li>The spot, the path, the prediction, and "have I worked him?" — in one row</li>
+                <li>Click → radio tunes → log it</li>
+                <li>Wall display, laptop, tablet, or phone</li>
+              </ul>
+            </div>
+          </div>
+          <p class="contrib-callout">
+            The value isn't any single feature. It's that
+            <strong>everything is on the same map and knows about your logbook.</strong>
+          </p>
+          <aside class="notes">
+            So why would you run it? Because the shack has an eight-tab problem. Think about what's open when you sit
+            down to operate: a cluster page, PSKReporter, some VOACAP site, the POTA app, SOTAwatch, a satellite
+            tracker, SWPC, a weather app, your logger, and your rig control program. And none of them know about each
+            other. OpenHamClock puts all of that on one map with your station in the middle. The spot, the great-circle
+            path, the prediction for that path, and whether you've worked that station before, all in one row. Click it,
+            the radio tunes, log it. And it scales from a wall display on a Pi down to your phone. The value isn't one
+            feature. It's that everything shares the same map and the same logbook.
+          </aside>
+        </section>
+
+        <!-- 5. How it fits together -->
+        <section>
+          <div class="kicker">How it fits together</div>
+          <h2>A web app, a server, and an optional bridge to your radio.</h2>
+          <div class="flow">
+            <div class="box">
+              <strong>Browser</strong>
+              The dashboard. Runs on anything — Pi kiosk, laptop, tablet, phone. Propagation physics runs here, in
+              WebAssembly.
+            </div>
+            <div class="arrow">⇄</div>
+            <div class="box">
+              <strong>Server</strong>
+              Talks to the cluster, RBN, POTA, NOAA, NASA, SatNOGS… caches it for everyone. openhamclock.com, or your
+              own Pi / Docker / Mac.
+            </div>
+            <div class="arrow">⇄</div>
+            <div class="box">
+              <strong>Rig Bridge</strong>
+              Small program on the PC by the radio. CAT control, WSJT-X, rotator, APRS TNC, sensors. Optional.
+            </div>
+          </div>
+          <ul class="small" style="margin-top: 0.8em">
+            <li><strong>Hosted:</strong> openhamclock.com — nothing to install, thousands of operators use it daily</li>
+            <li>
+              <strong>Self-hosted:</strong> same code, your LAN, your data; every upstream call proxied through your own
+              server
+            </li>
+            <li>
+              <strong>Our own DX cluster node</strong> feeds the hosted site — RBN skimmers plus human spots,
+              mode-balanced
+            </li>
+            <li>
+              No accounts, no tracking; settings live in your browser (with optional sync and profile share codes)
+            </li>
+          </ul>
+          <aside class="notes">
+            Quick architecture, because it explains the install options later. There are three pieces. The browser is
+            the dashboard, and it does more than you'd think: the propagation engine runs in your browser as
+            WebAssembly, so predictions are computed on your machine. The server is the part that talks to the cluster,
+            the Reverse Beacon Network, POTA, NOAA, NASA, the satellite databases, and caches all of it so a thousand
+            users don't make a thousand requests. That server is either openhamclock.com or your own box. And Rig Bridge
+            is a small optional program that sits on the PC next to your radio and handles CAT control, WSJT-X, your
+            rotator, an APRS TNC, and soon hardware sensors. Two things to know: the hosted site runs our own DX cluster
+            node now, so we're not at the mercy of public nodes. And there are no accounts and no tracking. Your
+            settings live in your browser; you can sync them or share them with a code if you want.
+          </aside>
+        </section>
+
+        <!-- 6. Up and running -->
+        <section>
+          <div class="kicker">Getting started</div>
+          <h2>Ninety seconds from "what's this?" to operating.</h2>
+          <div class="two-col wide-right">
+            <div>
+              <ol class="small">
+                <li>Open <strong>openhamclock.com</strong></li>
+                <li>Enter your callsign and grid (or "use my location")</li>
+                <li>Pick a layout — <em>Modern</em> is a fine start</li>
+                <li>Set a DX target: type a call or click the map</li>
+                <li>Optional: units, time zone, propagation mode and power</li>
+              </ol>
+              <p class="muted small" style="margin-top: 0.8em">
+                Everything after that is optional. Rig Bridge, alerts, layouts and profiles come later, when you want
+                them.
+              </p>
+            </div>
+            <img
+              src="../shared-2026-10/layout-modern.jpg"
+              alt="Modern layout after first-run setup"
+              class="side-shot"
+            />
+          </div>
+          <aside class="notes">
+            Getting started is genuinely ninety seconds. Open the site, enter your callsign and grid, or let it use your
+            location. Pick a layout; Modern is a good first one. Set a DX target by typing a call or clicking the map.
+            That's it; you're operating. Units, time zone, your propagation mode and power are a few more clicks when
+            you want them. Everything else in this talk, rig control, alerts, layouts, profiles, is layered on when and
+            if you want it. Nothing is required.
+          </aside>
+        </section>
+
+        <!-- 7. Big picture -->
+        <section>
+          <div class="kicker">The big picture</div>
+          <h2>One screen. One glance. Everything.</h2>
+          <img
+            src="../shared-2026-10/hero-dockable.jpg"
+            alt="OpenHamClock dockable layout: map, DX cluster, DE panel, solar image, DXpeditions"
+            class="hero-shot tall"
+          />
+          <p class="caption">
+            Map · DX cluster · your station · live solar imagery · DXpeditions · band buttons · DX news ticker — one
+            screen.
+          </p>
+          <aside class="notes">
+            Here's what it looks like. This is the dockable layout, which is the one I'd push most people toward once
+            they've played with it for a day. Callsign and clocks up top, UTC and local. Space weather across the
+            header: SFI, K, sunspot number, solar wind, and a one-word verdict. Down the left, your station panel with
+            sunrise and sunset and the local weather, and live solar imagery straight from NASA. The map in the middle
+            with the terminator and the great-circle paths of the last few minutes of spots. The DX cluster and the
+            DXpedition calendar on the right. Band buttons along the bottom filter the whole map. Every one of those
+            panels docks, undocks, resizes and can be swapped for any of eighty-odd others. We'll come back to that.
+          </aside>
+        </section>
+
+        <!-- 8. The map -->
+        <section>
+          <div class="kicker">The map</div>
+          <h2>The map is the application. Three ways to look at the world.</h2>
+          <div class="shot-grid">
+            <figure>
+              <img src="../shared-2026-10/map-flat.jpg" alt="Flat Mercator map with terminator and paths" />
+              <figcaption>Flat — pan, zoom, eleven basemaps</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/map-azimuthal.jpg" alt="Azimuthal map centered on the station" />
+              <figcaption>Azimuthal — true bearings from your QTH</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/map-globe-now.jpg" alt="3D globe with great-circle arcs and satellites" />
+              <figcaption>3D globe — satellites at real altitude</figcaption>
+            </figure>
+          </div>
+          <ul class="small" style="margin-top: 0.4em">
+            <li>
+              Live gray line with civil / nautical / astronomical twilight · DE/DX short and long path · 30+ toggleable
+              layers
+            </li>
+            <li>
+              Aurora, D-RAP absorption, MUF, VOACAP heatmap, grid squares, CQ/ITU zones, radar, lightning, earthquakes,
+              wildfires, aircraft, city lights…
+            </li>
+            <li>Click anywhere: distance, bearing, grid, local time, nearest city — set it as DX in one click</li>
+          </ul>
+          <aside class="notes">
+            The map is the application, and you get three projections. The flat map is the everyday one, with eleven
+            basemaps from dark to satellite imagery to topo. The azimuthal projection is centered on you, so a straight
+            line out from the middle is the true beam heading, which is how a rotator thinks. And the 3D globe puts
+            satellites at their actual orbital altitude with great-circle arcs that look like great circles. On all
+            three: the gray line updates live with the three twilight bands, short and long path to your DX, and more
+            than thirty layers you can switch on: aurora, D-layer absorption, MUF, the VOACAP heatmap, grid squares,
+            zones, weather radar, lightning, earthquakes, wildfires, live aircraft, even NASA's city lights at night.
+            Click anywhere on the map and you get distance, bearing, grid, local time and the nearest city, with a
+            one-click set-as-DX.
+          </aside>
+        </section>
+
+        <!-- 9. Spots -->
+        <section>
+          <div class="kicker">Spots</div>
+          <h2>The cluster, the way you wish it looked.</h2>
+          <div class="two-col wide-left">
+            <img
+              src="../shared-2026-10/dx-filters.jpg"
+              alt="DX cluster filter manager: bands, modes, continents, zones, watchlist"
+              class="side-shot"
+            />
+            <div>
+              <ul class="small">
+                <li>Live DX cluster with a real <strong>mode column</strong>; sort by time, frequency or call</li>
+                <li>Filter by band, mode, continent, CQ/ITU zone, grid, your watch list; exclude calls and prefixes</li>
+                <li><strong>Worked-before badges</strong> from your logbook: NEW · BAND · DUPE · ✓</li>
+                <li>"Only DXpeditions" and contest filters tame the firehose</li>
+                <li>Hover a row → path on the map. Click → DX, tune, log</li>
+                <li>Click any call → inline card: name, QTH, grid, <em>his local time</em></li>
+                <li>🎧 on every row opens the nearest live KiwiSDR tuned to the spot — hear it with no radio</li>
+                <li>PSKReporter live via MQTT: who hears you, who you hear, FT8/FT4/WSPR</li>
+              </ul>
+            </div>
+          </div>
+          <aside class="notes">
+            The DX cluster has looked the same since 1989, and this is the version you wish you'd had. There's a real
+            mode column. You can filter by band, mode, continent, zone, grid, your own watch list, and keep an exclude
+            list for calls you never want to see again. The badges are the part I use most: the panel checks your
+            logbook and tags each spot NEW if you've never worked the entity, BAND if you need the band slot, DUPE if
+            you've already got him this band and mode. Hover a row and the path draws on the map; click it and it
+            becomes your DX, tunes the radio, and offers to log it. Click the callsign and you get an inline card with
+            his name, QTH, grid, and the local time at his end, which is half of deciding whether to sit in a pileup.
+            And the headphones icon on every row opens the nearest live KiwiSDR receiver tuned to that frequency, so you
+            can hear the station even if you don't have a radio in front of you. Below the cluster, PSKReporter runs
+            live over MQTT: who's hearing you, who you're hearing.
+          </aside>
+        </section>
+
+        <!-- 10. Activations -->
+        <section>
+          <div class="kicker">Activations</div>
+          <h2>Parks, summits, flora &amp; fauna, bunkers — all on the same map.</h2>
+          <div class="two-col">
+            <div>
+              <ul class="small">
+                <li><strong>POTA · SOTA · WWFF · WWBOTA</strong> spots, each with its own marker and panel</li>
+                <li>Same filters, same click-to-tune, same worked-before badges as the cluster</li>
+                <li>Audio alert when an activator appears on a band you're watching</li>
+                <li><strong>Activator layout</strong>: self-spot to POTA, see who's hunting you, log fast</li>
+                <li><strong>Hunter layout</strong>: everything portable, sorted by what you need</li>
+                <li>Colorado is SOTA country — summits light up on the map as they're activated</li>
+              </ul>
+            </div>
+            <div class="shot-grid two panels" style="margin-top: 0">
+              <figure>
+                <img src="../shared-2026-10/layout-activator.jpg" alt="Activator layout" />
+                <figcaption>Activator layout</figcaption>
+              </figure>
+              <figure>
+                <img src="../shared-2026-10/layout-hunter.jpg" alt="Hunter layout" />
+                <figcaption>Hunter layout</figcaption>
+              </figure>
+            </div>
+          </div>
+          <aside class="notes">
+            Between DX openings, the same map covers the portable world. POTA, SOTA, WWFF and WWBOTA each get their own
+            markers and panel, with the same filters, the same click-to-tune, and the same worked-before badges as the
+            cluster. You can set an audio alert so you can be in the garage and still hear when an activator shows up on
+            seventeen meters. There are two dedicated layouts: Activator, which lets you self-spot to POTA and see who's
+            hunting you while you log quickly, and Hunter, which is everything portable sorted by what you still need.
+            And since this is Colorado: SOTA summits light up on the map as they're activated, which on a summer weekend
+            makes the Front Range look like a Christmas tree.
+          </aside>
+        </section>
+
+        <!-- 11. Propagation -->
+        <section>
+          <div class="kicker">Propagation</div>
+          <h2>Real physics, computed for your station, right now.</h2>
+          <div class="two-col wide-left">
+            <div>
+              <ul class="small">
+                <li><strong>ITU-R P.533</strong> (the VOACAP model) compiled to WebAssembly and run in your browser</li>
+                <li>Per-band reliability chart DE → DX for 24 hours, with your mode, power and antenna</li>
+                <li>
+                  Each mode at its <strong>real decode threshold</strong> — FT8 at −19 dB, CW at +5, SSB at +10. That's
+                  why FT8 bands aren't "closed"
+                </li>
+                <li>World heatmap and MUF map overlays; live ionosonde readings from GIRO</li>
+                <li>
+                  Band Conditions and Band Health; <strong>band-opening alerts</strong> toward your continent or zone
+                </li>
+                <li>Solar: SFI, SSN, K/A, X-ray flux, solar wind, Bz, proton flux, NASA SDO imagery, SWPC alerts</li>
+                <li>NCDXF/IBP beacon schedule with a listening log</li>
+              </ul>
+            </div>
+            <div class="shot-grid two panels" style="margin-top: 0">
+              <figure>
+                <img src="../shared-2026-10/panel-solar.jpg" alt="Solar indices panel" />
+                <figcaption>Solar indices</figcaption>
+              </figure>
+              <figure>
+                <img
+                  src="../shared-2026-10/panel-prop-verify.jpg"
+                  alt="Prediction Check: predicted vs observed for the DE to DX path"
+                />
+                <figcaption>Prediction Check — model vs. the air, DE → DX</figcaption>
+              </figure>
+            </div>
+          </div>
+          <aside class="notes">
+            Propagation. Most tools you've used are effectively screenshots of somebody else's prediction. OpenHamClock
+            runs the ITU-R P.533 engine, the physics VOACAP is built on, compiled to WebAssembly, in your browser, for
+            your station. The chart shows per-band reliability from you to your DX across the day, with your mode, power
+            and antenna. And it runs each mode at its real decode threshold: FT8 at minus nineteen dB, CW at plus five,
+            SSB at plus ten. That's why FT8 bands here are open when other tools say closed. Real example: Front Range
+            to Tokyo, fifteen meters, midday: zero percent on SSB, about seventy on FT8. That matches what you hear.
+            There's a world heatmap, a MUF map, live ionosonde readings, band conditions, and band-opening alerts that
+            tell you when the spots say a band has opened toward Europe or Asia from here. The solar side has
+            everything: SFI, sunspots, K and A, X-ray flux so you see the flare before the band drops, solar wind and
+            Bz, live NASA imagery, and the SWPC alert feed. And the panel on the right, Prediction Check, is new this
+            week: it puts the model's prediction for your DE-to-DX path next to what's actually being spotted on that
+            path, and tells you in plain words whether the band is open, marginal or closed.
+          </aside>
+        </section>
+
+        <!-- 12. Satellites + APRS/EmComm -->
+        <section>
+          <div class="kicker">Satellites · APRS · EmComm</div>
+          <h2>The rest of the hobby lives here too.</h2>
+          <div class="two-col">
+            <div>
+              <h3>Satellites</h3>
+              <ul class="small">
+                <li>Live SGP4 tracking, footprints and tracks on every projection</li>
+                <li>24 h pass list for your QTH, AMSAT status, SatNOGS transponder data</li>
+                <li>Pass alerts; EME layout with moon data and a satellite relay planner</li>
+              </ul>
+              <h3>APRS &amp; EmComm</h3>
+              <ul class="small">
+                <li>APRS-IS and local RF via a TNC — stations, messages, telemetry, weather</li>
+                <li>
+                  EmComm layout: NWS alerts, FEMA shelters, Winlink gateways, net roster, event log, after-action
+                  reports
+                </li>
+                <li>Built with and for real EOC operators (KE8PLM, Jason Taggart)</li>
+              </ul>
+            </div>
+            <div class="shot-grid two panels" style="margin-top: 0">
+              <figure>
+                <img src="../shared-2026-10/panel-sat-passes.jpg" alt="Satellite passes panel" />
+                <figcaption>Satellite passes</figcaption>
+              </figure>
+              <figure>
+                <img src="../shared-2026-10/layout-emcomm.jpg" alt="EmComm layout" />
+                <figcaption>EmComm layout</figcaption>
+              </figure>
+            </div>
+          </div>
+          <aside class="notes">
+            The rest of the hobby lives here too. Satellites: live SGP4 tracking with footprints and ground tracks on
+            every projection, a twenty-four-hour pass list for your location, AMSAT status, and transponder data from
+            SatNOGS. There's an EME layout with moon position and a planner for working through a satellite relay. APRS
+            comes in from the internet or from a TNC on your own radio through Rig Bridge: stations, messages,
+            telemetry, weather. And the EmComm layout is a full emergency communications dashboard: NWS alerts, FEMA
+            shelters and disaster declarations, Winlink gateways, a net roster that fills from RF check-ins, an event
+            log, and after-action report export. That one was built alongside real EOC operators, who filed about twenty
+            issues in two weeks and made it good. If your ARES group wants a common operating picture, this is it.
+          </aside>
+        </section>
+
+        <!-- 13. Logbook -->
+        <section>
+          <div class="kicker">Logbook &amp; awards</div>
+          <h2>Log it where you spotted it. Know what you still need.</h2>
+          <div class="two-col wide-right">
+            <div>
+              <ul class="small">
+                <li>
+                  <strong>Native logbook</strong> in the browser: ADIF import/export, log from any spot, QSO map layer
+                </li>
+                <li><strong>Awards:</strong> DXCC, WAZ, WAS, VUCC progress — and the needed-spot badges everywhere</li>
+                <li><strong>Sync:</strong> Wavelog / Cloudlog push and pull, QRZ Logbook push, LoTW confirmations</li>
+                <li>N1MM, DXLog and N3FJP QSOs appear on the map as you log them</li>
+                <li>Group logging for Field Day; Contest layout with rate meter, mults and dupes</li>
+                <li>Stats: QSO heatmaps, distance records, activity trends; worked-grids map layer</li>
+              </ul>
+            </div>
+            <div class="shot-grid two panels" style="margin-top: 0">
+              <figure>
+                <img src="../shared-2026-10/panel-logbook.jpg" alt="Logbook panel" />
+                <figcaption>Logbook</figcaption>
+              </figure>
+              <figure>
+                <img src="../shared-2026-10/layout-contest.jpg" alt="Contest layout" />
+                <figcaption>Contest layout</figcaption>
+              </figure>
+            </div>
+          </div>
+          <aside class="notes">
+            The logbook is what turns this from a dashboard you watch into a station you operate. It lives in your
+            browser, imports and exports ADIF, and logs straight from any spot. Once your log is in, the whole dashboard
+            knows what you need: DXCC, WAZ, WAS and VUCC progress, and those NEW and BAND badges on every spot list. It
+            syncs with Wavelog and Cloudlog in both directions, pushes to QRZ Logbook, and pulls LoTW confirmations. If
+            you log in N1MM, DXLog or N3FJP, those QSOs show up on the map as you type them. There's a shared group log
+            for Field Day, and a Contest layout with a rate meter, multiplier tracking and a dupe sheet.
+          </aside>
+        </section>
+
+        <!-- 14. Rig Bridge -->
+        <section>
+          <div class="kicker">Rig control</div>
+          <h2>Click a spot. Your radio tunes.</h2>
+          <div class="two-col">
+            <div>
+              <h3>Rig Bridge talks to</h3>
+              <ul class="small">
+                <li>Yaesu, Kenwood, Elecraft, Icom over USB CAT — no hamlib needed</li>
+                <li>rigctld (Hamlib) · flrig · TCI · FlexRadio SmartSDR · RTL-SDR</li>
+                <li>Rotators via rotctld or PstRotator — bearing line on the map</li>
+                <li>WSJT-X, JTDX, MSHV, JS8Call — decodes on the map, reply from the dashboard</li>
+                <li>APRS TNC (Direwolf / KISS), Winlink, MeshCom</li>
+                <li>Cloud relay: control the shack from anywhere</li>
+              </ul>
+            </div>
+            <div>
+              <img
+                src="../shared-2026-10/panel-rotator.jpg"
+                alt="Rotator panel with auto-track"
+                class="side-shot"
+                style="max-height: 300px"
+              />
+              <p class="muted small" style="margin-top: 0.6em">
+                Band plan overlay on the frequency display warns you off privileges you don't have. Auto-mode picks the
+                right mode for the segment.
+              </p>
+            </div>
+          </div>
+          <aside class="notes">
+            Rig control. Click a spot and your radio tunes, with the right mode, while the other guy is still spinning
+            his VFO. That's Rig Bridge, a small program on the PC next to the radio. It speaks directly to Yaesu,
+            Kenwood, Elecraft and Icom over USB, no hamlib needed, and also rigctld, flrig, TCI, the Flex over SmartSDR,
+            and an RTL-SDR for receive. It drives rotators, and draws your beam heading on the map. WSJT-X and friends
+            stream their decodes onto the map, and you can reply from the dashboard. It handles an APRS TNC, Winlink,
+            and MeshCom. And the cloud relay lets you run the shack from a hotel room. One detail people like: the band
+            plan is overlaid on the frequency display, so it warns you when you're about to transmit where your license
+            class doesn't allow.
+          </aside>
+        </section>
+
+        <!-- 15. Make it yours: layouts -->
+        <section>
+          <div class="kicker">Make it yours · 1</div>
+          <h2>Thirteen layouts. Pick the one that matches how you operate.</h2>
+          <div class="shot-grid panels six">
+            <figure>
+              <img src="../shared-2026-10/layout-classic.jpg" alt="Classic layout" />
+              <figcaption>Classic — HamClock-style</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/layout-dockable.jpg" alt="Dockable layout" />
+              <figcaption>Dockable — build your own</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/layout-compact.jpg" alt="Compact layout" />
+              <figcaption>Compact — 4:3 and small screens</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/layout-eme.jpg" alt="EME layout" />
+              <figcaption>EME — moonbounce</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/layout-weather.jpg" alt="Weather layout" />
+              <figcaption>Weather</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/layout-airtraffic.jpg" alt="Air Traffic layout" />
+              <figcaption>Air Traffic</figcaption>
+            </figure>
+          </div>
+          <p class="caption">Also: Modern · Tablet · Clock (with idle clock) · Contest · EmComm · Activator · Hunter</p>
+          <aside class="notes">
+            Now the part people underestimate: shaping it to you. There are thirteen layouts. Classic looks like the
+            HamClock you know. Modern is the default. Dockable lets you build your own from any panel. Compact is for
+            four-by-three monitors and small screens; Tablet for a landscape tablet by the rig. Clock is a big clock
+            with an idle mode that takes over after a few minutes. Then the operating-specific ones: Contest, EmComm,
+            EME, Activator, Hunter, Weather and Air Traffic. You're not locked in; switch any time, and the next slide
+            is about saving several.
+          </aside>
+        </section>
+
+        <!-- 16. Make it yours: panels, themes, profiles -->
+        <section>
+          <div class="kicker">Make it yours · 2</div>
+          <h2>Panels, themes, profiles, and a command palette.</h2>
+          <div class="two-col">
+            <div>
+              <ul class="small">
+                <li>
+                  <strong>80+ panels</strong> you can dock, tab, resize and tear off — in the dockable layout, the "+"
+                  picker lists them all by group
+                </li>
+                <li>
+                  <strong>Layout presets</strong>: save "Monday night net", "Contest", "Wall display" and flip between
+                  them
+                </li>
+                <li>
+                  <strong>14 themes</strong> plus a custom theme editor — Dark, Light, Retro, Trek LCARS, Midnight,
+                  seasonal…
+                </li>
+                <li>
+                  <strong>Profiles</strong>: whole configurations with share codes — hand your club setup to a new
+                  member in one string; full backup/restore
+                </li>
+                <li><strong>Ctrl/Cmd+K</strong> command palette and single-key shortcuts for every layer and panel</li>
+                <li>
+                  Font size, header size, 12/24 h, units, time zone, 16 languages, screen-reader text view of the map
+                </li>
+              </ul>
+            </div>
+            <div class="shot-grid two panels" style="margin-top: 0">
+              <figure>
+                <img src="../shared-2026-10/theme-retro.jpg" alt="Retro theme" />
+                <figcaption>Retro theme</figcaption>
+              </figure>
+              <figure>
+                <img src="../shared-2026-10/theme-trek.jpg" alt="Trek LCARS theme" />
+                <figcaption>Trek (LCARS) theme</figcaption>
+              </figure>
+              <figure>
+                <img src="../shared-2026-10/settings-profiles.jpg" alt="Profiles settings" />
+                <figcaption>Profiles &amp; share codes</figcaption>
+              </figure>
+              <figure>
+                <img src="../shared-2026-10/command-palette.jpg" alt="Command palette" />
+                <figcaption>Command palette</figcaption>
+              </figure>
+            </div>
+          </div>
+          <aside class="notes">
+            Inside the dockable layout there are more than eighty panels: press the plus and they're listed by group.
+            Drag them into tabs, resize them, tear them off. Save presets: one for the Monday night net, one for contest
+            weekends, one for the wall display, and flip between them. Fourteen themes, from a light one for a sunny
+            room to a Retro one that looks like a 1980s terminal to a Star Trek LCARS one, plus an editor for your own.
+            Profiles are the whole configuration, and they have share codes: set up a layout for your club and hand it
+            to a new member as one string. Control-K opens a command palette that does anything by typing, and every
+            layer and panel has a single-key shortcut. And the basics: font and header size, twelve or twenty-four hour,
+            units, time zone, sixteen languages, and a screen-reader text view of the entire map.
+          </aside>
+        </section>
+
+        <!-- 17. Make it yours: alerts & kiosk -->
+        <section>
+          <div class="kicker">Make it yours · 3</div>
+          <h2>Let it tap you on the shoulder. Or run the wall.</h2>
+          <div class="two-col wide-left">
+            <div>
+              <h3>Alerts that find you</h3>
+              <ul class="small">
+                <li>
+                  Per-feed tones: POTA, SOTA, DX cluster, watch list, DXpeditions, contest starts, satellite passes,
+                  band openings, lightning, space weather
+                </li>
+                <li>Browser notifications; Web Push for severe space weather with the browser closed</li>
+                <li>
+                  Watch lists with a compact spec grammar: <code>20M NADXCC</code>, <code>40CW VP2E</code>,
+                  <code>3Y/</code>
+                </li>
+              </ul>
+              <h3>Shack display mode</h3>
+              <ul class="small">
+                <li>Raspberry Pi kiosk script: boots fullscreen, no keyboard needed</li>
+                <li>Scene rotation cycles layouts or profiles on a timer; display sleep/wake schedule; wake lock</li>
+                <li>Offline PWA: installs like an app, keeps working through an internet blip</li>
+              </ul>
+            </div>
+            <img src="../shared-2026-10/settings-alerts-spoken.jpg" alt="Alerts settings" class="side-shot" />
+          </div>
+          <aside class="notes">
+            Two more ways to shape it. First, alerts. Every feed can have its own tone: parks, summits, the cluster,
+            your watch list, DXpeditions, contest starts, satellite passes, band openings, lightning near you, space
+            weather. Browser notifications, and true push for severe space weather even with the browser closed. The
+            watch lists use a compact grammar: twenty meters and a new DXCC, forty CW and a prefix, portable stations in
+            a country. Second, the wall. The Raspberry Pi script boots straight into a fullscreen kiosk. Scene rotation
+            cycles through layouts or profiles on a timer. There's a display schedule so the screen sleeps at night, and
+            a wake lock so a tablet doesn't. And it's an offline-capable progressive web app, so it installs like an app
+            and survives an internet blip.
+          </aside>
+        </section>
+
+        <!-- 18. LIVE DEMO -->
+        <section
+          data-background-image="../shared-2026-10/hero-dockable.jpg"
+          data-background-size="cover"
+          data-background-position="center"
+          data-background-opacity="0.22"
+          data-background-color="#0a0e1a"
+        >
+          <div class="kicker">Live demo</div>
+          <h2 style="margin-bottom: 0.2em">Let's go to the actual thing.</h2>
+          <div class="demo-card">
+            <span class="url">openhamclock.com</span>
+            <a class="cta" href="https://openhamclock.com" target="_blank" rel="noopener">Open in new tab →</a>
+            <p class="hint">
+              Follow along on your phone — it's live right now. Presenter: press <kbd>L</kbd>, then switch tabs.
+            </p>
+          </div>
+          <aside class="notes">
+            Enough slides. Let's look at the real thing; it's openhamclock.com if you want to follow along. [Switch to
+            the pre-warmed tab.] Five minutes, five things. One: the map. Here's the terminator, the gray line, and
+            these arcs are the last few minutes of spots. [Click a spot on another continent.] Click a spot: path,
+            distance, bearing, and the radio would tune. [Click the call.] Click the call: who he is and what time it is
+            there. Two: filters. [Open the cluster filter, click a band, then the IOTA or DXpeditions toggle.] Watch the
+            list and the map collapse together. Three: propagation. [Open the Propagation panel, flip SSB to FT8.] Same
+            path, same hour; watch the bands reopen at FT8's real threshold. Four: layouts. [Switch to Classic, then
+            Dockable.] Same data, different shape; and in Dockable, press plus [open the picker] and there's every
+            panel. Five: the shortcut. [Press Ctrl-K, type "aurora", enter.] Anything by typing. [Back to the deck.] Let
+            me come back to the slides so you leave with the URLs and what's coming.
+          </aside>
+        </section>
+
+        <!-- 19. Run it anywhere -->
+        <section>
+          <div class="kicker">Install</div>
+          <h2>Pick your poison.</h2>
+          <div class="install-grid">
+            <div class="install-card">
+              <h3>Zero install</h3>
+              <p class="note">
+                Visit <strong>openhamclock.com</strong> — callsign + grid, done in 30 seconds. Install it as an app from
+                the browser menu.
+              </p>
+            </div>
+            <div class="install-card">
+              <h3>Raspberry Pi kiosk (Pi 3/4/5, Pi 400)</h3>
+              <pre><code class="language-bash">curl -fsSL https://raw.githubusercontent.com/accius/openhamclock/main/scripts/setup-pi.sh | bash -s -- --kiosk</code></pre>
+              <p class="note">Fullscreen Chromium on boot. A $70 Pi 400 runs it comfortably.</p>
+            </div>
+            <div class="install-card">
+              <h3>Docker</h3>
+              <pre><code class="language-bash">docker compose up -d</code></pre>
+              <p class="note">
+                Self-hosted on your LAN or home server; image on GHCR. Every upstream call goes through
+                <em>your</em> backend.
+              </p>
+            </div>
+            <div class="install-card">
+              <h3>Mac / Linux / Windows</h3>
+              <pre><code class="language-bash">git clone https://github.com/accius/openhamclock.git
+cd openhamclock &amp;&amp; npm ci &amp;&amp; npm start</code></pre>
+              <p class="note">
+                Open <code>http://localhost:3000</code>. Electron desktop builds and a Windows one-line installer too.
+              </p>
+            </div>
+          </div>
+          <aside class="notes">
+            How do you get it? Four ways, in order of patience. Zero install: openhamclock.com, and you can install it
+            as an app from the browser menu. The Raspberry Pi kiosk: one command and it reboots into a fullscreen wall
+            display; a seventy-dollar Pi 400 runs it comfortably, and we're planning a club build day next March. Docker
+            on a home server. Or clone and run on a Mac, Linux or Windows box; there's an Electron desktop build and a
+            one-line Windows installer. If you self-host, every upstream call goes through your own backend. Nothing
+            about your operating goes anywhere you don't control.
+          </aside>
+        </section>
+
+        <!-- 20. Coming soon intro -->
+        <section>
+          <div class="kicker soon">Coming soon · next release</div>
+          <h2>What's already built and waiting on Staging.</h2>
+          <p>
+            This month's work had one theme: everything a shack display should be able to do — and then the things
+            <em>nobody's</em> dashboard does yet.
+          </p>
+          <div class="stat-grid">
+            <div class="stat"><span class="num">22</span><span class="label">New panels</span></div>
+            <div class="stat"><span class="num">7</span><span class="label">New map layers</span></div>
+            <div class="stat"><span class="num">7</span><span class="label">Rig Bridge plugins</span></div>
+            <div class="stat"><span class="num">30+</span><span class="label">Remote commands</span></div>
+          </div>
+          <p class="soon-callout">
+            Everything on the next five slides is merged, tested and documented. It ships in the next monthly drop. If
+            you want to try it early, the Staging branch runs it today.
+          </p>
+          <aside class="notes">
+            Now the coming-soon section, and it's a big one. This month's work had one theme: everything a shack display
+            should be able to do, from planning tools to hardware hooks to remote control, and then a set of things
+            nobody's dashboard does yet. Twenty-two new panels, seven new map layers, seven Rig Bridge plugins, a
+            remote-control API with more than thirty commands. All of it is merged, tested and in the manual, and it
+            ships in the next monthly release. If you can't wait, the Staging branch runs it today.
+          </aside>
+        </section>
+
+        <!-- 21. Coming soon: time shift + planners -->
+        <section>
+          <div class="kicker soon">Coming soon · planning</div>
+          <h2>Time shift the whole dashboard. Then plan with it.</h2>
+          <div class="two-col wide-left">
+            <img
+              src="../shared-2026-10/map-timeshift-layers.jpg"
+              alt="Map shifted eight hours ahead with the Time Shift control, political boundaries, launch sites and balloons"
+              class="side-shot"
+            />
+            <div>
+              <ul class="small">
+                <li>
+                  <strong>Time Shift</strong>: drag the display up to ±30 days — terminator, gray line, sun and moon,
+                  satellites and the VOACAP hour all follow. Red <em>NOT REAL TIME</em> badge snaps you back
+                </li>
+                <li><strong>Grayline Planner</strong>: the next 7 days of mutual twilight between you and your DX</li>
+                <li>
+                  <strong>EME Planner</strong> and <strong>Satellite Planner</strong>: mutual windows with the far end,
+                  48 h / 24 h
+                </li>
+                <li><strong>Alarm clock</strong>: daily and once-only, DE or UTC — and a ⏰ on every contest</li>
+                <li>Political boundaries, nearest city on hover, launch pads and amateur balloons on the map</li>
+              </ul>
+            </div>
+          </div>
+          <aside class="notes">
+            The most-requested feature, by a mile, was the ability to move time. It's here: drag the whole dashboard up
+            to thirty days either way and the terminator, gray line, sun and moon, satellites and the propagation hour
+            all follow, with a red badge in the header until you come back to now. On top of it sit three planners:
+            Grayline, which finds the next week of mutual twilight between you and your DX; EME, which plots the moon at
+            both ends for forty-eight hours; and Satellite, which finds when a bird is above the horizon at both ends.
+            Click a window and the map jumps to that moment. There's a proper alarm clock now, daily and once-only, and
+            every contest in the calendar has an alarm button. And the map gained political boundaries in your own
+            colors, a nearest-city readout, launch pads with countdowns, and amateur balloons with their trails.
+          </aside>
+        </section>
+
+        <!-- 22. Coming soon: intelligence -->
+        <section>
+          <div class="kicker soon">Coming soon · things nobody has</div>
+          <h2>From "what's happening" to "what should I do now."</h2>
+          <div class="shot-grid four panels">
+            <figure>
+              <img src="../shared-2026-10/panel-opportunities.jpg" alt="Opportunities panel" />
+              <figcaption>
+                <strong>Opportunities</strong> — spots ranked by award need × activity × P.533 reliability
+              </figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/panel-solar-outlook.jpg" alt="27-day solar outlook panel" />
+              <figcaption>
+                <strong>27-Day Outlook</strong> — Quiet / Active / Storm pills on every contest weekend
+              </figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/panel-benchmark.jpg" alt="Station benchmark panel" />
+              <figcaption><strong>Station Benchmark</strong> — your RBN signal vs. neighbours within 300 km</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/settings-rigbridge-beacon.jpg" alt="KiwiSDR beacon monitor settings" />
+              <figcaption><strong>Beacon monitor</strong> — real NCDXF beacon SNR through a KiwiSDR</figcaption>
+            </figure>
+          </div>
+          <ul class="small" style="margin-top: 0.3em">
+            <li>
+              <strong>Spoken alerts</strong>: "Watchlist: Victor Kilo Nine Mike Alfa on 20 metres CW" — with ITU
+              phonetics
+            </li>
+            <li>
+              <strong>Home Assistant / MQTT</strong>: space weather, alerts, band openings, rig and rotator state
+              published with HA discovery
+            </li>
+          </ul>
+          <aside class="notes">
+            These are the ones no other dashboard has. Opportunities takes every spot from the last fifteen minutes and
+            ranks it by three things: what it does for your awards, a new DXCC, band, zone, grid or state from your
+            logbook; how many people are spotting it; and the P.533 reliability from your station to that one, this
+            hour. The answer to "what should I chase right now." The 27-Day Outlook puts NOAA's forecast on the contest
+            calendar, so each weekend gets a quiet, active or storm pill before you plan. Station Benchmark watches the
+            Reverse Beacon Network and compares how your signal is heard against everyone within three hundred
+            kilometers, per band, over a week: an honest answer to "is my antenna any good." The beacon monitor is a Rig
+            Bridge plugin that follows the NCDXF beacon schedule on a public KiwiSDR and logs real signal-to-noise for
+            all eighteen beacons, so you can compare the model against a real receiver. Spoken alerts read the watch
+            list hit out loud in phonetics. And for the home-automation people, everything publishes to MQTT with Home
+            Assistant discovery, so Kp and band openings can be sensors next to your thermostat.
+          </aside>
+        </section>
+
+        <!-- 23. Coming soon: remote, kiosk, Pi hardware -->
+        <section>
+          <div class="kicker soon">Coming soon · control &amp; hardware</div>
+          <h2>Drive it from your phone. Wire it to your Pi.</h2>
+          <div class="two-col wide-left">
+            <div>
+              <ul class="small">
+                <li>
+                  <strong>Remote-control API</strong>: set DE/DX, layout, theme, panels, map view, satellite, time,
+                  alarms, rotator, screenshot — the whole display, scriptable over HTTP
+                </li>
+                <li>
+                  <strong>Phone remote</strong>: scan the QR code in Settings; big touch buttons for everything above
+                  plus rig tuning
+                </li>
+                <li>Stream Deck, Node-RED, curl — anything that speaks HTTP</li>
+                <li>
+                  <strong>Kiosk</strong>: demo mode, grayscale, rotating titles in the callsign box, PIN lock for public
+                  displays
+                </li>
+                <li>
+                  <strong>Pi hardware via Rig Bridge</strong>: GPS (NMEA / gpsd), BME280 temperature-humidity-pressure
+                  with 24 h history, GPIO lines (PTT → ON AIR, alarm, countdown, satellite LEDs), light-sensor
+                  brightness
+                </li>
+                <li>
+                  <strong>Rover mode</strong>: live grid from GPS, distance to the next grid line, VUCC status,
+                  grid-change alert
+                </li>
+              </ul>
+            </div>
+            <div class="shot-grid two" style="margin-top: 0; grid-template-columns: 1.6fr 1fr; align-items: start">
+              <figure>
+                <img src="../shared-2026-10/settings-station-remote.jpg" alt="Remote control settings with QR code" />
+                <figcaption>Settings → Station: pair a phone</figcaption>
+              </figure>
+              <figure>
+                <img src="../shared-2026-10/phone-remote.jpg" alt="Phone remote" style="max-height: 420px" />
+                <figcaption>The phone remote</figcaption>
+              </figure>
+            </div>
+          </div>
+          <aside class="notes">
+            Control and hardware. There's a remote-control API: everything you can do on the display, over HTTP. Set DE
+            or DX, change the layout or theme, add panels, change the map view, pick a satellite, shift time, arm an
+            alarm, turn the rotator, take a screenshot. Scan the QR code in Settings with your phone and you get a touch
+            remote for all of it, plus rig tuning. Or drive it from a Stream Deck or Node-RED. For public displays: demo
+            mode, grayscale, rotating titles in the callsign box, and a PIN lock so visitors can't rearrange your
+            hamfest booth. And four new Rig Bridge plugins close the Pi hardware gap: a GPS for your location and time,
+            a BME280 sensor for shack temperature, humidity and pressure, GPIO lines on the Pi header, so a PTT line
+            lights ON AIR and LEDs follow your alarm, countdown and satellite passes, and a light sensor for automatic
+            brightness. With the GPS following, Rover mode shows your live grid, the distance to the next grid line, and
+            your VUCC status for the square you're in. Honest caveat: the hardware plugins are new and mock-tested; if
+            you have a Pi with sensors on it, we'd love a field report.
+          </aside>
+        </section>
+
+        <!-- 24. Coming soon: weather & sky -->
+        <section>
+          <div class="kicker soon">Coming soon · weather &amp; sky</div>
+          <h2>Weather and sky, on the same screen.</h2>
+          <div class="shot-grid four panels eight">
+            <figure>
+              <img src="../shared-2026-10/panel-tropical.jpg" alt="Tropical cyclones panel" />
+              <figcaption>Tropical cyclones — NHC + JTWC tracks and cones</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/panel-wefax.jpg" alt="WEFAX chart panel" />
+              <figcaption>WEFAX radiofax charts, with the frequencies one click from the rig</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/panel-marine.jpg" alt="Marine buoys panel" />
+              <figcaption>NDBC buoys — wind, waves, water temp</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/panel-fire-weather.jpg" alt="Fire weather panel" />
+              <figcaption>Red Flag Warnings with zone outlines</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/panel-eclipse.jpg" alt="Eclipses panel" />
+              <figcaption>Every eclipse to 2040, with local circumstances</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/panel-planets.jpg" alt="Planets panel" />
+              <figcaption>Planets — checked against JPL Horizons</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/panel-noaa-scales.jpg" alt="NOAA scales panel" />
+              <figcaption>NOAA R/S/G scales + 3-day forecast</figcaption>
+            </figure>
+            <figure>
+              <img src="../shared-2026-10/panel-space-launches.jpg" alt="Space launches panel" />
+              <figcaption>Space launches with countdowns</figcaption>
+            </figure>
+          </div>
+          <p class="caption">
+            Also: Dst index · electron flux · Windy embed · HAB/pico balloons · HamAlert feed · live nets from NetLogger
+            · IOTA badges · magnetic bearings (WMM2025) · message of the day
+          </p>
+          <aside class="notes">
+            A quick wall of the new weather and sky panes. Tropical cyclones with the official forecast tracks and
+            cones, from the National Hurricane Center and the Joint Typhoon Warning Center. Radiofax charts from every
+            NOAA station, with the broadcast frequencies one click from your rig. The nearest NDBC buoys with wind,
+            waves and water temperature. Red Flag fire-weather warnings with their zone outlines, which matter in
+            Colorado. Every solar and lunar eclipse through 2040 with what you'll see from your QTH. The planets,
+            checked against JPL. NOAA's R, S and G scales with the three-day forecast. Upcoming space launches with
+            countdowns and the pads on the map. And below the pictures: the Dst index, electron flux, an embedded Windy
+            view, amateur balloons, a HamAlert feed, live nets from NetLogger, IOTA badges on spots, magnetic bearings
+            from the real World Magnetic Model, and a message-of-the-day banner for club servers.
+          </aside>
+        </section>
+
+        <!-- 25. Coming soon: cluster, sats -->
+        <section>
+          <div class="kicker soon">Coming soon · operating</div>
+          <h2>Cluster power tools and satellite automation.</h2>
+          <div class="two-col">
+            <div>
+              <h3>DX cluster</h3>
+              <ul class="small">
+                <li>
+                  <strong>Watch lists</strong> with a full spec grammar — bands, sub-bands, prefixes, NADXCC / NABAND
+                  against your log — in Off / Red / Only / Not modes
+                </li>
+                <li>
+                  Send your own <strong>login commands</strong> to your node; a <strong>Cluster Console</strong> panel
+                  shows the raw session
+                </li>
+                <li>The list stops jumping while you scroll — a NEW button catches you up</li>
+                <li>Map spot labels: call, prefix or frequency, with a minimum distance</li>
+              </ul>
+            </div>
+            <div>
+              <h3>Satellites &amp; rotator</h3>
+              <ul class="small">
+                <li>
+                  <strong>Rotator auto-track</strong>: follow the DX bearing or the selected satellite, pre-position
+                  before AOS, flip mode past 90°
+                </li>
+                <li>
+                  <strong>Doppler tuning</strong> keeps the rig on the corrected downlink from the SatNOGS transmitter
+                  you pick
+                </li>
+                <li>
+                  Polar sky view of the next pass; hams.at alerted passes; stale TLEs flagged with a refresh button
+                </li>
+                <li>Measured-vs-predicted everywhere: Prediction Check gets a third bar from real beacons</li>
+              </ul>
+            </div>
+          </div>
+          <aside class="notes">
+            Last coming-soon slide, for the operators. The DX cluster gets a full watch-list grammar: bands, sub-bands
+            like forty CW, prefixes with the portable rules, and the ADIF keywords that mean "no DXCC in my log" or "no
+            band slot," in red, only, or not modes. If you run your own cluster node, you can send your own commands
+            after login, and a console panel shows the raw session. The list no longer jumps while you're reading it. On
+            the satellite side: the rotator can follow the DX bearing or track the selected satellite, pre-positioning
+            before AOS, with flip mode for rotators that go past ninety degrees. Doppler tuning keeps the rig on the
+            corrected downlink. There's a polar sky view of the next pass, hams.at alerts, and stale element sets are
+            flagged with a refresh button. That's the next release. It's a big one.
+          </aside>
+        </section>
+
+        <!-- 26. Get involved -->
+        <section>
+          <div class="kicker">Get involved</div>
+          <h2>Try it, break it, tell us about it.</h2>
+          <ul>
+            <li>
+              <strong>Try it:</strong> <a href="https://openhamclock.com">openhamclock.com</a> — thirty seconds, no
+              install
+            </li>
+            <li>
+              <strong>Source &amp; manual:</strong>
+              <a href="https://github.com/accius/openhamclock">github.com/accius/openhamclock</a> — the manual is also
+              under Settings → Help
+            </li>
+            <li>
+              <strong>Bugs &amp; features:</strong> GitHub Issues — most of what shipped this year started as someone's
+              issue
+            </li>
+            <li><strong>Community:</strong> Facebook group "OpenHamClock" · r/OpenHamClock</li>
+            <li>
+              <strong>Code:</strong> PRs against the <code>Staging</code> branch; map layers and panels are small plugin
+              files
+            </li>
+            <li>
+              <strong>This club:</strong> a shared club profile code, a Pi for the clubhouse wall, a build day — I'm
+              happy to help with any of them
+            </li>
+          </ul>
+          <p class="contrib-callout">
+            Monthly releases, driven almost entirely by <strong>user bug reports and feature requests</strong>. Negative
+            feedback is worth more than silence.
+          </p>
+          <aside class="notes">
+            If you take one thing from this morning: try it. Thirty seconds, no install. The manual is on GitHub and
+            built into the app under Settings, Help. If something's wrong or missing, file an issue; most of what
+            shipped this year started as someone's issue, and release cadence is monthly, so it won't sit long. The
+            Facebook group is the busiest community channel. If you write code, map layers and panels are small plugin
+            files, and pull requests go against Staging. And for this club specifically: I'd happily set up a shared
+            club profile code, help put a Pi on the clubhouse wall, or run a build day. Grab me after.
+          </aside>
+        </section>
+
+        <!-- 27. Thanks -->
+        <section class="closer" data-background-color="#0a0e1a">
+          <img src="../shared-2026-10/icon-512.png" alt="OpenHamClock logo" class="closer-mark" />
+          <div class="kicker">Thank you</div>
+          <p>To the contributors and the operators who keep telling us what's wrong.</p>
+          <p>And to NCARC for having me this morning.</p>
+          <div class="seventythree">73</div>
+          <p class="meta muted small" style="margin-top: 0.5em">
+            <strong>Chris Hetherington — K0CJH</strong><br />
+            chris@cjhlighting.com<br />
+            openhamclock.com · github.com/accius/openhamclock
+          </p>
+          <p class="xsmall muted" style="margin-top: 0.5em">Questions?</p>
+          <aside class="notes">
+            Thanks again to NCARC for having me. This project exists because dozens of people sent pull requests to a
+            brand-new repo and because users keep telling us what's wrong. I'm Chris, K0CJH, contact's on the screen.
+            What questions do you have? [Prepared answers for the usual questions are in speaker-notes.md: HamClock
+            differences, Pi 3 performance, privacy, offline, logbooks, FT8 physics, cluster node, funding.]
+          </aside>
+        </section>
+      </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/notes/notes.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@5/plugin/highlight/highlight.js"></script>
+    <script>
+      Reveal.initialize({
+        width: 1280,
+        height: 720,
+        margin: 0.04,
+        minScale: 0.2,
+        maxScale: 2.0,
+        hash: true,
+        slideNumber: 'c/t',
+        controls: true,
+        progress: true,
+        transition: 'slide',
+        backgroundTransition: 'fade',
+        plugins: [RevealHighlight, RevealNotes],
+        keyboard: {
+          76: () => window.open('https://openhamclock.com', '_blank'), // 'L' opens live site
+        },
+      });
+    </script>
+  </body>
+</html>

@@ -224,3 +224,31 @@ describe('showAlertNotification', () => {
     expect(constructed).toHaveLength(0);
   });
 });
+
+describe('formatAlertBody sat-alerts (hams.at)', () => {
+  it('names the operator, satellite, lead time and grids', () => {
+    const aos = Date.now() + 12 * 60 * 1000;
+    expect(formatAlertBody('sat-alerts', { name: 'RS-44', callsign: 'KB5FHK', aos, grids: ['CM96'] })).toBe(
+      'KB5FHK on RS-44 in 12 min · CM96',
+    );
+    expect(formatAlertBody('sat-alerts', { name: 'AO-7', callsign: 'WH6WR', aos: Date.now() - 1000 })).toBe(
+      'WH6WR on AO-7 now',
+    );
+    expect(formatAlertBody('sat-alerts', { name: 'SO-50' })).toBe('on SO-50');
+    expect(formatAlertBody('sat-alerts', {})).toBe('');
+  });
+});
+
+describe('formatAlertBody lightning-guard', () => {
+  it('nearest strike, strike count and relay state', () => {
+    expect(formatAlertBody('lightning-guard', { level: 'alarm', distance: '12 km NE', count: 4, relay: true })).toBe(
+      'Nearest strike 12 km NE · 4 strikes in 10 min · antenna relay engaged',
+    );
+    expect(formatAlertBody('lightning-guard', { level: 'warn', distance: '41 km W', count: 1 })).toBe(
+      'Nearest strike 41 km W · 1 strike in 10 min',
+    );
+    expect(formatAlertBody('lightning-guard', { level: 'clear', count: 9, relay: false })).toBe(
+      'All clear · antenna relay released',
+    );
+  });
+});

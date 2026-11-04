@@ -31,3 +31,6 @@ package-lock.json
 
 # Test fixtures (captured external pages — must not be reformatted)
 **/__fixtures__/
+
+# Bundled machine-generated geodata (minified on purpose)
+src/assets/geodata/

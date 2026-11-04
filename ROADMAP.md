@@ -1,7 +1,7 @@
 # OpenHamClock Roadmap
 
 > Amateur Radio Dashboard — A modern web-based HamClock alternative
-> Created by K0CJH | Current version: v26.6.0 | License: MIT
+> Created by K0CJH | Current version: v26.10.1 (v26.11.0 on Staging) | License: MIT
 
 ---
 
@@ -78,84 +78,77 @@ The project settled into a monthly release cadence (first Tuesday), and each dro
 
 ---
 
-## Current State (v26.6.0)
+## Current State (v26.10.1 released · v26.11.0 on Staging)
 
 ### What's Working Well
 
-- **30+ dashboard modules** — DX Cluster, PSK Reporter, WSJT-X, POTA, SOTA, WWFF, WWBOTA, satellites, APRS, contests, DXpeditions, propagation, solar indices, weather, band activity, MeshCom, and more
-- **3 map projections** — Flat, Azimuthal, and the new 3D globe with great-circle arcs and satellites at orbital altitude
-- **6 layouts** — Modern, Classic, Tablet, Compact, Dockable, EmComm
-- **5 themes** — Dark, Light, Legacy, Retro, Custom
-- **Real propagation physics** — ITU-R P.533 (VOACAP-grade) predictions via in-browser WASM, mode-aware decode thresholds for FT8/FT4/WSPR/JT65/CW, with REST and heuristic fallbacks
-- **OHC Cluster** — Our own DX cluster node serving the hosted site: RBN plus human spots (POTA, SOTA, WWFF, Parks n Peaks, DX Summit), mode-balanced so SSB/CW survive the FT8 flood
-- **Rig control** — Click-to-tune across all spot panels, unified rig-bridge with 22 plugins, cloud relay for remote operation, proper Yaesu band-select on band changes
-- **EmComm platform** — Full emergency communications dashboard with APRS station tracking (internet + local RF), net operations, point-to-point APRS messaging, resource token aggregation, NWS alerts, FEMA shelters/disasters, Winlink gateway layer, and telemetry parsing
-- **Accessibility** — W3C tablist keyboard navigation, aria-live event announcements, and a non-map "Map Data" text view for screen-reader users
-- **Multi-platform** — Browser, Electron desktop, Raspberry Pi kiosk, Docker/GHCR, Railway, FreeBSD
+- **80+ dashboard modules** — DX Cluster, PSK Reporter, WSJT-X, POTA, SOTA, WWFF, WWBOTA, satellites, APRS, contests, DXpeditions, propagation, solar indices, weather, band activity, MeshCom, logbook, awards, planners, and more
+- **3 map projections** — Flat, Azimuthal, and the 3D globe with great-circle arcs and satellites at orbital altitude
+- **13 layouts** — Modern, Classic, Dockable (with presets), Compact, Tablet, Clock, Contest, EmComm, EME, Activator, Hunter, Weather, Air Traffic
+- **14 themes** plus a custom theme editor
+- **Real propagation physics** — ITU-R P.533 (VOACAP-grade) predictions via in-browser WASM, mode-aware decode thresholds, with REST and heuristic fallbacks; measured NCDXF beacon SNR through a KiwiSDR to check the model against reality
+- **OHC Cluster** — Our own DX cluster node serving the hosted site: RBN plus human spots, mode-balanced so SSB/CW survive the FT8 flood
+- **Rig control** — Click-to-tune across all spot panels, unified Rig Bridge with 20+ plugins (rigs, rotator, digital modes, APRS TNC, Winlink, KiwiSDR beacon monitor, HamAlert, MQTT publish, GPS, sensors, GPIO, brightness), cloud relay for remote operation, rotator auto-track and satellite Doppler tuning
+- **Native logbook** — IndexedDB storage, ADIF import/export, log-from-spot, group/Field Day logging, award tracking, worked-before badges, Wavelog/Cloudlog/QRZ push, LoTW pull, N1MM/N3FJP/DXLog ingest
+- **EmComm platform** — Full emergency communications dashboard with APRS station tracking (internet + local RF), net operations, point-to-point APRS messaging, resource token aggregation, NWS alerts, FEMA shelters/disasters, Winlink gateway layer, telemetry, event log and after-action reports
+- **Shack-display completeness** — whole-dashboard time shift, planners, alarm clock, a full watch-list grammar, a remote-control API with a phone remote, and Raspberry Pi hardware hooks (see the v26.11.0 What's New)
+- **Accessibility** — W3C tablist keyboard navigation, aria-live event announcements, a non-map "Map Data" text view, WCAG AA contrast in every theme, spoken alerts
+- **Multi-platform** — Browser, PWA/offline, Electron desktop, Raspberry Pi kiosk, Docker/GHCR, Railway, FreeBSD
 - **16 languages** — ca, de, en, es, fr, it, ja, ka, ko, ms, nl, pt, ru, sl, th, zh
-- **Real-time data** — PSK Reporter via server-side MQTT proxy, WSJT-X via UDP, APRS-IS, DX cluster telnet
-- **Observability** — Authenticated Prometheus /metrics endpoint, /api/health subsystem snapshot, external watchtower probes for the hosted site
+- **Observability** — Authenticated Prometheus /metrics endpoint, /api/health subsystem snapshot, external watchtower probes for the hosted site, outbound MQTT/Home Assistant state
 
 ### Open Issues
 
-| #     | Type          | Description                                                                           |
-| ----- | ------------- | ------------------------------------------------------------------------------------- |
-| #1165 | Hardening     | Satellite pipeline release-day resilience — fletcher probe depth, cold-start, backoff |
-| #1152 | Feature       | More space for DX Cluster spots                                                       |
-| #1135 | Ops           | api/health statistics over run container card                                         |
-| #1112 | Accessibility | Color contrast fails WCAG AA in Light and Retro themes                                |
-| #1095 | Bug           | RBN should query spot/cluster caches before querying QRZ for location                 |
-| #1015 | Feature       | Open API for QSO Map layer                                                            |
-| #997  | Accessibility | Audit and improve experience for blind / screen-reader users                          |
-| #882  | Feature       | Rig-Bridge mode overrides                                                             |
+The tracker was at zero open issues when v26.10.1 shipped (2026-10-14). File new ones at <https://github.com/accius/openhamclock/issues>.
 
 ---
 
 ## What's Coming
 
-### Shipped on Staging Toward the Next Release
+### Shipped on Staging Toward the Next Release (v26.11.0)
 
-Already built and merged to Staging, headed for the next monthly release:
+Already built, merged to Staging, and documented in the manual; headed for the next monthly release:
 
-- **Native logbook** — IndexedDB storage, ADIF import/export, log-from-spot
-- **PWA / offline mode** — Service worker, versioned caches, update prompts
-- **3D globe map overlays** — Grid, zones, D-RAP, and aurora rendered on the globe
-- **Three new map layers** — Maidenhead grid, D-RAP absorption, CQ/ITU zones
-- **Space Weather Alerts panel** — With audio alert feed
-- **Meteor Showers panel**
-- **APRS telemetry dashboard** — Plus RF-heard shelter reports merged into EmComm
-- **IBP listening-log timeline** — Beacon reception history
-- **Worked-before / dupe badges** — On DX cluster and activation spots
-- **Band plan overlay** — On the Rig Control frequency display
-- **Click-to-listen web SDRs** — Auto-picked nearest live KiwiSDR, tuned to the spot, from spot rows and callsign popups
-- **Aircraft track prediction** — Configurable lead-time slider
-- **Configurable satellite track duration** — 15–120 min
-- **Azimuthal rendering fixes** — Curved zone/grid/ATC lines, square-level grid
-- **Contributor list refresh** — 14 missing contributors added to the Community page
+- **Time Shift** — whole-dashboard display time up to ±30 days (terminator, gray line, sun/moon, satellites, VOACAP hour), with keyboard shortcuts and a header badge
+- **Opportunities panel** — spots ranked by award need × activity × P.533 reliability
+- **KiwiSDR beacon monitor** — Rig Bridge plugin logging real NCDXF/IBP SNR; MEASURED view in the IBP panel; third bar in Prediction Check
+- **Contest weekend outlook** — SWPC 27-day outlook pills on the Contests panel plus a Solar Outlook panel
+- **Station Benchmark** — your RBN SNR versus neighbours within 300 km, per band, seven-day trend
+- **Spoken alerts** — Web Speech API with phonetics, per-feed
+- **Outbound MQTT + Home Assistant discovery** — server and Rig Bridge
+- **Remote-control API and phone remote** — HamClock-style set commands over SSE, QR-code pairing, Electron screenshot capture
+- **Kiosk conveniences** — demo mode, grayscale, rotating titles, PIN lock
+- **Satellite automation** — rotator auto-track with flip mode, Doppler tuning, hams.at alerts, TLE age limit, polar sky view
+- **Planners** — Grayline, EME mutual windows, satellite mutual visibility
+- **Alarm clock** — daily and once-only, contest-start alarms
+- **DX cluster power features** — full watch-list grammar (bands, sub-bands, NADXCC/NAPREF/NAGRID/NABAND, portable prefixes; Off/Red/Only/Not), login commands, cluster console, scroll NEW indicator, spot label options, UDP sets DX, IOTA badges and filter
+- **Weather and hazards** — tropical cyclones (NHC + JTWC), fire weather alerts, NDBC buoys, Windy embed, WEFAX charts
+- **Map** — political boundaries with custom colours, nearest-city cursor readout, launch sites, HAB/pico balloons
+- **Space weather and sky** — NOAA R/S/G scales, Dst, electron flux, eclipses through 2040, planets, space launches, auto Aurora/D-RAP layer
+- **Magnetic bearings** — WMM2025 declination, °M suffix everywhere
+- **HamAlert, NetLogger live nets, message of the day**
+- **Raspberry Pi hardware via Rig Bridge** — GPS (NMEA/gpsd/fifo), BME280/HTTP sensors, GPIO lines, LTR-329 brightness; Rover mode with grid-change alerts
 
-### In Progress Right Now
+### Known Gaps in the Staging Work
 
-- **Award tracking** — DXCC / WAZ / WAS / VUCC progress from the logbook, with needed-spot highlighting
-- **Worked-grids map layer** — Your confirmed grids painted on the map
-- **Browser notifications** — For the existing alert feeds
-- **Documentation overhaul** — Full user manual plus quickstart
+- The Rig Bridge hardware plugins (GPS, sensors, GPIO, brightness) and the KiwiSDR protocol are unit-tested with mocks only — no real Pi, sensor or Kiwi has been connected yet. Field reports wanted.
+- The new marker layers (cyclones, fire weather, buoys, balloons, launch sites, boundaries) render on the flat and azimuthal maps, not on the 3D globe.
+- Doppler tuning is downlink-only (Rig Bridge has no split/sub-VFO command yet).
+- The VOACAP heatmap layer does not follow the time shift (the server computes it for the real hour); the VOACAP chart does.
+- Browser screenshot capture renders map canvases only; full-fidelity capture is Electron-only.
+- Prediction Check's spot-count comparison is a weak heuristic; the beacon bar is the honest one. A rework around measured data (beacons, your own RBN spots) is on the list.
+- HamAlert has not been verified against a live account; NetLogger check-ins are listed but not mapped.
 
 ### On the Horizon
 
-- **Log sync** — LoTW confirmation download, push to Cloudlog/Wavelog/QRZ Logbook
-- **Contest mode** — Dedicated layout with rate meters, multiplier tracking, and dupe sheet
-- **True Web Push notifications** — Alerts with the browser closed (requires a VAPID push server)
-- **Band-opening detection** — Alert when spot/PSK activity shows a band opening toward your target
-- **Sked planner** — Mutual VOACAP windows for you and a chosen DX target
-- **Ionosonde panel** — Live GIRO foF2/MUF readings from nearby stations
-- **Stats dashboard** — QSO heatmaps, distance records, activity trends from the logbook
-- **Open REST API** — Documented endpoints for third parties, including a QSO map layer (#1015)
-- **Panel plugin system** — Community-contributed data panels (map-layer plugins already exist)
-- **Kiosk scene rotation** — Cycle through layouts/views on a timer for shack displays
-- **EmComm event log export** — CSV/PDF export for After Action Reviews
-- **Winlink live-pathways layer** — Gateway layer shipped in v26.3; live traffic view is blocked on upstream stream credentials (the Winlink team granted a key for the listing APIs, live stream still pending)
-- **Winlink Express CSV ingest** — Message-log import for EOC dashboards
-- **Mobile experience** — The PWA now covers much of the original "mobile app" goal; remaining work is mobile-first layout polish rather than a separate native app
+- **Prediction Check rework** — measured-first (beacons, own RBN spots), demote spot counts
+- **3D globe painters** for the new marker layers
+- **Satellite uplink split tuning** once Rig Bridge gains a sub-VFO command
+- **Web Push for every alert feed** (currently space weather only)
+- **PSK Reporter SNR in the Station Benchmark**
+- **Winlink live-pathways layer** — still blocked on upstream stream credentials
+- **Mobile layout polish** for the PWA
+- **Hardware field validation** on Raspberry Pi 4/5 and Pi 400 ahead of the 2027-03-14 Pi Day build event
 
 ---
 
@@ -169,4 +162,4 @@ We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instr
 
 ---
 
-_Last updated: 2026-08-28_ <!-- markdownlint-disable-line MD036 -->
+_Last updated: 2026-10-14_ <!-- markdownlint-disable-line MD036 -->

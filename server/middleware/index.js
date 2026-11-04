@@ -8,7 +8,7 @@ const compression = require('compression');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const express = require('express');
-const { formatBytes, getClientIP } = require('../utils/helpers');
+const { getClientIP, setTrustCloudflare } = require('../utils/helpers');
 
 /**
  * Apply all middleware to the Express app.
@@ -17,10 +17,11 @@ const { formatBytes, getClientIP } = require('../utils/helpers');
  * @returns {{ endpointStats, writeLimiter, ingestLimiter, requireWriteAuth, INTERNAL_TOKEN }} shared middleware refs
  */
 function applyMiddleware(app, ctx) {
-  const { CONFIG, PORT, TRUST_PROXY, API_WRITE_KEY, CORS_ORIGINS } = ctx;
+  const { PORT, TRUST_PROXY, TRUST_CLOUDFLARE, API_WRITE_KEY, CORS_ORIGINS } = ctx;
 
-  // Trust proxy
+  // Trust proxy (req.ip) and, only when opted in, Cloudflare's CF-Connecting-IP
   app.set('trust proxy', TRUST_PROXY);
+  setTrustCloudflare(TRUST_CLOUDFLARE === true);
 
   // Helper: check write auth on POST endpoints that modify server state
   function requireWriteAuth(req, res, next) {
@@ -40,14 +41,16 @@ function applyMiddleware(app, ctx) {
   // remain active.
   app.use(
     helmet({
-      contentSecurityPolicy: false, // eslint-disable-line -- see comment above
+      contentSecurityPolicy: false, // see comment above
       crossOriginEmbedderPolicy: false, // Required for cross-origin tile loading
     }),
   );
 
   // Permissions-Policy
   app.use((req, res, next) => {
-    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(self), payment=(), usb=()');
+    // microphone=(self): the Decoder panel listens to the receiver through a
+    // sound-card input (getUserMedia). Same-origin only — frames never get it.
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(self), geolocation=(self), payment=(), usb=()');
     next();
   });
 

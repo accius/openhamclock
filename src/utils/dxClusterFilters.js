@@ -1,4 +1,6 @@
 import { detectMode, getBandFromFreq, getCallsignInfo } from './callsign';
+import { watchlistDecision } from './watchlistSpec.js';
+import { extractIota } from './iota.js';
 
 /**
  * dxClusterFilters.js : DXCluster Filtering Utilities
@@ -262,7 +264,20 @@ const applyQuickSearchFilter = (filters, dxCall, spotter) => {
  * @param {Object} filters - Filter configuration
  * @returns {boolean} - true if item passes filters, false if filtered out
  */
-export const applyDXFilters = (item, filters) => {
+export const applyDXFilters = (item, filters, ctx = null) => {
+  const watch = ctx?.watch;
+  // HamClock-style watch list (Only / Not modes). Red mode is a display
+  // concern — the panel paints matches — so it never filters here. When a
+  // compiled list is supplied it supersedes the legacy watchlist fields.
+  if (watch?.matcher) {
+    const dxCallForWatch = item.dxCall || item.call;
+    const decision = watchlistDecision(
+      watch.mode,
+      watch.matcher({ call: dxCallForWatch, freq: item.freq, grid: item.dxGrid }),
+    );
+    if (decision === 'hide') return false;
+  }
+
   if (!filters || Object.keys(filters).length === 0) return true;
 
   const spotter = item.spotter;
@@ -271,7 +286,7 @@ export const applyDXFilters = (item, filters) => {
   const dxCall = item.dxCall || item.call;
   const dxInfo = getCallsignInfo(dxCall);
 
-  if (!applyWatchlistFilter(filters, dxCall)) {
+  if (!watch && !applyWatchlistFilter(filters, dxCall)) {
     return false;
   }
 
@@ -279,6 +294,13 @@ export const applyDXFilters = (item, filters) => {
   // DXpedition list (NG3K data). Untagged items (e.g. from sources that skip
   // the paths enrichment) are treated as non-DXpeditions.
   if (filters.dxpeditionsOnly && !item.isDXpedition) {
+    return false;
+  }
+
+  // IOTA-only: keep spots whose comment names a real IOTA reference
+  // ("EU-005", "na067"). Cluster spots carry no IOTA field, so the comment
+  // is the only signal — see utils/iota.js.
+  if (filters.iotaOnly && !extractIota(item.comment)) {
     return false;
   }
 
@@ -409,9 +431,29 @@ export const collapseDuplicateSpots = (spots) => {
  * Filter an array of DX spots/paths
  * Wrapper around applyDXFilters for filtering arrays
  */
-export const filterDXPaths = (paths, filters) => {
+export const filterDXPaths = (paths, filters, ctx = null) => {
   if (!paths || !filters) return paths;
-  if (Object.keys(filters).length === 0) return paths;
+  if (Object.keys(filters).length === 0 && !ctx?.watch?.matcher) return paths;
 
-  return paths.filter((item) => applyDXFilters(item, filters));
+  return paths.filter((item) => applyDXFilters(item, filters, ctx));
+};
+
+/**
+ * Is this spot one of ours — spotted by the station callsign (SSIDs and
+ * portable suffixes ignored)? Used by the "Show UDP spots: only mine" option:
+ * N1MM / DXLog / MacLoggerDX rebroadcast every cluster spot they receive over
+ * UDP, and some operators only want the ones they entered themselves.
+ */
+export const isOwnSpot = (spot, callsign) => {
+  const mine = String(callsign || '')
+    .trim()
+    .toUpperCase()
+    .split(/[-/]/)[0];
+  if (!mine || mine === 'N0CALL') return false;
+  const spotter = String(spot?.spotter || '')
+    .trim()
+    .toUpperCase()
+    .replace(/-#$/, '')
+    .split(/[-/]/)[0];
+  return !!spotter && spotter === mine;
 };

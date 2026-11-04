@@ -10,6 +10,7 @@ import {
   matchSatSpot,
   satShortName,
   findAmsatRow,
+  computeElevationSeries,
 } from './satRelay.js';
 
 // ISS-like element set (mid-2026 epoch). Structural checks only — the tests
@@ -159,5 +160,42 @@ describe('matchSatSpot / satShortName / findAmsatRow', () => {
     expect(findAmsatRow('AO-91 (Fox-1B)', rows).name).toBe('AO-91 [FM]');
     expect(findAmsatRow('FO-29 (JAS-2)', rows).name).toBe('FO-29 [V/u]');
     expect(findAmsatRow('RS-44 (DOSAAF)', rows)).toBeNull();
+  });
+});
+
+describe('computeElevationSeries (satellite planner)', () => {
+  it('samples both stations each minute for 24 h and matches relayGeometry', () => {
+    const series = computeElevationSeries(ISS_OMM, T0, DE, DX, { hours: 24, stepSec: 60 });
+    expect(series.length).toBe(24 * 60 + 1);
+    const p = series[300];
+    const g = relayGeometry(satrecFor(ISS_OMM), p.t, makeObserver(DE), makeObserver(DX));
+    expect(p.de).toBeCloseTo(g.de.elevation, 9);
+    expect(p.dx).toBeCloseTo(g.dx.elevation, 9);
+    expect(p.lat).toBeCloseTo(g.lat, 9);
+    expect(p.altKm).toBeGreaterThan(300);
+    // LEO: the bird is below the horizon most of the time at both ends
+    const upDE = series.filter((x) => x.de > 0).length;
+    expect(upDE).toBeGreaterThan(0);
+    expect(upDE).toBeLessThan(series.length / 3);
+  });
+  it('agrees with computeMutualPasses: every pass has common elevation ≥ minElev at its peak sample', () => {
+    const passes = computeMutualPasses(ISS_OMM, T0, DE, DX, { hours: 24, minElev: 5 });
+    const series = computeElevationSeries(ISS_OMM, T0, DE, DX, { hours: 24, stepSec: 60 });
+    for (const pass of passes) {
+      const inside = series.filter((x) => x.t >= pass.start && x.t <= pass.end);
+      expect(inside.length).toBeGreaterThan(0);
+      expect(Math.max(...inside.map((x) => Math.min(x.de, x.dx)))).toBeGreaterThanOrEqual(5 - 0.5);
+    }
+  });
+  it('works with only one station and returns [] with none / bad OMM', () => {
+    const only = computeElevationSeries(ISS_OMM, T0, DE, null, { hours: 1, stepSec: 600 });
+    expect(only.length).toBe(7);
+    expect(only[0].dx).toBeNull();
+    expect(typeof only[0].de).toBe('number');
+    const dxOnly = computeElevationSeries(ISS_OMM, T0, null, DX, { hours: 1, stepSec: 600 });
+    expect(dxOnly[0].de).toBeNull();
+    expect(typeof dxOnly[0].dx).toBe('number');
+    expect(computeElevationSeries(ISS_OMM, T0, null, null)).toEqual([]);
+    expect(computeElevationSeries(null, T0, DE, DX)).toEqual([]);
   });
 });

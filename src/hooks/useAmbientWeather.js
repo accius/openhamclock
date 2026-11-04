@@ -46,7 +46,8 @@ function getEnv(name) {
     if (typeof import.meta !== 'undefined' && import.meta.env && name in import.meta.env) return import.meta.env[name];
   } catch {}
   try {
-    if (typeof process !== 'undefined' && process.env && name in process.env) return process.env[name];
+    const proc = globalThis.process;
+    if (proc && proc.env && name in proc.env) return proc.env[name];
   } catch {}
   return undefined;
 }

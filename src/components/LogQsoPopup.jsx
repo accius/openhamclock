@@ -29,7 +29,7 @@ import QsoForm from './QsoForm.jsx';
 const FOCUSABLE = 'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
 /** The modal itself — rendered only while a prefill is being handled. */
-export function LogQsoPopup({ prefill, myGrid, userCallsign, onClose }) {
+export function LogQsoPopup({ prefill, myGrid, userCallsign, onClose, onDXChange, dxLocation, dxCallsign }) {
   const { t } = useTranslation();
   const containerRef = useRef(null);
   const [loggedCall, setLoggedCall] = useState(null); // set → confirmation flash
@@ -151,7 +151,16 @@ export function LogQsoPopup({ prefill, myGrid, userCallsign, onClose }) {
             ✓ {t('logbook.popup.logged', { defaultValue: 'QSO with {{call}} logged', call: loggedCall })}
           </div>
         ) : (
-          <QsoForm prefill={prefill} myGrid={myGrid} onSaved={handleSaved} onCancel={onClose} autoFocusCall />
+          <QsoForm
+            prefill={prefill}
+            myGrid={myGrid}
+            onSaved={handleSaved}
+            onCancel={onClose}
+            autoFocusCall
+            onDXChange={onDXChange}
+            dxLocation={dxLocation}
+            dxCallsign={dxCallsign}
+          />
         )}
       </div>
     </div>
@@ -163,7 +172,7 @@ export function LogQsoPopup({ prefill, myGrid, userCallsign, onClose }) {
  * and opens the popup when — and only when — no LogbookPanel is mounted and
  * the current layout is not 'contest' (see file header for why).
  */
-export function LogQsoPopupController({ layout, userCallsign, myGrid }) {
+export function LogQsoPopupController({ layout, userCallsign, myGrid, onDXChange, dxLocation, dxCallsign }) {
   const [prefill, setPrefill] = useState(null);
   const [instanceKey, setInstanceKey] = useState(0);
 
@@ -196,6 +205,9 @@ export function LogQsoPopupController({ layout, userCallsign, myGrid }) {
       userCallsign={userCallsign}
       myGrid={myGrid}
       onClose={() => setPrefill(null)}
+      onDXChange={onDXChange}
+      dxLocation={dxLocation}
+      dxCallsign={dxCallsign}
     />
   );
 }

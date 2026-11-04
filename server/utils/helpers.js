@@ -16,15 +16,22 @@ function formatDuration(ms) {
   return `${Math.floor(ms / 3600000)}h ${Math.floor((ms % 3600000) / 60000)}m`;
 }
 
-// Cloudflare strips client-supplied CF-Ray / CF-Connecting-IP at its edge, so
-// the presence of CF-Ray is a reliable signal the request actually transited
-// CF. Without that guard, anyone hitting the Railway origin URL directly could
-// forge CF-Connecting-IP and bypass per-IP rate limits and lockouts.
+// CF-Connecting-IP is only trustworthy when the origin can't be reached except
+// through Cloudflare: anyone hitting the origin directly can send their own
+// CF-Ray / CF-Connecting-IP headers and dodge per-IP rate limits and lockouts.
+// So it is opt-in (TRUST_CLOUDFLARE=true, applied by the middleware at startup);
+// otherwise req.ip is used, which honours Express's `trust proxy` (TRUST_PROXY).
+let trustCloudflare = false;
+
+function setTrustCloudflare(value) {
+  trustCloudflare = value === true;
+}
+
 function getClientIP(req) {
-  if (req.headers['cf-ray'] && req.headers['cf-connecting-ip']) {
+  if (trustCloudflare && req.headers['cf-ray'] && req.headers['cf-connecting-ip']) {
     return req.headers['cf-connecting-ip'];
   }
   return req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress || 'unknown';
 }
 
-module.exports = { formatBytes, formatDuration, getClientIP };
+module.exports = { formatBytes, formatDuration, getClientIP, setTrustCloudflare };

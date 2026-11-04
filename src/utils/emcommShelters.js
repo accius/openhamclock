@@ -77,3 +77,33 @@ export function mergeShelters(femaShelters, aprsReports) {
   }
   return merged;
 }
+
+/**
+ * Roll up resource tokens from every EmComm station into one entry per key
+ * for the Resource Summary panel: capacities listed, needs and quantities
+ * summed, OK / critical statuses counted.
+ */
+export function aggregateResourceTokens(stations) {
+  const byKey = {};
+  (stations || []).forEach((s) => {
+    (s.tokens || []).forEach((t) => {
+      if (!byKey[t.key])
+        byKey[t.key] = {
+          key: t.key,
+          capacity: [],
+          needs: 0,
+          quantities: 0,
+          statuses: { ok: 0, critical: 0 },
+          count: 0,
+        };
+      const agg = byKey[t.key];
+      agg.count++;
+      if (t.type === 'capacity') agg.capacity.push({ current: t.current, max: t.max });
+      else if (t.type === 'need') agg.needs += t.value;
+      else if (t.type === 'quantity') agg.quantities += t.value;
+      else if (t.type === 'status') agg.statuses.ok++;
+      else if (t.type === 'critical') agg.statuses.critical++;
+    });
+  });
+  return Object.values(byKey);
+}

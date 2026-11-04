@@ -2,6 +2,15 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { latLonToMaidenhead, calculateSunTimes, calculateSolarTimezone } from '../../utils';
+import {
+  displayNow,
+  getDisplayOffsetMs,
+  subscribeDisplayTime,
+  installSetTimeListener,
+  setDisplayOffsetMs,
+  shiftDisplayTime,
+  resetDisplayTime,
+} from '../../utils/displayTime.js';
 
 /**
  * Convert UTC sunrise/sunset times to local time using Intl.
@@ -45,9 +54,31 @@ function convertTimeUTCtoLocal(sunTimes, tz, currentTime) {
 }
 
 export default function useTimeState(configLocation, dxLocation, timezone) {
-  const [currentTime, setCurrentTime] = useState(new Date());
+  // currentTime is the DISPLAY time: real time plus the global time-shift
+  // offset (utils/displayTime.js). Everything downstream — header clocks,
+  // sunrise/sunset, the analog clock, DX local time — follows the shift;
+  // live spot feeds never do.
+  const [currentTime, setCurrentTime] = useState(() => displayNow());
+  const [timeOffsetMs, setTimeOffsetMs] = useState(getDisplayOffsetMs);
   const [startTime] = useState(Date.now());
   const [uptime, setUptime] = useState('0d 0h 0m');
+
+  // Follow the global offset (control panel, shortcuts, remote `ohc:set-time`).
+  useEffect(() => {
+    const disposeListener = installSetTimeListener();
+    const unsub = subscribeDisplayTime((offset) => {
+      setTimeOffsetMs(offset);
+      setCurrentTime(displayNow());
+    });
+    return () => {
+      unsub();
+      disposeListener();
+    };
+  }, []);
+
+  const shiftTime = useCallback((deltaMs) => shiftDisplayTime(deltaMs), []);
+  const setTimeOffset = useCallback((ms) => setDisplayOffsetMs(ms), []);
+  const resetTime = useCallback(() => resetDisplayTime(), []);
 
   const [use12Hour, setUse12Hour] = useState(() => {
     try {
@@ -109,8 +140,7 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
     let timeout;
 
     const tick = () => {
-      const now = new Date();
-      setCurrentTime(now);
+      setCurrentTime(displayNow());
       const elapsed = Date.now() - startTime;
       const d = Math.floor(elapsed / 86400000);
       const h = Math.floor((elapsed % 86400000) / 3600000);
@@ -170,6 +200,11 @@ export default function useTimeState(configLocation, dxLocation, timezone) {
 
   return {
     currentTime,
+    timeOffsetMs,
+    isTimeShifted: timeOffsetMs !== 0,
+    shiftTime,
+    setTimeOffset,
+    resetTime,
     uptime,
     use12Hour,
     handleTimeFormatToggle,

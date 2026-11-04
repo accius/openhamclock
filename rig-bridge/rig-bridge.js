@@ -19,9 +19,11 @@
 
 'use strict';
 
-const VERSION = '2.2.2';
+// From package.json so the banner, --version and the setup UI never drift
+// from the release (it sat at 2.2.2 through 2.5.x).
+const VERSION = require('./package.json').version;
 
-const { config, loadConfig, applyCliArgs } = require('./core/config');
+const { config, loadConfig, applyCliArgs, saveConfig } = require('./core/config');
 const {
   updateState,
   state,
@@ -81,6 +83,7 @@ const registry = new PluginRegistry(config, {
   pluginBus,
   onStateChange,
   removeStateChangeListener,
+  saveConfig, // plugins that update their own settings at runtime (GPIO lightning guard)
 });
 registry.registerBuiltins();
 
@@ -234,9 +237,26 @@ pluginBus.on('decode-update', (msg) => {
   });
 });
 
+// Delivery state of messages we sent: pending / acked / rejected / expired (#1247)
+pluginBus.on('aprs-msg', (status) => {
+  broadcast({ type: 'plugin', event: 'aprs-msg', source: 'aprs-tnc', data: status });
+});
 pluginBus.on('aprs', (pkt) => {
   broadcast({ type: 'plugin', event: 'aprs', source: 'aprs-tnc', data: pkt });
 });
+
+pluginBus.on('hamalert', (alert) => {
+  // HamAlert spots → browsers on the local /stream (useHamAlert listens for
+  // event:'hamalert'). Cloud relay mode batches these as `hamAlerts` instead.
+  broadcast({ type: 'plugin', event: 'hamalert', source: 'hamalert', data: alert });
+});
+
+// NBEMS (fldigi plugin): status, receive text, and flmsg forms as they arrive.
+// useFldigi in the browser keeps the status and accumulates the RX text;
+// 'nbems-form' prompts the EmComm layout to refresh its Field Reports.
+for (const event of ['fldigi', 'fldigi-rx', 'nbems-form']) {
+  pluginBus.on(event, (data) => broadcast({ type: 'plugin', event, source: 'fldigi', data }));
+}
 
 pluginBus.on('meshcom', (pkt) => {
   // Bridge MeshCom packets to the SSE /stream for browsers in local/direct mode.
@@ -245,3 +265,18 @@ pluginBus.on('meshcom', (pkt) => {
   // so useMeshCom's window event listener handles both transparently.
   broadcast({ type: 'plugin', event: 'meshcom', source: 'meshcom-udp', data: pkt });
 });
+
+// ── Hardware plugins (GPS, environment sensors, GPIO, brightness) ────────
+// Each publishes its latest state on the plugin bus; forward it to the SSE
+// /stream as { type:'plugin', event, source, data } so the browser hooks
+// (useGps, useEnvSensors, useBridgeBrightness, IDTimer…) can subscribe.
+for (const [event, source] of [
+  ['gps', 'gps'],
+  ['env', 'env-sensors'],
+  ['gpio', 'gpio'],
+  ['brightness', 'brightness'],
+]) {
+  pluginBus.on(event, (data) => broadcast({ type: 'plugin', event, source, data }));
+}
+// Physical buttons (countdown restart, alarm silence) → browser
+pluginBus.on('gpio-button', (data) => broadcast({ type: 'plugin', event: 'gpio-button', source: 'gpio', data }));

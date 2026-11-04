@@ -1832,3 +1832,420 @@ pre,
   animation: none;
   text-shadow: none;
 }
+
+/* Grayscale display (Settings → Display → Grayscale; App.jsx sets the attribute).
+   'all' desaturates the whole app; 'map' only the map surfaces. */
+html[data-grayscale='all'] #main-content {
+  filter: grayscale(1);
+}
+html[data-grayscale='map'] .leaflet-container,
+html[data-grayscale='map'] .globe3d-container,
+html[data-grayscale='map'] canvas.globe3d,
+html[data-grayscale='map'] [data-map-surface] {
+  filter: grayscale(1);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Mobile layout (layouts/MobileLayout.jsx) — phone/tablet as the
+   primary display. Fixed to the visible viewport so mobile Safari's
+   100vh-is-too-tall problem never hides the card row; safe-area
+   insets for notched phones (the PWA runs with a translucent status
+   bar); 16 px gutters; nothing scrolls the page sideways.
+   ═══════════════════════════════════════════════════════════════ */
+.ohc-mobile-layout,
+.ohc-mobile-fullscreen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-sizing: border-box;
+  overflow: hidden;
+  padding: max(8px, env(safe-area-inset-top, 0px)) max(var(--ohc-gutter, 16px), env(safe-area-inset-right, 0px))
+    max(8px, env(safe-area-inset-bottom, 0px)) max(var(--ohc-gutter, 16px), env(safe-area-inset-left, 0px));
+}
+.ohc-mobile-layout button {
+  -webkit-tap-highlight-color: transparent;
+}
+.ohc-mobile-header {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-family: var(--font-mono);
+  box-sizing: border-box;
+}
+.ohc-mobile-header--row {
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 8px;
+}
+.ohc-mobile-header-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.ohc-mobile-call {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 36px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: var(--accent-amber);
+  font-family: Orbitron, monospace;
+  font-size: 18px;
+  font-weight: 900;
+  cursor: pointer;
+}
+.ohc-mobile-header--row .ohc-mobile-call {
+  flex: 0 1 auto;
+}
+.ohc-mobile-clock {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1;
+}
+.ohc-mobile-clock-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+.ohc-mobile-clock-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  min-height: 0;
+  cursor: pointer;
+}
+.ohc-mobile-chips .ohc-mobile-clock {
+  font-size: 13px;
+  margin-right: 2px;
+}
+.ohc-mobile-chips {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: nowrap;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.ohc-mobile-chips::-webkit-scrollbar {
+  display: none;
+}
+.ohc-mobile-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.ohc-mobile-iconbtn {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.ohc-mobile-map-wrap {
+  flex-shrink: 0;
+  min-height: 0;
+}
+.ohc-mobile-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  /* The map's own controls use high z-indexes; keep them inside the map so
+     the full-screen card (and anything else above) always covers them. */
+  isolation: isolate;
+}
+/* Touch-sized zoom buttons on the map */
+.ohc-mobile-layout .leaflet-control-zoom a {
+  width: 40px !important;
+  height: 40px !important;
+  line-height: 40px !important;
+  font-size: 20px !important;
+}
+.ohc-mobile-body-row {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+}
+.ohc-mobile-body-row > .ohc-mobile-map {
+  flex: 1 1 auto;
+  height: auto;
+}
+.ohc-mobile-side {
+  flex: 0 0 clamp(280px, 42vw, 420px);
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ohc-mobile-strip {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.ohc-mobile-strip::-webkit-scrollbar {
+  display: none;
+}
+.ohc-mobile-card {
+  flex: 0 0 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+.ohc-mobile-card-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 12px;
+  background: var(--bg-tertiary);
+  border: 0;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+.ohc-mobile-card-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: 0.5px;
+}
+.ohc-mobile-card-expand {
+  color: var(--text-muted);
+  font-size: 16px;
+}
+.ohc-mobile-card-body,
+.ohc-mobile-fullscreen-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.ohc-mobile-card-body > *,
+.ohc-mobile-fullscreen-body > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.ohc-mobile-card-body > .panel {
+  border: 0;
+  border-radius: 0;
+}
+.ohc-mobile-card-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  opacity: 0.25;
+}
+.ohc-mobile-dots-row {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+}
+.ohc-mobile-picker {
+  position: fixed;
+  inset: 0;
+  z-index: 950;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.ohc-mobile-picker-sheet {
+  width: 100%;
+  max-width: 560px;
+  max-height: 80%;
+  overflow-y: auto;
+  box-sizing: border-box;
+  padding: 12px max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px))
+    max(16px, env(safe-area-inset-left, 0px));
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--accent-amber);
+  border-radius: 12px 12px 0 0;
+  font-family: var(--font-mono);
+}
+.ohc-mobile-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  color: var(--accent-amber);
+  font-weight: 700;
+  font-size: 15px;
+}
+.ohc-mobile-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+.ohc-mobile-picker-row input {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+.ohc-mobile-picker-note {
+  display: block;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+.ohc-mobile-dots {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  height: 32px;
+}
+.ohc-mobile-expand-btn,
+.ohc-mobile-picker-btn {
+  flex: 0 0 40px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-size: 18px;
+  cursor: pointer;
+}
+.ohc-mobile-dot {
+  flex: 0 1 36px;
+  height: 32px;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+.ohc-mobile-dot span {
+  display: block;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--text-muted);
+  opacity: 0.5;
+  transition:
+    width 0.2s ease,
+    background 0.2s ease;
+}
+.ohc-mobile-dot.is-active span {
+  width: 20px;
+  background: var(--accent-amber);
+  opacity: 1;
+}
+.ohc-mobile-fullscreen {
+  z-index: 900;
+  background: var(--bg-primary);
+}
+.ohc-mobile-fullscreen-bar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--accent-cyan);
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.ohc-mobile-back {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ohc-mobile-dot span {
+    transition: none;
+  }
+}

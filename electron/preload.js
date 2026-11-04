@@ -17,4 +17,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param {boolean} enabled
    */
   setPreventSleep: (enabled) => ipcRenderer.send('set-prevent-sleep', enabled),
+  /**
+   * Pixel-perfect screenshot of the window for the remote-control API
+   * (GET /api/control/capture.png). Resolves to a base64 PNG string.
+   */
+  capturePage: () => ipcRenderer.invoke('capture-page'),
 });

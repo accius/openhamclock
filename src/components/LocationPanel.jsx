@@ -11,6 +11,7 @@ import {
   getMoonPhase,
   getMoonPhaseEmoji,
 } from '../utils/geo.js';
+import { formatBearing, useBearingMode } from '../utils/bearing.js';
 
 export const LocationPanel = ({
   config,
@@ -24,6 +25,7 @@ export const LocationPanel = ({
   const deGrid = latLonToMaidenhead({ lat: config.location.lat, lon: config.location.lon });
   const dxGrid = latLonToMaidenhead({ lat: dxLocation.lat, lon: dxLocation.lon });
   const bearing = calculateBearing(config.location.lat, config.location.lon, dxLocation.lat, dxLocation.lon);
+  const bearingMode = useBearingMode();
   const distance = calculateDistance(config.location.lat, config.location.lon, dxLocation.lat, dxLocation.lon);
   const moonPhase = getMoonPhase(currentTime);
   const moonEmoji = getMoonPhaseEmoji(moonPhase);
@@ -180,7 +182,7 @@ export const LocationPanel = ({
                 fontFamily: 'Orbitron, monospace',
               }}
             >
-              {bearing.toFixed(0)}°
+              {formatBearing(bearing, config.location.lat, config.location.lon, bearingMode)}
             </div>
           </div>
           <div>

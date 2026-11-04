@@ -7,6 +7,9 @@ import {
   isEmeBand,
   isEmeSpot,
   formatDurationShort,
+  computeElevationSeries,
+  emePointReadout,
+  withWindowDegradation,
   EME_MEAN_DISTANCE_KM,
 } from './eme.js';
 import { getMoonAzEl } from './geo.js';
@@ -106,5 +109,64 @@ describe('formatDurationShort', () => {
     expect(formatDurationShort(45 * 60_000)).toBe('45m');
     expect(formatDurationShort(135 * 60_000)).toBe('2h 15m');
     expect(formatDurationShort(-5)).toBe('0m');
+  });
+});
+
+describe('computeElevationSeries (EME planner)', () => {
+  it('samples both ends on a regular grid and agrees with getMoonAzEl', () => {
+    const series = computeElevationSeries(T0, DE, DX, { hours: 48, stepMin: 10 });
+    expect(series.length).toBe(48 * 6 + 1);
+    expect(series[0].t.getTime()).toBe(T0.getTime());
+    expect(series[1].t - series[0].t).toBe(10 * 60_000);
+    const mid = series[100];
+    expect(mid.de).toBeCloseTo(getMoonAzEl(mid.t, DE.lat, DE.lon).elevation, 9);
+    expect(mid.dx).toBeCloseTo(getMoonAzEl(mid.t, DX.lat, DX.lon).elevation, 9);
+    expect(mid.distanceKm).toBeGreaterThan(350_000);
+    // Over two days the moon rises and sets at each end at least once
+    expect(series.some((p) => p.de > 0) && series.some((p) => p.de < 0)).toBe(true);
+    expect(series.some((p) => p.dx > 0) && series.some((p) => p.dx < 0)).toBe(true);
+  });
+  it('tolerates a missing DX (null series) and no stations (empty)', () => {
+    const s = computeElevationSeries(T0, DE, null, { hours: 1, stepMin: 30 });
+    expect(s.length).toBe(3);
+    expect(s[0].dx).toBeNull();
+    expect(typeof s[0].de).toBe('number');
+    expect(computeElevationSeries(T0, null, null)).toEqual([]);
+  });
+});
+
+describe('emePointReadout', () => {
+  it('reports az/el at both ends, distance, delta and ~2.5 s echo delay', () => {
+    const r = emePointReadout(T0, DE, DX);
+    expect(r.de.elevation).toBeCloseTo(getMoonAzEl(T0, DE.lat, DE.lon).elevation, 9);
+    expect(r.dx.azimuth).toBeGreaterThanOrEqual(0);
+    expect(r.dx.azimuth).toBeLessThan(360);
+    expect(r.delayS).toBeGreaterThan(2.3);
+    expect(r.delayS).toBeLessThan(2.8);
+    expect(Math.abs(r.pathDeltaDb)).toBeLessThan(2.5);
+    expect(r.mutual).toBe(r.de.elevation >= 0 && r.dx.elevation >= 0);
+  });
+  it('handles a missing station', () => {
+    const r = emePointReadout(T0, DE, null);
+    expect(r.dx).toBeNull();
+    expect(r.mutual).toBe(false);
+  });
+});
+
+describe('withWindowDegradation', () => {
+  it('adds the best path-loss delta inside each window without mutating input', () => {
+    const windows = computeMutualWindows(T0, DE, DX, { hours: 48 });
+    expect(windows.length).toBeGreaterThan(0);
+    const out = withWindowDegradation(windows);
+    expect(out.length).toBe(windows.length);
+    expect(windows[0].minDegradationDb).toBeUndefined();
+    for (let i = 0; i < out.length; i++) {
+      expect(out[i].start).toBe(windows[i].start);
+      expect(typeof out[i].minDegradationDb).toBe('number');
+      // Best inside the window can never beat the window's start-or-end delta by more than the daily drift
+      const atStart = moonPathDeltaDb(emePointReadout(out[i].start, DE, DX).distanceKm);
+      expect(out[i].minDegradationDb).toBeLessThanOrEqual(atStart + 1e-9);
+    }
+    expect(withWindowDegradation(null)).toEqual([]);
   });
 });

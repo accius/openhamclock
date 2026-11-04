@@ -25,6 +25,7 @@ const { getSerialPort, listPorts } = require('./serial-utils');
 const { state, addSseClient, removeSseClient, getDecodeRingBuffer, getSseClientCount } = require('./state');
 const { config, saveConfig, CONFIG_PATH } = require('./config');
 const tlsModule = require('./tls');
+const { cleanComment } = require('../lib/aprs-beacon');
 
 // ─── Security helpers ─────────────────────────────────────────────────────
 
@@ -1013,15 +1014,31 @@ function buildSetupHtml(version, firstRunToken = null) {
         { id: 'port', label: 'TNC Port', type: 'number', default: 8001 },
         { id: 'callsign', label: 'Your Callsign', type: 'text', default: '' },
         { id: 'ssid', label: 'SSID', type: 'number', default: 0 },
-        { id: 'beaconInterval', label: 'Beacon Interval (sec)', type: 'number', default: 600 },
+        { id: 'beaconEnabled', label: 'Send position beacons (transmits on RF)', type: 'checkbox', default: false },
+        { id: 'beaconInterval', label: 'Beacon Interval (sec, minimum 60)', type: 'number', default: 600 },
+        { id: 'beaconComment', label: 'Beacon Comment (max 43 characters)', type: 'text', default: '' },
+        { id: 'path', label: 'Beacon / Message Path (e.g. WIDE1-1,WIDE2-1; DIRECT = none)', type: 'text', default: 'WIDE1-1,WIDE2-1' },
+        { id: 'beaconLat', label: 'Beacon Latitude (blank = GPS or OpenHamClock location)', type: 'text', default: '' },
+        { id: 'beaconLon', label: 'Beacon Longitude (blank = GPS or OpenHamClock location)', type: 'text', default: '' },
         { id: 'serverForward', label: 'Forward RF frames to OpenHamClock server', type: 'checkbox', default: true },
         { id: 'ohcUrl', label: 'OpenHamClock server URL', type: 'text', default: 'http://localhost:3000' },
+        { id: 'autoAck', label: 'Acknowledge messages sent to my callsign-SSID', type: 'checkbox', default: true },
+        { id: 'messageRetry', label: 'Re-send my messages until acknowledged', type: 'checkbox', default: true },
+        { id: 'messageMaxTries', label: 'Maximum transmissions per message (1-10)', type: 'number', default: 6 },
         { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
       ]},
       { key: 'rotator', name: 'Rotator (rotctld)', maturity: 'alpha', desc: 'Antenna rotator control via Hamlib rotctld', fields: [
         { id: 'host', label: 'rotctld Host', type: 'text', default: '127.0.0.1' },
         { id: 'port', label: 'rotctld Port', type: 'number', default: 4533 },
         { id: 'pollInterval', label: 'Poll Interval (ms)', type: 'number', default: 1000 },
+      ]},
+      { key: 'mqtt', name: 'MQTT Publish (Home Assistant)', maturity: 'beta', desc: 'Publish rig frequency/mode/PTT, rotator az/el and APRS counts to an MQTT broker, with Home Assistant discovery', fields: [
+        { id: 'url', label: 'Broker URL (mqtt://host:1883)', type: 'text', default: '' },
+        { id: 'username', label: 'Username', type: 'text', default: '' },
+        { id: 'password', label: 'Password', type: 'text', default: '' },
+        { id: 'prefix', label: 'Topic prefix', type: 'text', default: 'openhamclock' },
+        { id: 'haDiscovery', label: 'Home Assistant discovery', type: 'checkbox', default: true },
+        { id: 'publishInterval', label: 'Keepalive publish (ms)', type: 'number', default: 60000 },
       ]},
       { key: 'winlink', name: 'Winlink', maturity: 'alpha', desc: 'Gateway discovery + Pat client for Winlink messaging', fields: [
         { id: 'apiKey', label: 'Winlink API Key', type: 'text', default: '' },
@@ -1037,10 +1054,129 @@ function buildSetupHtml(version, firstRunToken = null) {
         { id: 'pollInterval', label: 'Poll Interval (ms)', type: 'number', default: 1000 },
         { id: 'commandKey', label: 'Command Key (from Connect Cloud Relay)', type: 'text', default: '' },
         { id: 'allowUnsigned', label: 'Accept unsigned commands (unsafe)', type: 'checkbox', default: false },
+        { id: 'relayAudio', label: 'Relay KiwiSDR audio to the Decoder panel (~12 kB/s while listening)', type: 'checkbox', default: false },
       ]},
       { key: 'meshcom', name: 'MeshCom UDP', maturity: 'beta', desc: 'Receive MeshCom LoRa mesh node positions, messages and telemetry via UDP JSON (port 1799)', fields: [
         { id: 'bindPort', label: 'UDP Listen Port', type: 'number', default: 1799 },
         { id: 'bindHost', label: 'Bind Address', type: 'text', default: '0.0.0.0' },
+        { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
+      ]},
+      { key: 'beaconMonitor', name: 'KiwiSDR Beacon Monitor', maturity: 'alpha', desc: 'Logs NCDXF/IBP beacon SNR through a KiwiSDR you own or may park on (one receiver slot, 24/7). Measurements show in the IBP Beacons panel and feed Prediction Check.', fields: [
+        { id: 'host', label: 'KiwiSDR Host (no http://)', type: 'text', default: '' },
+        { id: 'port', label: 'KiwiSDR Port', type: 'number', default: 8073 },
+        { id: 'password', label: 'Kiwi Password (if required)', type: 'text', default: '' },
+        { id: 'bands', label: 'Bands (comma list)', type: 'text', default: '20m,17m,15m,12m,10m' },
+        { id: 'callsign', label: 'Listening Station Callsign', type: 'text', default: '' },
+        { id: 'grid', label: 'Receiver Grid Locator', type: 'text', default: '' },
+        { id: 'serverForward', label: 'Forward measurements to OpenHamClock server', type: 'checkbox', default: true },
+        { id: 'ohcUrl', label: 'OpenHamClock server URL', type: 'text', default: 'http://localhost:3000' },
+        { id: 'ohcApiKey', label: 'Server API_WRITE_KEY (if set)', type: 'text', default: '' },
+        { id: 'verbose', label: 'Log every measurement', type: 'checkbox', default: false },
+      ]},
+      { key: 'kiwiAudio', name: 'KiwiSDR Audio (Decoder panel)', maturity: 'alpha', desc: 'Streams the audio of a KiwiSDR to the OpenHamClock Decoder panel (CW and FT8 decoders + waterfall). Connects only while the panel is listening, one receiver slot: a Beacon Monitor on the same Kiwi pauses meanwhile (or keep it, using a second slot). Leave the host empty to use the Beacon Monitor KiwiSDR.', fields: [
+        { id: 'host', label: 'KiwiSDR Host (no http://, blank = Beacon Monitor host)', type: 'text', default: '' },
+        { id: 'port', label: 'KiwiSDR Port', type: 'number', default: 8073 },
+        { id: 'password', label: 'Kiwi Password (if required)', type: 'text', default: '' },
+        { id: 'beaconMonitor', label: 'Beacon Monitor on the same Kiwi while listening', type: 'select', options: ['pause', 'keep'], default: 'pause' },
+      ]},
+      { key: 'gps', name: 'GPS Receiver', maturity: 'alpha', desc: 'NMEA over serial, gpsd, or a fifo/file — drives DE location and rover mode in OpenHamClock', fields: [
+        { id: 'source', label: 'Source', type: 'select', options: ['serial', 'gpsd', 'file', 'mock'], default: 'serial' },
+        { id: 'serialPort', label: 'Serial Port (serial)', type: 'text', default: '' },
+        { id: 'baudRate', label: 'Baud Rate', type: 'number', default: 9600 },
+        { id: 'gpsdHost', label: 'gpsd Host', type: 'text', default: '127.0.0.1' },
+        { id: 'gpsdPort', label: 'gpsd Port', type: 'number', default: 2947 },
+        { id: 'filePath', label: 'FIFO / file path (file)', type: 'text', default: '' },
+        { id: 'publishInterval', label: 'Update Interval (ms)', type: 'number', default: 1000 },
+        { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
+      ]},
+      { key: 'envSensors', name: 'Environment Sensors', maturity: 'alpha', desc: 'BME280 / BMP280 on I2C (0x76 / 0x77) and/or an HTTP JSON sensor (ESPHome, Tasmota) — temperature, humidity, pressure with 24 h history', fields: [
+        { id: 'pollInterval', label: 'Poll Interval (s)', type: 'number', default: 10 },
+        { id: 'i2cBus', label: 'I2C Bus', type: 'number', default: 1 },
+        { id: 'mock', label: 'Simulate sensors (no hardware)', type: 'checkbox', default: false },
+        { id: 'sensorA.enabled', label: 'Sensor A (I2C)', type: 'checkbox', default: true },
+        { id: 'sensorA.address', label: 'Sensor A Address', type: 'text', default: '0x76' },
+        { id: 'sensorA.name', label: 'Sensor A Name', type: 'text', default: 'Indoor' },
+        { id: 'sensorA.dTemp', label: 'Sensor A dTemp (°C)', type: 'number', default: 0 },
+        { id: 'sensorA.dPres', label: 'Sensor A dPres (hPa)', type: 'number', default: 0 },
+        { id: 'sensorB.enabled', label: 'Sensor B (I2C)', type: 'checkbox', default: false },
+        { id: 'sensorB.address', label: 'Sensor B Address', type: 'text', default: '0x77' },
+        { id: 'sensorB.name', label: 'Sensor B Name', type: 'text', default: 'Outdoor' },
+        { id: 'sensorB.dTemp', label: 'Sensor B dTemp (°C)', type: 'number', default: 0 },
+        { id: 'sensorB.dPres', label: 'Sensor B dPres (hPa)', type: 'number', default: 0 },
+        { id: 'http.enabled', label: 'HTTP JSON source', type: 'checkbox', default: false },
+        { id: 'http.url', label: 'HTTP URL', type: 'text', default: '' },
+        { id: 'http.name', label: 'HTTP Sensor Name', type: 'text', default: 'Remote' },
+        { id: 'http.tempPath', label: 'Temperature field path', type: 'text', default: 'temperature' },
+        { id: 'http.humPath', label: 'Humidity field path', type: 'text', default: 'humidity' },
+        { id: 'http.presPath', label: 'Pressure field path', type: 'text', default: 'pressure' },
+        { id: 'http.tempUnit', label: 'Temperature unit', type: 'select', options: ['C', 'F'], default: 'C' },
+        { id: 'http.presUnit', label: 'Pressure unit', type: 'select', options: ['hPa', 'Pa', 'kPa', 'inHg', 'mmHg'], default: 'hPa' },
+        { id: 'http.interval', label: 'HTTP poll interval (s)', type: 'number', default: 60 },
+        { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
+      ]},
+      { key: 'gpio', name: 'Raspberry Pi GPIO', maturity: 'alpha', desc: 'ON-AIR / alarm / countdown / satellite / lightning-relay lines and PTT, countdown-restart and alarm-silence buttons — classic shack-display header pinout, no native modules (gpiod CLI or sysfs)', fields: [
+        { id: 'backend', label: 'Backend', type: 'select', options: ['auto', 'gpiod', 'sysfs', 'mock'], default: 'auto' },
+        { id: 'chip', label: 'gpiochip', type: 'text', default: 'gpiochip0' },
+        { id: 'pins.pttIn', label: 'PTT / ON-AIR input (BCM or Pnn header pin)', type: 'text', default: '16' },
+        { id: 'pins.countdownResetIn', label: 'Countdown button (BCM or Pnn header pin)', type: 'text', default: '26' },
+        { id: 'pins.alarmSilenceIn', label: 'Alarm silence button (BCM or Pnn header pin)', type: 'text', default: '5' },
+        { id: 'pins.onAirOut', label: 'ON-AIR LED (BCM or Pnn header pin)', type: 'text', default: '21' },
+        { id: 'pins.alarmOut', label: 'Alarm output (BCM or Pnn header pin)', type: 'text', default: '6' },
+        { id: 'pins.countdownGreenOut', label: 'Countdown green (BCM or Pnn header pin)', type: 'text', default: '13' },
+        { id: 'pins.countdownRedOut', label: 'Countdown red (BCM or Pnn header pin)', type: 'text', default: '19' },
+        { id: 'pins.satOut', label: 'Satellite output (BCM or Pnn header pin)', type: 'text', default: '20' },
+        { id: 'pins.lightningOut', label: 'Lightning relay output (BCM or Pnn header pin, -1 = off; suggested 25 / P22)', type: 'text', default: '-1' },
+        { id: 'lightningFailSafe', label: 'Lightning relay fail-safe (energise = antenna connected)', type: 'checkbox', default: false },
+        { id: 'lightningHoldWhenStale', label: 'Hold lightning relay for the all-clear time when a display goes quiet', type: 'checkbox', default: true },
+        { id: 'lightningHeadless.enabled', label: 'Headless lightning guard (works with no browser open)', type: 'checkbox', default: false },
+        { id: 'lightningHeadless.lat', label: 'Headless guard latitude', type: 'text', default: '' },
+        { id: 'lightningHeadless.lon', label: 'Headless guard longitude', type: 'text', default: '' },
+        { id: 'lightningHeadless.warnKm', label: 'Headless guard warning radius (km)', type: 'number', default: 50 },
+        { id: 'lightningHeadless.alarmKm', label: 'Headless guard alarm radius (km)', type: 'number', default: 25 },
+        { id: 'lightningHeadless.allClearMin', label: 'Headless guard all-clear (min)', type: 'number', default: 30 },
+        { id: 'lightningHeadless.relayOn', label: 'Headless guard engages relay at', type: 'select', options: ['alarm', 'warn'], default: 'alarm' },
+        { id: 'activeLow', label: 'Inputs active low (switch to ground)', type: 'checkbox', default: true },
+        { id: 'outputActiveLow', label: 'Outputs active low', type: 'checkbox', default: false },
+        { id: 'debounceMs', label: 'Debounce (ms)', type: 'number', default: 50 },
+        { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
+      ]},
+      { key: 'brightness', name: 'Light Sensor / Brightness', maturity: 'alpha', desc: 'LTR-329 or HTTP lux → display brightness with two-point calibration; writes /sys/class/backlight and publishes the level for the browser overlay', fields: [
+        { id: 'source', label: 'Lux source', type: 'select', options: ['none', 'ltr329', 'http', 'mock'], default: 'none' },
+        { id: 'i2cBus', label: 'I2C Bus', type: 'number', default: 1 },
+        { id: 'address', label: 'LTR-329 address', type: 'text', default: '0x29' },
+        { id: 'http.url', label: 'HTTP URL (http)', type: 'text', default: '' },
+        { id: 'http.luxPath', label: 'Lux field path', type: 'text', default: 'lux' },
+        { id: 'interval', label: 'Read interval (s)', type: 'number', default: 5 },
+        { id: 'auto', label: 'Auto brightness', type: 'checkbox', default: true },
+        { id: 'manual', label: 'Manual brightness (%)', type: 'number', default: 100 },
+        { id: 'min', label: 'Minimum brightness (%)', type: 'number', default: 5 },
+        { id: 'calDimLux', label: 'Dim calibration: lux', type: 'number', default: 5 },
+        { id: 'calDimPct', label: 'Dim calibration: brightness %', type: 'number', default: 15 },
+        { id: 'calBrightLux', label: 'Bright calibration: lux', type: 'number', default: 400 },
+        { id: 'calBrightPct', label: 'Bright calibration: brightness %', type: 'number', default: 100 },
+        { id: 'backlightPath', label: 'Backlight sysfs path (blank = auto)', type: 'text', default: '' },
+        { id: 'powerMethod', label: 'Display power method', type: 'select', options: ['auto', 'backlight', 'vcgencmd', 'xset', 'none'], default: 'auto' },
+      ]},
+      { key: 'hamalert', name: 'HamAlert', maturity: 'alpha', desc: 'Your HamAlert triggers as a live spot feed (telnet to hamalert.org:7300) — shown in the HamAlert panel', fields: [
+        { id: 'username', label: 'HamAlert Username', type: 'text', default: '' },
+        { id: 'password', label: 'HamAlert Password', type: 'text', default: '' },
+        { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
+      ]},
+      { key: 'fldigi', name: 'fldigi + flmsg (NBEMS)', maturity: 'beta', desc: 'fldigi status, receive text, send text and ICS-213 over XML-RPC; flmsg forms from the NBEMS folders go to the EmComm Field Reports panel', fields: [
+        { id: 'url', label: 'fldigi XML-RPC URL', type: 'text', default: 'http://127.0.0.1:7362' },
+        { id: 'pollInterval', label: 'Poll Interval (ms)', type: 'number', default: 1000 },
+        { id: 'callsign', label: 'Your Callsign (flmsg header)', type: 'text', default: '' },
+        { id: 'maxTxSeconds', label: 'TX watchdog (sec)', type: 'number', default: 600 },
+        { id: 'txPrependCr', label: 'Send box: start text on a new line', type: 'checkbox', default: false },
+        { id: 'txPrependDe', label: 'Send box: begin with DE + your callsign', type: 'checkbox', default: false },
+        { id: 'txAppendCr', label: 'Send box: extra line end after text', type: 'checkbox', default: false },
+        { id: 'flmsgEnabled', label: 'Watch flmsg folders', type: 'checkbox', default: true },
+        { id: 'flmsgDirs', label: 'flmsg folders (blank = NBEMS.files defaults; separate with ;)', type: 'text', default: '' },
+        { id: 'flmsgMaxAgeHours', label: 'Ignore forms older than (hours, at start-up)', type: 'number', default: 72 },
+        { id: 'flmsgIncludeLocal', label: 'Also forward my own drafts and sent forms', type: 'checkbox', default: false },
+        { id: 'flmsgDateFormat', label: 'Read ambiguous form dates as', type: 'select', options: ['auto', 'mdy', 'dmy', 'ymd', 'ydm'], default: 'auto' },
+        { id: 'serverForward', label: 'Forward forms to OpenHamClock server', type: 'checkbox', default: true },
+        { id: 'ohcUrl', label: 'OpenHamClock server URL', type: 'text', default: 'http://localhost:3000' },
         { id: 'verbose', label: 'Verbose logging', type: 'checkbox', default: false },
       ]},
     ];
@@ -1119,6 +1255,22 @@ function buildSetupHtml(version, firstRunToken = null) {
           card.appendChild(fields);
         }
 
+        // fldigi: without a station callsign (here or in flmsg) forms saved in
+        // ICS/messages cannot be told apart from your own — say so.
+        if (plugin.key === 'fldigi' && enabled) {
+          const note = document.createElement('div');
+          note.style.cssText = 'display:none; margin-top:8px; padding:8px; border:1px solid #f59e0b; border-radius:4px; color:#f59e0b; font-size:11px; line-height:1.4;';
+          card.appendChild(note);
+          fetch('/api/fldigi/status').then(r => r.json()).then(st => {
+            if (st && st.running && !st.stationCall) {
+              note.textContent = 'No station callsign: set Your Callsign here (or your callsign in flmsg). ' +
+                'Until then, forms in ICS/messages that were sent by a station cannot be told apart from your own ' +
+                'and are forwarded to Field Reports tagged "origin unknown".';
+              note.style.display = 'block';
+            }
+          }).catch(() => {});
+        }
+
         container.appendChild(card);
       });
     }
@@ -1152,7 +1304,7 @@ function buildSetupHtml(version, firstRunToken = null) {
         update[key][section][subkey] = value;
       } else {
         update[key] = {};
-        update[key][field] = typeof value === 'string' && /^\\d+$/.test(value) ? parseInt(value) : value;
+        update[key][field] = typeof value === 'string' && /^-?\\d+(\\.\\d+)?$/.test(value) ? parseFloat(value) : value;
       }
       try {
         await fetch('/api/config', {
@@ -2098,8 +2250,9 @@ function createServer(registry, version) {
   const cfgLimiter = makeRateLimiter(10, 60000); // 10/min
   const tokenLimiter = makeRateLimiter(3, 60000); // 3/min
 
-  // Allow plugins to register their own routes
-  registry.registerRoutes(app);
+  // Allow plugins to register their own routes (write routes get requireAuth)
+  registry.registerRoutes(app, requireAuth);
+  const indicatorLimiter = makeRateLimiter(10, 1000); // 10/s
 
   // ─── Setup Web UI ───
   app.get('/', (req, res) => {
@@ -2255,15 +2408,111 @@ function createServer(registry, version) {
       config.rtltcp = { ...config.rtltcp, ...newConfig.rtltcp };
     }
     // Deep-merge plugin config sections
-    for (const key of ['mshv', 'jtdx', 'js8call', 'aprs', 'rotator', 'cloudRelay', 'winlink', 'meshcom']) {
+    const HW_KEYS = ['gps', 'envSensors', 'gpio', 'brightness'];
+    // KiwiSDR beacon monitor — validate the receiver host/port before merging
+    if (newConfig.beaconMonitor) {
+      const bm = newConfig.beaconMonitor;
+      if (bm.host !== undefined && bm.host !== '' && !isValidRemoteHost(bm.host)) {
+        return res.status(400).json({ success: false, error: 'Invalid host value for beaconMonitor.host' });
+      }
+      if (bm.port !== undefined && bm.port !== '' && !isValidPort(Number(bm.port))) {
+        return res.status(400).json({ success: false, error: 'Invalid port value for beaconMonitor.port' });
+      }
+      if (bm.bands !== undefined && !Array.isArray(bm.bands) && typeof bm.bands !== 'string') {
+        return res.status(400).json({ success: false, error: 'beaconMonitor.bands must be an array or string' });
+      }
+    }
+    // KiwiSDR audio for the Decoder panel — same receiver validation
+    if (newConfig.kiwiAudio) {
+      const ka = newConfig.kiwiAudio;
+      if (ka.host !== undefined && ka.host !== '' && !isValidRemoteHost(ka.host)) {
+        return res.status(400).json({ success: false, error: 'Invalid host value for kiwiAudio.host' });
+      }
+      if (ka.port !== undefined && ka.port !== '' && !isValidPort(Number(ka.port))) {
+        return res.status(400).json({ success: false, error: 'Invalid port value for kiwiAudio.port' });
+      }
+      if (ka.beaconMonitor !== undefined && !['pause', 'keep'].includes(ka.beaconMonitor)) {
+        return res.status(400).json({ success: false, error: "kiwiAudio.beaconMonitor must be 'pause' or 'keep'" });
+      }
+    }
+    for (const key of [
+      'mshv',
+      'jtdx',
+      'js8call',
+      'aprs',
+      'rotator',
+      'cloudRelay',
+      'winlink',
+      'meshcom',
+      'beaconMonitor',
+      'kiwiAudio',
+      ...HW_KEYS,
+      'mqtt',
+      'hamalert',
+      'fldigi',
+    ]) {
       if (newConfig[key]) {
-        config[key] = { ...(config[key] || {}), ...newConfig[key] };
-        // Handle nested objects (e.g. winlink.pat)
-        if (newConfig[key].pat && config[key].pat) {
-          config[key].pat = { ...config[key].pat, ...newConfig[key].pat };
+        const incoming = newConfig[key];
+        const prev = config[key] || {};
+        config[key] = { ...prev, ...incoming };
+        // Handle nested objects one level deep (winlink.pat, envSensors.sensorA, gpio.pins, brightness.http …)
+        for (const sub of Object.keys(incoming)) {
+          if (incoming[sub] && typeof incoming[sub] === 'object' && !Array.isArray(incoming[sub])) {
+            config[key][sub] = {
+              ...((prev[sub] && typeof prev[sub] === 'object' && prev[sub]) || {}),
+              ...incoming[sub],
+            };
+          }
         }
       }
     }
+    // APRS beacon fields (#1262). The comment goes on air and, like the path,
+    // back into the settings page's HTML, so both are cleaned before saving.
+    if (newConfig.aprs) {
+      const a = config.aprs;
+      if (a.beaconComment !== undefined) a.beaconComment = cleanComment(a.beaconComment);
+      if (typeof a.path === 'string') a.path = a.path.replace(/[^A-Za-z0-9,\- ]/g, '').slice(0, 80);
+      for (const [k, lo, hi] of [
+        ['beaconLat', -90, 90],
+        ['beaconLon', -180, 180],
+      ]) {
+        const v = a[k];
+        if (v === '' || v == null) continue;
+        const n = typeof v === 'number' ? v : parseFloat(v);
+        if (!Number.isFinite(n) || n < lo || n > hi) {
+          a[k] = ''; // the merge above already applied it; don't keep a bad value in memory
+          return res.status(400).json({ success: false, error: `aprs.${k} must be a number from ${lo} to ${hi}` });
+        }
+        a[k] = n;
+      }
+    }
+    // Hardware plugins: validate the few free-text fields that reach the OS
+    if (newConfig.gps) {
+      if (config.gps.serialPort && !isValidSerialPort(config.gps.serialPort)) {
+        return res.status(400).json({ success: false, error: 'Invalid GPS serial port path' });
+      }
+      if (config.gps.gpsdHost !== undefined && !isValidRemoteHost(config.gps.gpsdHost)) {
+        return res.status(400).json({ success: false, error: 'Invalid host value for gps.gpsdHost' });
+      }
+      if (config.gps.gpsdPort !== undefined && !isValidPort(config.gps.gpsdPort)) {
+        return res.status(400).json({ success: false, error: 'Invalid port value for gps.gpsdPort' });
+      }
+    }
+    if (newConfig.gpio && newConfig.gpio.pins && typeof newConfig.gpio.pins === 'object') {
+      const { parsePin } = require('../lib/gpio-logic');
+      for (const [name, v] of Object.entries(newConfig.gpio.pins)) {
+        const off = v === -1 || v === '-1' || v === '' || v === null;
+        if (!off && parsePin(v) == null) {
+          return res
+            .status(400)
+            .json({ success: false, error: `gpio.pins.${name}: use a BCM number, Pnn (header pin) or -1` });
+        }
+      }
+    }
+    if (newConfig.gpio && config.gpio.chip && !/^gpiochip\d{1,2}$/.test(String(config.gpio.chip))) {
+      return res.status(400).json({ success: false, error: 'gpio.chip must look like gpiochip0' });
+    }
+    const hwChanged = HW_KEYS.filter((k) => newConfig[k]);
 
     // TLS config — handle enable/disable and optional cert regeneration
     if (newConfig.tls) {
@@ -2299,6 +2548,29 @@ function createServer(registry, version) {
     // Restart WSJT-X relay if its config changed
     if (newConfig.wsjtxRelay) {
       registry.restartIntegration('wsjtx-relay');
+    }
+
+    // Restart the KiwiSDR beacon monitor if its config changed — the OHC
+    // Settings → Rig Bridge "Push to Rig Bridge" button relies on this so
+    // the monitor picks up a new receiver without restarting the bridge.
+    if (newConfig.beaconMonitor) {
+      registry.restartIntegration('kiwi-beacon-monitor');
+    }
+    // KiwiSDR audio falls back to the beacon monitor's receiver, so either
+    // section changing restarts it (ends any live stream; the panel retries).
+    if (newConfig.kiwiAudio || newConfig.beaconMonitor) {
+      registry.restartIntegration('kiwi-audio');
+    }
+    // Hardware plugins restart in place — no rig-bridge restart needed
+    const HW_PLUGIN_IDS = { gps: 'gps', envSensors: 'env-sensors', gpio: 'gpio', brightness: 'brightness' };
+    for (const k of hwChanged) registry.restartIntegration(HW_PLUGIN_IDS[k]);
+    // Restart the MQTT publisher if its config changed (no bridge restart needed)
+    if (newConfig.mqtt) {
+      registry.restartIntegration('mqtt-publish');
+    }
+    // fldigi / flmsg: new URL, folders or forwarding apply without a bridge restart
+    if (newConfig.fldigi) {
+      registry.restartIntegration('fldigi');
     }
 
     res.json({ success: true, config });
@@ -2516,8 +2788,66 @@ function createServer(registry, version) {
       mode: state.mode,
       width: state.width,
       ptt: state.ptt,
+      onAir: state.onAir,
       timestamp: state.lastUpdate,
     });
+  });
+
+  // ─── Indicators: browser → hardware plugins ───────────────────────────
+  // OpenHamClock POSTs its indicator state (satellite visible / AOS / LOS,
+  // countdown timer, alarm, lightning guard level + relay request) so
+  // plugins such as GPIO can drive LEDs and relays. Any
+  // plugin may subscribe with pluginBus.on('indicators', fn).
+  let lastIndicators = null;
+  const GUARD_KEYS = [
+    'lat',
+    'lon',
+    'warnKm',
+    'alarmKm',
+    'allClearMin',
+    'minStrikes',
+    'hysteresisPct',
+    'repeatCloser',
+    'relayOn',
+  ];
+  const pickGuardSettings = (g) =>
+    Object.fromEntries(
+      GUARD_KEYS.filter((k) => typeof g[k] === 'number' || typeof g[k] === 'boolean' || typeof g[k] === 'string').map(
+        (k) => [k, typeof g[k] === 'string' ? g[k].slice(0, 16) : g[k]],
+      ),
+    );
+  app.post('/api/indicators', requireAuth, indicatorLimiter, (req, res) => {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const clean = {
+      satVisible: body.satVisible === true,
+      satAosInSec: Number.isFinite(body.satAosInSec) ? body.satAosInSec : null,
+      satLosInSec: Number.isFinite(body.satLosInSec) ? body.satLosInSec : null,
+      alarm: body.alarm === true,
+      countdown: ['off', 'running', 'expired'].includes(body.countdown) ? body.countdown : 'off',
+      // Lightning guard (optional — absent when the browser does not drive the relay)
+      ...(typeof body.lightningRelay === 'boolean' ? { lightningRelay: body.lightningRelay } : {}),
+      ...(['clear', 'warn', 'alarm'].includes(body.lightning) ? { lightning: body.lightning } : {}),
+      ...(Number.isFinite(body.lightningAllClearMin)
+        ? { lightningAllClearMin: Math.min(240, Math.max(1, Math.round(body.lightningAllClearMin))) }
+        : {}),
+      ...(['auto', 'on', 'off'].includes(body.lightningOverride) ? { lightningOverride: body.lightningOverride } : {}),
+      // Guard settings + location for the headless guard (sanitized again by the GPIO plugin)
+      ...(body.lightningGuard && typeof body.lightningGuard === 'object' && !Array.isArray(body.lightningGuard)
+        ? { lightningGuard: pickGuardSettings(body.lightningGuard) }
+        : {}),
+      // Stable per-display id so several displays can each hold a claim on the relay
+      ...(typeof body.displayId === 'string' && /^[A-Za-z0-9_-]{1,40}$/.test(body.displayId)
+        ? { displayId: body.displayId }
+        : {}),
+      receivedAt: Date.now(),
+    };
+    lastIndicators = clean;
+    const bus = registry.services && registry.services.pluginBus;
+    if (bus) bus.emit('indicators', clean);
+    res.json({ success: true });
+  });
+  app.get('/api/indicators', (req, res) => {
+    res.json(lastIndicators || { receivedAt: null });
   });
 
   app.get('/stream', (req, res) => {
@@ -2535,6 +2865,7 @@ function createServer(registry, version) {
       mode: state.mode,
       width: state.width,
       ptt: state.ptt,
+      onAir: state.onAir,
     };
     res.write(`data: ${JSON.stringify(initialData)}\n\n`);
 
@@ -2549,6 +2880,15 @@ function createServer(registry, version) {
         decodes: recentDecodes,
       })}\n\n`,
     );
+
+    // Hardware plugins (GPS, sensors, GPIO, brightness) replay their latest
+    // state so a browser that connects later doesn't wait for the next sample.
+    for (const instance of registry.getIntegrations().values()) {
+      if (typeof instance.getSseSnapshot !== 'function') continue;
+      try {
+        for (const ev of instance.getSseSnapshot()) res.write(`data: ${JSON.stringify(ev)}\n\n`);
+      } catch (e) {}
+    }
 
     const clientId = Date.now() + Math.random();
     addSseClient(clientId, res);

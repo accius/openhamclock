@@ -1,0 +1,264 @@
+/*
+ * ICS Forms — form layout (shared by the on-screen preview and print) and
+ * the dedicated print stylesheet.
+ *
+ * Printing: printIcsHtml() (src/utils/icsPrint.js) appends a
+ * .ics-print-root to <body> and sets body.ics-printing for the duration of
+ * window.print(). Under @media print everything else on the page is hidden,
+ * so only the form prints — black on white whatever theme is active.
+ */
+
+/* ── Form layout (preview + print) ─────────────────────────────────────── */
+.ics-paper {
+  background: #fff;
+  color: #000;
+  padding: 12px;
+  border-radius: 4px;
+  overflow-x: auto;
+}
+.ics-paper .ics-form + .ics-form {
+  margin-top: 16px;
+}
+.ics-form {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10pt;
+  color: #000;
+  background: #fff;
+  border: 1.5pt solid #000;
+  min-width: 640px;
+  /* The border must sit inside width: 100%, or it overflows the page box and
+     Firefox / WebKit clip the right-hand edge of the form */
+  box-sizing: border-box;
+}
+.ics-form * {
+  color: #000;
+  box-sizing: border-box;
+}
+.ics-form .ics-head,
+.ics-form .ics-row {
+  display: flex;
+  border-bottom: 1pt solid #000;
+}
+.ics-form footer.ics-row {
+  border-bottom: none;
+  border-top: 1.5pt solid #000;
+}
+.ics-form .ics-title {
+  flex: 0 0 auto;
+  min-width: 130px;
+  padding: 4px 8px;
+  text-align: center;
+  font-size: 11pt;
+  border-right: 1pt solid #000;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.ics-form .ics-cell {
+  flex: 0 0 auto;
+  min-width: 110px;
+  padding: 2px 6px 4px;
+  border-right: 1pt solid #000;
+}
+.ics-form .ics-cell:last-child {
+  border-right: none;
+}
+.ics-form .ics-cell.grow {
+  flex: 1 1 0;
+}
+.ics-form .ics-cell.tall .ics-value {
+  min-height: 7em;
+}
+.ics-form .ics-cell.sig .ics-value {
+  min-height: 1.6em;
+}
+.ics-form .ics-label {
+  font-size: 7.5pt;
+  font-weight: bold;
+}
+.ics-form .ics-value {
+  font-size: 10pt;
+  min-height: 1.3em;
+  word-break: break-word;
+}
+.ics-form .ics-value.pre {
+  white-space: pre-wrap;
+}
+.ics-form .ics-section {
+  background: #e6e6e6;
+  font-weight: bold;
+  font-size: 9pt;
+  padding: 2px 6px;
+  border-bottom: 1pt solid #000;
+  text-align: center;
+}
+.ics-form .ics-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 8.5pt;
+}
+.ics-form .ics-table th,
+.ics-form .ics-table td {
+  border: 0.75pt solid #000;
+  padding: 2px 4px;
+  vertical-align: top;
+  text-align: left;
+}
+.ics-form .ics-table th {
+  font-size: 7.5pt;
+  text-align: center;
+  vertical-align: middle;
+}
+.ics-form .ics-table tr > :first-child {
+  border-left: none;
+}
+.ics-form .ics-table tr > :last-child {
+  border-right: none;
+}
+.ics-form .ics-table tr.blank td {
+  height: 1.45em;
+}
+/* Times, calls and frequencies: tabular figures in the form font (Courier prints too faint) */
+.ics-form .mono {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.ics-form .w-time {
+  width: 52px;
+}
+.ics-form .w-call {
+  width: 82px;
+}
+.ics-form .w-msg {
+  width: 44px;
+}
+.ics-form .w-datetime {
+  width: 120px;
+}
+.ics-form .ics-205-table {
+  font-size: 7.5pt;
+}
+.ics-form .ics-foot {
+  font-size: 7pt;
+  padding: 2px 6px;
+  border-top: 1pt solid #000;
+}
+
+/* The print root is only ever visible on paper */
+.ics-print-root {
+  display: none;
+}
+
+/* ── Print stylesheet ──────────────────────────────────────────────────── */
+@page ics-landscape {
+  size: landscape;
+}
+@media print {
+  html,
+  body.ics-printing {
+    background: #fff !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  body.ics-printing > *:not(.ics-print-root) {
+    display: none !important;
+  }
+  body.ics-printing .ics-print-root {
+    display: block !important;
+    position: static;
+    margin: 0;
+    padding: 0;
+  }
+  .ics-print-root,
+  .ics-print-root * {
+    color: #000 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .ics-print-root .ics-form {
+    min-width: 0;
+    width: 100%;
+    background: #fff !important;
+    break-after: page;
+    page-break-after: always;
+  }
+  .ics-print-root .ics-section {
+    background: #e6e6e6 !important;
+  }
+  .ics-print-root .ics-form:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+  /* Named page: Chromium 85+, Firefox 110+. printIcsHtml() also injects an
+     unnamed `@page { size: landscape }` for the 205, which more engines honour. */
+  .ics-print-root .ics-form.landscape {
+    page: ics-landscape;
+  }
+  .ics-print-root .ics-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid; /* WebKit / older Firefox */
+  }
+  /* Long free text must wrap inside its cell rather than widen the table */
+  .ics-print-root .ics-table td {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  /* WebKit does not repeat <thead> across pages and Firefox drops collapsed
+     borders at a page edge — keep each form's table on its own page box
+     (the builders already page the rows) and give cells a solid edge. */
+  .ics-print-root .ics-table {
+    page-break-inside: auto;
+    border-spacing: 0;
+  }
+}
+
+/* Fallback for engines that ignore @page size (the 205 then prints on a
+   portrait page): compact the eleven-column table so it fits the width. */
+@media print and (orientation: portrait) {
+  .ics-print-root .ics-205 .ics-title {
+    min-width: 0;
+    font-size: 9pt;
+  }
+  .ics-print-root .ics-205 .ics-cell {
+    min-width: 0;
+  }
+  .ics-print-root .ics-205-table {
+    font-size: 6.5pt;
+    table-layout: fixed;
+  }
+  .ics-print-root .ics-205-table th,
+  .ics-print-root .ics-205-table td {
+    padding: 1px 2px;
+    font-size: 6.5pt;
+  }
+  .ics-print-root .ics-205 .mono {
+    white-space: normal;
+  }
+  /* Zone, Ch #, Function, Name, Assignment, RX, RX tone, TX, TX tone, Mode, Remarks */
+  .ics-print-root .ics-205-table th:nth-child(1) {
+    width: 8%;
+  }
+  .ics-print-root .ics-205-table th:nth-child(2) {
+    width: 4%;
+  }
+  .ics-print-root .ics-205-table th:nth-child(3),
+  .ics-print-root .ics-205-table th:nth-child(5) {
+    width: 9%;
+  }
+  .ics-print-root .ics-205-table th:nth-child(4) {
+    width: 13%;
+  }
+  .ics-print-root .ics-205-table th:nth-child(6),
+  .ics-print-root .ics-205-table th:nth-child(8) {
+    width: 9%;
+  }
+  .ics-print-root .ics-205-table th:nth-child(7),
+  .ics-print-root .ics-205-table th:nth-child(9),
+  .ics-print-root .ics-205-table th:nth-child(10) {
+    width: 7%;
+  }
+}

@@ -5,46 +5,22 @@
  *   SRC>DEST,PATH::ADDRESSEE:text{id
  *
  * Returns null for anything that is not a message, and for ack/rej frames.
- * EmComm net commands addressed to EMCOMM (`CQ NETNAME status`, `U NETNAME`)
+ * EmComm net commands (`CQ NETNAME status`, `U NETNAME`) to EMCOMM or any other net address
  * come back as `netCommand` so the roster can act on them.
  */
-const { parseResourceTokens } = require('./aprsParser');
+const { parseResourceTokens, parseMessageFrame } = require('./aprsParser');
 
 function parseAprsMessage(line) {
   try {
-    const headerEnd = line.indexOf(':');
-    if (headerEnd < 0) return null;
-
-    const header = line.substring(0, headerEnd);
-    const payload = line.substring(headerEnd + 1);
-    const from = header.split('>')[0].trim();
-
-    // APRS message format: :ADDRESSEE:message{id
-    if (payload.charAt(0) !== ':') return null;
-    const addrEnd = payload.indexOf(':', 1);
-    if (addrEnd < 0) return null;
-
-    const to = payload.substring(1, addrEnd).trim();
-    const body = payload.substring(addrEnd + 1);
-
-    // Message ID: `{id` (1–5 alphanumerics), or the APRS 1.2 reply-ack form
-    // `{MM}` / `{MM}AA`. Radios do not always end the frame right after it —
-    // a Yaesu heard over a KISS TNC arrives with a trailing CR/space, which
-    // used to leave "{02" glued to the text (#1212). Trim control characters
-    // and whitespace first, then take the id off the end.
-    let end = body.length;
-    while (end > 0) {
-      const c = body.charCodeAt(end - 1);
-      if (c <= 0x20 || c === 0x7f) end--;
-      else break;
-    }
-    const trimmedBody = body.slice(0, end);
-    const idMatch = trimmedBody.match(/\{([A-Za-z0-9]{1,5})(?:\}([A-Za-z0-9]{0,2}))?$/);
-    const msgId = idMatch ? idMatch[1] : null;
-    const text = (idMatch ? trimmedBody.slice(0, idMatch.index) : trimmedBody).trim();
-
-    // Skip acks/rejs
-    if (text.startsWith('ack') || text.startsWith('rej')) return null;
+    // Addressee, text and id come from the shared parser, which unwraps
+    // third-party frames from igates (#1253) and takes the id — `{id`, or the
+    // reply-ack `{MM}` / `{MM}AA` a Kenwood TH-D75 sends (#1252) — off the
+    // text after trimming the CR/space radios leave behind (#1212).
+    const m = parseMessageFrame(line);
+    if (!m) return null;
+    // Acks/rejs are not messages (parseAprsAck handles them)
+    if (m.ack || m.rej) return null;
+    const { from, to, text, msgId } = m;
 
     const isBulletin = to.startsWith('BLN');
     const { tokens, cleanComment } = parseResourceTokens(text);
@@ -59,16 +35,19 @@ function parseAprsMessage(line) {
       /\bshelter|\bevacuee|\bevacuation\s+(center|centre|site)|\brefuge\b/i.test(text) ||
       tokens.some((t) => ['Beds', 'Capacity', 'Shelter', 'Evacuees'].includes(t.key));
 
-    // Detect net check-in/check-out commands (messages to EMCOMM)
+    // Net check-in / check-out commands. Any addressee counts (#1237): a
+    // group can use its own callsign (W8ROC) or tactical alias instead of
+    // EMCOMM, and one server's roster serves every browser, so the address is
+    // recorded on the command and each browser shows only its own addresses.
     let netCommand = null;
-    if (to.toUpperCase() === 'EMCOMM' || to.toUpperCase().startsWith('EMCOMM')) {
+    if (!isBulletin && to) {
       const upper = text.toUpperCase().trim();
       const cqMatch = upper.match(/^CQ\s+(\S+)\s*(.*)/);
       const uMatch = upper.match(/^U\s+(\S+)/);
       if (cqMatch) {
-        netCommand = { action: 'checkin', netName: cqMatch[1], status: cqMatch[2] || '' };
+        netCommand = { action: 'checkin', netName: cqMatch[1], status: cqMatch[2] || '', alias: to.toUpperCase() };
       } else if (uMatch) {
-        netCommand = { action: 'checkout', netName: uMatch[1] };
+        netCommand = { action: 'checkout', netName: uMatch[1], alias: to.toUpperCase() };
       }
     }
 
@@ -121,6 +100,7 @@ function messagesForStation(messages, call, limit = 200) {
       to: m.to,
       text: m.text,
       msgId: m.msgId ?? null,
+      delivery: m.delivery ?? null,
       timestamp: m.timestamp,
       direction: m.direction || 'received',
       source: m.source || null,
@@ -159,4 +139,43 @@ function isDuplicateMessage(messages, msg) {
   return false;
 }
 
-module.exports = { parseAprsMessage, messagesForStation, isDuplicateMessage };
+/**
+ * An ack or rej frame (#1247): "SRC>DEST::ADDRESSEE:ack12". A reply-ack
+ * message "text{MM}AA" acks our message AA too (#1252), and an ack relayed by
+ * an igate arrives inside a third-party wrapper "IGATE>...:}SRC>...::..."
+ * (#1253); `from` is the station that answered.
+ * @returns {null | { from, to, msgId, state: 'acked' | 'rejected' }}
+ */
+function parseAprsAck(line) {
+  const m = parseMessageFrame(line);
+  if (!m) return null;
+  const msgId = m.ack || m.rej || m.replyAck;
+  if (!msgId) return null;
+  return { from: m.from.toUpperCase(), to: m.to.toUpperCase(), msgId, state: m.rej ? 'rejected' : 'acked' };
+}
+
+/**
+ * Mark the sent message an ack/rej answers (#1247): same message id, sent to
+ * the station that answered. Returns the message, or null when none matches.
+ */
+function applyAprsAck(messages, ack) {
+  if (!ack) return null;
+  const base = (c) =>
+    String(c || '')
+      .trim()
+      .toUpperCase()
+      .replace(/-0$/, '');
+  for (let i = (messages || []).length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m?.direction === 'sent' && String(m.msgId ?? '').trim() === ack.msgId && base(m.to) === base(ack.from)) {
+      if (m.delivery !== 'acked') {
+        m.delivery = ack.state;
+        m.deliveredAt = Date.now();
+      }
+      return m;
+    }
+  }
+  return null;
+}
+
+module.exports = { parseAprsMessage, messagesForStation, isDuplicateMessage, parseAprsAck, applyAprsAck };

@@ -4,7 +4,11 @@
  * Handy for travel: set DE to where you are and the list follows.
  */
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { apiFetch } from '../utils/apiFetch';
+import { formatBearing, useBearingMode } from '../utils/bearing.js';
+import { fetchWithPackFallback } from '../utils/offlinePackStore.js';
+import { relocateRepeaters, formatAsOf } from '../utils/offlinePackManifest.js';
 
 const RADIUS_OPTIONS_KM = [25, 50, 100, 200, 500];
 const RADIUS_KEY = 'ohc_repeaters_radius';
@@ -16,6 +20,8 @@ export const RepeatersPanel = ({ config }) => {
   const lat = config?.location?.lat ?? null;
   const lon = config?.location?.lon ?? null;
   const useMiles = (config?.allUnits?.dist ?? 'metric') === 'imperial';
+  const bearingMode = useBearingMode();
+  const { t } = useTranslation();
 
   const [radiusKm, setRadiusKm] = useState(() => {
     try {
@@ -27,6 +33,8 @@ export const RepeatersPanel = ({ config }) => {
   });
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  // Set when the list is a last-known copy (offline): its timestamp
+  const [asOf, setAsOf] = useState(null);
   const fetchRef = useRef(null);
 
   useEffect(() => {
@@ -37,8 +45,23 @@ export const RepeatersPanel = ({ config }) => {
     const fetchRepeaters = async () => {
       setLoading(true);
       try {
-        const response = await apiFetch(`/api/repeaters?lat=${lat}&lon=${lon}&radius=${radiusKm}`);
-        if (response?.ok) setData(await response.json());
+        // Offline: the worker's cached answer or an offline area pack
+        // snapshot (taken at 200 km, re-centred on DE and cut to radius).
+        const r = await fetchWithPackFallback(
+          apiFetch,
+          `/api/repeaters?lat=${lat}&lon=${lon}&radius=${radiusKm}`,
+          undefined,
+          { kind: 'repeaters', lat, lon },
+        );
+        if (r?.source === 'live') {
+          setData(r.data);
+          setAsOf(null);
+        } else if (r?.source === 'cache' || r?.source === 'pack') {
+          const list =
+            r.source === 'pack' ? relocateRepeaters(r.data?.repeaters, lat, lon, radiusKm) : r.data?.repeaters;
+          setData({ ...r.data, repeaters: list || [] });
+          setAsOf(r.fetchedAt || null);
+        }
       } catch (err) {
         console.error('Repeaters error:', err);
       } finally {
@@ -144,7 +167,7 @@ export const RepeatersPanel = ({ config }) => {
                   {r.city && <span> · {r.city}</span>}
                 </span>
                 <span style={{ flexShrink: 0, color: 'var(--text-secondary)' }}>
-                  {dist(r.km)} {compass(r.bearing)}
+                  {dist(r.km)} {compass(r.bearing)} {formatBearing(r.bearing, lat, lon, bearingMode)}
                 </span>
               </div>
             </div>
@@ -160,6 +183,11 @@ export const RepeatersPanel = ({ config }) => {
           color: 'var(--text-muted)',
         }}
       >
+        {asOf && (
+          <span style={{ color: 'var(--accent-amber)', marginRight: '6px' }}>
+            {t('offlinePacks.asOfOffline', { defaultValue: 'Offline — as of {{time}}', time: formatAsOf(asOf) })} ·
+          </span>
+        )}
         Directory: hearham.com
       </div>
     </div>

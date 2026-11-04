@@ -31,6 +31,57 @@ jobs:
       - name: Check formatting
         run: npm run format:check
 
+  lint:
+    if: github.repository == 'accius/openhamclock'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      # Errors fail the job (rules-of-hooks, no-undef, …); warnings are reported only.
+      - name: Lint
+        run: npm run lint
+
+  # Production frontend build, the same steps as the Dockerfile builder stage,
+  # so a change that breaks `vite build` fails CI before it reaches an image.
+  build:
+    if: github.repository == 'accius/openhamclock'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Use Node.js 22.x
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22.x
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      # Fetches the P.533 and FT8 WASM bundles; exits 0 with a warning per missing
+      # package (P.533 → REST fallback, FT8 → tab says not installed), as in the Dockerfile.
+      - name: Fetch WASM (P.533, FT8)
+        run: node scripts/fetch-wasm.js
+
+      - name: Production build
+        run: npx vite build
+
+      - name: Verify build output
+        run: test -f dist/index.html && ls -la dist dist/assets | head -40
+
   check-json-keys:
     if: github.repository == 'accius/openhamclock'
     runs-on: ubuntu-latest
@@ -67,6 +118,12 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      # Rig Bridge tests (collected by the root vitest run) use rig-bridge's own
+      # dependencies, e.g. the LZMA decoder for compressed flmsg transfers.
+      - name: Install Rig Bridge dependencies
+        run: npm ci --ignore-scripts
+        working-directory: rig-bridge
 
       - name: Run unit tests
         run: npx vitest run
