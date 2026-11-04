@@ -490,8 +490,8 @@ export function useLayer({ enabled = false, map = null, callsign, locator, lowMe
               <span>Filter by Grid Square</span>
             </label>
             <input type="text" id="wspr-grid-input"
-              placeholder="${gridFilter || 'e.g. FN03'}"
-              value="${gridFilter || ''}"
+              placeholder="${esc(gridFilter || 'e.g. FN03')}"
+              value="${esc(gridFilter || '')}"
               maxlength="6"
               style="width: 100%; padding: 4px; background: var(--bg-tertiary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 3px; font-family: var(--font-mono); text-transform: uppercase;" />
             <div style="font-size: 9px; color: var(--text-muted); margin-top: 2px;">

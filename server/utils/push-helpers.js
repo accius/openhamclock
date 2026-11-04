@@ -157,7 +157,8 @@ function sanitizeLightningPrefs(p) {
 
 /** Set or clear (prefs null) the lightning opt-in of a stored subscription. */
 function setLightningPrefs(store, endpoint, prefs) {
-  const entry = typeof endpoint === 'string' ? store.subscriptions[endpoint] : null;
+  const entry =
+    typeof endpoint === 'string' && Object.hasOwn(store.subscriptions, endpoint) ? store.subscriptions[endpoint] : null;
   if (!entry) return { ok: false, reason: 'unknown-subscription' };
   if (prefs === null) {
     delete entry.lightning;

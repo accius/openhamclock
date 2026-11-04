@@ -20,11 +20,12 @@ function parseLatLon(s) {
 
 const unescapeHtml = (s) =>
   s
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'");
+    .replace(/&#39;|&apos;/g, "'")
+    // &amp; last: decoding it first would turn &amp;lt; into <
+    .replace(/&amp;/g, '&');
 
 /** Basin from a JTWC product id prefix (wp/io/sh/ep/cp). */
 function basinFromProductId(id) {
