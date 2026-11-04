@@ -100,6 +100,8 @@ npm run dev
 | Windows                 | `scripts/setup-windows.ps1`                                                                    | [Quick Start](docs/QUICKSTART.md#windows)                              |
 | Railway (cloud)         | `railway up` or connect the GitHub repo                                                        | [Quick Start](docs/QUICKSTART.md#railway-cloud)                        |
 | Desktop app             | `npm run electron` (experimental)                                                              | —                                                                      |
+| Android TV / Fire TV    | Sideload the WebView wrapper APK (`android-tv/build.sh`, `install-firetv.sh`)                  | [TV app guide](android-tv/README.md)                                   |
+| Roku                    | Sideload the native channel zip (`roku/package.sh`)                                            | [Roku guide](roku/README.md)                                           |
 
 **Hardware:** the server side is light (~100–150 MB RAM); it's the browser rendering the map that works a machine. A Pi 4 (2 GB+) or Pi 5 makes a smooth kiosk; a Pi 3B+ is best as a headless server or with Low Memory Mode enabled in Settings. The 3D globe wants WebGL — without it the app falls back to the flat map automatically.
 

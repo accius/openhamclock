@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenHamClock</string>
+    <string name="error_title">Can\'t reach OpenHamClock</string>
+    <string name="error_body">Check the TV\'s network connection, then press Retry.\nLoading https://openhamclock.com/</string>
+    <string name="retry">Retry</string>
+    <string name="press_back_again">Press Back again to exit</string>
+    <string name="no_app_for_link">No app can open that link</string>
+</resources>
