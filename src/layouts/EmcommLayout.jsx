@@ -1300,7 +1300,9 @@ export default function EmcommLayout(props) {
         '',
       );
       if (reason == null) return;
-      const key = rosterKey(op);
+      // netRoster entries carry the address the station sent to (EMCOMM-1);
+      // the shown row's alias is the listened one (EMCOMM), so key by address.
+      const key = rosterKey({ ...op, alias: op.address || op.alias });
       const onServer = netRoster.some((e) => rosterKey(e) === key);
       if (onServer) {
         removedRosterKeysRef.current.add(key);
@@ -1329,7 +1331,9 @@ export default function EmcommLayout(props) {
           ),
         );
       }
-      if (incidentJoined) incidentCheckOut(op.call, op, { log: false });
+      // Only this net's record: the incident keys by address + call, and op.alias
+      // is the listened alias here, op.address what the station sent to.
+      if (incidentJoined) incidentCheckOut(op.call, { ...op, alias: op.address || op.alias }, { log: false });
       const by = String(config.callsign || '').toUpperCase();
       recordEvent('net_removed', {
         callsign: op.call,

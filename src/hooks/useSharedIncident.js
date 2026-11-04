@@ -36,6 +36,7 @@ import {
   incidentEventList,
   stateForCache,
   diffRosterForPush,
+  incidentRosterKey,
   rosterEntryForPush,
   fieldReportForPush,
   shelterReportForPush,
@@ -801,7 +802,8 @@ export function useSharedIncident({
         .toUpperCase();
       if (!c) return;
       const now = Date.now();
-      const base = stateRef.current.roster?.[c] || known || { call: c };
+      const base = stateRef.current.roster?.[incidentRosterKey({ call: c, alias: known?.alias })] ||
+        known || { call: c };
       const entry = {
         ...rosterEntryForPush({ ...base, call: c }, now),
         status: 'Checked out',

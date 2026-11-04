@@ -15,7 +15,7 @@
  *   - join URL helpers     `/#incident=ID&key=KEY` for the QR code / phone
  *
  * State shape (plain objects so it serialises to localStorage):
- *   { seq, board, participants, roster: { CALL: entry }, events: { id: ev }, reports: { id: report } }
+ *   { seq, board, participants, roster: { "ADDRESS|CALL": entry }, events: { id: ev }, reports: { id: report } }
  */
 
 export const SESSION_KEY = 'openhamclock_incident';
@@ -58,6 +58,20 @@ const newerRecord = (cur, rec) => !cur || (rec.rev || 0) > (cur.rev || 0);
  * - an event or report with a higher `rev` (an admin edit) replaces ours;
  * - `docs` are whole shared documents, newest `updatedAt` wins.
  */
+/**
+ * Identity of an incident roster record: net address + call, so one station
+ * can be checked into several nets at once and leave one of them (#1238).
+ * Voice / manual entries carry no address and count as EMCOMM, as before.
+ */
+export function incidentRosterKey(e) {
+  const alias = String(e?.alias || '')
+    .trim()
+    .toUpperCase();
+  return `${alias || 'EMCOMM'}|${String(e?.call || '')
+    .trim()
+    .toUpperCase()}`;
+}
+
 export function applyIncidentDelta(state, delta) {
   const prev = state || emptyIncidentState();
   if (!delta || typeof delta !== 'object') return prev;
@@ -70,9 +84,10 @@ export function applyIncidentDelta(state, delta) {
     const roster = { ...base.roster };
     for (const e of delta.roster) {
       if (!e || !e.call) continue;
-      const cur = roster[e.call];
+      const key = incidentRosterKey(e);
+      const cur = roster[key];
       if (cur && (cur.updatedAt || 0) > (e.updatedAt || 0)) continue; // keep the newer one
-      roster[e.call] = e;
+      roster[key] = e;
     }
     next.roster = roster;
   }
@@ -176,9 +191,9 @@ export function mergeDisplayedRoster(localRoster, incidentState, now = Date.now(
   const seen = new Set();
   for (const op of localRoster || []) {
     if (!op?.call) continue;
-    const call = String(op.call).toUpperCase();
-    seen.add(call);
-    const shared = inc[call];
+    const key = incidentRosterKey(op);
+    seen.add(key);
+    const shared = inc[key];
     if (!shared) {
       out.push(op);
       continue;
@@ -188,7 +203,7 @@ export function mergeDisplayedRoster(localRoster, incidentState, now = Date.now(
     out.push({ ...shared, ...op, status: shared.status || op.status, site: shared.site, fromIncident: true });
   }
   for (const e of incidentRosterList(incidentState, now)) {
-    if (!seen.has(e.call)) out.push(e);
+    if (!seen.has(incidentRosterKey(e))) out.push(e);
   }
   return out.sort((a, b) => (a.age ?? 0) - (b.age ?? 0));
 }
@@ -245,11 +260,11 @@ export function diffRosterForPush(prev, localRoster, incidentState, now = Date.n
   const push = [];
   for (const op of localRoster || []) {
     if (!op?.call) continue;
-    const call = String(op.call).toUpperCase();
+    const key = incidentRosterKey(op);
     const fp = rosterFingerprint(op);
-    next.set(call, { checkinTime: op.checkinTime || 0, fp, op });
-    const before = prevEntries?.get(call);
-    const shared = inc[call];
+    next.set(key, { checkinTime: op.checkinTime || 0, fp, op });
+    const before = prevEntries?.get(key);
+    const shared = inc[key];
     if (!before || before.checkinTime !== (op.checkinTime || 0)) {
       push.push(rosterEntryForPush(op, op.checkinTime || now));
     } else if (before.fp !== fp) {
@@ -260,12 +275,12 @@ export function diffRosterForPush(prev, localRoster, incidentState, now = Date.n
   const restarted =
     prev && (bootId || prev.bootId) ? bootId !== prev.bootId : !!prevEntries && prevEntries.size > 1 && next.size === 0;
   if (prevEntries && !restarted) {
-    for (const [call, before] of prevEntries) {
-      if (next.has(call)) continue;
-      const shared = inc[call];
+    for (const [key, before] of prevEntries) {
+      if (next.has(key)) continue;
+      const shared = inc[key];
       if (shared?.checkedOut) continue;
       push.push({
-        ...rosterEntryForPush(before.op || { call }, now),
+        ...rosterEntryForPush(before.op || { call: key.slice(key.indexOf('|') + 1) }, now),
         status: 'Checked out',
         checkedOut: true,
       });
@@ -488,8 +503,9 @@ export function queueOutbox(outbox, { roster = [], events = [], reports = [], do
   };
   for (const r of roster) {
     if (!r?.call) continue;
-    const cur = next.roster[r.call];
-    if (!cur || (r.updatedAt || 0) >= (cur.updatedAt || 0)) next.roster[r.call] = r;
+    const key = incidentRosterKey(r);
+    const cur = next.roster[key];
+    if (!cur || (r.updatedAt || 0) >= (cur.updatedAt || 0)) next.roster[key] = r;
   }
   for (const e of events) if (e?.id) next.events[e.id] = e;
   for (const r of reports) if (r?.id) next.reports[r.id] = r;
@@ -534,7 +550,12 @@ export function ackOutbox(outbox, sent) {
   // By value, not identity: the outbox is re-read from localStorage (shared
   // by every tab), so what was sent and what is stored are different objects.
   const same = (a, b) => a === b || JSON.stringify(a) === JSON.stringify(b);
-  for (const r of sent.roster || []) if (same(next.roster[r.call], r)) delete next.roster[r.call];
+  for (const r of sent.roster || []) {
+    const key = incidentRosterKey(r);
+    if (same(next.roster[key], r)) delete next.roster[key];
+    // outboxes saved before #1238 keyed roster records by call alone
+    if (same(next.roster[r.call], r)) delete next.roster[r.call];
+  }
   for (const d of sent.docs || []) if (same(next.docs[d.id], d)) delete next.docs[d.id];
   for (const e of sent.events || []) delete next.events[e.id];
   for (const r of sent.reports || []) delete next.reports[r.id];
