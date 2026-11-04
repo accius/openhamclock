@@ -17,6 +17,16 @@ What you get on screen (1080p):
 
 Refresh: data 60s, clock 1s, terminator 5min. `Back` exits (system default).
 
+## Point it at your own server
+
+Default is `https://openhamclock.com`. To use a self-hosted install:
+
+1. Edit the `def = "https://openhamclock.com"` line in
+   `components/MainScene.brs` (`getServerBase()`), then `bash package.sh`.
+2. Or, without repackaging, write the registry key the channel reads on
+   start (`OpenHamClock` section, `serverUrl` value, e.g.
+   `http://your-pi:3000` — trailing `/` is stripped automatically).
+
 ## Sideload (no store needed)
 
 1. Enable dev mode: Home ×3, Up ×2, Right, Left, Right, Left, Right → note

@@ -1,7 +1,0 @@
-pkg/
-src/
-*.pkg.tar.*
-*.log
-*.zip
-*.tar.*
-openhamclock/

@@ -136,13 +136,6 @@ public/vendor/
 # P.533 + FT8 WASM fetched from the wasm-latest release by scripts/fetch-wasm.js
 public/wasm/
 
-# Snapcraft build directories and packages
-*.snap
-parts/
-prime/
-stage/
-.snapcraft/
-
 # Android TV wrapper (local build outputs — the APK is built per machine)
 android-tv/app/build/
 android-tv/build/

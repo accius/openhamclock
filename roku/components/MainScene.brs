@@ -28,6 +28,7 @@ sub init()
     mapTimer.observeField("fire", "onMapTick")
 
     buildNightColumns()
+    m.serverBase = getServerBase()
     onClockTick()
     updateTerminator()
     refreshNow()
@@ -61,8 +62,21 @@ end function
 
 ' --- data refresh ----------------------------------------------------------
 
+function getServerBase() as string
+    def = "https://openhamclock.com"
+    sec = CreateObject("roRegistrySection", "OpenHamClock")
+    if sec <> invalid then
+        v = sec.Read("serverUrl")
+        if type(v) = "String" and v.Trim() <> "" then def = v.Trim()
+    end if
+    while len(def) > 1 and def.Mid(len(def), 1) = "/"
+        def = def.Mid(1, len(def) - 1)
+    end while
+    return def
+end function
+
 sub refreshNow()
-    base = "https://openhamclock.com/api"
+    base = m.serverBase + "/api"
     m.apiTask.requests = [base + "/dxcluster/spots", base + "/solar-indices", base + "/n0nbh"]
     m.apiTask.control = "RUN"
 end sub
@@ -70,13 +84,13 @@ end sub
 sub onApiResponses()
     resps = m.apiTask.responses
     if resps = invalid or resps.count() < 3 then
-        m.status.text = "openhamclock.com • fetch failed, retrying…"
+        m.status.text = m.serverBase + " • fetch failed, retrying…"
         return
     end if
     updateSpots(resps[0])
     updateSolar(resps[1])
     updateBands(resps[2])
-    m.status.text = "openhamclock.com • updated " + clockStr(CreateObject("roDateTime")) + " UTC • auto-refresh 60s • Back exits"
+    m.status.text = m.serverBase + " • updated " + clockStr(CreateObject("roDateTime")) + " UTC • auto-refresh 60s • Back exits"
 end sub
 
 sub updateSpots(body as string)
