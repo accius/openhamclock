@@ -15,9 +15,14 @@
  *   baudRate:     number   Serial baud rate (default: 9600)
  *   callsign:     string   Your callsign for TX (e.g. 'N0CALL')
  *   ssid:         number   SSID (default: 0)
- *   path:         string[] Digipeater path (default: ['WIDE1-1', 'WIDE2-1'])
+ *   path:         string[]|string Digipeater path (default: ['WIDE1-1', 'WIDE2-1']; the
+ *                 settings page saves text such as "WIDE1-1,WIDE2-1"; "DIRECT" = none)
  *   destination:  string   APRS destination (default: 'APOHC1' — AP=APRS, OHC=OpenHamClock, 1=version)
- *   beaconInterval: number Beacon interval in seconds (default: 600, 0 = disabled)
+ *   beaconEnabled:  boolean Send position beacons (default: false) — see lib/aprs-beacon.js
+ *   beaconInterval: number  Seconds between beacons (default: 600, minimum 60)
+ *   beaconComment:  string  Beacon comment, up to 43 characters (default: 'OpenHamClock')
+ *   beaconLat / beaconLon:   Beacon position override (blank = GPS fix or station location)
+ *   stationLat / stationLon: Station location, pushed by OpenHamClock
  *   symbol:       string   APRS symbol (default: '/-' = house)
  *   verbose:      boolean  Log all packets (default: false)
  *   serverForward: boolean POST received frames to the OpenHamClock server (default: true)
@@ -34,6 +39,7 @@ const https = require('https');
 const { URL } = require('url');
 const { parseAprsPacket } = require('../lib/aprs-parser');
 const { createMessenger } = require('../lib/aprs-messaging');
+const { createBeaconer, parsePath, validPosition } = require('../lib/aprs-beacon');
 const {
   decodeKissFrame,
   encodeKissFrame,
@@ -54,19 +60,6 @@ const descriptor = {
     app.get('/api/aprs-tnc/status', (req, res) => {
       if (!_currentInstance) return res.json({ enabled: false, running: false });
       res.json(_currentInstance.getStatus());
-    });
-
-    // Send a position beacon
-    app.post('/aprs/beacon', (req, res) => {
-      if (!_currentInstance) return res.status(503).json({ error: 'APRS TNC not running' });
-      const { lat, lon, comment } = req.body;
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
-        return res.status(400).json({ error: 'Missing or invalid lat/lon' });
-      }
-      if (!_currentInstance.sendBeacon(lat, lon, comment || '')) {
-        return res.status(503).json({ error: 'TNC not connected' });
-      }
-      res.json({ success: true });
     });
 
     // Send an APRS message
@@ -124,18 +117,63 @@ const descriptor = {
     });
   },
 
+  /** Beacons key the transmitter or change saved settings: behind the API token (#1262). */
+  registerAuthRoutes(app, requireAuth) {
+    const running = (res) => {
+      if (_currentInstance) return true;
+      res.status(503).json({ error: 'APRS TNC not running' });
+      return false;
+    };
+
+    // One beacon at an explicit position
+    app.post('/aprs/beacon', requireAuth, (req, res) => {
+      if (!running(res)) return;
+      const { lat, lon, comment } = req.body || {};
+      if (!validPosition(lat, lon)) return res.status(400).json({ error: 'Missing or invalid lat/lon' });
+      if (!_currentInstance.sendBeacon(lat, lon, comment || '')) {
+        return res.status(503).json({ error: 'TNC not connected' });
+      }
+      res.json({ success: true });
+    });
+
+    // One beacon now, at the configured position (override → GPS → station)
+    app.post('/aprs/beacon/now', requireAuth, (req, res) => {
+      if (!running(res)) return;
+      const r = _currentInstance.beaconNow();
+      if (!r.ok) return res.status(409).json({ error: r.error, beacon: _currentInstance.getStatus().beacon });
+      res.json({ success: true, beacon: _currentInstance.getStatus().beacon });
+    });
+
+    // Switch periodic beacons on/off (saved). Switching on sends one at once.
+    app.post('/aprs/beacon/enabled', requireAuth, (req, res) => {
+      if (!running(res)) return;
+      const enabled = req.body?.enabled;
+      if (typeof enabled !== 'boolean') return res.status(400).json({ error: 'enabled must be true or false' });
+      const r = _currentInstance.setBeaconEnabled(enabled);
+      res.json({ success: true, sent: r.ok, error: r.error, beacon: _currentInstance.getStatus().beacon });
+    });
+
+    // OpenHamClock's station location — the beacon position when there is no override or GPS fix
+    app.post('/aprs/station-location', requireAuth, (req, res) => {
+      if (!running(res)) return;
+      const pos = validPosition(req.body?.lat, req.body?.lon);
+      if (!pos) return res.status(400).json({ error: 'Missing or invalid lat/lon' });
+      _currentInstance.setStationLocation(pos.lat, pos.lon);
+      res.json({ success: true });
+    });
+  },
+
   create(config, services) {
     const cfg = config.aprs || {};
     const bus = services?.pluginBus;
     const protocol = cfg.protocol || 'kiss-tcp';
-    const beaconIntervalSec = cfg.beaconInterval != null ? cfg.beaconInterval : 600;
 
     // Station identity is read from the live config on every frame, not
     // captured once at start-up: the settings page saves without restarting
     // the plugin, and a captured value meant a changed SSID kept going out
     // under the old one until rig-bridge was restarted (#1213). Protocol,
-    // host/port and the beacon timer are connection-level and still need a
-    // restart.
+    // host/port are connection-level and still need a restart; beacon
+    // settings are read on every tick (lib/aprs-beacon.js).
     const live = () => config.aprs || cfg;
     const stationCall = () => (live().callsign || 'N0CALL').toUpperCase();
     const stationSsid = () => {
@@ -144,7 +182,7 @@ const descriptor = {
     };
     const myCallNow = () => (stationSsid() > 0 ? `${stationCall()}-${stationSsid()}` : stationCall());
     const destNow = () => live().destination || 'APOHC1';
-    const pathNow = () => live().path || ['WIDE1-1', 'WIDE2-1'];
+    const pathNow = () => parsePath(live().path);
     const symbolNow = () => live().symbol || '/-';
 
     let connection = null; // TCP socket or serial port
@@ -251,6 +289,9 @@ const descriptor = {
         if (cfg.verbose) {
           console.log(`[APRS-TNC] RX: ${packet.source}>${packet.destination}: ${packet.info}`);
         }
+        // A digipeated copy of our own beacon: it made it onto the channel
+        beaconer.noteFrame(packet);
+
         // Ack messages addressed to us; match acks for messages we sent
         try {
           const handled = messenger.handleIncoming(packet.source, packet.info);
@@ -315,18 +356,54 @@ const descriptor = {
       }
     }
 
-    function sendBeacon(lat, lon, comment) {
+    // Returns the info field sent, or null — the beaconer matches digipeated copies on it.
+    function transmitBeacon(lat, lon, comment) {
       const symbol = symbolNow();
       const symbolTable = symbol.charAt(0);
       const symbolCode = symbol.charAt(1);
       const info = `!${formatAprsLat(lat)}${symbolTable}${formatAprsLon(lon)}${symbolCode}${comment || ''}`;
       const frame = buildAx25Frame(myCallNow(), destNow(), pathNow(), info);
-      const ok = sendRaw(frame);
-      if (ok) {
-        lastBeaconTime = Date.now();
-        console.log(`[APRS-TNC] TX beacon: ${myCallNow()} @ ${lat.toFixed(4)},${lon.toFixed(4)}`);
+      if (!sendRaw(frame)) return null;
+      lastBeaconTime = Date.now();
+      console.log(`[APRS-TNC] TX beacon: ${myCallNow()} @ ${lat.toFixed(4)},${lon.toFixed(4)}`);
+      return info;
+    }
+
+    function sendBeacon(lat, lon, comment) {
+      return transmitBeacon(lat, lon, comment) !== null;
+    }
+
+    // Periodic beacons (#1262): off unless aprs.beaconEnabled. Position is the
+    // settings override, else a fresh GPS fix, else OpenHamClock's station location.
+    const beaconer = createBeaconer({
+      settings: live,
+      transmit: transmitBeacon,
+      isConnected: () => connected,
+      myCall: myCallNow,
+    });
+    const onGps = (fix) => beaconer.noteGps(fix);
+
+    // The plugin's config object is the core config: write through and save.
+    function persist(patch) {
+      config.aprs = { ...(config.aprs || {}), ...patch };
+      try {
+        require('../core/config').saveConfig();
+      } catch (e) {
+        console.error(`[APRS-TNC] Could not save settings: ${e.message}`);
       }
-      return ok;
+    }
+
+    function setBeaconEnabled(enabled) {
+      persist({ beaconEnabled: !!enabled });
+      console.log(`[APRS-TNC] Beacons ${enabled ? 'on' : 'off'}`);
+      return enabled ? beaconer.send() : { ok: true };
+    }
+
+    function setStationLocation(lat, lon) {
+      const a = live();
+      // Only save a real move (~10 m): every OpenHamClock tab pushes on load.
+      if (Math.abs((a.stationLat ?? 999) - lat) < 1e-4 && Math.abs((a.stationLon ?? 999) - lon) < 1e-4) return;
+      persist({ stationLat: lat, stationLon: lon });
     }
 
     function sendMessage(to, message, msgId) {
@@ -438,14 +515,15 @@ const descriptor = {
         }
       }
 
-      // Start periodic beacons
-      if (beaconIntervalSec > 0 && config.latitude && config.longitude) {
-        beaconTimer = setInterval(() => {
-          if (connected) {
-            sendBeacon(config.latitude, config.longitude, `OpenHamClock ${config.callsign || ''}`);
-          }
-        }, beaconIntervalSec * 1000);
-      }
+      // Periodic beacons: the beaconer decides on each tick (enabled, interval, position)
+      beaconTimer = setInterval(() => {
+        try {
+          beaconer.tick();
+        } catch (e) {
+          console.error(`[APRS-TNC] beacon: ${e.message}`);
+        }
+      }, 15000);
+      if (bus) bus.on('gps', onGps);
     }
 
     function disconnect() {
@@ -458,6 +536,7 @@ const descriptor = {
         clearInterval(beaconTimer);
         beaconTimer = null;
       }
+      if (bus) bus.off('gps', onGps);
       if (reconnectTimer) {
         clearTimeout(reconnectTimer);
         reconnectTimer = null;
@@ -484,6 +563,7 @@ const descriptor = {
         packetsRx,
         packetsTx,
         lastBeaconTime,
+        beacon: beaconer.status(),
         host: protocol === 'kiss-tcp' ? cfg.host || '127.0.0.1' : undefined,
         port: protocol === 'kiss-tcp' ? cfg.port || 8001 : undefined,
         serialPort: protocol === 'kiss-serial' ? cfg.serialPort : undefined,
@@ -499,6 +579,9 @@ const descriptor = {
       disconnect,
       getStatus,
       sendBeacon,
+      beaconNow: () => beaconer.send({ manual: true }),
+      setBeaconEnabled,
+      setStationLocation,
       sendMessage,
       sendAck,
       sendTracked: (to, message) => messenger.send(to, message),

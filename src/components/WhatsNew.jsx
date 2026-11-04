@@ -200,6 +200,11 @@ const CHANGELOG = [
         desc: "Rig Bridge 2.5 acknowledges messages sent to your callsign-SSID, which DireWolf leaves to the software using it, so the sender stops repeating them (#1244). Your own messages to a callsign go out with a message id and are re-sent at growing intervals until the station acknowledges them, up to six times like a Yaesu radio or aprs.fi, and the station's message list shows ✓ delivered, ↻ 2/6 while re-sending, or ✕ no ack (#1247). Messages to a net address or bulletin are still sent once. Both can be switched off, and the number of tries set, in Rig Bridge → APRS TNC, without a restart. Asked for by Michael, KE8PLM.",
       },
       {
+        icon: '📍',
+        title: 'APRS Position Beacons Through Your TNC',
+        desc: 'Rig Bridge showed a beacon interval but never actually beaconed. With Rig Bridge 2.6 it does: switch beacons on in Rig Bridge → APRS TNC, or with the new Beacon bar at the top of the EmComm Stations panel, which also has Beacon now. Set the comment (up to 43 characters), path and interval in Rig Bridge; the position is your OpenHamClock station location, a GPS fix if the GPS plugin has one, or a fixed position you enter. The bar shows when the last beacon went out and, when a digipeater repeats it, which one, since the TNC itself reports nothing back. Beacons start switched off because they transmit on RF. Asked for by Michael, KE8PLM (#1262).',
+      },
+      {
         icon: '📇',
         title: 'Net Roster: Your Own Net Address, Several at Once, Remove an Entry',
         desc: "Check-ins no longer have to go to the one worldwide EMCOMM address that every group in range shares. Addresses → Edit at the top of the Net Roster sets the addresses your station takes check-ins from — your group's club callsign (W8ROC, W8ROC-10) or an alias of up to 9 characters, several at once if you want to follow a neighbouring net too (#1237, #1239). Group the roster by address or net name, or show one address's roster at a time (#1240). The red ✕ removes a check-in, for example one sent with the wrong net name; the Event Log and the ICS 309 record the removal, your call and the reason (#1238). The Event Log also stops logging messages between two other stations. All asked for by Michael, KE8PLM.",

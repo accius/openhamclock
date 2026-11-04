@@ -16,6 +16,7 @@ import { apiFetch } from '../utils/apiFetch.js';
 import { useAprsShelterReports } from '../hooks/useAprsShelterReports.js';
 import { aggregateResourceTokens, mergeShelters } from '../utils/emcommShelters.js';
 import { sendAprsMessage, directRigUrl } from '../utils/aprsMessageSend.js';
+import AprsBeaconBar from '../components/AprsBeaconBar.jsx';
 import { useRigOptional } from '../contexts/RigContext.jsx';
 import { useAprsMsgStatus, deliveryLabel } from '../utils/aprsMsgStatus.js';
 import { IcsFormsOverlay } from '../components/IcsFormsPanel.jsx';
@@ -2063,6 +2064,12 @@ export default function EmcommLayout(props) {
               </span>
             }
           >
+            {/* Our own position beacons through the Rig Bridge TNC (#1262) */}
+            <AprsBeaconBar
+              rigUrl={rigDirectUrl}
+              apiToken={config.rigControl?.apiToken || ''}
+              location={config.location}
+            />
             {emcommStationsWithDistance.length === 0 ? (
               <EmptyState text="No emergency APRS stations heard" />
             ) : (

@@ -158,7 +158,16 @@ const DEFAULT_CONFIG = {
     ssid: 0,
     path: ['WIDE1-1', 'WIDE2-1'],
     destination: 'APOHC1', // APRS tocall
-    beaconInterval: 600, // Seconds between position beacons (0 = disabled)
+    // Position beacons (#1262) — off until switched on here or in EmComm.
+    // Position: beaconLat/beaconLon override, else a GPS-plugin fix, else the
+    // station location OpenHamClock pushes (stationLat/stationLon).
+    beaconEnabled: false,
+    beaconInterval: 600, // Seconds between position beacons (minimum 60)
+    beaconComment: '', // Up to 43 characters; blank = "OpenHamClock"
+    beaconLat: '',
+    beaconLon: '',
+    stationLat: null,
+    stationLon: null,
     symbol: '/-', // APRS symbol (/-  = house)
     verbose: false,
     // Forward received frames to the OpenHamClock server so its station

@@ -118,7 +118,8 @@ function parseAx25Address(buf, offset) {
   const ssidByte = buf[offset + 6];
   const ssid = (ssidByte >> 1) & 0x0f;
   const isLast = !!(ssidByte & 0x01); // address extension bit
-  return { call: call.trim(), ssid, full: ssid > 0 ? `${call.trim()}-${ssid}` : call.trim(), isLast };
+  const repeated = !!(ssidByte & 0x80); // H bit: a digipeater has repeated the frame (via addresses only)
+  return { call: call.trim(), ssid, full: ssid > 0 ? `${call.trim()}-${ssid}` : call.trim(), isLast, repeated };
 }
 
 /**
@@ -170,6 +171,9 @@ function parseAx25Frame(data) {
     source: source.full,
     destination: destination.full,
     digipeaters: digipeaters.map((d) => d.full),
+    // Via addresses that have repeated this frame, in path order (#1262: a
+    // digipeated copy of our own beacon confirms it went out)
+    repeatedBy: digipeaters.filter((d) => d.repeated).map((d) => d.full),
     info,
     raw: data,
   };

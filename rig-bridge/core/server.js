@@ -25,6 +25,7 @@ const { getSerialPort, listPorts } = require('./serial-utils');
 const { state, addSseClient, removeSseClient, getDecodeRingBuffer, getSseClientCount } = require('./state');
 const { config, saveConfig, CONFIG_PATH } = require('./config');
 const tlsModule = require('./tls');
+const { cleanComment } = require('../lib/aprs-beacon');
 
 // ─── Security helpers ─────────────────────────────────────────────────────
 
@@ -1013,7 +1014,12 @@ function buildSetupHtml(version, firstRunToken = null) {
         { id: 'port', label: 'TNC Port', type: 'number', default: 8001 },
         { id: 'callsign', label: 'Your Callsign', type: 'text', default: '' },
         { id: 'ssid', label: 'SSID', type: 'number', default: 0 },
-        { id: 'beaconInterval', label: 'Beacon Interval (sec)', type: 'number', default: 600 },
+        { id: 'beaconEnabled', label: 'Send position beacons (transmits on RF)', type: 'checkbox', default: false },
+        { id: 'beaconInterval', label: 'Beacon Interval (sec, minimum 60)', type: 'number', default: 600 },
+        { id: 'beaconComment', label: 'Beacon Comment (max 43 characters)', type: 'text', default: '' },
+        { id: 'path', label: 'Beacon / Message Path (e.g. WIDE1-1,WIDE2-1; DIRECT = none)', type: 'text', default: 'WIDE1-1,WIDE2-1' },
+        { id: 'beaconLat', label: 'Beacon Latitude (blank = GPS or OpenHamClock location)', type: 'text', default: '' },
+        { id: 'beaconLon', label: 'Beacon Longitude (blank = GPS or OpenHamClock location)', type: 'text', default: '' },
         { id: 'serverForward', label: 'Forward RF frames to OpenHamClock server', type: 'checkbox', default: true },
         { id: 'ohcUrl', label: 'OpenHamClock server URL', type: 'text', default: 'http://localhost:3000' },
         { id: 'autoAck', label: 'Acknowledge messages sent to my callsign-SSID', type: 'checkbox', default: true },
@@ -2458,6 +2464,26 @@ function createServer(registry, version) {
             };
           }
         }
+      }
+    }
+    // APRS beacon fields (#1262). The comment goes on air and, like the path,
+    // back into the settings page's HTML, so both are cleaned before saving.
+    if (newConfig.aprs) {
+      const a = config.aprs;
+      if (a.beaconComment !== undefined) a.beaconComment = cleanComment(a.beaconComment);
+      if (typeof a.path === 'string') a.path = a.path.replace(/[^A-Za-z0-9,\- ]/g, '').slice(0, 80);
+      for (const [k, lo, hi] of [
+        ['beaconLat', -90, 90],
+        ['beaconLon', -180, 180],
+      ]) {
+        const v = a[k];
+        if (v === '' || v == null) continue;
+        const n = typeof v === 'number' ? v : parseFloat(v);
+        if (!Number.isFinite(n) || n < lo || n > hi) {
+          a[k] = ''; // the merge above already applied it; don't keep a bad value in memory
+          return res.status(400).json({ success: false, error: `aprs.${k} must be a number from ${lo} to ${hi}` });
+        }
+        a[k] = n;
       }
     }
     // Hardware plugins: validate the few free-text fields that reach the OS

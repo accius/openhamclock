@@ -575,17 +575,21 @@ Receives MeshCom LoRa mesh network packets and forwards them to OHC. See [MeshCo
 
 If you have a traditional hardware TNC connected via serial port:
 
-| Setting                                     | Default     | Description                                             |
-| ------------------------------------------- | ----------- | ------------------------------------------------------- |
-| Protocol                                    | `kiss-tcp`  | `kiss-tcp` for Direwolf, `kiss-serial` for hardware TNC |
-| Host                                        | `127.0.0.1` | Direwolf KISS TCP host                                  |
-| Port                                        | `8001`      | Direwolf KISS TCP port                                  |
-| Callsign                                    | (required)  | Your callsign for TX                                    |
-| SSID                                        | `0`         | APRS SSID                                               |
-| Beacon Interval                             | `600`       | Seconds between position beacons (0 = disabled)         |
-| Acknowledge messages (`autoAck`)            | `true`      | Ack messages sent to your exact callsign-SSID           |
-| Re-send until acknowledged (`messageRetry`) | `true`      | Re-send your messages to a callsign until it acks       |
-| Maximum transmissions (`messageMaxTries`)   | `6`         | Tries per message, 1–10                                 |
+| Setting                                     | Default           | Description                                                |
+| ------------------------------------------- | ----------------- | ---------------------------------------------------------- |
+| Protocol                                    | `kiss-tcp`        | `kiss-tcp` for Direwolf, `kiss-serial` for hardware TNC    |
+| Host                                        | `127.0.0.1`       | Direwolf KISS TCP host                                     |
+| Port                                        | `8001`            | Direwolf KISS TCP port                                     |
+| Callsign                                    | (required)        | Your callsign for TX                                       |
+| SSID                                        | `0`               | APRS SSID                                                  |
+| Send position beacons (`beaconEnabled`)     | `false`           | Transmit position beacons; also switchable in EmComm       |
+| Beacon Interval                             | `600`             | Seconds between position beacons (minimum 60)              |
+| Beacon Comment                              | (blank)           | Up to 43 characters; blank sends `OpenHamClock`            |
+| Beacon / Message Path (`path`)              | `WIDE1-1,WIDE2-1` | Digipeater path; `DIRECT` for none                         |
+| Beacon Latitude / Longitude                 | (blank)           | Fixed beacon position; blank = GPS fix or station location |
+| Acknowledge messages (`autoAck`)            | `true`            | Ack messages sent to your exact callsign-SSID              |
+| Re-send until acknowledged (`messageRetry`) | `true`            | Re-send your messages to a callsign until it acks          |
+| Maximum transmissions (`messageMaxTries`)   | `6`               | Tries per message, 1–10                                    |
 
 **With Direwolf:**
 
@@ -595,6 +599,8 @@ If you have a traditional hardware TNC connected via serial port:
 4. APRS packets from nearby stations appear in OHC's APRS panel
 
 The APRS TNC runs alongside APRS-IS (internet) for dual-path coverage. When internet goes down, local RF keeps working.
+
+**Position beacons** are off until you switch them on, here or with the **Beacon** button in OpenHamClock's EmComm layout (top of the EmComm Stations panel). The position is, in order: the Beacon Latitude/Longitude set here, a fix from the GPS plugin (if it is enabled and has a fix less than 5 minutes old), or the station location OpenHamClock sends to Rig Bridge when it connects. The EmComm panel shows when the last beacon went out and, when a digipeater repeats it, which one (_heard via W8XYZ-1_). Dire Wolf may hold a beacon while the channel is busy and KISS gives no confirmation, so the digipeated copy is the only proof it reached the air; with no digipeater in range it will always read _not heard by a digipeater yet_. Beaconing over APRS-IS is not supported yet.
 
 **Message acknowledgements.** DireWolf passes messages through but leaves acknowledging them to the software using it, so Rig Bridge does it:
 
