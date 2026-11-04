@@ -17,10 +17,12 @@ import {
   GRID_SIZES,
   MODES,
   POWERS,
+  SHIFTED_COLOR,
   VOACAP_DATA_EVENT,
   getVoacapSettings,
   setVoacapSettings,
   subscribeVoacapSettings,
+  voacapStatus,
 } from '../utils/voacapHeatmap.js';
 
 const STORAGE_KEY = 'voacap-globe-position';
@@ -75,6 +77,7 @@ export function VoacapGlobeControl({ onClose }) {
   }, []);
 
   const set = (partial) => setSettings(setVoacapSettings(partial));
+  const statusLine = voacapStatus(status, settings);
 
   return (
     <div
@@ -191,10 +194,15 @@ export function VoacapGlobeControl({ onClose }) {
             <span style={swatch('rgba(0,220,0,0.9)')} />
             <span style={{ ...labelStyle, fontSize: '9px' }}>Good</span>
           </div>
-          <div style={{ color: 'var(--text-muted)', fontSize: '9px', marginTop: '6px', textAlign: 'center' }}>
-            {status
-              ? `${status.mode || settings.mode} ${status.power || settings.power}W | SFI: ${status.solarData?.sfi ?? '–'} K: ${status.solarData?.kIndex ?? '–'}`
-              : 'Loading...'}
+          <div
+            style={{
+              color: statusLine.shifted ? SHIFTED_COLOR : 'var(--text-muted)',
+              fontSize: '9px',
+              marginTop: '6px',
+              textAlign: 'center',
+            }}
+          >
+            {statusLine.text}
           </div>
         </div>
       </div>

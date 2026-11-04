@@ -42,8 +42,10 @@ describe('useVOACAPHeatmap data fetch', () => {
   it('stores a successful response without logging a fetch error', async () => {
     await act(async () => root.render(<Harness />));
 
+    // The second argument carries an AbortSignal (the latest request wins).
     expect(globalThis.fetch).toHaveBeenCalledWith(
       expect.stringContaining('/api/propagation/heatmap?deLat=52&deLon=23'),
+      expect.objectContaining({ signal: expect.anything() }),
     );
     expect(result.data).toEqual(heatmap);
     expect(result.loading).toBe(false);

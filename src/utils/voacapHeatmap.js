@@ -10,6 +10,7 @@
  * openhamclock_config.propagation — and changes are announced with
  * VOACAP_SETTINGS_EVENT so both panels stay in step.
  */
+import { displayNow } from './displayTime.js';
 
 // HF bands: label, frequency in MHz
 export const BANDS = [
@@ -142,10 +143,23 @@ export function deFromLocator(locator) {
 /**
  * Heatmap request URL. DE is rounded to whole degrees — propagation doesn't
  * differ within 1°, and identical URLs share server + browser + CDN caches
- * (the flat map and the globe ask for the same one).
+ * (the flat map and the globe ask for the same one). `at` (an ISO time, see
+ * displayHourIso) asks for that hour instead of now — the Time Shift view.
  */
-export function heatmapUrl({ deLat, deLon, freq, grid, mode, power }) {
-  return `/api/propagation/heatmap?deLat=${Math.round(deLat)}&deLon=${Math.round(deLon)}&freq=${freq}&grid=${grid}&mode=${mode}&power=${power}`;
+export function heatmapUrl({ deLat, deLon, freq, grid, mode, power, at }) {
+  const base = `/api/propagation/heatmap?deLat=${Math.round(deLat)}&deLon=${Math.round(deLon)}&freq=${freq}&grid=${grid}&mode=${mode}&power=${power}`;
+  return at ? `${base}&at=${encodeURIComponent(at)}` : base;
+}
+
+/**
+ * The display time (Time Shift aware) floored to the whole UTC hour, as ISO.
+ * The heatmap is hourly, so every request within an hour has the same URL
+ * and the map refetches only when the display hour changes.
+ */
+export function displayHourIso(date = displayNow()) {
+  const d = new Date(date.getTime());
+  d.setUTCMinutes(0, 0, 0);
+  return d.toISOString();
 }
 
 const readConfig = () => {
@@ -210,3 +224,23 @@ export function subscribeVoacapSettings(fn) {
   window.addEventListener(VOACAP_SETTINGS_EVENT, handler);
   return () => window.removeEventListener(VOACAP_SETTINGS_EVENT, handler);
 }
+
+/**
+ * Status line for a heatmap response: mode, power, the solar values used and
+ * the map's hour, e.g. "SSB 100W | SFI: 93 K: 1 · 14z", with "· forecast"
+ * when the SFI/K are NOAA's 27-day forecast for a shifted day.
+ * `shifted` tells the panels to show it in the Time Shift colour.
+ */
+export function voacapStatus(data, fallback = {}) {
+  if (!data) return { text: 'Loading...', shifted: false };
+  const mode = data.mode || fallback.mode || 'SSB';
+  const power = data.power || fallback.power || 100;
+  const sfi = data.solarData?.sfi ?? '–';
+  const k = data.solarData?.kIndex ?? '–';
+  const hour = Number.isFinite(data.hour) ? ` · ${String(data.hour).padStart(2, '0')}z` : '';
+  const forecast = data.solarSource === 'forecast' ? ' · forecast' : '';
+  return { text: `${mode} ${power}W | SFI: ${sfi} K: ${k}${hour}${forecast}`, shifted: !!data.shifted };
+}
+
+/** The Time Shift colour (TimeShiftControl's "NOT REAL TIME"). */
+export const SHIFTED_COLOR = '#ff4d4d';

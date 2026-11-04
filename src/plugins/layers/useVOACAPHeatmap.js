@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { makeDraggable } from './makeDraggable.js';
+import useDisplayHourIso from '../../hooks/useDisplayHourIso.js';
+import { isTimeShifted } from '../../utils/displayTime.js';
 import {
   BANDS,
+  SHIFTED_COLOR,
   GRID_SIZES,
   MODES,
   POWERS,
@@ -13,6 +16,7 @@ import {
   setVoacapSettings,
   smoothReliability,
   subscribeVoacapSettings,
+  voacapStatus,
 } from '../../utils/voacapHeatmap.js';
 
 /**
@@ -46,6 +50,8 @@ export function useLayer({ map, enabled, opacity, locator }) {
   const [propMode, setPropMode] = useState(() => getVoacapSettings().mode);
   const [propPower, setPropPower] = useState(() => getVoacapSettings().power);
   const [data, setData] = useState(null);
+  // The hour the map is for — follows Time Shift (one fetch per display hour).
+  const displayHour = useDisplayHourIso(enabled);
   const [loading, setLoading] = useState(false);
 
   const layersRef = useRef([]);
@@ -85,10 +91,15 @@ export function useLayer({ map, enabled, opacity, locator }) {
   useEffect(() => {
     if (!enabled || !deLocation) return;
 
+    let controller = null;
     const fetchData = async () => {
       const band = BANDS[selectedBand];
       if (!band) return;
 
+      // Latest request wins: during Time Shift playback the hour can move on
+      // before the previous map arrives.
+      controller?.abort();
+      controller = new AbortController();
       setLoading(true);
       try {
         const url = heatmapUrl({
@@ -98,14 +109,17 @@ export function useLayer({ map, enabled, opacity, locator }) {
           grid: gridSize,
           mode: propMode,
           power: propPower,
+          // Only while Time Shift is on; otherwise the server's "now" (and the
+          // displayHour dependency refetches when the real hour moves on).
+          at: isTimeShifted() ? displayHour : undefined,
         });
-        const res = await fetch(url);
+        const res = await fetch(url, { signal: controller.signal });
         if (res.ok) {
           const json = await res.json();
           setData(json);
         }
       } catch (err) {
-        console.error('[VOACAP Heatmap] Fetch error:', err);
+        if (err?.name !== 'AbortError') console.error('[VOACAP Heatmap] Fetch error:', err);
       } finally {
         setLoading(false);
       }
@@ -115,9 +129,10 @@ export function useLayer({ map, enabled, opacity, locator }) {
     intervalRef.current = setInterval(fetchData, 5 * 60 * 1000);
 
     return () => {
+      controller?.abort();
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [enabled, deLocation?.lat, deLocation?.lon, selectedBand, gridSize, propMode, propPower]);
+  }, [enabled, deLocation?.lat, deLocation?.lon, selectedBand, gridSize, propMode, propPower, displayHour]);
 
   // Create control panel
   useEffect(() => {
@@ -208,7 +223,7 @@ export function useLayer({ map, enabled, opacity, locator }) {
                 <span style="color: var(--text-secondary); font-size: 9px;">Good</span>
               </div>
               <div id="voacap-status" style="color: var(--text-muted); font-size: 9px; margin-top: 6px; text-align: center;">
-                ${loading ? 'Loading...' : data ? `${data.mode || 'SSB'} ${data.power || 100}W | SFI: ${data.solarData?.sfi} K: ${data.solarData?.kIndex}` : 'Ready'}
+                ${loading ? 'Loading...' : data ? voacapStatus(data).text : 'Ready'}
               </div>
         `;
         L.DomEvent.disableClickPropagation(container);
@@ -283,7 +298,10 @@ export function useLayer({ map, enabled, opacity, locator }) {
       if (loading) {
         statusEl.textContent = 'Loading...';
       } else if (data) {
-        statusEl.textContent = `${data.mode || 'SSB'} ${data.power || 100}W | SFI: ${data.solarData?.sfi} K: ${data.solarData?.kIndex}`;
+        const status = voacapStatus(data);
+        statusEl.textContent = status.text;
+        // Time Shift colour when the map is not "now".
+        statusEl.style.color = status.shifted ? SHIFTED_COLOR : '';
       }
     }
 

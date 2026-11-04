@@ -5,6 +5,7 @@ import {
   DEFAULT_BAND_INDEX,
   VOACAP_SETTINGS_EVENT,
   deFromLocator,
+  displayHourIso,
   getVoacapSettings,
   heatmapUrl,
   reliabilityColor,
@@ -39,6 +40,18 @@ describe('deFromLocator / heatmapUrl', () => {
   it('centres DE in the 4-character square', () => {
     expect(deFromLocator('JO21fd')).toEqual({ lat: 51.5, lon: 5 });
     expect(deFromLocator('JO')).toBe(null);
+  });
+
+  it('asks for a given hour with `at`', () => {
+    expect(
+      heatmapUrl({ deLat: 51, deLon: 5, freq: 14, grid: 5, mode: 'SSB', power: 100, at: '2026-10-30T14:00:00.000Z' }),
+    ).toBe(
+      '/api/propagation/heatmap?deLat=51&deLon=5&freq=14&grid=5&mode=SSB&power=100&at=2026-10-30T14%3A00%3A00.000Z',
+    );
+  });
+
+  it('floors the display time to the whole UTC hour', () => {
+    expect(displayHourIso(new Date('2026-10-30T14:37:12.345Z'))).toBe('2026-10-30T14:00:00.000Z');
   });
 
   it('rounds DE to whole degrees so flat and globe share a cached URL', () => {

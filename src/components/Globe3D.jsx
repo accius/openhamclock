@@ -28,7 +28,8 @@ import {
   heatmapUrl,
   subscribeVoacapSettings,
 } from '../utils/voacapHeatmap.js';
-import { displayNow, subscribeDisplayTime } from '../utils/displayTime.js';
+import { displayNow, isTimeShifted, subscribeDisplayTime } from '../utils/displayTime.js';
+import useDisplayHourIso from '../hooks/useDisplayHourIso.js';
 import { subscribeStrikes } from '../utils/lightningFeed.js';
 import { MAP_STYLES } from '../utils/config.js';
 import { MAP_FOCUS_EVENT, MAP_FOCUS_PULSE_MS } from '../utils/mapFocus.js';
@@ -2063,6 +2064,8 @@ export default function Globe3D({
   const voacapDe = hasDE ? deFromLocator(latLonToMaidenhead({ lat: lat0, lon: lon0 }, 4)) : null;
   const voacapDeLat = voacapDe?.lat;
   const voacapDeLon = voacapDe?.lon;
+  // The hour the map is for — follows Time Shift, one fetch per display hour.
+  const voacapHour = useDisplayHourIso(voacapOverlayOn);
   useEffect(() => {
     if (!voacapOverlayOn || !Number.isFinite(voacapDeLat) || !Number.isFinite(voacapDeLon)) return undefined;
     let alive = true;
@@ -2081,6 +2084,8 @@ export default function Globe3D({
           grid: st.grid,
           mode: st.mode,
           power: st.power,
+          // Only while Time Shift is on; otherwise the server's "now".
+          at: isTimeShifted() ? voacapHour : undefined,
         });
         const res = await fetch(url, { signal: controller.signal });
         if (!res.ok) return;
@@ -2090,7 +2095,14 @@ export default function Globe3D({
         // The globe's settings panel shows this in its status line.
         window.dispatchEvent(
           new CustomEvent(VOACAP_DATA_EVENT, {
-            detail: { mode: data.mode, power: data.power, solarData: data.solarData },
+            detail: {
+              mode: data.mode,
+              power: data.power,
+              solarData: data.solarData,
+              solarSource: data.solarSource,
+              hour: data.hour,
+              shifted: data.shifted,
+            },
           }),
         );
       } catch (err) {
@@ -2106,7 +2118,7 @@ export default function Globe3D({
       clearInterval(id);
       unsub();
     };
-  }, [voacapOverlayOn, voacapDeLat, voacapDeLon]);
+  }, [voacapOverlayOn, voacapDeLat, voacapDeLon, voacapHour]);
 
   useEffect(() => {
     if (!auroraOverlayOn) return undefined;
