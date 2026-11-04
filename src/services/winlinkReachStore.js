@@ -25,7 +25,7 @@
 import { predictInWorker } from './p533/predictInWorker.js';
 import { ANTENNA_PROFILES } from '../utils/propagationAdjust.js';
 import { apiFetch } from '../utils/apiFetch.js';
-import { displayNow, subscribeDisplayTime } from '../utils/displayTime.js';
+import { displayNow, subscribeDisplayTimeSettled } from '../utils/displayTime.js';
 import { ssnForMonth, ymOf } from '../utils/solarCycleSsn.js';
 import {
   DEFAULT_RANGE_KM,
@@ -337,7 +337,8 @@ function startBackground(needSsn) {
     ssnTimer = setInterval(loadSsn, SSN_REFRESH_MS);
   }
   if (!hourTimer) hourTimer = setInterval(scheduleReconcile, HOUR_TICK_MS);
-  if (!unsubscribeTime) unsubscribeTime = subscribeDisplayTime(scheduleReconcile);
+  // Settled: the reach map recomputes once Time Shift playback pauses.
+  if (!unsubscribeTime) unsubscribeTime = subscribeDisplayTimeSettled(scheduleReconcile);
 }
 
 function stopBackground() {
