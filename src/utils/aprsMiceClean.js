@@ -50,15 +50,37 @@ export function identifyMice(comment) {
 }
 
 /**
- * An RF station as Rig Bridge sent it, with the Mic-E bytes removed from
- * `comment` and `cleanComment` and the radio filled in as `device` when the
- * bridge did not already name it. Non-Mic-E packets are returned unchanged.
+ * Base-91 comment telemetry ("|" + 2-char sequence + 1–5 channels, plus an
+ * optional bits pair, + "|"), e.g. "|!)&2\"`|" (#1245). Same rule as
+ * parseCommentTelemetry in server/utils/aprsParser.js, which Rig Bridge 2.6.1+
+ * already applies; older bridges send the block in the comment.
+ */
+const COMMENT_TELEMETRY_RE = /\|[\x21-\x7b]{2}(?:[\x21-\x7b]{2}){1,6}\|/;
+export function stripCommentTelemetry(comment) {
+  if (typeof comment !== 'string' || !comment) return comment || '';
+  const m = comment.match(COMMENT_TELEMETRY_RE);
+  if (!m) return comment;
+  return `${comment.slice(0, m.index).trimEnd()} ${comment.slice(m.index + m[0].length).trimStart()}`.trim();
+}
+
+/**
+ * An RF station as Rig Bridge sent it, with the Mic-E bytes (Mic-E packets)
+ * and any base-91 telemetry block (every packet type) removed from `comment`
+ * and `cleanComment`, and the radio filled in as `device` when the bridge did
+ * not already name it. Packets with neither are returned unchanged.
  */
 export function cleanRfStation(pkt) {
-  if (!pkt || pkt.packetType !== 'mic-e') return pkt;
-  const c = identifyMice(pkt.comment);
-  const out = { ...pkt, comment: c.comment };
-  if (typeof pkt.cleanComment === 'string') out.cleanComment = identifyMice(pkt.cleanComment).comment;
-  if (!pkt.device && c.device) out.device = c.device;
+  if (!pkt) return pkt;
+  const mice = pkt.packetType === 'mic-e';
+  const clean = (text) => stripCommentTelemetry(mice ? identifyMice(text).comment : text);
+  const comment = clean(pkt.comment);
+  const cleanComment = typeof pkt.cleanComment === 'string' ? clean(pkt.cleanComment) : pkt.cleanComment;
+  if (!mice && comment === (pkt.comment || '') && cleanComment === pkt.cleanComment) return pkt;
+  const out = { ...pkt, comment };
+  if (typeof pkt.cleanComment === 'string') out.cleanComment = cleanComment;
+  if (mice && !pkt.device) {
+    const { device } = identifyMice(pkt.comment);
+    if (device) out.device = device;
+  }
   return out;
 }
