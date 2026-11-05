@@ -1741,6 +1741,7 @@
   "satAuto.transmitterAria": "Transmitter for {{sat}}",
   "satAuto.uplinkManual": "set uplink by hand",
   "satAuto.waitingForPass": "waiting for pass at {{time}}",
+  "satPasses.updatesWhenPaused": "Time Shift is playing — passes update when you pause",
   "satPlanner.chartAria": "{{sat}} elevation at DE and DX for the next 24 hours; click to read a point",
   "satPlanner.clickHint": "click a pass to show it on the map",
   "satPlanner.mutual": "both ≥ {{minElev}}°",

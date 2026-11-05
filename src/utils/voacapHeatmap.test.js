@@ -3,10 +3,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BANDS,
   DEFAULT_BAND_INDEX,
+  VOACAP_DATA_EVENT,
   VOACAP_SETTINGS_EVENT,
   deFromLocator,
   displayHourIso,
+  getLastVoacapData,
   getVoacapSettings,
+  publishVoacapData,
+  voacapStatus,
   heatmapUrl,
   reliabilityColor,
   setVoacapSettings,
@@ -91,5 +95,67 @@ describe('settings store', () => {
       mode: 'FT8',
       power: 100,
     });
+  });
+});
+
+describe('settings changed in the main Settings', () => {
+  beforeEach(() => localStorage.clear());
+  afterEach(() => localStorage.clear());
+
+  const saveConfig = (cfg) => {
+    localStorage.setItem('openhamclock_config', JSON.stringify(cfg));
+    window.dispatchEvent(new CustomEvent('openhamclock-config-change', { detail: cfg }));
+  };
+
+  it('reaches subscribers when mode or power change, not for unrelated settings', () => {
+    const fn = vi.fn();
+    const unsub = subscribeVoacapSettings(fn);
+    saveConfig({ theme: 'light' }); // mode/power unchanged (defaults)
+    expect(fn).not.toHaveBeenCalled();
+    saveConfig({ theme: 'light', propagation: { mode: 'CW', power: 100 } });
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn.mock.calls[0][0]).toMatchObject({ mode: 'CW', power: 100 });
+    saveConfig({ theme: 'dark', propagation: { mode: 'CW', power: 100 } }); // same again
+    expect(fn).toHaveBeenCalledTimes(1);
+    unsub();
+  });
+});
+
+describe('last heatmap response', () => {
+  it('is kept for panels that mount later and announced', () => {
+    const fn = vi.fn();
+    window.addEventListener(VOACAP_DATA_EVENT, fn);
+    publishVoacapData({ mode: 'SSB', hour: 14 });
+    expect(getLastVoacapData()).toEqual({ mode: 'SSB', hour: 14 });
+    expect(fn).toHaveBeenCalledTimes(1);
+    window.removeEventListener(VOACAP_DATA_EVENT, fn);
+  });
+});
+
+describe('voacapStatus', () => {
+  const NOW = Date.parse('2026-11-05T12:00:00Z');
+  const base = { mode: 'SSB', power: 100, solarData: { sfi: 90, kIndex: 1 }, hour: 14 };
+
+  it('shows the hour, and nothing extra for the live "now" map', () => {
+    expect(voacapStatus({ ...base, solarSource: 'live', date: '2026-11-05' }, {}, NOW)).toEqual({
+      text: 'SSB 100W | SFI: 90 K: 1 · 14z',
+      shifted: false,
+    });
+  });
+
+  it('marks forecast values', () => {
+    const st = voacapStatus({ ...base, solarSource: 'forecast', date: '2026-11-08', shifted: true }, {}, NOW);
+    expect(st.text).toBe('SSB 100W | SFI: 90 K: 1 · 14z · forecast');
+    expect(st.shifted).toBe(true);
+  });
+
+  it("says today's solar values stand in for a shifted day without a forecast", () => {
+    expect(voacapStatus({ ...base, solarSource: 'live', date: '2026-11-01', shifted: true }, {}, NOW).text).toBe(
+      "SSB 100W | SFI: 90 K: 1 · 14z · today's solar",
+    );
+    // Shifted within today: the live values are today's anyway.
+    expect(voacapStatus({ ...base, solarSource: 'live', date: '2026-11-05', shifted: true }, {}, NOW).text).toBe(
+      'SSB 100W | SFI: 90 K: 1 · 14z',
+    );
   });
 });

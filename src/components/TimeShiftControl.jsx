@@ -54,14 +54,17 @@ export function TimeShiftControl({ onClose }) {
   const { offsetMs, shifted, shift, setOffsetMs, reset, playing, speed, play, pause, setSpeed } = useDisplayTime();
   const elRef = useRef(null);
 
-  // Fine slider window: re-centred (on the whole hour) whenever the offset
-  // leaves it — by playback, a nudge or the coarse slider.
-  const [anchorMs, setAnchorMs] = useState(() => roundToHour(offsetMs));
+  // Fine slider window: ±3 h around a whole display hour (absolute time, so
+  // its centre label reads e.g. "19:00z"), re-centred whenever the display
+  // time leaves it — by playback, a nudge or the coarse slider.
+  const displayMs = Date.now() + offsetMs;
+  const [anchorAt, setAnchorAt] = useState(() => roundToHour(displayMs));
   useEffect(() => {
-    if (Math.abs(offsetMs - anchorMs) > FINE_RANGE_MS) setAnchorMs(roundToHour(offsetMs));
-  }, [offsetMs, anchorMs]);
-  const fineMin = Math.max(-MAX_OFFSET_MS, anchorMs - FINE_RANGE_MS) - anchorMs;
-  const fineMax = Math.min(MAX_OFFSET_MS, anchorMs + FINE_RANGE_MS) - anchorMs;
+    if (Math.abs(displayMs - anchorAt) > FINE_RANGE_MS) setAnchorAt(roundToHour(displayMs));
+  }, [displayMs, anchorAt]);
+  // ±3 h around the anchor, kept inside Time Shift's ±30 day range.
+  const fineMin = Math.max(-FINE_RANGE_MS, Date.now() - MAX_OFFSET_MS - anchorAt);
+  const fineMax = Math.min(FINE_RANGE_MS, Date.now() + MAX_OFFSET_MS - anchorAt);
 
   // Closing the control (layer off) stops playback; minimising does not.
   useEffect(() => () => stopPlayback(), []);
@@ -243,15 +246,15 @@ export function TimeShiftControl({ onClose }) {
             min={fineMin / MINUTE_MS}
             max={fineMax / MINUTE_MS}
             step={1}
-            value={Math.round((offsetMs - anchorMs) / MINUTE_MS)}
-            onChange={(e) => setOffsetMs(anchorMs + Number(e.target.value) * MINUTE_MS)}
+            value={Math.round((displayMs - anchorAt) / MINUTE_MS)}
+            onChange={(e) => setOffsetMs(anchorAt + Number(e.target.value) * MINUTE_MS - Date.now())}
             aria-label={t('timeShift.fineSlider', { defaultValue: 'Fine display time, ±3 hours in minutes' })}
             aria-valuetext={formatOffset(offsetMs)}
             style={{ width: '100%', margin: '6px 0 4px' }}
           />
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', opacity: 0.6 }}>
             <span>−3h</span>
-            <span>{fmtUtcTime(new Date(Date.now() + anchorMs))}</span>
+            <span>{fmtUtcTime(new Date(anchorAt))}</span>
             <span>+3h</span>
           </div>
 

@@ -19,6 +19,7 @@ import {
   POWERS,
   SHIFTED_COLOR,
   VOACAP_DATA_EVENT,
+  getLastVoacapData,
   getVoacapSettings,
   setVoacapSettings,
   subscribeVoacapSettings,
@@ -49,7 +50,8 @@ const swatch = (background) => ({
 
 export function VoacapGlobeControl({ onClose }) {
   const [settings, setSettings] = useState(getVoacapSettings);
-  const [status, setStatus] = useState(null);
+  // Start from the globe's last response, so a remount shows the status at once.
+  const [status, setStatus] = useState(getLastVoacapData);
   const elRef = useRef(null);
 
   useEffect(() => subscribeVoacapSettings(setSettings), []);

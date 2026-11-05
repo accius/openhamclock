@@ -16,6 +16,7 @@ import { VoacapGlobeControl } from './VoacapGlobeControl.jsx';
 import {
   VOACAP_DATA_EVENT,
   getVoacapSettings,
+  publishVoacapData,
   setVoacapSettings,
   subscribeVoacapSettings,
 } from '../utils/voacapHeatmap.js';
@@ -80,5 +81,23 @@ describe('VoacapGlobeControl', () => {
       );
     });
     expect(container.textContent).toContain('CW 100W | SFI: 150 K: 2');
+  });
+
+  it('shows the last response straight away after a remount', () => {
+    act(() => publishVoacapData({ mode: 'FT8', power: 25, solarData: { sfi: 120, kIndex: 3 }, hour: 9 }));
+    act(() => root.unmount());
+    root = createRoot(container);
+    act(() => root.render(<VoacapGlobeControl onClose={() => {}} />));
+    expect(container.textContent).toContain('FT8 25W | SFI: 120 K: 3 · 09z');
+    expect(container.textContent).not.toContain('Loading...');
+  });
+
+  it('follows a mode change made in the main Settings', () => {
+    const cfg = { propagation: { mode: 'RTTY', power: 100 } };
+    act(() => {
+      localStorage.setItem('openhamclock_config', JSON.stringify(cfg));
+      window.dispatchEvent(new CustomEvent('openhamclock-config-change', { detail: cfg }));
+    });
+    expect(select('Mode').value).toBe('RTTY');
   });
 });
