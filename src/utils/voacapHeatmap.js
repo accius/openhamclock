@@ -218,28 +218,75 @@ export function setVoacapSettings(partial = {}) {
   return next;
 }
 
-/** Subscribe to settings changes; fn(settings). Returns an unsubscribe fn. */
+/**
+ * Subscribe to settings changes; fn(settings). Returns an unsubscribe fn.
+ * Fires for changes made in a VOACAP panel and for mode / power changes made
+ * in the main Settings (openhamclock-config-change) — the latter only when
+ * mode or power actually differ, so unrelated settings don't refetch.
+ */
 export function subscribeVoacapSettings(fn) {
-  const handler = (e) => fn(e.detail || getVoacapSettings());
-  window.addEventListener(VOACAP_SETTINGS_EVENT, handler);
-  return () => window.removeEventListener(VOACAP_SETTINGS_EVENT, handler);
+  let last = getVoacapSettings();
+  const onPanel = (e) => {
+    last = e.detail || getVoacapSettings();
+    fn(last);
+  };
+  const onConfig = () => {
+    const next = getVoacapSettings(); // saveConfig writes storage before it announces
+    if (next.mode === last.mode && next.power === last.power) return;
+    last = next;
+    fn(next);
+  };
+  window.addEventListener(VOACAP_SETTINGS_EVENT, onPanel);
+  window.addEventListener('openhamclock-config-change', onConfig);
+  return () => {
+    window.removeEventListener(VOACAP_SETTINGS_EVENT, onPanel);
+    window.removeEventListener('openhamclock-config-change', onConfig);
+  };
+}
+
+// The globe's last heatmap response summary, so a settings panel that mounts
+// (or remounts — e.g. after hiding and showing the map UI) can show its status
+// line at once instead of "Loading..." until the next 5-minute refresh.
+let lastVoacapData = null;
+
+/** Record and announce a heatmap response summary (VOACAP_DATA_EVENT). */
+export function publishVoacapData(detail) {
+  lastVoacapData = detail || null;
+  try {
+    window.dispatchEvent(new CustomEvent(VOACAP_DATA_EVENT, { detail: lastVoacapData }));
+  } catch {
+    /* no window (SSR) */
+  }
+}
+
+/** The last published heatmap response summary, or null. */
+export function getLastVoacapData() {
+  return lastVoacapData;
 }
 
 /**
  * Status line for a heatmap response: mode, power, the solar values used and
  * the map's hour, e.g. "SSB 100W | SFI: 93 K: 1 · 14z", with "· forecast"
- * when the SFI/K are NOAA's 27-day forecast for a shifted day.
+ * when the SFI/K are NOAA's 27-day forecast for a shifted day, and
+ * "· today's solar" when a shifted day has no forecast (the past, or beyond
+ * the 27 days) so today's live values stand in.
  * `shifted` tells the panels to show it in the Time Shift colour.
  */
-export function voacapStatus(data, fallback = {}) {
+export function voacapStatus(data, fallback = {}, nowMs = Date.now()) {
   if (!data) return { text: 'Loading...', shifted: false };
   const mode = data.mode || fallback.mode || 'SSB';
   const power = data.power || fallback.power || 100;
   const sfi = data.solarData?.sfi ?? '–';
   const k = data.solarData?.kIndex ?? '–';
   const hour = Number.isFinite(data.hour) ? ` · ${String(data.hour).padStart(2, '0')}z` : '';
-  const forecast = data.solarSource === 'forecast' ? ' · forecast' : '';
-  return { text: `${mode} ${power}W | SFI: ${sfi} K: ${k}${hour}${forecast}`, shifted: !!data.shifted };
+  const todayKey = new Date(nowMs).toISOString().slice(0, 10);
+  const solarNote =
+    data.solarSource === 'forecast'
+      ? ' · forecast'
+      : data.shifted && data.date && data.date !== todayKey
+        ? " · today's solar"
+        : '';
+  return { text: `${mode} ${power}W | SFI: ${sfi} K: ${k}${hour}${solarNote}`, shifted: !!data.shifted };
 }
 
 /** The Time Shift colour (TimeShiftControl's "NOT REAL TIME"). */

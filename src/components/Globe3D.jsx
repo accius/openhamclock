@@ -22,10 +22,10 @@ import { getBandColorForBand, getEffectiveBandColors } from '../utils/bandColors
 import { getSunPosition, getMoonPosition, getMoonAzEl, densifyGeoJson, latLonToMaidenhead } from '../utils/geo.js';
 import {
   BANDS as VOACAP_BANDS,
-  VOACAP_DATA_EVENT,
   deFromLocator,
   getVoacapSettings,
   heatmapUrl,
+  publishVoacapData,
   subscribeVoacapSettings,
 } from '../utils/voacapHeatmap.js';
 import { displayNow, isTimeShifted, subscribeDisplayTime } from '../utils/displayTime.js';
@@ -2093,18 +2093,15 @@ export default function Globe3D({
         if (!alive || !Array.isArray(data?.cells)) return;
         setOverlayVoacap(data);
         // The globe's settings panel shows this in its status line.
-        window.dispatchEvent(
-          new CustomEvent(VOACAP_DATA_EVENT, {
-            detail: {
-              mode: data.mode,
-              power: data.power,
-              solarData: data.solarData,
-              solarSource: data.solarSource,
-              hour: data.hour,
-              shifted: data.shifted,
-            },
-          }),
-        );
+        publishVoacapData({
+          mode: data.mode,
+          power: data.power,
+          solarData: data.solarData,
+          solarSource: data.solarSource,
+          hour: data.hour,
+          date: data.date,
+          shifted: data.shifted,
+        });
       } catch (err) {
         if (err?.name !== 'AbortError') console.error('[Globe3D] VOACAP heatmap fetch error:', err);
       }

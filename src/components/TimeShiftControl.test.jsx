@@ -51,6 +51,7 @@ const slide = (input, value) => {
 
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.setSystemTime(new Date('2026-10-30T14:00:00Z')); // on the hour: fine-slider maths stay round
   resetDisplayTime();
   setPlaybackSpeed(DEFAULT_PLAYBACK_SPEED);
   container = document.createElement('div');
@@ -115,6 +116,16 @@ describe('TimeShiftControl fine slider', () => {
     expect(getDisplayOffsetMs()).toBe(25 * 60_000);
     slide(slider('Fine display time'), -90);
     expect(getDisplayOffsetMs()).toBe(-90 * 60_000);
+  });
+
+  it('labels its centre with the whole display hour', () => {
+    vi.setSystemTime(new Date('2026-10-30T14:37:00Z'));
+    act(() => root.unmount());
+    root = createRoot(container);
+    act(() => root.render(<TimeShiftControl onClose={() => {}} />));
+    expect(container.textContent).toContain('15:00z'); // 14:37 rounds to the 15:00 anchor
+    slide(slider('Fine display time'), -30);
+    expect(getDisplayOffsetMs()).toBe(-7 * 60_000); // display 14:30 = now − 7 min
   });
 
   it('re-centres on the new hour after a big coarse move', () => {

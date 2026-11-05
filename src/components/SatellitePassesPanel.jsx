@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import Orbit from '../utils/orbit.js';
-import { displayNowMs, subscribeDisplayTimeSettled } from '../utils/displayTime.js';
+import { displayNowMs, isPlaying, subscribeDisplayTimeSettled, subscribePlayback } from '../utils/displayTime.js';
 import { satrecFor } from '../utils/satRelay.js';
 import { observerFromLocation, lookAnglesAt, computePassSkyPath } from '../utils/satelliteSkyPath.js';
 import { formatTleAge } from '../utils/tleAge.js';
@@ -93,6 +93,11 @@ const smallBtn = {
 
 export const SatellitePassesPanel = ({ satellites, config, rotatorAvailable = false }) => {
   const { t } = useTranslation();
+  // Time Shift playback: pass prediction waits for a pause, while the list
+  // keeps filtering on the moving display time — say so instead of letting
+  // the list look broken as it empties.
+  const [playing, setPlaying] = useState(isPlaying);
+  useEffect(() => subscribePlayback((st) => setPlaying(st.playing)), []);
   // "now" is the display time, so a time shift re-plans the pass list.
   const [now, setNow] = useState(() => displayNowMs());
   const [passTick, setPassTick] = useState(0);
@@ -275,6 +280,13 @@ export const SatellitePassesPanel = ({ satellites, config, rotatorAvailable = fa
       )}
 
       <div style={{ flex: 1, overflowY: 'auto', fontSize: '10px', fontFamily: 'var(--font-mono)' }}>
+        {tab === 'passes' && playing && (
+          <div role="status" style={{ color: '#ff4d4d', fontSize: '9px', marginBottom: 4, textAlign: 'center' }}>
+            {t('satPasses.updatesWhenPaused', {
+              defaultValue: 'Time Shift is playing — passes update when you pause',
+            })}
+          </div>
+        )}
         {tab === 'passes' &&
           (satellites?.loading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '10px' }}>
