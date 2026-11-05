@@ -28,6 +28,7 @@ sub init()
     mapTimer.observeField("fire", "onMapTick")
 
     buildNightColumns()
+    m.top.observeField("serverUrl", "onDeepLinkUrl")
     m.serverBase = getServerBase()
     onClockTick()
     updateTerminator()
@@ -36,6 +37,10 @@ sub init()
 end sub
 
 function onKeyEvent(key as string, press as boolean) as boolean
+    if press and key = "options" then
+        showServerDialog()
+        return true
+    end if
     ' Unhandled keys (including Back) keep system default behavior.
     return false
 end function
@@ -64,16 +69,104 @@ end function
 
 function getServerBase() as string
     def = "https://openhamclock.com"
+    ' 1) ECP deep-link field (set by main.brs before show).
+    if m.top.serverUrl <> invalid and type(m.top.serverUrl) = "String" then
+        u = normalizeServerUrl(m.top.serverUrl)
+        if u <> "" then return u
+    end if
+    ' 2) Persisted registry override from the on-device dialog / ECP.
     sec = CreateObject("roRegistrySection", "OpenHamClock")
     if sec <> invalid then
         v = sec.Read("serverUrl")
-        if type(v) = "String" and v.Trim() <> "" then def = v.Trim()
+        u = normalizeServerUrl(v)
+        if u <> "" then return u
     end if
-    while len(def) > 1 and def.Mid(len(def), 1) = "/"
-        def = def.Mid(1, len(def) - 1)
-    end while
     return def
 end function
+
+function normalizeServerUrl(v as dynamic) as string
+    if v = invalid or (type(v) <> "String" and type(v) <> "roString") then return ""
+    s = v.Trim()
+    if s = "" then return ""
+    if not (Left(s, 7) = "http://" or Left(s, 8) = "https://") then return ""
+    while len(s) > 1 and s.Mid(len(s), 1) = "/"
+        s = s.Mid(1, len(s) - 1)
+    end while
+    return s
+end function
+
+sub saveServerUrl(u as string)
+    sec = CreateObject("roRegistrySection", "OpenHamClock")
+    if sec <> invalid then
+        sec.Write("serverUrl", u)
+        sec.Flush()
+    end if
+end sub
+
+sub clearServerUrl()
+    sec = CreateObject("roRegistrySection", "OpenHamClock")
+    if sec <> invalid then
+        sec.Delete("serverUrl")
+        sec.Flush()
+    end if
+end sub
+
+sub onDeepLinkUrl()
+    u = normalizeServerUrl(m.top.serverUrl)
+    if u <> "" then
+        m.serverBase = u
+        saveServerUrl(u)
+        refreshNow()
+    end if
+end sub
+
+' --- on-device server URL option (Options/* key) ----------------------------
+
+sub showServerDialog()
+    if m.top.dialog <> invalid then return
+    dlg = CreateObject("roSGNode", "KeyboardDialog")
+    dlg.title = "OpenHamClock server"
+    dlg.message = "Self-hosted URL, e.g. http://192.168.1.10:3000. Empty + Save resets to openhamclock.com."
+    dlg.text = m.serverBase
+    dlg.buttons = ["Save", "Reset to default", "Cancel"]
+    dlg.observeField("buttonSelected", "onServerDialogButton")
+    m.serverDlg = dlg
+    m.top.dialog = dlg
+end sub
+
+sub onServerDialogButton()
+    if m.serverDlg = invalid then return
+    idx = m.serverDlg.buttonSelected
+    typed = ""
+    if m.serverDlg.text <> invalid then typed = m.serverDlg.text
+    m.top.dialog.close = true
+    m.serverDlg = invalid
+    if idx = 0 then
+        if typed.Trim() = "" then
+            clearServerUrl()
+            m.serverBase = "https://openhamclock.com"
+            m.status.text = m.serverBase + " • reset to default • refreshing… • * = server"
+            refreshNow()
+        else
+            u = normalizeServerUrl(typed)
+            if u = "" then
+                m.status.text = "Invalid URL (need http:// or https://) • * = server"
+            else
+                m.serverBase = u
+                saveServerUrl(u)
+                m.status.text = m.serverBase + " • refreshing… • * = server"
+                refreshNow()
+            end if
+        end if
+    else if idx = 1 then
+        clearServerUrl()
+        m.top.serverUrl = ""
+        m.serverBase = "https://openhamclock.com"
+        m.status.text = m.serverBase + " • reset to default • refreshing… • * = server"
+        refreshNow()
+    end if
+    m.spotsList.setFocus(true)
+end sub
 
 sub refreshNow()
     base = m.serverBase + "/api"
@@ -84,13 +177,13 @@ end sub
 sub onApiResponses()
     resps = m.apiTask.responses
     if resps = invalid or resps.count() < 3 then
-        m.status.text = m.serverBase + " • fetch failed, retrying…"
+        m.status.text = m.serverBase + " • fetch failed, retrying… • * = server"
         return
     end if
     updateSpots(resps[0])
     updateSolar(resps[1])
     updateBands(resps[2])
-    m.status.text = m.serverBase + " • updated " + clockStr(CreateObject("roDateTime")) + " UTC • auto-refresh 60s • Back exits"
+    m.status.text = m.serverBase + " • updated " + clockStr(CreateObject("roDateTime")) + " UTC • 60s refresh • * = server • Back exits"
 end sub
 
 sub updateSpots(body as string)
