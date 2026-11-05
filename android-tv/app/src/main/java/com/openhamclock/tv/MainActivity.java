@@ -1,12 +1,15 @@
 package com.openhamclock.tv;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.net.Uri;
 import android.net.http.SslError;
 import android.os.Bundle;
+import android.text.InputType;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.WindowManager;
@@ -18,6 +21,9 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
 /**
@@ -25,12 +31,16 @@ import android.widget.Toast;
  *
  * <p>Full-screen WebView loading the hosted dashboard. D-pad arrows and
  * SELECT are passed to the page for navigation; BACK steps through WebView
- * history (double-press to exit); MENU reloads the dashboard.
+ * history (double-press to exit); MENU reloads the dashboard (long-press
+ * MENU opens the self-hosted server option).
  */
 public class MainActivity extends Activity {
 
-    /** Change this to point the TV app at a self-hosted instance. */
-    private static final String HOME_URL = "https://openhamclock.com/";
+    /** Default dashboard; override on-device (see below) or via --es serverUrl. */
+    private static final String DEFAULT_URL = "https://openhamclock.com/";
+
+    private static final String PREFS = "ohc_tv";
+    private static final String KEY_SERVER_URL = "server_url";
 
     private static final long BACK_EXIT_WINDOW_MS = 2000L;
 
@@ -52,14 +62,103 @@ public class MainActivity extends Activity {
         errorOverlay = findViewById(R.id.error_overlay);
         Button retryButton = findViewById(R.id.retry_button);
         retryButton.setOnClickListener(v -> reloadDashboard());
+        Button serverButton = findViewById(R.id.server_button);
+        if (serverButton != null) {
+            serverButton.setOnClickListener(v -> showServerDialog());
+        }
 
         configureWebView();
 
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState);
         } else {
-            webView.loadUrl(HOME_URL);
+            webView.loadUrl(resolveHomeUrl());
         }
+    }
+
+    /**
+     * Effective dashboard URL. Precedence: adb/deep-link intent extra
+     * {@code --es serverUrl http://pi:3000} &gt; saved preference from the
+     * on-device server dialog &gt; {@link #DEFAULT_URL}.
+     */
+    private String resolveHomeUrl() {
+        String fromIntent = getIntent() != null ? getIntent().getStringExtra("serverUrl") : null;
+        String normalized = normalizeServerUrl(fromIntent);
+        if (normalized != null) {
+            getPrefs().edit().putString(KEY_SERVER_URL, normalized).apply();
+            return normalized;
+        }
+        String saved = getPrefs().getString(KEY_SERVER_URL, null);
+        String savedNorm = normalizeServerUrl(saved);
+        if (savedNorm != null) {
+            return savedNorm;
+        }
+        return DEFAULT_URL;
+    }
+
+    private SharedPreferences getPrefs() {
+        return getSharedPreferences(PREFS, MODE_PRIVATE);
+    }
+
+    /** Returns a normalized http(s) URL with trailing slash, or null if invalid/empty. */
+    private static String normalizeServerUrl(String raw) {
+        if (raw == null) {
+            return null;
+        }
+        String s = raw.trim();
+        if (s.isEmpty()) {
+            return null;
+        }
+        if (!s.startsWith("http://") && !s.startsWith("https://")) {
+            return null;
+        }
+        if (!s.endsWith("/")) {
+            s += "/";
+        }
+        return s;
+    }
+
+    /** D-pad friendly server editor: Save persists, Reset clears back to default. */
+    private void showServerDialog() {
+        String current = webView != null && webView.getUrl() != null
+                ? webView.getUrl()
+                : getPrefs().getString(KEY_SERVER_URL, DEFAULT_URL);
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        input.setText(current);
+        input.setHint(DEFAULT_URL);
+        input.setSingleLine(true);
+        int pad = (int) (16 * getResources().getDisplayMetrics().density);
+        LinearLayout container = new LinearLayout(this);
+        container.setOrientation(LinearLayout.VERTICAL);
+        container.setPadding(pad, pad, pad, 0);
+        container.addView(input);
+
+        AlertDialog dialog =
+                new AlertDialog.Builder(this)
+                        .setTitle(R.string.server_title)
+                        .setMessage(R.string.server_message)
+                        .setView(container)
+                        .setPositiveButton(R.string.save, (d, which) -> {
+                            String norm = normalizeServerUrl(input.getText().toString());
+                            if (norm == null) {
+                                Toast.makeText(this, R.string.server_invalid, Toast.LENGTH_SHORT).show();
+                                return;
+                            }
+                            getPrefs().edit().putString(KEY_SERVER_URL, norm).apply();
+                            hideError();
+                            webView.loadUrl(norm);
+                        })
+                        .setNeutralButton(R.string.server_reset, (d, which) -> {
+                            getPrefs().edit().remove(KEY_SERVER_URL).apply();
+                            hideError();
+                            webView.loadUrl(DEFAULT_URL);
+                        })
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .create();
+        dialog.show();
+        input.requestFocus();
+        input.selectAll();
     }
 
     private void configureWebView() {
@@ -143,7 +242,7 @@ public class MainActivity extends Activity {
     private void reloadDashboard() {
         hideError();
         if (webView.getUrl() == null) {
-            webView.loadUrl(HOME_URL);
+            webView.loadUrl(resolveHomeUrl());
         } else {
             webView.reload();
         }
@@ -151,6 +250,11 @@ public class MainActivity extends Activity {
 
     private void showError() {
         if (errorOverlay != null) {
+            TextView detail = findViewById(R.id.error_detail);
+            if (detail != null) {
+                String url = webView != null && webView.getUrl() != null ? webView.getUrl() : resolveHomeUrl();
+                detail.setText(getString(R.string.error_detail, url));
+            }
             errorOverlay.setVisibility(View.VISIBLE);
             View retry = findViewById(R.id.retry_button);
             if (retry != null) {
@@ -181,15 +285,41 @@ public class MainActivity extends Activity {
             Toast.makeText(this, R.string.press_back_again, Toast.LENGTH_SHORT).show();
             return true;
         }
-        // TV remotes rarely expose MENU, but map it to refresh when present.
+        // MENU short-press = reload (on key-up), long-press = server option.
+        // We defer the reload to onKeyUp so a hold doesn't reload first.
         if (keyCode == KeyEvent.KEYCODE_MENU
                 || keyCode == KeyEvent.KEYCODE_INFO
                 || keyCode == KeyEvent.KEYCODE_GUIDE) {
-            reloadDashboard();
+            // Required so onKeyLongPress fires on hold.
+            event.startTracking();
             return true;
         }
         // Let D-pad arrows / SELECT / media keys reach the WebView untouched.
         return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_MENU
+                || keyCode == KeyEvent.KEYCODE_INFO
+                || keyCode == KeyEvent.KEYCODE_GUIDE) {
+            if (!event.isCanceled()) {
+                reloadDashboard();
+            }
+            return true;
+        }
+        return super.onKeyUp(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyLongPress(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_MENU
+                || keyCode == KeyEvent.KEYCODE_INFO
+                || keyCode == KeyEvent.KEYCODE_GUIDE) {
+            showServerDialog();
+            return true;
+        }
+        return super.onKeyLongPress(keyCode, event);
     }
 
     @SuppressWarnings("deprecation")

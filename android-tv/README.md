@@ -66,19 +66,24 @@ Settings → **Prevent sleep** and **Scene rotation** too.
 | ------------------- | ------------------------------------ |
 | D-pad / SELECT      | Navigate page, scroll map            |
 | Back                | Page back, else double-press to exit |
-| Menu / Info / Guide | Reload dashboard                     |
+| Menu / Info / Guide | Reload dashboard (short-press)       |
+| Menu / Info / Guide | Server URL option (long-press)       |
 | Play/Pause etc.     | Passed to page (media panels)        |
 
 ## Point it at your own server
 
-Edit `MainActivity.java`:
+No rebuild needed. Three ways, highest priority first:
 
-```java
-private static final String HOME_URL = "http://your-pi:3000/";
-```
+1. **On-device (remote only):** long-press `MENU` / `INFO` / `GUIDE` anytime,
+   or pick **Change server** on the offline error screen. Save persists a
+   custom `http(s)://` URL; Reset returns to `https://openhamclock.com/`.
+2. **adb / deep link:** `adb shell am start -n com.openhamclock.tv/.MainActivity --es serverUrl http://192.168.1.10:3000`
+   — also persisted for next launches.
+3. **Rebuild default:** change `DEFAULT_URL` in `MainActivity.java` and rebuild.
 
-Rebuild. Cleartext (`http://`) LAN URLs also need
-`android:usesCleartextTraffic="true"` in the manifest.
+`http://` LAN URLs work (`usesCleartextTraffic="true"` exists only for that
+user-configured case; default stays `https`). Invalid URLs are rejected with
+a toast and never loaded.
 
 ## Release notes
 

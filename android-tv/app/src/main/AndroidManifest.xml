@@ -14,13 +14,15 @@
         android:name="android.software.leanback"
         android:required="false" />
 
+    <!-- true only so a user-configured self-hosted http:// LAN URL can load;
+         default remains https://openhamclock.com/. -->
     <application
         android:label="@string/app_name"
         android:icon="@drawable/ic_launcher"
         android:banner="@drawable/tv_banner"
         android:theme="@style/Theme.OpenHamClockTv"
         android:hardwareAccelerated="true"
-        android:usesCleartextTraffic="false"
+        android:usesCleartextTraffic="true"
         android:supportsRtl="true">
 
         <activity
