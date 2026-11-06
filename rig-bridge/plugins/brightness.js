@@ -58,7 +58,10 @@ const descriptor = {
   },
 
   create(config, services = {}) {
-    const { pluginBus } = services;
+    // saveConfig comes from the core (rig-bridge.js) — never require it here:
+    // the core's saveConfig writes the core config object, so a plugin
+    // created with any other config (tests) would overwrite the real file.
+    const { pluginBus, saveConfig } = services;
     const cfg = () => config.brightness || {};
     const log = (...a) => console.log('[Brightness]', ...a);
     const vlog = (...a) => cfg().verbose && console.log('[Brightness]', ...a);
@@ -253,9 +256,11 @@ const descriptor = {
       }
       if (typeof p === 'boolean') await setPower(p);
       if (changed) {
-        try {
-          require('../core/config').saveConfig();
-        } catch (e) {}
+        if (typeof saveConfig === 'function') {
+          try {
+            saveConfig();
+          } catch (e) {}
+        }
         await tick();
         publish(true);
       }

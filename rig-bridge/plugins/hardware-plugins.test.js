@@ -471,6 +471,22 @@ describe('brightness plugin', () => {
     inst.disconnect();
   });
 
+  it('saves through the injected saveConfig only when a setting changes', async () => {
+    const svc = { ...services(), saveConfig: vi.fn() };
+    const inst = brightness.create({ brightness: { enabled: true, source: 'none', auto: false, manual: 70 } }, svc);
+    await inst.apply({ brightness: 30 });
+    expect(svc.saveConfig).toHaveBeenCalledTimes(1);
+    await inst.apply({});
+    expect(svc.saveConfig).toHaveBeenCalledTimes(1);
+    // Without the core's saveConfig nothing is written (it must never fall back
+    // to requiring core/config, which saves the core config to the real file).
+    const bare = brightness.create(
+      { brightness: { enabled: true, source: 'none', auto: false, manual: 70 } },
+      services(),
+    );
+    await expect(bare.apply({ brightness: 30 })).resolves.toMatchObject({ target: 30 });
+  });
+
   it('source none → manual brightness only', async () => {
     const svc = services();
     const inst = brightness.create({ brightness: { enabled: true, source: 'none', auto: false, manual: 70 } }, svc);
