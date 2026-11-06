@@ -10,7 +10,20 @@ const crypto = require('crypto');
 
 // Config path resolution — prefer external user directory so updates never overwrite config.
 // Fallback: alongside the executable (pkg) or in the rig-bridge directory (node).
+// RIG_BRIDGE_CONFIG_DIR overrides the location outright (no legacy lookup or
+// migration) — the test setup points it at a temp dir so no test can ever
+// write the user's real rig-bridge-config.json.
 function resolveConfigPath() {
+  const overrideDir = process.env.RIG_BRIDGE_CONFIG_DIR;
+  if (overrideDir) {
+    try {
+      fs.mkdirSync(overrideDir, { recursive: true });
+    } catch (e) {
+      console.warn(`[Config] Cannot create ${overrideDir} (${e.message})`);
+    }
+    return { dir: overrideDir, path: path.join(overrideDir, 'rig-bridge-config.json') };
+  }
+
   // 1. External platform-appropriate directory (survives updates)
   let externalDir;
   if (process.platform === 'win32') {
