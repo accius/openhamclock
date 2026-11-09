@@ -100,6 +100,7 @@ export function useLayer({ map, enabled, opacity, locator }) {
       // before the previous map arrives.
       controller?.abort();
       controller = new AbortController();
+      const { signal } = controller;
       setLoading(true);
       try {
         const url = heatmapUrl({
@@ -113,7 +114,7 @@ export function useLayer({ map, enabled, opacity, locator }) {
           // displayHour dependency refetches when the real hour moves on).
           at: isTimeShifted() ? displayHour : undefined,
         });
-        const res = await fetch(url, { signal: controller.signal });
+        const res = await fetch(url, { signal });
         if (res.ok) {
           const json = await res.json();
           setData(json);
@@ -121,7 +122,9 @@ export function useLayer({ map, enabled, opacity, locator }) {
       } catch (err) {
         if (err?.name !== 'AbortError') console.error('[VOACAP Heatmap] Fetch error:', err);
       } finally {
-        setLoading(false);
+        // A request a newer one aborted must not clear the newer one's loading
+        // state — that made the status line flicker during playback.
+        if (!signal.aborted) setLoading(false);
       }
     };
 
