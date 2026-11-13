@@ -314,6 +314,47 @@ describe('incident routes', () => {
       s.req.emit('close');
     });
 
+    it('ending an incident needs the admin key, closes every stream, removes it and frees the callsign slot', () => {
+      process.env.OHC_HOSTED = '1';
+      const exp = mount();
+      const a = create({ call: 'K0CJH' }, '10.0.0.2');
+      create({ call: 'K0CJH' }, '10.0.0.3');
+      const refused = call(h, 'POST /api/incident', { body: { call: 'K0CJH' }, ip: '10.0.0.4' }).res;
+      expect(refused.code).toBe(429);
+      expect(refused.body.error).toMatch(/already has 2 open incident\(s\).*End one.*7 day/);
+
+      const op = openStream(a.id, a.joinKey, 'op');
+      const ad = openStream(a.id, a.adminKey, 'ad');
+      expect(
+        call(h, 'POST /api/incident/:id/end', { params: { id: a.id }, headers: keyHeader(a.joinKey) }).res.code,
+      ).toBe(403);
+      expect(exp.incidentStore.has(a.id)).toBe(true);
+
+      const out = call(h, 'POST /api/incident/:id/end', { params: { id: a.id }, headers: keyHeader(a.adminKey) }).res;
+      expect(out.body).toMatchObject({ ok: true, id: a.id, disconnected: 2 });
+      expect(exp.incidentStore.has(a.id)).toBe(false);
+      for (const s of [op, ad]) {
+        expect(s.res.ended).toBe(true);
+        expect(sseEvents(s.res).find((e) => e.event === 'ended').data).toEqual({ id: a.id });
+      }
+      // gone for good: not in the persistence file, keys no longer open it
+      expect(JSON.parse(fs.readFileSync(process.env.INCIDENT_FILE, 'utf8')).map((i) => i.id)).not.toContain(a.id);
+      expect(
+        call(h, 'POST /api/incident/:id/join', { params: { id: a.id }, headers: keyHeader(a.adminKey) }).res.code,
+      ).toBe(403);
+      // and the creator can open a new one
+      expect(call(h, 'POST /api/incident', { body: { call: 'K0CJH' }, ip: '10.0.0.5' }).res.code).toBe(200);
+    });
+
+    it('a self-hosted server says an unknown incident is not on this server', () => {
+      const res = call(h, 'POST /api/incident/:id/join', {
+        params: { id: 'ABCD2345' },
+        headers: keyHeader('WRONGKEY'),
+      }).res;
+      expect(res.code).toBe(404);
+      expect(res.body.error).toMatch(/not on this server.*different server/);
+    });
+
     it('rotating the join key closes operator streams, tells admin streams the new key, and locks out the old key', () => {
       const { id, joinKey, adminKey } = create();
       const op = openStream(id, joinKey, 'op');
