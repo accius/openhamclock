@@ -414,7 +414,11 @@ function createIncidentStore(opts = {}) {
       throw new IncidentError(400, 'Creating an incident here needs your callsign (Settings → Station)');
     }
     if (call && [...incidents.values()].filter((i) => i.creatorCall === call).length >= limits.maxPerCallsign) {
-      throw new IncidentError(429, `${call} already has ${limits.maxPerCallsign} open incident(s) on this server`);
+      const days = Math.max(1, Math.round(idleMs / DAY));
+      throw new IncidentError(
+        429,
+        `${call} already has ${limits.maxPerCallsign} open incident(s) on this server. End one from its Incident panel (admin key needed), or wait: an incident expires after ${days} day(s) with no activity`,
+      );
     }
     const t = now();
     createTimes = createTimes.filter((x) => x > t - HOUR);
