@@ -7029,6 +7029,27 @@ export const SettingsPanel = ({
                 Join the OpenHamClock community — report bugs, request features, and connect with other operators.
               </p>
               <a
+                href="/badges"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '14px 16px',
+                  background: 'var(--bg-tertiary)',
+                  borderRadius: '8px',
+                  textDecoration: 'none',
+                  color: 'var(--text-primary)',
+                  borderLeft: '3px solid var(--accent-amber)',
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600, fontSize: '14px' }}>Solar badge builder</div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
+                    Embed live SFI, Kp, and HF conditions on QRZ or your site
+                  </div>
+                </div>
+              </a>
+              <a
                 href="https://github.com/accius/openhamclock"
                 target="_blank"
                 rel="noopener noreferrer"
