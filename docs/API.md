@@ -352,6 +352,8 @@ salted SHA-256 of each key and checks both in constant time.
   - change or clear the board (operator board writes are ignored and listed
     in `denied`),
   - replace the join key (`/rotate`),
+  - end the incident for everyone (`/end`), which removes it from the server
+    and frees the creator's per-callsign slot,
   - read the current join key: admin replies to join, read and the stream
     snapshot include `joinKey`, so any device holding the admin key can hand
     out invites.
@@ -467,6 +469,7 @@ keep it; otherwise the request's `site` is stamped on them.
 | `POST /api/incident/:id/sync`          | key + `{clientId?, call?, site?, roster?[], events?[], reports?[], docs?[], board?}` (≤200 per list) | `{ok, seq, accepted:{roster, events, reports, docs, board}, docRevs, denied[]}`. Counts of records that actually changed. `409` with `conflicts[]` when a `baseRev` was stale |
 | `POST /api/incident/:id/admin`         | admin key + `{edit?: {events?[], reports?[]}, delete?: {events?[], reports?[], board?}}`             | `{ok, seq, edited:{events, reports}, deleted, board}`. An edit is `{id, …fields}` and keeps `id`, `kind`/`type` and `site`. `delete.board: true` clears the board             |
 | `POST /api/incident/:id/rotate`        | admin key                                                                                            | `{ok, joinKey, keyGen, disconnected}`. The old join key stops working at once                                                                                                 |
+| `POST /api/incident/:id/end`           | admin key                                                                                            | `{ok, id, disconnected}`. The incident is removed at once; every stream gets `ended` and is closed                                                                            |
 | `POST /api/incident/:id/ticket`        | key + `{clientId?}`                                                                                  | `{ok, ticket, expiresIn: 60, role}`. A one-time stream ticket                                                                                                                 |
 | `GET /api/incident/:id/stream`         | `?ticket=&clientId=&since=` (or `Last-Event-ID`)                                                     | Server-sent events (below)                                                                                                                                                    |
 | `GET /api/incident/list` (self-hosted) | `API_WRITE_KEY` when set                                                                             | `{incidents:[{id, name, createdAt, lastActivity, participants, counts}]}`. Never keys. `403` when `OHC_HOSTED` is set                                                         |
@@ -492,6 +495,8 @@ The stream first sends `event: snapshot` (the full state, or the changes since
   `{keyGen}` and is closed. An admin stream gets `{keyGen, joinKey}` and stays
   open.
 - `event: expired` if the incident expires while you are listening.
+- `event: ended` (`{id}`) when an admin ends the incident. The stream is then
+  closed; the incident no longer exists on the server.
 
 `snapshot` and `change` carry `id: <seq>`. A comment line keeps the
 connection alive every 25 s. A station counts as connected while it holds a

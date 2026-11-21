@@ -10,6 +10,7 @@
  *   Any browser ──POST─▶ /api/incident/:id/sync        (key) roster / events / reports / docs / board
  *   Admin       ──POST─▶ /api/incident/:id/admin       (admin key) edit / delete records
  *   Admin       ──POST─▶ /api/incident/:id/rotate      (admin key) new join key
+ *   Admin       ──POST─▶ /api/incident/:id/end         (admin key) end it for everyone, free the slot
  *   Any browser ──POST─▶ /api/incident/:id/ticket      (key) → one-time stream ticket
  *   Any browser ──SSE──▶ /api/incident/:id/stream      (?ticket=) snapshot, then live changes
  *   Local only  ──GET──▶ /api/incident/list            enumerate (disabled when OHC_HOSTED)
@@ -201,10 +202,18 @@ module.exports = function (app, ctx) {
 
   function denyIncident(res, id) {
     if (!IS_HOSTED && isValidIncidentId(id) && !store.has(id)) {
-      res.status(404).json({ error: 'Unknown or expired incident' });
+      // An incident lives only on the server that created it — the usual cause
+      // is an id from another server (openhamclock.com vs. a local install).
+      res.status(404).json({
+        error:
+          'This incident is not on this server. It has expired or been ended, or it was created on a different server (incidents are not shared between openhamclock.com and local installs). Join on the server where it was created',
+      });
     } else {
       // Hosted: one answer for "no such id" and "wrong key" — ids cannot be probed.
-      res.status(403).json({ error: 'Incident id or join key is wrong' });
+      res.status(403).json({
+        error:
+          'Incident id or join key is wrong for this server. An incident can only be joined on the server where it was created',
+      });
     }
     return null;
   }
@@ -485,6 +494,34 @@ module.exports = function (app, ctx) {
       scheduleSave();
       logInfo?.(`[Incident] ${auth.id} join key rotated (${disconnected} operator stream(s) closed)`);
       res.json({ ok: true, joinKey, keyGen, disconnected });
+    } catch (err) {
+      sendError(res, err);
+    }
+  });
+
+  // Admin: end the incident for everyone. It is removed from the server (and
+  // no longer counts against the creator's callsign), connected browsers are
+  // told and keep their local copy of the log.
+  app.post('/api/incident/:id/end', createLimiter, (req, res) => {
+    noCache(res);
+    const auth = authIncident(req, res, { admin: true });
+    if (!auth) return;
+    try {
+      for (const [t, grant] of tickets) if (grant.id === auth.id) tickets.delete(t);
+      const set = [...(streams.get(auth.id) || [])];
+      for (const s of set) {
+        writeEvent(s.res, 'ended', { id: auth.id });
+        try {
+          s.res.end();
+        } catch {
+          /* already closed */
+        }
+      }
+      store.remove(auth.id);
+      lastPresence.delete(auth.id);
+      saveNow(); // not debounced: an ended incident must not come back after a restart
+      logInfo?.(`[Incident] ${auth.id} ended by its admin (${set.length} stream(s) closed)`);
+      res.json({ ok: true, id: auth.id, disconnected: set.length });
     } catch (err) {
       sendError(res, err);
     }

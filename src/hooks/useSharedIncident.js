@@ -113,7 +113,10 @@ async function api(path, { method = 'GET', key, body } = {}) {
 }
 
 const goneMessage = (status) =>
-  status === 404 ? 'This incident no longer exists on the server' : 'The incident id or join key was not accepted';
+  status === 404
+    ? 'This incident no longer exists on this server (expired or ended by its admin)'
+    : 'The incident id or join key was not accepted by this server';
+const ENDED_MESSAGE = 'The incident admin ended this incident. Your local log is kept; press Leave to go back to it.';
 const REKEYED_MESSAGE = 'The incident admin changed the join key. Ask them for the new key and join again.';
 
 /**
@@ -437,6 +440,10 @@ export function useSharedIncident({
         markGone('This incident expired on the server');
         es?.close();
       });
+      es.addEventListener('ended', () => {
+        markGone(ENDED_MESSAGE);
+        es?.close();
+      });
       es.onerror = () => {
         if (closed) return;
         // A ticket is single-use, so never let the browser reconnect with the
@@ -729,7 +736,7 @@ export function useSharedIncident({
     setStatus('idle');
     setError(null);
     setInvite(null);
-    if (!s) return;
+    if (!s || s.ended) return;
     recordEvent('incident_note', { callsign: callsignRef.current || '', summary: `Left incident ${s.id}` });
     try {
       await api(`/${encodeURIComponent(s.id)}/leave`, { method: 'POST', key: s.key, body: { clientId } });
@@ -861,6 +868,19 @@ export function useSharedIncident({
     return out.joinKey;
   }, [adminCall]);
 
+  /** Admin: end the incident for everyone and free its slot on the server, then drop this browser's session. */
+  const endIncident = useCallback(async () => {
+    const s = sessionRef.current;
+    if (!s || s.role !== 'admin') throw new Error('This needs the incident’s admin key');
+    const res = await api(`/${encodeURIComponent(s.id)}/end`, { method: 'POST', key: s.key, body: { clientId } });
+    // 404: already gone (expired, or ended from another device) — same outcome.
+    if (!res.ok && res.status !== 404) throw new Error(res.data?.error || `HTTP ${res.status}`);
+    goneRef.current = true; // nothing more to send; leave() clears the session without calling the server
+    sessionRef.current = { ...s, ended: true };
+    recordEvent('incident_note', { callsign: callsignRef.current || '', summary: `Ended incident ${s.id}` });
+    await leave();
+  }, [clientId, leave]);
+
   const stateEvents = state.events;
   const events = useMemo(() => incidentEventList({ events: stateEvents }), [stateEvents]);
   const joinUrl = useMemo(
@@ -895,6 +915,7 @@ export function useSharedIncident({
     editRecord,
     deleteRecord,
     rotateJoinKey,
+    endIncident,
   };
 }
 
