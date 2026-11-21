@@ -165,6 +165,7 @@ The backend exposes a JSON REST API under `/api`, heavily cached server-side to 
 | `POST /api/dxcluster/spot`                                                                      | Submit a spot to the OHC cluster                                                                       |
 | `GET /api/pota/spots`, `/api/sota/spots`, `/api/wwff/spots`                                     | Activator spots (1–2 min cache)                                                                        |
 | `GET /api/solar-indices`, `/api/noaa/xray`, `/api/noaa/aurora`, `/api/drap`, `/api/swpc/alerts` | Space weather feeds                                                                                    |
+| `GET /api/badge/solar.png`, `/api/badge/themes`                                                 | PNG solar/HF badge and its theme list. Builder: [/badges](https://openhamclock.com/badges)             |
 | `GET /api/n0nbh`                                                                                | N0NBH band conditions                                                                                  |
 | `GET /api/propagation`, `/heatmap`, `/mufmap`                                                   | Point-to-point prediction, world heatmap, MUF map                                                      |
 | `GET /api/p533-data/:file`                                                                      | ITU-R P.533 coefficient tables for the in-browser WASM engine                                          |
@@ -183,6 +184,18 @@ The backend exposes a JSON REST API under `/api`, heavily cached server-side to 
 | `GET /metrics`                                                                                  | Prometheus metrics (optionally gated by `METRICS_AUTH_KEY`)                                            |
 
 Write endpoints (settings, rig, rotator, spot submission, etc.) are rate-limited and honor `API_WRITE_KEY` when set.
+
+### Solar badge
+
+Drop a live conditions image into a QRZ biography or any page that allows images but not scripts. Open the [badge builder](https://openhamclock.com/badges) to pick a theme, which rows to show, and a size, then copy the snippet.
+
+```html
+<a href="https://openhamclock.com"
+  ><img src="https://openhamclock.com/api/badge/solar.png" alt="OpenHamClock live solar conditions"
+/></a>
+```
+
+`theme=red` is the red-on-black brand lockup. The default is the app's Dark theme. Details are in [docs/API.md](docs/API.md#solar-badge).
 
 ---
 

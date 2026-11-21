@@ -239,6 +239,9 @@ export const HelpTab = ({ anchor }) => {
               color: 'var(--text-muted)',
             }}
           >
+            <a href="/badges" style={{ color: 'var(--accent-cyan)', marginRight: '16px' }}>
+              Solar badge builder
+            </a>
             <a
               href={MANUAL_GITHUB_URL}
               target="_blank"

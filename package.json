@@ -29,6 +29,7 @@
     "vendor:aprs-deviceid": "node scripts/vendor-aprs-deviceid.mjs"
   },
   "dependencies": {
+    "@resvg/resvg-wasm": "^2.6.2",
     "axios": "^1.6.2",
     "axios-cookiejar-support": "^6.0.5",
     "compression": "^1.7.4",
@@ -116,7 +117,10 @@
       ".env.example",
       "config.example.json",
       "node_modules/geo-tz/package.json",
-      "node_modules/geo-tz/data/timezones.geojson.geo.dat"
+      "node_modules/geo-tz/data/timezones.geojson.geo.dat",
+      "server/assets/fonts/**/*",
+      "node_modules/@resvg/resvg-wasm/index_bg.wasm",
+      "src/styles/themes.css"
     ]
   }
 }

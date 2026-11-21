@@ -623,6 +623,8 @@ called out in release notes.
 | `/api/sota/spots`              | Current SOTA activation spots                                                                                                                                                                                                                                                  | ~1 min             |
 | `/api/wwff/spots`              | Current WWFF activation spots                                                                                                                                                                                                                                                  | ~1 min             |
 | `/api/solar-indices`           | SFI, sunspot number, A/K indices, X-ray flux                                                                                                                                                                                                                                   | ~5 min             |
+| `/api/badge/solar.png`         | PNG solar/HF badge for `<img>` embeds (QRZ, README). Query: `theme`, `fields`, `variant`. See [Solar badge](#solar-badge).                                                                                                                                                     | ~5 min             |
+| `/api/badge/themes`            | Theme, field, and size catalog for the badge builder                                                                                                                                                                                                                           | 1 h                |
 | `/api/solar-cycle`             | Solar cycle history/prediction series                                                                                                                                                                                                                                          | hours              |
 | `/api/propagation`             | Point-to-point HF path prediction. Query: `deLat`, `deLon`, `dxLat`, `dxLon`, optional `mode`, `power`, `antenna`                                                                                                                                                              | ~10 min            |
 | `/api/band-openings`           | Detected band openings from live spot analysis                                                                                                                                                                                                                                 | ~1 min             |
@@ -669,6 +671,45 @@ Each topic is published at most once per minute and only when its content change
 ```bash
 curl -s http://localhost:3000/api/solar-indices | jq .
 curl -s 'http://localhost:3000/api/propagation?deLat=39.0&deLon=-94.5&dxLat=51.5&dxLon=-0.1&mode=FT8&power=100' | jq .
+```
+
+### Solar badge
+
+`GET /api/badge/solar.png` is a PNG (about 760×220) of the current solar and HF
+conditions, meant for pages that can show an image but not a script — a QRZ
+biography, a club site, a GitHub README. It reads the same in-process NOAA
+cache as `/api/solar-indices` (SFI, sunspots, Kp, A) and, when that cache is
+already warm, GOES X-ray flux. HF day/night chips come from the N0NBH cache
+and are labeled `N0NBH`. Sparklines use the SFI and Kp history already on the
+solar-indices payload.
+
+Status colors stay semantic on every theme: SFI below 70 is poor, 70–90 fair,
+90–120 good, above 120 excellent; Kp under 3 is quiet, 3–4 unsettled, 5 and
+above a storm with the NOAA G-scale (G1 at Kp 5 through G5 at Kp 9). The theme
+only changes the background and the OpenHamClock accent. `theme=dark` (the
+default, and the app's default theme) is amber on near-black. `theme=red` is
+the red brand lockup. Unknown themes, fields, and sizes fall back to the
+defaults. `GET /api/badge/themes` lists every id.
+
+The image is cached about five minutes (`Cache-Control: public, max-age=300`).
+Build one, with a live preview and copy-paste snippets, at
+[/badges](https://openhamclock.com/badges).
+
+```html
+<a href="https://openhamclock.com"
+  ><img src="https://openhamclock.com/api/badge/solar.png" alt="OpenHamClock live solar conditions"
+/></a>
+```
+
+```html
+<img
+  src="https://openhamclock.com/api/badge/solar.png?theme=red&variant=compact"
+  alt="OpenHamClock live solar conditions"
+/>
+```
+
+```bash
+curl -sI http://localhost:3000/api/badge/solar.png | head
 ```
 
 Most of this data originates from public upstream services (NOAA SWPC, POTA,

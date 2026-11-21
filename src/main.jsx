@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
+import BadgeBuilder from './components/BadgeBuilder.jsx';
 import ErrorBoundary from './components/ErrorBoundary';
 import './styles/main.css';
 import './lang/i18n';
@@ -11,10 +12,13 @@ import { setupServiceWorker } from './pwa/registerServiceWorker';
 overrideConsole(getDebugConfig());
 setupServiceWorker();
 
+const pagePath = window.location.pathname.replace(/\/+$/, '') || '/';
+const Root = pagePath === '/badges' || pagePath === '/badge-builder' ? BadgeBuilder : App;
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <ErrorBoundary>
-      <App />
+      <Root />
     </ErrorBoundary>
   </React.StrictMode>,
 );

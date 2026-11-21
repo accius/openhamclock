@@ -1,0 +1,227 @@
+.badge-builder {
+  min-height: 100vh;
+  background:
+    radial-gradient(900px 420px at 0 0, color-mix(in srgb, var(--accent-amber) 28%, transparent), transparent 60%),
+    var(--bg-primary);
+  color: var(--text-primary);
+  padding: 28px 20px 72px;
+}
+
+.badge-builder-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+
+.badge-builder h1 {
+  font-size: 28px;
+  letter-spacing: -0.03em;
+  margin: 4px 0 8px;
+}
+
+.badge-kicker {
+  color: var(--accent-amber);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.badge-lead {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 18px;
+}
+
+.badge-back {
+  color: var(--accent-cyan);
+  font-size: 13px;
+}
+
+.badge-card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 14px;
+}
+
+.badge-card h2 {
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.badge-fields,
+.badge-variants {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.badge-fields label,
+.badge-variants button,
+.theme-swatch,
+.copy-btn {
+  font: inherit;
+  cursor: pointer;
+}
+
+.badge-fields label,
+.badge-variants button {
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.badge-fields label:has(input:checked),
+.badge-variants button[aria-pressed='true'] {
+  border-color: var(--accent-amber);
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--accent-amber) 18%, var(--bg-tertiary));
+}
+
+.badge-fields input {
+  margin-right: 6px;
+}
+
+.theme-group + .theme-group {
+  margin-top: 12px;
+}
+
+.theme-group p {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 8px;
+}
+
+.theme-swatch {
+  text-align: left;
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: 8px;
+  padding: 6px;
+}
+
+.theme-swatch[aria-pressed='true'] {
+  border-color: var(--accent-amber);
+  box-shadow: 0 0 0 1px var(--accent-amber);
+}
+
+.swatch-chip {
+  height: 28px;
+  border-radius: 5px;
+  border-left: 5px solid var(--swatch-accent);
+  background: var(--swatch-bg);
+  margin-bottom: 6px;
+}
+
+.theme-swatch span {
+  display: block;
+  font-size: 11px;
+  line-height: 1.2;
+}
+
+.badge-preview {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.badge-preview img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+}
+
+.badge-url {
+  margin-top: 10px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.snippet {
+  margin-top: 12px;
+}
+
+.snippet header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.snippet h3 {
+  font-size: 13px;
+}
+
+.snippet pre {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bg-primary);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.copy-btn {
+  border: 1px solid var(--border-color);
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.badge-steps {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.badge-steps li + li,
+.badge-steps + h2 {
+  margin-top: 6px;
+}
+
+.badge-error {
+  color: var(--accent-red);
+  font-size: 13px;
+}
+
+@media (max-width: 800px) {
+  .badge-builder-wrap {
+    grid-template-columns: 1fr;
+  }
+}

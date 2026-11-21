@@ -84,13 +84,44 @@ module.exports = function (app, ctx) {
     };
   }
 
-  // Solar Indices with History and Kp Forecast
-  app.get('/api/solar-indices', async (req, res) => {
-    try {
-      if (noaaCache.solarIndices.data && Date.now() - noaaCache.solarIndices.timestamp < NOAA_CACHE_TTL) {
-        return res.json(noaaCache.solarIndices.data);
+  // Newest a_running from the planetary K product. Object rows use `a_running`;
+  // the legacy array form uses the header to find the column.
+  function latestRunningA(data, isObj, rows) {
+    if (isObj) {
+      for (let i = rows.length - 1; i >= 0; i--) {
+        const n = parseFloat(rows[i]?.a_running);
+        if (Number.isFinite(n)) return Math.round(n);
       }
+      return null;
+    }
+    const header = Array.isArray(data?.[0]) ? data[0].map((h) => String(h).toLowerCase()) : [];
+    const idx = header.indexOf('a_running');
+    if (idx < 0) return null;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const n = parseFloat(rows[i]?.[idx]);
+      if (Number.isFinite(n)) return Math.round(n);
+    }
+    return null;
+  }
 
+  // Solar Indices with History and Kp Forecast.
+  // Shared with the PNG badge (in-process, one refresh at a time).
+  let solarIndicesInFlight = null;
+
+  async function getSolarIndices() {
+    if (noaaCache.solarIndices.data && Date.now() - noaaCache.solarIndices.timestamp < NOAA_CACHE_TTL) {
+      return noaaCache.solarIndices.data;
+    }
+    if (!solarIndicesInFlight) {
+      solarIndicesInFlight = fetchSolarIndices().finally(() => {
+        solarIndicesInFlight = null;
+      });
+    }
+    return solarIndicesInFlight;
+  }
+
+  async function fetchSolarIndices() {
+    try {
       const [fluxRes, kIndexRes, kForecastRes, sunspotRes, sfiSummaryRes, magRes, kpEstRes, electronRes, dstRes] =
         await Promise.allSettled([
           fetch('https://services.swpc.noaa.gov/json/f107_cm_flux.json'),
@@ -107,6 +138,8 @@ module.exports = function (app, ctx) {
       const result = {
         sfi: { current: null, history: [] },
         kp: { current: null, history: [], forecast: [] },
+        // Running planetary A from the same NOAA K-index product (a_running).
+        a: { current: null },
         ssn: { current: null, history: [] },
         bz: { current: null },
         // GOES >=2 MeV electron flux (e/(cm²·s·sr)) — the satellite-charging channel
@@ -188,6 +221,7 @@ module.exports = function (app, ctx) {
             value: Number.isFinite(isObj ? d.Kp : parseFloat(d[1])) ? (isObj ? d.Kp : parseFloat(d[1])) : 0,
           }));
           result.kp.current = result.kp.history[result.kp.history.length - 1]?.value ?? null;
+          result.a.current = latestRunningA(data, isObj, rows);
         }
       }
 
@@ -262,10 +296,19 @@ module.exports = function (app, ctx) {
       }
 
       noaaCache.solarIndices = { data: result, timestamp: Date.now() };
-      res.json(result);
+      return result;
     } catch (error) {
       logErrorOnce('Solar Indices', error.message);
-      if (noaaCache.solarIndices.data) return res.json(noaaCache.solarIndices.data);
+      if (noaaCache.solarIndices.data) return noaaCache.solarIndices.data;
+      throw error;
+    }
+  }
+
+  app.get('/api/solar-indices', async (req, res) => {
+    try {
+      res.json(await getSolarIndices());
+    } catch (error) {
+      logErrorOnce('Solar Indices', error.message);
       res.status(500).json({ error: 'Failed to fetch solar indices' });
     }
   });
@@ -863,7 +906,10 @@ module.exports = function (app, ctx) {
       const xml = await response.text();
       const parsed = parseN0NBHxml(xml);
 
-      n0nbhCache = { data: parsed, timestamp: Date.now() };
+      // Mutate in place. Other modules keep the object exported at startup
+      // (the badge, propagation); replacing it would leave them on empty data.
+      n0nbhCache.data = parsed;
+      n0nbhCache.timestamp = Date.now();
       res.json({ ...parsed, fetchedAt: n0nbhCache.timestamp });
     } catch (error) {
       logErrorOnce('N0NBH', error.message);
@@ -886,7 +932,8 @@ module.exports = function (app, ctx) {
       const response = await fetch('https://www.hamqsl.com/solarxml.php');
       const xml = await response.text();
       const ts = Date.now();
-      n0nbhCache = { data: { ...parseN0NBHxml(xml), fetchedAt: ts }, timestamp: ts };
+      n0nbhCache.data = { ...parseN0NBHxml(xml), fetchedAt: ts };
+      n0nbhCache.timestamp = ts;
       logInfo('[Startup] N0NBH solar data pre-warmed');
     } catch (e) {
       logWarn('[Startup] N0NBH pre-warm failed:', e.message);
@@ -894,5 +941,18 @@ module.exports = function (app, ctx) {
   }
 
   // Return shared state that other modules need
-  return { n0nbhCache, parseN0NBHxml, prewarmN0NBH, getSolarCycle };
+  // Latest GOES 0.1–0.8 nm flux already in the NOAA cache, or null.
+  // Does not fetch — the badge must not pull the multi-megabyte X-ray file
+  // on its own. Callers fall back to the N0NBH class string.
+  function getCachedXrayFlux() {
+    const data = noaaCache.xray.data;
+    if (!Array.isArray(data)) return null;
+    for (let i = data.length - 1; i >= 0; i--) {
+      const flux = Number(data[i]?.flux);
+      if (Number.isFinite(flux) && flux > 0) return flux;
+    }
+    return null;
+  }
+
+  return { n0nbhCache, parseN0NBHxml, prewarmN0NBH, getSolarCycle, getSolarIndices, getCachedXrayFlux };
 };
