@@ -635,6 +635,24 @@ async function svgToPng(svg, background) {
 const pngCache = new Map();
 const inflight = new Map();
 
+// Server-wide budget for cache-miss renders. theme × variant × fields has
+// thousands of combinations, so a caller cycling query strings could force a
+// rasterize per request. Past the budget, uncached combinations get the
+// default badge (cached, cheap) instead of a fresh render.
+let renderBudgetPerMin = 60;
+let renderWindowStart = 0;
+let rendersInWindow = 0;
+
+function takeRenderSlot(now = Date.now()) {
+  if (now - renderWindowStart >= 60_000) {
+    renderWindowStart = now;
+    rendersInWindow = 0;
+  }
+  if (rendersInWindow >= renderBudgetPerMin) return false;
+  rendersInWindow++;
+  return true;
+}
+
 function cacheKey(themeId, fields, variant) {
   return `${themeId}|${variant}|${fields.join(',')}`;
 }
@@ -685,6 +703,11 @@ async function renderSolarBadgePng(opts) {
     return hit.png;
   }
   if (inflight.has(key)) return inflight.get(key);
+  const isDefault = !opts.theme && !opts.fields && !opts.variant;
+  if (!takeRenderSlot() && !isDefault) {
+    if (hit) return hit.png; // stale beats nothing
+    return renderSolarBadgePng({ ctx: opts.ctx });
+  }
   const job = renderFresh(theme.id, fields, variant, opts.ctx)
     .then((png) => {
       touch(key, { png, timestamp: Date.now() });
@@ -695,9 +718,16 @@ async function renderSolarBadgePng(opts) {
   return job;
 }
 
+/** Tests only: change the per-minute render budget. */
+function setRenderBudget(n) {
+  renderBudgetPerMin = n;
+}
+
 function clearBadgeCache() {
   pngCache.clear();
   inflight.clear();
+  renderWindowStart = 0;
+  rendersInWindow = 0;
 }
 
 module.exports = {
@@ -711,5 +741,6 @@ module.exports = {
   buildSolarBadgeSvg,
   renderSolarBadgePng,
   clearBadgeCache,
+  setRenderBudget,
   svgToPng,
 };

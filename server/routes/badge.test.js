@@ -9,6 +9,7 @@ const {
   buildBadgeModel,
   buildSolarBadgeSvg,
   clearBadgeCache,
+  setRenderBudget,
 } = require('../badge/solarBadge.js');
 const { listBadgeThemes, resolveBadgeTheme } = require('../badge/themes.js');
 const route = require('./badge.js');
@@ -192,6 +193,22 @@ describe('GET /api/badge/solar.png', () => {
     const blue = await run({ theme: 'blue' });
     expect(blue.body.equals(a.body)).toBe(false);
     expect(calls).toBe(2);
+  });
+
+  it('serves the default badge for uncached combinations once the render budget is spent', async () => {
+    setRenderBudget(1);
+    try {
+      const red = await run({ theme: 'red' });
+      const defaults = await run({});
+      const blue = await run({ theme: 'blue' });
+      expect(blue.code).toBe(200);
+      expect(blue.body.equals(defaults.body)).toBe(true);
+      expect(blue.body.equals(red.body)).toBe(false);
+      // A cached combination is still served as itself.
+      expect((await run({ theme: 'red' })).body.equals(red.body)).toBe(true);
+    } finally {
+      setRenderBudget(60);
+    }
   });
 
   it('falls unknown themes and fields back to the defaults', async () => {
