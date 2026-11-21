@@ -169,7 +169,16 @@ export default function EmcommIncidentPanel({ incident, callsign }) {
       : t('emcomm.incident.leaveConfirm', {
           defaultValue: "Leave this incident? This browser goes back to its own log and this server's roster.",
         });
-    if (!window.confirm(msg)) return;
+    // Leaving forgets the admin key, and nothing can recover it afterwards.
+    const adminWarn =
+      incident.isAdmin && incident.status !== 'error'
+        ? '\n\n' +
+          t('emcomm.incident.leaveAdminWarn', {
+            defaultValue:
+              'You hold the ADMIN key and this browser will forget it. The incident stays open on the server and still counts against your callsign. Write the admin key down first (Invite → Show admin key), or use End to close the incident for everyone.',
+          })
+        : '';
+    if (!window.confirm(msg + adminWarn)) return;
     setShowInvite(false);
     setShowAdminKey(false);
     setBoardDraft(null);
@@ -189,6 +198,26 @@ export default function EmcommIncidentPanel({ incident, callsign }) {
     try {
       await incident.rotateJoinKey();
       setShowInvite(true);
+    } catch (err) {
+      window.alert(err?.message || String(err));
+    }
+  };
+
+  const end = async () => {
+    if (
+      !window.confirm(
+        t('emcomm.incident.endConfirm', {
+          defaultValue:
+            'End this incident for everyone? It is removed from the server and every operator is disconnected. Each browser keeps its own local log. This cannot be undone.',
+        }),
+      )
+    )
+      return;
+    try {
+      setShowInvite(false);
+      setShowAdminKey(false);
+      setBoardDraft(null);
+      await incident.endIncident();
     } catch (err) {
       window.alert(err?.message || String(err));
     }
@@ -491,6 +520,19 @@ export default function EmcommIncidentPanel({ incident, callsign }) {
           </button>
         )}
         <span style={{ flex: 1 }} />
+        {isAdmin && incident.status !== 'error' && (
+          <button
+            type="button"
+            data-testid="incident-end"
+            style={BTN_DANGER}
+            onClick={end}
+            title={t('emcomm.incident.endTitle', {
+              defaultValue: 'Close this incident for everyone and remove it from the server (admin)',
+            })}
+          >
+            {t('emcomm.incident.end', { defaultValue: 'End' })}
+          </button>
+        )}
         <button type="button" style={BTN_DANGER} onClick={leave}>
           {t('emcomm.incident.leave', { defaultValue: 'Leave' })}
         </button>

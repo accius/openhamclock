@@ -5,6 +5,7 @@ import {
   incidentEventList,
   incidentRosterList,
   mergeDisplayedRoster,
+  incidentRosterKey,
   diffRosterForPush,
   fieldReportForPush,
   shelterReportForPush,
@@ -54,10 +55,10 @@ describe('applyIncidentDelta', () => {
       roster: [{ call: 'W1AW', status: 'new', updatedAt: 200 }],
     });
     s = applyIncidentDelta(s, { seq: 2, roster: [{ call: 'W1AW', status: 'old', updatedAt: 100 }] });
-    expect(s.roster.W1AW.status).toBe('new');
+    expect(s.roster['EMCOMM|W1AW'].status).toBe('new');
     expect(s.seq).toBe(5);
     s = applyIncidentDelta(s, { seq: 6, roster: [{ call: 'W1AW', status: 'out', checkedOut: true, updatedAt: 300 }] });
-    expect(s.roster.W1AW.checkedOut).toBe(true);
+    expect(s.roster['EMCOMM|W1AW'].checkedOut).toBe(true);
   });
 
   it('takes the board, participants and reports', () => {
@@ -227,7 +228,7 @@ describe('diffRosterForPush', () => {
     const { push, next } = diffRosterForPush(null, [op], emptyIncidentState(), NOW);
     expect(push).toHaveLength(1);
     expect(push[0]).toMatchObject({ call: 'W1AW', updatedAt: NOW - 1000, checkedOut: false });
-    expect(next.entries.has('W1AW')).toBe(true);
+    expect(next.entries.has('EMCOMM|W1AW')).toBe(true);
   });
 
   it('sends nothing when nothing changed (lastHeard alone is not a change)', () => {
@@ -344,7 +345,7 @@ describe('outbox', () => {
       events: [{ id: 'e1', ts: 1 }],
       reports: [{ id: 'r1', timestamp: 1 }],
     });
-    expect(o.roster.W1AW.status).toBe('b');
+    expect(o.roster['EMCOMM|W1AW'].status).toBe('b');
     expect(outboxSize(o)).toBe(3);
   });
 
@@ -360,7 +361,7 @@ describe('outbox', () => {
     o = queueOutbox(o, { roster: [{ call: 'W1AW', updatedAt: 5 }], events: [{ id: 'e2', ts: 2 }] });
     o = ackOutbox(o, batch);
     expect(Object.keys(o.events)).toEqual(['e2']);
-    expect(o.roster.W1AW.updatedAt).toBe(5);
+    expect(o.roster['EMCOMM|W1AW'].updatedAt).toBe(5);
     expect(o.board).toBeNull();
     expect(outboxBatch(ackOutbox(o, outboxBatch(o)))).toBeNull();
   });
@@ -488,5 +489,62 @@ describe('withdrawals and message numbers across sites', () => {
     const r2 = Object.fromEntries(renum.map((r) => [r.eventId, r]));
     expect(r2['n-2'].fromMsg).toBe('50');
     expect(r2['s-2'].toMsg).toBe('South:2');
+  });
+});
+
+// #1238: one station checked into three nets (three addresses) and removed
+// from one of them must stay in the other two, here and at every other site.
+describe('one station in several nets (#1238)', () => {
+  const nets = ['W8ROC', 'EMCOMM', 'K8MRC'].map((alias) => ({
+    call: 'KE8PLM-9',
+    alias,
+    netName: `NET-${alias}`,
+    status: 'Checked in',
+    checkinTime: NOW - 5000,
+    lastHeard: NOW - 5000,
+  }));
+
+  it('keys incident roster records by address + call; no address counts as EMCOMM', () => {
+    expect(incidentRosterKey({ call: 'w1aw', alias: 'w8roc' })).toBe('W8ROC|W1AW');
+    expect(incidentRosterKey({ call: 'W1AW' })).toBe('EMCOMM|W1AW');
+    expect(incidentRosterKey({ call: 'W1AW', alias: '' })).toBe('EMCOMM|W1AW');
+  });
+
+  it('keeps one shared record per net, and removing one leaves the others shown', () => {
+    const { push } = diffRosterForPush(null, nets, emptyIncidentState(), NOW);
+    expect(push).toHaveLength(3);
+    let state = applyIncidentDelta(emptyIncidentState(), { seq: 1, roster: push });
+    expect(Object.keys(state.roster).sort()).toEqual(['EMCOMM|KE8PLM-9', 'K8MRC|KE8PLM-9', 'W8ROC|KE8PLM-9']);
+
+    // Net control removes the W8ROC check-in only
+    const out = { ...push.find((e) => e.alias === 'W8ROC'), status: 'Checked out', checkedOut: true, updatedAt: NOW };
+    state = applyIncidentDelta(state, { seq: 2, roster: [out] });
+
+    // This site's server still lists all three until its own checkout lands
+    const shown = mergeDisplayedRoster(nets, state, NOW);
+    expect(shown.map((e) => e.alias).sort()).toEqual(['EMCOMM', 'K8MRC']);
+    // Another site that only knows the incident sees the same two
+    expect(
+      mergeDisplayedRoster([], state, NOW)
+        .map((e) => e.alias)
+        .sort(),
+    ).toEqual(['EMCOMM', 'K8MRC']);
+  });
+
+  it('a check-out on one address is pushed for that address only', () => {
+    const first = diffRosterForPush(null, nets, emptyIncidentState(), NOW);
+    const remaining = nets.filter((e) => e.alias !== 'W8ROC');
+    const { push } = diffRosterForPush(first.next, remaining, emptyIncidentState(), NOW + 1000);
+    expect(push).toHaveLength(1);
+    expect(push[0]).toMatchObject({ call: 'KE8PLM-9', alias: 'W8ROC', checkedOut: true });
+  });
+
+  it('the outbox holds one record per net and clears call-keyed records saved before #1238', () => {
+    const recs = nets.map((e, i) => ({ ...e, updatedAt: i + 1 }));
+    const o = queueOutbox(emptyOutbox(), { roster: recs });
+    expect(Object.keys(o.roster)).toHaveLength(3);
+
+    const legacy = { roster: { 'KE8PLM-9': recs[0] }, events: {}, reports: {}, docs: {}, board: null };
+    expect(outboxBatch(ackOutbox(legacy, { roster: [recs[0]] }))).toBeNull();
   });
 });

@@ -6,7 +6,8 @@ import { DXNewsTicker, WorldMap, DXLocalTime } from '../components';
 import { DXGridInput } from '../components/DXGridInput.jsx';
 import { DXCallsignInput } from '../components/DXCallsignInput.jsx';
 import { DXFavorites } from '../components/DXFavorites.jsx';
-import { getReadableBandColorForFreq, getBandColorForBand } from '../utils';
+import { getReadableBandColorForFreq } from '../utils';
+import { ClassicBandStrip } from '../components/ClassicBandStrip.jsx';
 import { calculateBearing, calculateDistance, formatDistance } from '../utils/geo.js';
 import { formatBearing } from '../utils/bearing.js';
 import { findDXPathForSpot, matchesDXSpotPath } from '../utils/dxClusterSpotMatcher';
@@ -1078,20 +1079,11 @@ export default function ClassicLayout(props) {
               fontWeight: '700',
             }}
           >
-            {mapLegendBands.map((band) => (
-              <span
-                key={band}
-                style={{
-                  background: getBandColorForBand(`${band}m`),
-                  color: '#000',
-                  padding: '1px 4px',
-                  borderRadius: '2px',
-                  lineHeight: 1.2,
-                }}
-              >
-                {band}
-              </span>
-            ))}
+            <ClassicBandStrip
+              bands={mapLegendBands}
+              mapBandFilter={mapBandFilter}
+              onMapBandFilterChange={setMapBandFilter}
+            />
           </div>
         </div>
 
@@ -1524,20 +1516,11 @@ export default function ClassicLayout(props) {
               fontWeight: '700',
             }}
           >
-            {mapLegendBands.map((band) => (
-              <span
-                key={band}
-                style={{
-                  background: getBandColorForBand(`${band}m`),
-                  color: '#000',
-                  padding: '1px 4px',
-                  borderRadius: '2px',
-                  lineHeight: 1.2,
-                }}
-              >
-                {band}
-              </span>
-            ))}
+            <ClassicBandStrip
+              bands={mapLegendBands}
+              mapBandFilter={mapBandFilter}
+              onMapBandFilterChange={setMapBandFilter}
+            />
           </div>
         </div>
 
@@ -2233,20 +2216,11 @@ export default function ClassicLayout(props) {
               fontWeight: '700',
             }}
           >
-            {mapLegendBands.map((band) => (
-              <span
-                key={band}
-                style={{
-                  background: getBandColorForBand(`${band}m`),
-                  color: '#000',
-                  padding: '1px 4px',
-                  borderRadius: '2px',
-                  lineHeight: 1.2,
-                }}
-              >
-                {band}
-              </span>
-            ))}
+            <ClassicBandStrip
+              bands={mapLegendBands}
+              mapBandFilter={mapBandFilter}
+              onMapBandFilterChange={setMapBandFilter}
+            />
           </div>
         </div>
 

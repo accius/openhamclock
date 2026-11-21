@@ -5,7 +5,7 @@
  * old SSID. No TNC is connected here — we only read what the plugin would
  * put in the source address, via getStatus().
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import plugin from './aprs-tnc.js';
 
 const make = (aprs) => {
@@ -42,5 +42,23 @@ describe('aprs-tnc server forwarding (#1221)', () => {
     expect(inst.getStatus().ohcUrl).toBe('http://192.168.1.50:8080');
     config.aprs = { ...config.aprs, serverForward: false };
     expect(inst.getStatus()).toMatchObject({ serverForward: false, ohcUrl: undefined });
+  });
+});
+
+describe('aprs-tnc settings saves', () => {
+  it('write through to config and save with the injected saveConfig', () => {
+    const config = { aprs: { enabled: true, protocol: 'kiss-tcp', callsign: 'KE8PLM' } };
+    const saveConfig = vi.fn();
+    const inst = plugin.create(config, { saveConfig });
+    inst.setBeaconEnabled(false);
+    expect(config.aprs.beaconEnabled).toBe(false);
+    expect(saveConfig).toHaveBeenCalledTimes(1);
+  });
+
+  it('only update the config object without the core saveConfig', () => {
+    const config = { aprs: { enabled: true, protocol: 'kiss-tcp', callsign: 'KE8PLM' } };
+    const inst = plugin.create(config, {});
+    expect(() => inst.setBeaconEnabled(false)).not.toThrow();
+    expect(config.aprs.beaconEnabled).toBe(false);
   });
 });

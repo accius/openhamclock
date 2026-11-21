@@ -343,6 +343,26 @@ function stripDao(comment) {
   return comment.replace(/![A-Z][0-9 ]{2}!|![a-z][\x21-\x7b]{2}!/g, '').trim();
 }
 
+/**
+ * Base-91 comment telemetry (APRS 1.2, as DireWolf and many trackers send it):
+ * "|" + 2-char sequence + 1–5 analog channels (2 chars each, 0–8280) + an
+ * optional digital-bits pair after all five + "|", e.g. "|!)&2\"`|". It is
+ * data, not text: left in, it showed as stray punctuation in the station
+ * list (#1245). Returns { telemetry, comment } with the block removed;
+ * telemetry is null when the comment has none.
+ */
+const COMMENT_TELEMETRY_RE = /\|([\x21-\x7b]{2})((?:[\x21-\x7b]{2}){1,6})\|/;
+function parseCommentTelemetry(comment) {
+  if (typeof comment !== 'string' || !comment) return { telemetry: null, comment: comment || '' };
+  const m = comment.match(COMMENT_TELEMETRY_RE);
+  if (!m) return { telemetry: null, comment };
+  const pairs = m[2].match(/../g);
+  const telemetry = { seq: decode91(m[1]), values: pairs.slice(0, 5).map(decode91) };
+  if (pairs.length === 6) telemetry.bits = decode91(pairs[5]) & 0xff;
+  const rest = `${comment.slice(0, m.index).trimEnd()} ${comment.slice(m.index + m[0].length).trimStart()}`;
+  return { telemetry, comment: rest.trim() };
+}
+
 function parseResourceTokens(comment) {
   if (!comment) return { tokens: [], cleanComment: '' };
   const tokens = [];
@@ -473,7 +493,8 @@ function parseAprsPacket(line) {
     const { lat, lon, symbolTable, symbolCode } = parsed;
     if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
 
-    let comment = stripDao(parsed.comment || '');
+    const commentTelemetry = parseCommentTelemetry(stripDao(parsed.comment || ''));
+    let comment = commentTelemetry.comment;
     let speed = parsed.speed ?? null;
     let course = parsed.course ?? null;
     let altitude = parsed.altitude ?? null;
@@ -523,6 +544,7 @@ function parseAprsPacket(line) {
       ...(objectName ? { objectName } : {}),
       ...(itemName ? { itemName } : {}),
       ...(thirdPartyVia.length ? { thirdPartyVia } : {}),
+      ...(commentTelemetry.telemetry ? { telemetry: commentTelemetry.telemetry } : {}),
     };
   } catch {
     return null;
@@ -535,6 +557,7 @@ module.exports = {
   parsePositionBody,
   parseResourceTokens,
   stripDao,
+  parseCommentTelemetry,
   unwrapThirdParty,
   parseMessagePayload,
   parseMessageFrame,

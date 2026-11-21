@@ -5,6 +5,7 @@ import {
   parseAprsPacket,
   parseMice,
   parseResourceTokens,
+  parseCommentTelemetry,
   unwrapThirdParty,
   parseMessagePayload,
   MICE_TYPES,
@@ -356,5 +357,34 @@ describe('position extensions leave the comment once read (#1235)', () => {
   it('course/speed prefix is read and removed', () => {
     const p = parseAprsPacket('N0CALL>APRS:!3900.11N/08411.80W>090/045/A=001234 mobile');
     expect([p.course, p.speed, p.altitude, p.comment]).toEqual([90, 45, 1234, 'mobile']);
+  });
+});
+
+describe('base-91 comment telemetry (#1245)', () => {
+  it("decodes KD8NJV-1's block and takes it out of the comment", () => {
+    // From KE8PLM's RF station list: sequence 8, two analog channels
+    expect(parseCommentTelemetry('|!)&2"`|')).toEqual({ telemetry: { seq: 8, values: [472, 154] }, comment: '' });
+  });
+
+  it('reads five channels plus the digital bits, anywhere in the comment', () => {
+    const r = parseCommentTelemetry('Solar digi |ss11223344556{| 13.8V');
+    expect(r.comment).toBe('Solar digi 13.8V');
+    expect(r.telemetry.values).toHaveLength(5);
+    expect(r.telemetry.bits).toBe((('6'.charCodeAt(0) - 33) * 91 + ('{'.charCodeAt(0) - 33)) & 0xff);
+  });
+
+  it('leaves ordinary text with pipes alone', () => {
+    for (const c of ['Net |Mon| 8pm', 'a | b | c', '||', '|abc|', 'W8ROC |12345|']) {
+      expect(parseCommentTelemetry(c), c).toEqual({ telemetry: null, comment: c });
+    }
+  });
+
+  it('a position packet carries the telemetry and a clean comment', () => {
+    const p = parseAprsPacket('KD8NJV-1>APRS:!3900.11N/08411.80W>090/007|!)&2"`|');
+    expect(p.comment).toBe('');
+    expect(p.telemetry).toEqual({ seq: 8, values: [472, 154] });
+    expect(p.speed).toBe(7);
+    const plain = parseAprsPacket('N0CALL>APRS:!3900.11N/08411.80W>mobile');
+    expect(plain.telemetry).toBeUndefined();
   });
 });

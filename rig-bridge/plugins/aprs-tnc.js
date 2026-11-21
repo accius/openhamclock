@@ -383,11 +383,14 @@ const descriptor = {
     });
     const onGps = (fix) => beaconer.noteGps(fix);
 
-    // The plugin's config object is the core config: write through and save.
+    // The plugin's config object is the core config: write through and save
+    // with the core's saveConfig (services) — never require it here, or a
+    // plugin created with a test config would overwrite the real file.
     function persist(patch) {
       config.aprs = { ...(config.aprs || {}), ...patch };
+      if (typeof services?.saveConfig !== 'function') return;
       try {
-        require('../core/config').saveConfig();
+        services.saveConfig();
       } catch (e) {
         console.error(`[APRS-TNC] Could not save settings: ${e.message}`);
       }

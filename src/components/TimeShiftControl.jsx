@@ -4,21 +4,37 @@
  * Shown when the Time Shift map layer is on (any projection — it floats over
  * the map container rather than attaching to Leaflet). Drives the global
  * offset in utils/displayTime.js: ±1 h / ±1 day / ±1 week nudges, a slider
- * spanning ±30 days, and Now. Draggable and minimisable like the other
- * floating layer panels (makeDraggable / addMinimizeToggle).
+ * spanning ±30 days, a fine ±3 h slider in minutes, Play/Pause at preset
+ * speeds, and Now. Draggable and minimisable like the other floating layer
+ * panels (makeDraggable / addMinimizeToggle). Playback keeps running while
+ * the panel is minimised and stops when the control closes.
  */
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import useDisplayTime from '../hooks/app/useDisplayTime.js';
-import { HOUR_MS, DAY_MS, WEEK_MS, MAX_OFFSET_MS, formatOffset } from '../utils/displayTime.js';
+import {
+  HOUR_MS,
+  DAY_MS,
+  WEEK_MS,
+  MAX_OFFSET_MS,
+  PLAYBACK_SPEEDS,
+  formatOffset,
+  stopPlayback,
+} from '../utils/displayTime.js';
 import { makeDraggable } from '../plugins/layers/makeDraggable.js';
 import { addMinimizeToggle } from '../plugins/layers/addMinimizeToggle.js';
 
 const STORAGE_KEY = 'time-shift-panel-position';
 
+/** The fine slider spans ±3 h around an anchor, in 1-minute steps. */
+const FINE_RANGE_MS = 3 * HOUR_MS;
+const MINUTE_MS = 60_000;
+const roundToHour = (ms) => Math.round(ms / HOUR_MS) * HOUR_MS;
+
 const pad = (n) => String(n).padStart(2, '0');
 const fmtUtc = (d) =>
   `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}z`;
+const fmtUtcTime = (d) => `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}z`;
 
 const btnStyle = {
   background: 'var(--bg-tertiary)',
@@ -35,8 +51,31 @@ const btnStyle = {
 
 export function TimeShiftControl({ onClose }) {
   const { t } = useTranslation();
-  const { offsetMs, shifted, shift, setOffsetMs, reset } = useDisplayTime();
+  const { offsetMs, shifted, shift, setOffsetMs, reset, playing, speed, play, pause, setSpeed } = useDisplayTime();
   const elRef = useRef(null);
+
+  // Fine slider window: ±3 h around a whole display hour (absolute time, so
+  // its centre label reads e.g. "19:00z"), re-centred whenever the display
+  // time leaves it — by playback, a nudge or the coarse slider.
+  const displayMs = Date.now() + offsetMs;
+  const [anchorAt, setAnchorAt] = useState(() => roundToHour(displayMs));
+  useEffect(() => {
+    if (Math.abs(displayMs - anchorAt) > FINE_RANGE_MS) setAnchorAt(roundToHour(displayMs));
+  }, [displayMs, anchorAt]);
+  // ±3 h around the anchor, kept inside Time Shift's ±30 day range.
+  const fineMin = Math.max(-FINE_RANGE_MS, Date.now() - MAX_OFFSET_MS - anchorAt);
+  const fineMax = Math.min(FINE_RANGE_MS, Date.now() + MAX_OFFSET_MS - anchorAt);
+
+  // Closing the control (layer off) stops playback; minimising does not.
+  useEffect(() => () => stopPlayback(), []);
+
+  const speedIndex = PLAYBACK_SPEEDS.indexOf(speed);
+  const speedLabel =
+    speed >= 3600
+      ? t('timeShift.speedHours', { defaultValue: '{{n}} h/s', n: speed / 3600 })
+      : speed >= 60
+        ? t('timeShift.speedMinutes', { defaultValue: '{{n}} min/s', n: speed / 60 })
+        : t('timeShift.speedSeconds', { defaultValue: '{{n}} s/s', n: speed });
 
   useEffect(() => {
     const el = elRef.current;
@@ -123,6 +162,59 @@ export function TimeShiftControl({ onClose }) {
             <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>{formatOffset(offsetMs)}</div>
           </div>
 
+          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px' }}>
+            <button
+              type="button"
+              style={btnStyle}
+              onClick={() => setSpeed(PLAYBACK_SPEEDS[speedIndex - 1])}
+              disabled={speedIndex <= 0}
+              aria-label={t('timeShift.slower', { defaultValue: 'Play slower' })}
+              title={t('timeShift.slower', { defaultValue: 'Play slower' })}
+            >
+              ◀◀
+            </button>
+            <button
+              type="button"
+              style={{
+                ...btnStyle,
+                fontWeight: 700,
+                color: playing ? '#000' : 'var(--text-primary)',
+                background: playing ? 'var(--accent-cyan)' : 'var(--bg-tertiary)',
+              }}
+              onClick={() => (playing ? pause() : play())}
+              disabled={!playing && offsetMs >= MAX_OFFSET_MS}
+              aria-pressed={playing}
+              aria-label={
+                playing
+                  ? t('timeShift.pause', { defaultValue: 'Pause' })
+                  : t('timeShift.play', { defaultValue: 'Play forward' })
+              }
+              title={
+                playing
+                  ? t('timeShift.pause', { defaultValue: 'Pause' })
+                  : t('timeShift.play', { defaultValue: 'Play forward' })
+              }
+            >
+              {playing ? '⏸' : '▶'}
+            </button>
+            <button
+              type="button"
+              style={btnStyle}
+              onClick={() => setSpeed(PLAYBACK_SPEEDS[speedIndex + 1])}
+              disabled={speedIndex >= PLAYBACK_SPEEDS.length - 1}
+              aria-label={t('timeShift.faster', { defaultValue: 'Play faster' })}
+              title={t('timeShift.faster', { defaultValue: 'Play faster' })}
+            >
+              ▶▶
+            </button>
+            <span
+              style={{ flex: 1.4, textAlign: 'right', fontSize: '10px', color: 'var(--text-secondary)' }}
+              aria-label={t('timeShift.speed', { defaultValue: 'Playback speed' })}
+            >
+              {speedLabel}
+            </span>
+          </div>
+
           <div style={{ display: 'flex', gap: '4px', marginBottom: '4px' }}>
             {nudge('−1w', -WEEK_MS, t('timeShift.minusWeek'))}
             {nudge('−1d', -DAY_MS, t('timeShift.minusDay'))}
@@ -147,6 +239,23 @@ export function TimeShiftControl({ onClose }) {
             <span>−30d</span>
             <span>{t('timeShift.now')}</span>
             <span>+30d</span>
+          </div>
+
+          <input
+            type="range"
+            min={fineMin / MINUTE_MS}
+            max={fineMax / MINUTE_MS}
+            step={1}
+            value={Math.round((displayMs - anchorAt) / MINUTE_MS)}
+            onChange={(e) => setOffsetMs(anchorAt + Number(e.target.value) * MINUTE_MS - Date.now())}
+            aria-label={t('timeShift.fineSlider', { defaultValue: 'Fine display time, ±3 hours in minutes' })}
+            aria-valuetext={formatOffset(offsetMs)}
+            style={{ width: '100%', margin: '6px 0 4px' }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', opacity: 0.6 }}>
+            <span>−3h</span>
+            <span>{fmtUtcTime(new Date(anchorAt))}</span>
+            <span>+3h</span>
           </div>
 
           <button

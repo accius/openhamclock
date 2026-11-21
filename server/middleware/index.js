@@ -177,7 +177,7 @@ function applyMiddleware(app, ctx) {
       cacheDuration = 3600;
     } else if (p.includes('/contests') || p.includes('/dxpeditions')) {
       cacheDuration = 1800;
-    } else if (p.includes('/solar-indices') || p.includes('/noaa')) {
+    } else if (p.includes('/solar-indices') || p.includes('/noaa') || p.includes('/badge')) {
       cacheDuration = 300;
     } else if (p.includes('/propagation/heatmap')) {
       cacheDuration = 900; // 15 min — propagation changes slowly, heavy computation

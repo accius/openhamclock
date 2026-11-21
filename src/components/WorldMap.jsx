@@ -32,6 +32,7 @@ import { GLOBE_OVERLAY_LAYER_IDS } from '../utils/globeOverlays.js';
 import { countryColor, fetchCountriesGeojson } from '../utils/countriesBasemap.js';
 import PluginLayer from './PluginLayer.jsx';
 import TimeShiftControl from './TimeShiftControl.jsx';
+import VoacapGlobeControl from './VoacapGlobeControl.jsx';
 import { displayNow, subscribeDisplayTime } from '../utils/displayTime.js';
 import MapCursorReadout from './MapCursorReadout.jsx';
 import AzimuthalMap from './AzimuthalMap.jsx';
@@ -3714,6 +3715,13 @@ export const WorldMap = ({
 
       {!hideOverlays && !mapUiHidden && (
         <CallsignWeatherOverlay hoveredSpot={hoveredSpot} enabled={dxWeatherAllowed} allUnits={allUnits} />
+      )}
+
+      {/* VOACAP heatmap settings on the 3D globe — the flat/azimuthal maps use the
+          layer's own Leaflet panel. Not in low-memory mode, where the globe draws
+          no overlays. */}
+      {isGlobe3D && !lowMemoryMode && !hideOverlays && !mapUiHidden && pluginLayerStates['voacap-heatmap']?.enabled && (
+        <VoacapGlobeControl onClose={() => window.hamclockLayerControls?.toggleLayer('voacap-heatmap', false)} />
       )}
 
       {/* Display-time scrubber (Time Shift layer) — floats over every projection */}

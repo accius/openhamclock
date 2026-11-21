@@ -258,6 +258,7 @@ Object.assign(ctx, callsignExports);
 // 2. Space weather (exports n0nbhCache, parseN0NBHxml)
 const spaceWeatherExports = require('./server/routes/space-weather')(app, ctx);
 Object.assign(ctx, spaceWeatherExports);
+require('./server/routes/badge')(app, ctx);
 
 // 3. Remaining routes (can use callsign + space-weather exports)
 require('./server/routes/rotator')(app, ctx);

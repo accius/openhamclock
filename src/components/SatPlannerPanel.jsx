@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { computeElevationSeries, computeMutualPasses } from '../utils/satRelay.js';
-import { displayNow, displayNowMs, subscribeDisplayTime, setDisplayTime } from '../utils/displayTime.js';
+import { displayNow, displayNowMs, subscribeDisplayTimeSettled, setDisplayTime } from '../utils/displayTime.js';
 import { formatDurationShort } from '../utils/eme.js';
 import { ElevationChart, DE_COLOR, DX_COLOR } from './ElevationChart.jsx';
 
@@ -37,7 +37,8 @@ export function SatPlannerPanel({ satellites, config, dxLocation, dxCallsign }) 
 
   useEffect(() => {
     const id = setInterval(() => setTick((n) => n + 1), 5 * 60_000);
-    const unsub = subscribeDisplayTime(() => {
+    // Settled: re-plan once Time Shift playback pauses, not on every tick.
+    const unsub = subscribeDisplayTimeSettled(() => {
       setPicked(null);
       setTick((n) => n + 1);
     });

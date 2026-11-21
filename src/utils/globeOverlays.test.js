@@ -12,6 +12,7 @@ import {
   paintDrap,
   paintAurora,
   paintWorkedGrids,
+  paintVoacapHeatmap,
   normalizeGrid4,
   gridToRect,
   workedGridCounts,
@@ -367,6 +368,49 @@ describe('worked grids helpers', () => {
   });
 });
 
+describe('paintVoacapHeatmap', () => {
+  it('paints nothing without cells', () => {
+    const ctx = mockCtx();
+    paintVoacapHeatmap(ctx, { width: 360, height: 180, opacity: 0.6, data: null });
+    paintVoacapHeatmap(ctx, { width: 360, height: 180, opacity: 0.6, data: { cells: [] } });
+    expect(ctx.calls).toHaveLength(0);
+  });
+
+  it('fills each cell as a gridSize° square centred on its lat/lon', () => {
+    const ctx = mockCtx();
+    paintVoacapHeatmap(ctx, {
+      width: 360,
+      height: 180,
+      opacity: 0.6,
+      data: { gridSize: 10, cells: [{ lat: 50, lon: 5, r: 80 }] },
+    });
+    const rects = of(ctx, 'fillRect');
+    expect(rects).toHaveLength(1);
+    // 10° cell centred on (50, 5): west edge lon 0 → x 180, north edge lat 55 → y 35.
+    expect(rects[0].slice(1)).toEqual([180, 35, 10.5, 10.5]);
+  });
+
+  it('skips fully transparent cells and wraps cells across the antimeridian', () => {
+    const ctx = mockCtx();
+    paintVoacapHeatmap(ctx, {
+      width: 360,
+      height: 180,
+      opacity: 0.6,
+      data: {
+        gridSize: 10,
+        cells: [
+          { lat: -60, lon: 90, r: 0 }, // alone, r=0 → alpha 0 → not drawn
+          { lat: 0, lon: 180, r: 90 }, // straddles ±180°
+        ],
+      },
+    });
+    const rects = of(ctx, 'fillRect');
+    expect(rects).toHaveLength(2); // the wrapped cell, drawn on both edges
+    expect(rects[0][1]).toBe(-5);
+    expect(rects[1][1]).toBe(355);
+  });
+});
+
 describe('paintWorkedGrids', () => {
   it('paints nothing without data', () => {
     const ctx = mockCtx();
@@ -438,6 +482,7 @@ describe('painter registry', () => {
       'wxradar',
       'drap',
       'aurora',
+      'voacap-heatmap',
       'worked-grids',
       'maidenhead',
       'zones',

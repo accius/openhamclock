@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   HOUR_MS,
   DAY_MS,
@@ -18,6 +18,16 @@ import {
   resolveSetTimeDetail,
   formatOffset,
   installSetTimeListener,
+  PLAYBACK_SPEEDS,
+  DEFAULT_PLAYBACK_SPEED,
+  PLAYBACK_TICK_MS,
+  startPlayback,
+  stopPlayback,
+  isPlaying,
+  getPlaybackSpeed,
+  setPlaybackSpeed,
+  subscribePlayback,
+  subscribeDisplayTimeSettled,
 } from './displayTime.js';
 
 describe('displayTime store', () => {
@@ -123,5 +133,99 @@ describe('installSetTimeListener', () => {
   });
   it('tolerates a missing target', () => {
     expect(typeof installSetTimeListener(null)).toBe('function');
+  });
+});
+
+describe('playback', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    resetDisplayTime();
+    setPlaybackSpeed(DEFAULT_PLAYBACK_SPEED);
+  });
+  afterEach(() => {
+    stopPlayback({ silent: true });
+    resetDisplayTime();
+    vi.useRealTimers();
+  });
+
+  it('offers 6 s/s, 1 min/s, 10 min/s and 1 h/s, defaulting to 1 min/s', () => {
+    expect(PLAYBACK_SPEEDS).toEqual([6, 60, 600, 3600]);
+    expect(getPlaybackSpeed()).toBe(60);
+  });
+
+  it('advances the offset by real elapsed time × speed', () => {
+    startPlayback(60); // 1 min of display time per real second
+    expect(isPlaying()).toBe(true);
+    vi.advanceTimersByTime(1000);
+    expect(getDisplayOffsetMs()).toBe(60_000);
+    setPlaybackSpeed(3600);
+    vi.advanceTimersByTime(1000);
+    expect(getDisplayOffsetMs()).toBe(60_000 + 3_600_000);
+  });
+
+  it('stops by itself at the end of the range', () => {
+    setDisplayOffsetMs(MAX_OFFSET_MS - HOUR_MS);
+    startPlayback(3600);
+    vi.advanceTimersByTime(5 * PLAYBACK_TICK_MS + 1000);
+    expect(getDisplayOffsetMs()).toBe(MAX_OFFSET_MS);
+    expect(isPlaying()).toBe(false);
+    startPlayback(); // nothing left to play
+    expect(isPlaying()).toBe(false);
+  });
+
+  it('stops on any explicit set: nudge, absolute time, Now, set-time event', () => {
+    for (const set of [
+      () => shiftDisplayTime(HOUR_MS),
+      () => setDisplayTime(new Date(Date.now() + DAY_MS)),
+      () => resetDisplayTime(),
+      () => setDisplayOffsetMs(2 * HOUR_MS),
+    ]) {
+      startPlayback();
+      vi.advanceTimersByTime(PLAYBACK_TICK_MS);
+      set();
+      expect(isPlaying()).toBe(false);
+    }
+  });
+
+  it('tells playback subscribers about play, speed and pause', () => {
+    const fn = vi.fn();
+    const unsub = subscribePlayback(fn);
+    startPlayback(60);
+    setPlaybackSpeed(600);
+    stopPlayback();
+    expect(fn.mock.calls.map((c) => c[0])).toEqual([
+      { playing: true, speed: 60 },
+      { playing: true, speed: 600 },
+      { playing: false, speed: 600 },
+    ]);
+    unsub();
+  });
+
+  it('settled subscribers stay quiet while playing and catch up once on pause', () => {
+    const live = vi.fn();
+    const settled = vi.fn();
+    const unsubLive = subscribeDisplayTime(live);
+    const unsubSettled = subscribeDisplayTimeSettled(settled);
+
+    setDisplayOffsetMs(HOUR_MS); // paused change → both
+    expect(settled).toHaveBeenCalledTimes(1);
+
+    startPlayback(600);
+    vi.advanceTimersByTime(10 * PLAYBACK_TICK_MS);
+    expect(live.mock.calls.length).toBeGreaterThan(5);
+    expect(settled).toHaveBeenCalledTimes(1); // nothing while playing
+
+    stopPlayback();
+    expect(settled).toHaveBeenCalledTimes(2);
+    expect(settled).toHaveBeenLastCalledWith(getDisplayOffsetMs());
+
+    startPlayback();
+    vi.advanceTimersByTime(PLAYBACK_TICK_MS);
+    setDisplayOffsetMs(3 * HOUR_MS); // explicit set while playing → exactly one catch-up
+    expect(settled).toHaveBeenCalledTimes(3);
+    expect(settled).toHaveBeenLastCalledWith(3 * HOUR_MS);
+
+    unsubLive();
+    unsubSettled();
   });
 });

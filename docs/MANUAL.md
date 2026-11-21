@@ -1274,6 +1274,17 @@ Both run the same code; the differences come down to hardware access and being a
 
 Local-install detection is automatic (localhost, LAN IPs, `.local`/`.lan` hostnames); a self-hosted server can force it with `SERVERLOCAL=true` — useful behind a reverse proxy with a public domain name.
 
+## Solar badge
+
+OpenHamClock can draw a PNG of current solar and HF conditions for a QRZ biography, a club page, or a README. Open **Badge builder** from Settings → Community, or go to [/badges](https://openhamclock.com/badges).
+
+Pick what to show (SFI, sunspots, Kp, A, X-ray, HF day/night bands, sparklines, the UTC time), a color theme, and a size. The preview updates as you change them. Copy the snippet that matches where you are pasting:
+
+- **QRZ:** Edit page → Biography tab → switch the editor to HTML / source view → paste → Save.
+- **A website:** paste the HTML snippet. The image refreshes about every five minutes. No script is required.
+
+The default theme matches OpenHamClock's Dark theme. `theme=red` is the red brand lockup. Green, yellow, and red on the numbers are propagation status, not the theme. The endpoint is `GET /api/badge/solar.png` — see [API.md](API.md#solar-badge).
+
 **Message of the day (self-hosters):** put a one-line notice in front of everyone using your instance — planned downtime, a club net reminder, a new feature. Set `MOTD="Text with https://links.example"` in `.env`, or change it live without a restart with `curl -X POST -H "Authorization: Bearer $API_WRITE_KEY" -H 'Content-Type: application/json' -d '{"text":"Server restart at 0200z"}' http://localhost:3000/api/admin/motd` (an empty `text` clears it; an admin message overrides the env one). Browsers show it as a dismissible bar across the top; bare URLs become links, and once a user dismisses a message it stays hidden in that browser until the text changes. Details in [API.md](API.md#message-of-the-day).
 
 ---

@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { computeGraylinePlan, nextMutualWindow, formatSpan, DAY_MS, utcDayStart } from '../utils/graylinePlanner.js';
-import { displayNowMs, subscribeDisplayTime, setDisplayTime } from '../utils/displayTime.js';
+import { displayNowMs, subscribeDisplayTimeSettled, setDisplayTime } from '../utils/displayTime.js';
 import { DE_COLOR, DX_COLOR } from './ElevationChart.jsx';
 
 const MARGIN_KEY = 'openhamclock_graylineMargin';
@@ -149,7 +149,9 @@ export function GraylinePlannerPanel({ deLocation, dxLocation, dxCallsign, timeZ
 
   useEffect(() => {
     const id = setInterval(() => setTick((n) => n + 1), 60_000);
-    const unsub = subscribeDisplayTime(() => setShiftTick((n) => n + 1));
+    // Settled, like the Sat and EME planners: re-plan once Time Shift playback
+    // pauses instead of re-listing the windows five times a second.
+    const unsub = subscribeDisplayTimeSettled(() => setShiftTick((n) => n + 1));
     return () => {
       clearInterval(id);
       unsub();

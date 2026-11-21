@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { identifyMice, cleanRfStation } from './aprsMiceClean.js';
+import { identifyMice, cleanRfStation, stripCommentTelemetry } from './aprsMiceClean.js';
 const { identifyMice: serverIdentifyMice } = require('../../server/utils/aprsDeviceId.js');
 
 // Comments from KE8PLM's RF station list (#1245)
@@ -29,5 +29,23 @@ describe('Mic-E type bytes in the browser (#1245)', () => {
     const pos = { packetType: 'position', comment: '`_%' };
     expect(cleanRfStation(pos)).toBe(pos);
     expect(cleanRfStation(null)).toBeNull();
+  });
+});
+
+describe('base-91 telemetry from older Rig Bridges (#1245)', () => {
+  it('matches the server parser', () => {
+    const { parseCommentTelemetry } = require('../../server/utils/aprsParser.js');
+    for (const c of ['|!)&2"`|', 'Solar digi |ss11223344556{| 13.8V', 'Net |Mon| 8pm', '|abc|', ''])
+      expect(stripCommentTelemetry(c), c).toBe(parseCommentTelemetry(c).comment);
+  });
+
+  it('cleans it from any RF packet type, and after the Mic-E bytes', () => {
+    expect(cleanRfStation({ packetType: 'position', comment: '|!)&2"`|', cleanComment: '|!)&2"`|' })).toMatchObject({
+      comment: '',
+      cleanComment: '',
+    });
+    expect(cleanRfStation({ packetType: 'mic-e', comment: '`|!)&2"`|_%' })).toMatchObject({ comment: '' });
+    const plain = { packetType: 'position', comment: 'Clermont County, OH' };
+    expect(cleanRfStation(plain)).toBe(plain);
   });
 });

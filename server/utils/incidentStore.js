@@ -8,7 +8,7 @@
  * a reconnect or two browsers observing the same real-world event never
  * produce duplicates — merging is idempotent:
  *
- *   roster   keyed by callsign; newest `updatedAt` wins (check-out is a
+ *   roster   keyed by net address + callsign (#1238); newest `updatedAt` wins (check-out is a
  *            `checkedOut: true` update, never a delete, so late joiners see it)
  *   events   keyed by id, and additionally by `type:dedupeKey` when present
  *   reports  keyed by id
@@ -173,6 +173,10 @@ function cleanExtra(raw) {
   return extra;
 }
 
+// Net address + call: one station can be in several nets at once (#1238).
+// Voice / manual entries have no address and count as EMCOMM.
+const rosterKey = (e) => `${e.alias || 'EMCOMM'}|${e.call}`;
+
 function sanitiseRoster(raw, now) {
   if (!raw || typeof raw !== 'object') return null;
   const call = normCall(raw.call);
@@ -323,7 +327,7 @@ function createIncidentStore(opts = {}) {
     const victims = [...inc.roster.values()]
       .sort((a, b) => (a.checkedOut === b.checkedOut ? a.updatedAt - b.updatedAt : a.checkedOut ? -1 : 1))
       .slice(0, inc.roster.size - limits.maxRoster);
-    for (const v of victims) inc.roster.delete(v.call);
+    for (const v of victims) inc.roster.delete(rosterKey(v));
   };
 
   const emptyIncident = (fields) => ({
@@ -410,7 +414,11 @@ function createIncidentStore(opts = {}) {
       throw new IncidentError(400, 'Creating an incident here needs your callsign (Settings → Station)');
     }
     if (call && [...incidents.values()].filter((i) => i.creatorCall === call).length >= limits.maxPerCallsign) {
-      throw new IncidentError(429, `${call} already has ${limits.maxPerCallsign} open incident(s) on this server`);
+      const days = Math.max(1, Math.round(idleMs / DAY));
+      throw new IncidentError(
+        429,
+        `${call} already has ${limits.maxPerCallsign} open incident(s) on this server. End one from its Incident panel (admin key needed), or wait: an incident expires after ${days} day(s) with no activity`,
+      );
     }
     const t = now();
     createTimes = createTimes.filter((x) => x > t - HOUR);
@@ -522,7 +530,7 @@ function createIncidentStore(opts = {}) {
     for (const raw of (Array.isArray(batch.roster) ? batch.roster : []).slice(0, MAX_BATCH)) {
       const entry = sanitiseRoster(raw, t);
       if (!entry) continue;
-      const existing = inc.roster.get(entry.call);
+      const existing = inc.roster.get(rosterKey(entry));
       if (existing) {
         // A record sent without its timestamps keeps the stored ones, so a
         // bare replay is a no-op rather than a fresh check-in.
@@ -533,7 +541,7 @@ function createIncidentStore(opts = {}) {
         if (sameRecord(existing, entry, ['seq', 'updatedAt'])) continue;
       }
       const rec = { ...withSite(entry), seq: ++inc.seq };
-      inc.roster.set(rec.call, rec);
+      inc.roster.set(rosterKey(rec), rec);
       changes.roster.push(rec);
     }
     capRoster(inc);
@@ -767,7 +775,7 @@ function createIncidentStore(opts = {}) {
       });
       for (const r of Array.isArray(raw.roster) ? raw.roster : []) {
         const e = sanitiseRoster(r, t);
-        if (e) inc.roster.set(e.call, { ...e, seq: r.seq || 0 });
+        if (e) inc.roster.set(rosterKey(e), { ...e, seq: r.seq || 0 });
       }
       for (const r of Array.isArray(raw.events) ? raw.events : []) {
         const e = sanitiseEvent(r, t);

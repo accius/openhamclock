@@ -9,7 +9,7 @@ import { useState, useEffect } from 'react';
 // Set to null to hide. Shown at the top of the What's New modal.
 const ANNOUNCEMENT = {
   emoji: '📡',
-  text: "26.11.0 is the biggest release OpenHamClock has had, and most of it is built around emergency communications. Michael, KE8PLM, ran it on the air with a real TNC for weeks and filed most of the reports that shaped it: net addresses, beacons, message acks, the sidebar, fldigi. Koen, KoenVdH, made the QSO form follow the call you type. Ada Mancini, adamancini, wrote Rig Bridge's Wavelog forwarding. jhelwig found the propagation health check asking the wrong question. If you use the WSJT-X relay, download its script again once you've updated. 73 de K0CJH.",
+  text: "26.11.1 is mostly Koen's: Koen, KoenVdH, put the VOACAP map on the 3D globe, made it follow Time Shift with NOAA's forecast, and taught Time Shift to play forward. Manuel, 9M2PJU, put OpenHamClock on the shack TV with Android TV, Fire TV and Roku apps. Michael, KE8PLM, and thomasabishop reported the fixes, and a W3AAX email straightened out the propagation panel. New: a live solar badge for your QRZ page at /badges. 73 de K0CJH.",
   color: '#c9d1e6',
   bg: 'rgba(201, 209, 230, 0.10)',
   border: 'rgba(201, 209, 230, 0.30)',
@@ -28,6 +28,49 @@ const ANNOUNCEMENT = {
 // The jump to v26 resets the scheme to something meaningful going forward.
 
 const CHANGELOG = [
+  {
+    version: '26.11.1',
+    date: '2026-11-21',
+    heading:
+      "The VOACAP propagation map on the 3D globe, following Time Shift into the next four weeks with NOAA's forecast. Time Shift plays forward so you can watch satellites move. OpenHamClock on the shack TV, a live solar badge for your QRZ page, and a round of EmComm and APRS fixes.",
+    features: [
+      {
+        icon: '🌐',
+        title: 'NEW: VOACAP Propagation Map on the 3D Globe',
+        desc: 'The VOACAP Propagation Map layer now draws on the 3D globe as well as the flat and azimuthal maps, with the same colours and smoothing. A small panel over the globe changes band, mode, power and grid without switching back to Flat, and shows the legend and the SFI and K the map was built from. A band you pick on the globe stays picked on Flat, and a mode or power change in Settings reaches the globe at once. Drag it, minimise it, or close it with × to turn the layer off. Thanks to Koen, KoenVdH.',
+      },
+      {
+        icon: '🔮',
+        title: 'NEW: The Propagation Map Follows Time Shift',
+        desc: "Shift the display time and the VOACAP map now shows that hour's propagation instead of now. For days ahead it uses NOAA's 27-day forecast for solar flux and K, and the status line says forecast; for the past, or beyond the outlook, it says today's solar. It also fixes the map showing the previous hour's picture for up to 15 minutes after the UTC hour turned over. Thanks to Koen, KoenVdH.",
+      },
+      {
+        icon: '▶️',
+        title: 'NEW: Time Shift Plays Forward',
+        desc: 'The Time Shift panel has play and pause, with speeds from 6 seconds to 1 hour per second: one satellite pass in slow motion, an orbit in about 10 seconds, a day in about 25. A fine slider steps ±3 hours a minute at a time. Satellites, footprints, the sun, moon and grey line move as it plays; pass lists and the planners update when you pause, so the dashboard stays smooth. Any jump (a slider, Now, a planner) stops playback. Thanks to Koen, KoenVdH.',
+      },
+      {
+        icon: '📺',
+        title: 'NEW: OpenHamClock on the Shack TV (Android TV, Fire TV, Roku)',
+        desc: 'An Android TV / Google TV app opens openhamclock.com full screen, works with the remote, keeps the screen on and can start at boot. The same app installs on Fire TV. Roku has no web browser, so its channel draws its own world map with the day/night line, the latest DX spots, SFI, Kp and SSN, and band conditions. Both install by sideloading for now; the android-tv and roku folders in the repository have the steps. Thanks to Manuel, 9M2PJU.',
+      },
+      {
+        icon: '☀️',
+        title: 'NEW: A Live Solar Badge for Your QRZ Page',
+        desc: 'Open /badges (also linked from Settings → Community and the Help tab) to build a picture of current conditions for your QRZ biography, a club website or a forum signature: SFI, sunspots, Kp, A index, X-ray class, day and night HF bands, and SFI and Kp trends, colour-coded quiet to storm. Pick the fields, a full, wide or compact size, and any OpenHamClock theme, then copy the HTML, Markdown or BBCode. It is a plain image that refreshes about every five minutes, so it works on pages that allow no scripts. On QRZ: Edit page → Biography → switch the editor to source view → paste → Save.',
+      },
+      {
+        icon: '🤝',
+        title: 'Shared Incident: End It, and Clearer Errors',
+        desc: "The incident's creator now has an End button. It closes the incident for everyone and frees your slot for a new one, so you no longer wait out the limit on how many incidents one callsign can hold. A wrong id or key, an ended incident, or that limit now each give a plain message saying what happened and what to do, and Leave warns the creator that leaving doesn't end the incident for the others. From a beta tester's report.",
+      },
+      {
+        icon: '🔧',
+        title: 'FIX: Propagation LUF, Net Rosters, APRS Telemetry, Classic Band Strip',
+        desc: "The Propagation panel's LUF now comes from the same prediction as its band bars: the lowest band that is at least 50% open. You no longer see an LUF above a band shown open (thanks W3AAX). In EmComm, removing a station from one net's roster no longer drops it from your other nets (KE8PLM). APRS position comments that carry compressed telemetry (the |…| block) have those values decoded and no longer show as garbage text, in the dashboard and in Rig Bridge 2.6.1 (KE8PLM). In the Classic layout, the band legend under the map filters the map by band again (thomasabishop). Rig Bridge's tests no longer overwrite your real Rig Bridge settings when a developer runs them (Koen, KoenVdH).",
+      },
+    ],
+  },
   {
     version: '26.11.0',
     date: '2026-11-03',

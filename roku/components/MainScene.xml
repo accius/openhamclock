@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<component name="MainScene" extends="Scene">
+  <script type="text/brightscript" uri="pkg:/components/MainScene.brs" />
+  <children>
+    <Rectangle id="bg" width="1920" height="1080" color="#0a0e14" />
+
+    <Label id="header" translation="[48,28]" width="1250" height="64" text="OPENHAMCLOCK" color="#f2a900">
+      <Font role="LargeBoldSystemFont" size="44" />
+    </Label>
+    <Label id="clock" translation="[1330,32]" width="542" height="60" horizAlign="right" text="--:--:-- UTC" color="#e8edf3">
+      <Font role="MediumBoldSystemFont" size="40" />
+    </Label>
+
+    <!-- Map-lite: static coastline poster + runtime night shading + sun marker -->
+    <Poster id="map" translation="[48,116]" width="1152" height="576" uri="pkg:/images/map.png" />
+    <Group id="nightGroup" translation="[48,116]" />
+    <Rectangle id="sunMark" translation="[0,0]" width="12" height="12" color="#f2a900" visible="false" />
+
+    <LabelList id="spotsList" translation="[1232,116]" width="640" height="576" itemSize="[640,72]" itemSpacing="[0,4]">
+    </LabelList>
+
+    <Label id="solar" translation="[48,716]" width="1824" height="60" text="Loading solar data…" color="#e8edf3">
+      <Font role="MediumBoldSystemFont" size="38" />
+    </Label>
+    <Label id="bands" translation="[48,784]" width="1824" height="180" wrap="true" maxLines="3" lineSpacing="6" text="Loading band conditions…" color="#9aa7b5">
+      <Font role="SmallSystemFont" size="32" />
+    </Label>
+    <Label id="status" translation="[48,1000]" width="1824" height="44" text="openhamclock.com" color="#5a6b7d">
+      <Font role="SmallSystemFont" size="26" />
+    </Label>
+
+    <Timer id="clockTimer" duration="1" repeat="true" control="start" />
+    <Timer id="refreshTimer" duration="60" repeat="true" control="start" />
+    <Timer id="mapTimer" duration="300" repeat="true" control="start" />
+    <ApiTask id="apiTask" />
+  </children>
+</component>

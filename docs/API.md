@@ -352,6 +352,8 @@ salted SHA-256 of each key and checks both in constant time.
   - change or clear the board (operator board writes are ignored and listed
     in `denied`),
   - replace the join key (`/rotate`),
+  - end the incident for everyone (`/end`), which removes it from the server
+    and frees the creator's per-callsign slot,
   - read the current join key: admin replies to join, read and the stream
     snapshot include `joinKey`, so any device holding the admin key can hand
     out invites.
@@ -467,6 +469,7 @@ keep it; otherwise the request's `site` is stamped on them.
 | `POST /api/incident/:id/sync`          | key + `{clientId?, call?, site?, roster?[], events?[], reports?[], docs?[], board?}` (≤200 per list) | `{ok, seq, accepted:{roster, events, reports, docs, board}, docRevs, denied[]}`. Counts of records that actually changed. `409` with `conflicts[]` when a `baseRev` was stale |
 | `POST /api/incident/:id/admin`         | admin key + `{edit?: {events?[], reports?[]}, delete?: {events?[], reports?[], board?}}`             | `{ok, seq, edited:{events, reports}, deleted, board}`. An edit is `{id, …fields}` and keeps `id`, `kind`/`type` and `site`. `delete.board: true` clears the board             |
 | `POST /api/incident/:id/rotate`        | admin key                                                                                            | `{ok, joinKey, keyGen, disconnected}`. The old join key stops working at once                                                                                                 |
+| `POST /api/incident/:id/end`           | admin key                                                                                            | `{ok, id, disconnected}`. The incident is removed at once; every stream gets `ended` and is closed                                                                            |
 | `POST /api/incident/:id/ticket`        | key + `{clientId?}`                                                                                  | `{ok, ticket, expiresIn: 60, role}`. A one-time stream ticket                                                                                                                 |
 | `GET /api/incident/:id/stream`         | `?ticket=&clientId=&since=` (or `Last-Event-ID`)                                                     | Server-sent events (below)                                                                                                                                                    |
 | `GET /api/incident/list` (self-hosted) | `API_WRITE_KEY` when set                                                                             | `{incidents:[{id, name, createdAt, lastActivity, participants, counts}]}`. Never keys. `403` when `OHC_HOSTED` is set                                                         |
@@ -492,6 +495,8 @@ The stream first sends `event: snapshot` (the full state, or the changes since
   `{keyGen}` and is closed. An admin stream gets `{keyGen, joinKey}` and stays
   open.
 - `event: expired` if the incident expires while you are listening.
+- `event: ended` (`{id}`) when an admin ends the incident. The stream is then
+  closed; the incident no longer exists on the server.
 
 `snapshot` and `change` carry `id: <seq>`. A comment line keeps the
 connection alive every 25 s. A station counts as connected while it holds a
@@ -623,6 +628,8 @@ called out in release notes.
 | `/api/sota/spots`              | Current SOTA activation spots                                                                                                                                                                                                                                                  | ~1 min             |
 | `/api/wwff/spots`              | Current WWFF activation spots                                                                                                                                                                                                                                                  | ~1 min             |
 | `/api/solar-indices`           | SFI, sunspot number, A/K indices, X-ray flux                                                                                                                                                                                                                                   | ~5 min             |
+| `/api/badge/solar.png`         | PNG solar/HF badge for `<img>` embeds (QRZ, README). Query: `theme`, `fields`, `variant`. See [Solar badge](#solar-badge).                                                                                                                                                     | ~5 min             |
+| `/api/badge/themes`            | Theme, field, and size catalog for the badge builder                                                                                                                                                                                                                           | 1 h                |
 | `/api/solar-cycle`             | Solar cycle history/prediction series                                                                                                                                                                                                                                          | hours              |
 | `/api/propagation`             | Point-to-point HF path prediction. Query: `deLat`, `deLon`, `dxLat`, `dxLon`, optional `mode`, `power`, `antenna`                                                                                                                                                              | ~10 min            |
 | `/api/band-openings`           | Detected band openings from live spot analysis                                                                                                                                                                                                                                 | ~1 min             |
@@ -669,6 +676,45 @@ Each topic is published at most once per minute and only when its content change
 ```bash
 curl -s http://localhost:3000/api/solar-indices | jq .
 curl -s 'http://localhost:3000/api/propagation?deLat=39.0&deLon=-94.5&dxLat=51.5&dxLon=-0.1&mode=FT8&power=100' | jq .
+```
+
+### Solar badge
+
+`GET /api/badge/solar.png` is a PNG (about 760×220) of the current solar and HF
+conditions, meant for pages that can show an image but not a script — a QRZ
+biography, a club site, a GitHub README. It reads the same in-process NOAA
+cache as `/api/solar-indices` (SFI, sunspots, Kp, A) and, when that cache is
+already warm, GOES X-ray flux. HF day/night chips come from the N0NBH cache
+and are labeled `N0NBH`. Sparklines use the SFI and Kp history already on the
+solar-indices payload.
+
+Status colors stay semantic on every theme: SFI below 70 is poor, 70–90 fair,
+90–120 good, above 120 excellent; Kp under 3 is quiet, 3–4 unsettled, 5 and
+above a storm with the NOAA G-scale (G1 at Kp 5 through G5 at Kp 9). The theme
+only changes the background and the OpenHamClock accent. `theme=dark` (the
+default, and the app's default theme) is amber on near-black. `theme=red` is
+the red brand lockup. Unknown themes, fields, and sizes fall back to the
+defaults. `GET /api/badge/themes` lists every id.
+
+The image is cached about five minutes (`Cache-Control: public, max-age=300`).
+Build one, with a live preview and copy-paste snippets, at
+[/badges](https://openhamclock.com/badges).
+
+```html
+<a href="https://openhamclock.com"
+  ><img src="https://openhamclock.com/api/badge/solar.png" alt="OpenHamClock live solar conditions"
+/></a>
+```
+
+```html
+<img
+  src="https://openhamclock.com/api/badge/solar.png?theme=red&variant=compact"
+  alt="OpenHamClock live solar conditions"
+/>
+```
+
+```bash
+curl -sI http://localhost:3000/api/badge/solar.png | head
 ```
 
 Most of this data originates from public upstream services (NOAA SWPC, POTA,

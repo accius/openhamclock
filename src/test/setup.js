@@ -1,5 +1,12 @@
 // Test setup file for Vitest
 // Add any global test configuration or mocks here
+import os from 'node:os';
+import path from 'node:path';
+
+// rig-bridge keeps its settings in ~/.config/openhamclock/rig-bridge-config.json
+// (rig-bridge/core/config.js). Point it at a temp dir before any test can load
+// it, so a test that saves config never overwrites the user's real file.
+process.env.RIG_BRIDGE_CONFIG_DIR ||= path.join(os.tmpdir(), `openhamclock-rig-bridge-test-${process.pid}`);
 
 // Node >= 25 enables the WebStorage API by default: every process gets a
 // global `localStorage`, but unless node is started with --localstorage-file

@@ -154,6 +154,33 @@ describe('incidentStore', () => {
         tokens: [{ key: 'Beds', type: 'text', current: 30, max: 100 }],
       });
     });
+
+    it('keeps one entry per net address, so leaving one net leaves the others (#1238)', () => {
+      const { incident } = make();
+      const nets = ['W8ROC', 'EMCOMM', 'K8MRC'].map((alias) => ({
+        call: 'KE8PLM-9',
+        alias,
+        netName: alias,
+        checkinTime: clock - 1000,
+        updatedAt: clock - 1000,
+      }));
+      store.apply(incident.id, { roster: nets });
+      expect(store.snapshot(incident.id).roster).toHaveLength(3);
+
+      store.apply(incident.id, { roster: [{ ...nets[0], checkedOut: true, updatedAt: clock }] });
+      const roster = store.snapshot(incident.id).roster;
+      expect(roster).toHaveLength(3);
+      expect(
+        roster
+          .filter((e) => !e.checkedOut)
+          .map((e) => e.alias)
+          .sort(),
+      ).toEqual(['EMCOMM', 'K8MRC']);
+
+      // a voice check-in (no address) lands in the EMCOMM slot, as before
+      store.apply(incident.id, { roster: [{ call: 'KE8PLM-9', netName: 'Voice', updatedAt: clock + 1 }] });
+      expect(store.snapshot(incident.id).roster).toHaveLength(3);
+    });
   });
 
   describe('apply — events', () => {

@@ -66,6 +66,8 @@ COPY --link server.js ./
 COPY --link server/ ./server/
 COPY --link config.js ./
 COPY --link src/server ./src/server
+# The solar badge reads OpenHamClock theme palettes from this file.
+COPY --link src/styles/themes.css ./src/styles/themes.css
 
 # Copy WSJT-X relay agent (served as download to users)
 COPY --link wsjtx-relay ./wsjtx-relay

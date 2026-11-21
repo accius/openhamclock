@@ -19,6 +19,7 @@ import {
   calculateSNR,
   getStatus,
 } from '../../utils/propagationAdjust.js';
+import { lufFromBands } from './luf.js';
 
 // UI band labels and their "operating" frequencies, matched to the server's
 // currentBands array.
@@ -158,6 +159,8 @@ export async function runBrowserEngine({
     engine: 'wasm',
     elapsed: Math.round(clock.now() - started),
     muf: mufForCurrentHour,
+    // From the same reliabilities as the bars, so the LUF matches them (W3AAX report)
+    luf: lufFromBands(currentBands),
     currentHour,
     currentBands,
     hourlyPredictions: predictions,

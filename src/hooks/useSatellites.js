@@ -9,7 +9,7 @@ import Orbit from '../utils/orbit.js';
 import { computeOrbitTrack } from '../utils/satelliteTrack.js';
 import { tleAgeDays, isTleStale } from '../utils/tleAge.js';
 import { getDebugConfig } from '../debug/debugConfig.js';
-import { displayNow, subscribeDisplayTime } from '../utils/displayTime.js';
+import { displayNow, subscribeDisplayTime, subscribeDisplayTimeSettled } from '../utils/displayTime.js';
 
 function round(value, decimals) {
   const factor = Math.pow(10, decimals);
@@ -318,7 +318,9 @@ export const useSatellites = (observerLocation, satelliteConfig, filteredNames =
   useEffect(() => {
     calculateNextPasses();
     const interval = setInterval(calculateNextPasses, 60 * 60 * 1000); // 1 hour
-    const unsubShift = subscribeDisplayTime(calculateNextPasses);
+    // Settled: 7 days of passes for every satellite is too heavy to redo on
+    // every playback tick — it catches up once playback pauses.
+    const unsubShift = subscribeDisplayTimeSettled(calculateNextPasses);
     return () => {
       clearInterval(interval);
       unsubShift();
