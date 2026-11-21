@@ -261,3 +261,30 @@ describe('summarizeTimings', () => {
     expect(b.warmP50Ms).toBe(0);
   });
 });
+
+describe('LUF from the engine bands (W3AAX report)', () => {
+  // Per-band reliabilities as in W3AAX's panel: 160m open at 75% under FT8.
+  const REL = { 1.8: 75, 3.5: 99, 7.1: 99, 10.1: 91, 14.1: 19, 18.1: 0, 21.1: 0, 24.9: 0, 28.1: 0 };
+  const hour = (rel) => ({
+    frequencies: Object.entries(rel).map(([freq, reliability]) => ({
+      freq: Number(freq),
+      reliability,
+      sdbw: -100,
+      snr: 10,
+    })),
+    muf: 8.35,
+  });
+
+  it('reports the lowest band at or above 50%, matching the bars', async () => {
+    predictMock.mockResolvedValue(hour(REL));
+    const result = await runBrowserEngine({ deLocation: DE, dxLocation: DX, mode: 'FT8', power: 25 });
+    expect(result.currentBands.find((b) => b.band === '160m').reliability).toBe(75);
+    expect(result.luf).toBe(1.8);
+  });
+
+  it('is null when nothing reaches 50%, so the hook falls back to the estimate', async () => {
+    predictMock.mockResolvedValue(hour(Object.fromEntries(Object.keys(REL).map((f) => [f, 10]))));
+    const result = await runBrowserEngine({ deLocation: DE, dxLocation: DX });
+    expect(result.luf).toBeNull();
+  });
+});

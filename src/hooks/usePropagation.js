@@ -78,7 +78,9 @@ export const usePropagation = (deLocation, dxLocation, propagationConfig = {}) =
         setData({
           ...wasm,
           solarData: rest?.solarData,
-          luf: rest?.luf,
+          // LUF from the WASM bands (same model and mode threshold as the bars);
+          // the server's mode-blind estimate only when no band reaches 50%.
+          luf: wasm.luf ?? rest?.luf,
           muf: wasm.muf ?? rest?.muf,
           distance: rest?.distance,
         });
