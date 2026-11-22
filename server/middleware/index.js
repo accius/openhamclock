@@ -9,6 +9,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const express = require('express');
 const { getClientIP, setTrustCloudflare } = require('../utils/helpers');
+const { allowEmbeddableImages } = require('./embedImages');
 
 /**
  * Apply all middleware to the Express app.
@@ -45,6 +46,9 @@ function applyMiddleware(app, ctx) {
       crossOriginEmbedderPolicy: false, // Required for cross-origin tile loading
     }),
   );
+  // After Helmet, so public <img> embeds (QRZ, README) are not stuck on
+  // Cross-Origin-Resource-Policy: same-origin. See embedImages.js.
+  app.use(allowEmbeddableImages);
 
   // Permissions-Policy
   app.use((req, res, next) => {

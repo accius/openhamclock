@@ -66,6 +66,19 @@
   gap: 8px;
 }
 
+.badge-place {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.badge-place span {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 .badge-fields label,
 .badge-variants button,
 .theme-swatch,

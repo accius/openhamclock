@@ -22,20 +22,32 @@ export function canonicalFields(raw, fallback = DEFAULT_BADGE_FIELDS) {
   return FIELD_IDS.filter((id) => wanted.has(id));
 }
 
-export function buildBadgeQuery({ theme, fields, variant, defaults }) {
+export function buildBadgeQuery({ kind, theme, fields, variant, sun, moon, wl, defaults }) {
   const defTheme = defaults?.default || 'dark';
   const defVariant = defaults?.defaultVariant || 'full';
   const defFields = defaults?.defaultFields || DEFAULT_BADGE_FIELDS;
+  const defWl = defaults?.defaultWavelength || '0193';
   const params = new URLSearchParams();
   if (theme && theme !== defTheme) params.set('theme', theme);
   if (variant && variant !== defVariant) params.set('variant', variant);
-  const chosen = canonicalFields(Array.isArray(fields) ? fields.join(',') : fields, defFields);
-  if (chosen.join(',') !== defFields.join(',')) params.set('fields', chosen.join(','));
+  if ((kind === 'sun' || sun) && wl && wl !== defWl) params.set('wl', wl);
+  if (!kind || kind === 'conditions') {
+    const chosen = canonicalFields(Array.isArray(fields) ? fields.join(',') : fields, defFields);
+    if (chosen.join(',') !== defFields.join(',')) params.set('fields', chosen.join(','));
+    if (sun === 'left' || sun === 'right') params.set('sun', sun);
+    if (moon === 'left' || moon === 'right') params.set('moon', moon);
+  }
   return params.toString();
 }
 
-export function badgeImageUrl(origin, query) {
-  const base = `${String(origin || BADGE_SITE).replace(/\/$/, '')}/api/badge/solar.png`;
+export function badgePath(kind) {
+  if (kind === 'sun') return '/api/badge/sun.png';
+  if (kind === 'moon') return '/api/badge/moon.png';
+  return '/api/badge/solar.png';
+}
+
+export function badgeImageUrl(origin, query, kind) {
+  const base = `${String(origin || BADGE_SITE).replace(/\/$/, '')}${badgePath(kind)}`;
   return query ? `${base}?${query}` : base;
 }
 
@@ -58,12 +70,19 @@ export function snippetOrigin(hostname, pageOrigin) {
   return pageOrigin || BADGE_SITE;
 }
 
-export function badgeSnippets(imageUrl) {
+export function badgeAlt(kind) {
+  if (kind === 'sun') return 'OpenHamClock live sun';
+  if (kind === 'moon') return 'OpenHamClock live moon';
+  return BADGE_ALT;
+}
+
+export function badgeSnippets(imageUrl, kind) {
+  const alt = badgeAlt(kind);
   const src = imageUrl.replace(/&/g, '&amp;');
   return {
-    qrz: `<a href="${BADGE_SITE}"><img src="${src}" alt="${BADGE_ALT}"></a>`,
-    html: `<img src="${src}" alt="${BADGE_ALT}">`,
-    markdown: `[![${BADGE_ALT}](${imageUrl})](${BADGE_SITE})`,
+    qrz: `<a href="${BADGE_SITE}"><img src="${src}" alt="${alt}"></a>`,
+    html: `<img src="${src}" alt="${alt}">`,
+    markdown: `[![${alt}](${imageUrl})](${BADGE_SITE})`,
     bbcode: `[url=${BADGE_SITE}][img]${imageUrl}[/img][/url]`,
   };
 }

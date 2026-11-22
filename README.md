@@ -197,7 +197,7 @@ Drop a live conditions image into a QRZ biography or any page that allows images
 /></a>
 ```
 
-`theme=red` is the red-on-black brand lockup. The default is the app's Dark theme. Details are in [docs/API.md](docs/API.md#solar-badge).
+`theme=red` is the red-on-black brand lockup. The default is the app's Dark theme. `sun.png` and `moon.png` are standalone photos, and `?sun=left&moon=right` sets them into the sides of the conditions badge. Details are in [docs/API.md](docs/API.md#solar-badge).
 
 ---
 

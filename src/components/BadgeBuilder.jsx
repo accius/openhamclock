@@ -34,6 +34,14 @@ const FALLBACK = {
     { id: 'compact', label: 'Compact', hint: '580 px' },
     { id: 'wide', label: 'Wide', hint: '980 px' },
   ],
+  wavelengths: [
+    { id: '0193', label: 'AIA 193 Å' },
+    { id: '0304', label: 'AIA 304 Å' },
+    { id: '0171', label: 'AIA 171 Å' },
+    { id: '0094', label: 'AIA 94 Å' },
+    { id: 'HMIIC', label: 'HMI visible' },
+  ],
+  defaultWavelength: '0193',
   themes: [
     { id: 'dark', label: 'Dark', group: 'openhamclock', background: '#0a0e14', accent: '#ffb432' },
     { id: 'light', label: 'Light', group: 'openhamclock', background: '#f5f7fa', accent: '#a87508' },
@@ -59,7 +67,13 @@ function readInitial(catalog) {
   const fields = params.has('fields')
     ? canonicalFields(params.get('fields'), catalog.defaultFields || DEFAULT_BADGE_FIELDS)
     : (catalog.defaultFields || DEFAULT_BADGE_FIELDS).slice();
-  return { theme, variant, fields };
+  const kindParam = (params.get('badge') || 'conditions').toLowerCase();
+  const kind = kindParam === 'sun' || kindParam === 'moon' ? kindParam : 'conditions';
+  const place = (value) => (value === 'left' || value === 'right' ? value : 'none');
+  const wavelengths = new Set((catalog.wavelengths || []).map((item) => item.id));
+  const requestedWl = params.get('wl') || '';
+  const wl = wavelengths.has(requestedWl) ? requestedWl : catalog.defaultWavelength || '0193';
+  return { theme, variant, fields, kind, sun: place(params.get('sun')), moon: place(params.get('moon')), wl };
 }
 
 async function copyText(text) {
@@ -82,6 +96,10 @@ export default function BadgeBuilder() {
   const [theme, setTheme] = useState('dark');
   const [variant, setVariant] = useState('full');
   const [fields, setFields] = useState(DEFAULT_BADGE_FIELDS);
+  const [kind, setKind] = useState('conditions');
+  const [sunSide, setSunSide] = useState('none');
+  const [moonSide, setMoonSide] = useState('none');
+  const [wl, setWl] = useState('0193');
   const [copied, setCopied] = useState('');
   const [previewError, setPreviewError] = useState(false);
   const [ready, setReady] = useState(false);
@@ -98,6 +116,10 @@ export default function BadgeBuilder() {
         setTheme(initial.theme);
         setVariant(initial.variant);
         setFields(initial.fields);
+        setKind(initial.kind);
+        setSunSide(initial.sun);
+        setMoonSide(initial.moon);
+        setWl(initial.wl);
         setReady(true);
       })
       .catch(() => {
@@ -106,6 +128,10 @@ export default function BadgeBuilder() {
         setTheme(initial.theme);
         setVariant(initial.variant);
         setFields(initial.fields);
+        setKind(initial.kind);
+        setSunSide(initial.sun);
+        setMoonSide(initial.moon);
+        setWl(initial.wl);
         setReady(true);
       });
     return () => {
@@ -120,21 +146,36 @@ export default function BadgeBuilder() {
   }, [catalog, theme]);
 
   const query = useMemo(
-    () => buildBadgeQuery({ theme, fields, variant, defaults: catalog }),
-    [theme, fields, variant, catalog],
+    () =>
+      buildBadgeQuery({
+        kind,
+        theme,
+        fields,
+        variant,
+        sun: sunSide === 'none' ? null : sunSide,
+        moon: moonSide === 'none' ? null : moonSide,
+        wl,
+        defaults: catalog,
+      }),
+    [kind, theme, fields, variant, sunSide, moonSide, wl, catalog],
   );
-  const previewSrc = query ? `/api/badge/solar.png?${query}` : '/api/badge/solar.png';
+  const previewPath =
+    kind === 'sun' ? '/api/badge/sun.png' : kind === 'moon' ? '/api/badge/moon.png' : '/api/badge/solar.png';
+  const previewSrc = query ? `${previewPath}?${query}` : previewPath;
   const origin = snippetOrigin(window.location.hostname, window.location.origin);
-  const imageUrl = badgeImageUrl(origin, query);
-  const snippets = badgeSnippets(imageUrl);
+  const imageUrl = badgeImageUrl(origin, query, kind);
+  const snippets = badgeSnippets(imageUrl, kind);
 
   useEffect(() => {
     if (!ready) return;
     const path = window.location.pathname.replace(/\/+$/, '') || '/badges';
-    const next = query ? `${path}?${query}` : path;
+    const pageParams = new URLSearchParams(query);
+    if (kind !== 'conditions') pageParams.set('badge', kind);
+    const pageQuery = pageParams.toString();
+    const next = pageQuery ? `${path}?${pageQuery}` : path;
     const current = `${window.location.pathname.replace(/\/+$/, '')}${window.location.search}`;
     if (current !== next) window.history.replaceState(null, '', next);
-  }, [query, ready]);
+  }, [query, kind, ready]);
 
   function toggleField(id) {
     setFields((current) => {
@@ -173,16 +214,71 @@ export default function BadgeBuilder() {
           </p>
 
           <div className="badge-card">
-            <h2>Show</h2>
-            <div className="badge-fields">
-              {catalog.fields.map((field) => (
-                <label key={field.id} title={field.hint}>
-                  <input type="checkbox" checked={fields.includes(field.id)} onChange={() => toggleField(field.id)} />
-                  {field.label}
-                </label>
+            <h2>Badge</h2>
+            <div className="badge-variants" role="group" aria-label="Badge type">
+              {[
+                ['conditions', 'Conditions'],
+                ['sun', 'Sun'],
+                ['moon', 'Moon'],
+              ].map(([id, label]) => (
+                <button key={id} type="button" aria-pressed={kind === id} onClick={() => setKind(id)}>
+                  {label}
+                </button>
               ))}
             </div>
           </div>
+
+          {kind === 'conditions' ? (
+            <div className="badge-card">
+              <h2>Show</h2>
+              <div className="badge-fields">
+                {catalog.fields.map((field) => (
+                  <label key={field.id} title={field.hint}>
+                    <input type="checkbox" checked={fields.includes(field.id)} onChange={() => toggleField(field.id)} />
+                    {field.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {kind === 'conditions' ? (
+            <div className="badge-card">
+              <h2>Sun and moon</h2>
+              <p className="badge-lead">
+                Place a live photo on either side of the conditions. The other side stays open.
+              </p>
+              <Placement
+                label="Sun"
+                value={sunSide}
+                onChange={(next) => {
+                  setSunSide(next);
+                  if (next !== 'none' && next === moonSide) setMoonSide(next === 'left' ? 'right' : 'left');
+                }}
+              />
+              <Placement
+                label="Moon"
+                value={moonSide}
+                onChange={(next) => {
+                  setMoonSide(next);
+                  if (next !== 'none' && next === sunSide) setSunSide(next === 'left' ? 'right' : 'left');
+                }}
+              />
+            </div>
+          ) : null}
+
+          {kind === 'sun' || (kind === 'conditions' && sunSide !== 'none') ? (
+            <div className="badge-card">
+              <h2>Wavelength</h2>
+              <div className="badge-variants" role="group" aria-label="Solar wavelength">
+                {(catalog.wavelengths || FALLBACK.wavelengths).map((item) => (
+                  <button key={item.id} type="button" aria-pressed={wl === item.id} onClick={() => setWl(item.id)}>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div className="badge-card">
             <h2>Size</h2>
@@ -280,6 +376,25 @@ export default function BadgeBuilder() {
         </section>
       </div>
     </main>
+  );
+}
+
+function Placement({ label, value, onChange }) {
+  return (
+    <div className="badge-place">
+      <span>{label}</span>
+      <div className="badge-variants" role="group" aria-label={`${label} placement`}>
+        {[
+          ['none', 'Off'],
+          ['left', 'Left'],
+          ['right', 'Right'],
+        ].map(([id, text]) => (
+          <button key={id} type="button" aria-pressed={value === id} onClick={() => onChange(id)}>
+            {text}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

@@ -696,7 +696,11 @@ default, and the app's default theme) is amber on near-black. `theme=red` is
 the red brand lockup. Unknown themes, fields, and sizes fall back to the
 defaults. `GET /api/badge/themes` lists every id.
 
-The image is cached about five minutes (`Cache-Control: public, max-age=300`).
+`GET /api/badge/sun.png` is the current SDO image in the same frame (`?wl=0193`, `0304`, `0171`, `0094`, or `HMIIC`; cached about 15 minutes). `GET /api/badge/moon.png` is the Dial-A-Moon photo with the phase name and illumination percent (cached about 1 hour). On the conditions badge, `?sun=left|right` and `?moon=left|right` set those photos into the sides; if both ask for the same side, the moon takes the other one.
+
+These image responses, plus `/api/solar/image/:type` and `/api/moon-image`, send `Cross-Origin-Resource-Policy: cross-origin` so a page on another site can show them in an `<img>`. The rest of the API keeps Helmet's `same-origin` policy. `X-Frame-Options` stays `SAMEORIGIN` (that blocks frames, not images).
+
+The conditions image is cached about five minutes (`Cache-Control: public, max-age=300`).
 Build one, with a live preview and copy-paste snippets, at
 [/badges](https://openhamclock.com/badges).
 
