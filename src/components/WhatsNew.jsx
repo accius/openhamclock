@@ -29,6 +29,23 @@ const ANNOUNCEMENT = {
 
 const CHANGELOG = [
   {
+    version: '26.11.2',
+    date: '2026-11-22',
+    heading: 'Sun and moon badges, and OpenHamClock images that show up when you embed them on QRZ and other sites.',
+    features: [
+      {
+        icon: '🌞',
+        title: 'NEW: Sun and Moon Badges',
+        desc: "Two more badges in the builder at /badges. Sun shows the latest SDO image of the sun in your choice of wavelength (AIA 193, 304, 171, 94 or the HMI visible-light disk), refreshed about every 15 minutes. Moon shows tonight's moon with its phase name and how much is lit, refreshed hourly. The conditions badge can also carry them: put the sun on the left and the moon on the right, and every section (indices, X-ray, trends, HF bands) still fits beside them. Same themes and sizes as the conditions badge.",
+      },
+      {
+        icon: '🖼️',
+        title: 'FIX: Embedded Images Show on Other Sites',
+        desc: 'A browser security header told other websites they could not display OpenHamClock images, so a solar image pasted into a QRZ biography showed only its caption. The badges, the SDO sun images and the moon image are now allowed on other sites; everything else stays locked to OpenHamClock.',
+      },
+    ],
+  },
+  {
     version: '26.11.1',
     date: '2026-11-21',
     heading:
