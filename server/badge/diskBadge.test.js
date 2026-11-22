@@ -75,4 +75,79 @@ describe('sun and moon badge options', () => {
     const both = await svgToPng(sided, model.palette.background);
     expect(both.readUInt32BE(16)).toBeGreaterThan(plain.readUInt32BE(16));
   });
+
+  it('uses the moon photo for the moon badge and keeps every conditions section beside both disks', async () => {
+    const sunPhoto = await svgToPng(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="#ffaa22"/></svg>',
+      '#000000',
+    );
+    const moonPhoto = await svgToPng(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="#d0d4dc"/></svg>',
+      '#111111',
+    );
+    clearBadgeCache();
+    const sunBadge = await renderDiskBadge('sun', {
+      theme: 'red',
+      ctx: {
+        getSolarImage: async () => ({
+          buffer: sunPhoto,
+          contentType: 'image/png',
+          source: 'SDO',
+          timestamp: Date.parse('2026-11-21T23:20:00Z'),
+        }),
+      },
+    });
+    const moonBadge = await renderDiskBadge('moon', {
+      theme: 'red',
+      ctx: {
+        getMoonSnapshot: async () => ({
+          buffer: moonPhoto,
+          contentType: 'image/png',
+          phase: 78,
+          age: 10.2,
+          timestamp: Date.parse('2026-11-21T23:20:00Z'),
+        }),
+      },
+    });
+    expect(sunBadge.equals(moonBadge)).toBe(false);
+
+    const { parseBadgeFields } = require('./solarBadge.js');
+    expect(parseBadgeFields('all')).toEqual(parseBadgeFields(undefined));
+    const model = buildBadgeModel({
+      indices: {
+        sfi: { current: 168, history: [{ value: 150 }, { value: 168 }] },
+        ssn: { current: 142 },
+        kp: { current: 3.3, history: [{ value: 2 }, { value: 3.3 }] },
+        a: { current: 12 },
+        timestamp: '2026-11-21T23:20:00.000Z',
+      },
+      n0nbh: {
+        data: {
+          solarData: { xray: 'C2.4' },
+          bandConditions: [
+            { name: '80m-40m', time: 'day', condition: 'Good' },
+            { name: '80m-40m', time: 'night', condition: 'Fair' },
+            { name: '30m-20m', time: 'day', condition: 'Good' },
+            { name: '30m-20m', time: 'night', condition: 'Good' },
+            { name: '17m-15m', time: 'day', condition: 'Fair' },
+            { name: '17m-15m', time: 'night', condition: 'Poor' },
+            { name: '12m-10m', time: 'day', condition: 'Poor' },
+            { name: '12m-10m', time: 'night', condition: 'Fair' },
+          ],
+        },
+        timestamp: Date.now(),
+      },
+      theme: 'red',
+      fields: 'all',
+      variant: 'full',
+    });
+    model.left = { href: 'data:image/png;base64,SUN', caption: 'AIA 193 Å', missing: 'Sun' };
+    model.right = { href: 'data:image/png;base64,MOON', caption: 'Waxing Gibbous', missing: 'Moon' };
+    const svg = buildSolarBadgeSvg(model);
+    expect(svg).toContain('X-ray');
+    expect(svg).toContain('HF BANDS');
+    expect(svg).toContain('<path');
+    expect(svg).toContain('data:image/png;base64,SUN');
+    expect(svg).toContain('data:image/png;base64,MOON');
+  });
 });

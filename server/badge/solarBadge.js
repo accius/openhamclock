@@ -123,7 +123,8 @@ function firstQuery(value) {
 
 function parseBadgeFields(raw) {
   const text = firstQuery(raw);
-  if (text == null || !String(text).trim()) return DEFAULT_FIELDS.slice();
+  if (text == null || !String(text).trim() || String(text).trim().toLowerCase() === 'all')
+    return DEFAULT_FIELDS.slice();
   const wanted = new Set();
   for (const part of String(text).split(',')) {
     const id = part.trim().toLowerCase();
@@ -392,10 +393,15 @@ function buildSolarBadgeSvg(model) {
   const headerY = y;
   y += spec.logo + 14;
 
+  // Side photos sit beside the stat cards. The row is tall enough for the
+  // disk and its caption, and the sparklines and HF bands start below that
+  // so they are not covered by the photos.
+  const captionH = disk ? 22 : 0;
+  const rowH = disk ? Math.max(spec.cardH, disk + captionH) : spec.cardH;
   let cardsY = null;
-  if (model.stats.length) {
+  if (model.stats.length || disk) {
     cardsY = y;
-    y += spec.cardH + 12;
+    y += rowH + 12;
   }
 
   let unavailableY = null;
@@ -417,7 +423,6 @@ function buildSolarBadgeSvg(model) {
   }
 
   const bodyTop = spec.pad + spec.logo + 14;
-  if (disk && y - bodyTop < disk + 28) y = bodyTop + disk + 28;
 
   const footerBaseline = y + 14;
   y = footerBaseline + spec.pad - 2;

@@ -12,7 +12,7 @@ const FIELD_IDS = [...DEFAULT_BADGE_FIELDS.slice(0, 4), 'k', ...DEFAULT_BADGE_FI
 
 export function canonicalFields(raw, fallback = DEFAULT_BADGE_FIELDS) {
   const text = Array.isArray(raw) ? raw.join(',') : raw;
-  if (text == null || !String(text).trim()) return fallback.slice();
+  if (text == null || !String(text).trim() || String(text).trim().toLowerCase() === 'all') return fallback.slice();
   const wanted = new Set();
   for (const part of String(text).split(',')) {
     const id = part.trim().toLowerCase();
