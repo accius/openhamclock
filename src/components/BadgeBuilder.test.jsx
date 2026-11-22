@@ -107,5 +107,11 @@ describe('BadgeBuilder', () => {
     const after = [...container.querySelectorAll('pre')].map((node) => node.textContent).join('\n');
     expect(after).toContain('fields=');
     expect(after).not.toMatch(/fields=[^"&\s]*sfi/);
+
+    const sun = [...container.querySelectorAll('button')].find((button) => button.textContent === 'Sun');
+    await act(async () => {
+      sun.click();
+    });
+    expect(container.querySelector('pre').textContent).toContain('/api/badge/sun.png');
   });
 });

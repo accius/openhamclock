@@ -14,7 +14,14 @@
  */
 
 const { DEFAULT_THEME, listBadgeThemes, publicTheme } = require('../badge/themes');
-const { DEFAULT_FIELDS, FIELD_META, VARIANT_META, renderSolarBadgePng } = require('../badge/solarBadge');
+const {
+  DEFAULT_FIELDS,
+  FIELD_META,
+  VARIANT_META,
+  renderSolarBadgePng,
+  renderDiskBadge,
+} = require('../badge/solarBadge');
+const { WAVELENGTHS } = require('../badge/diskBadge');
 
 module.exports = function (app, ctx) {
   const { logErrorOnce } = ctx;
@@ -28,8 +35,46 @@ module.exports = function (app, ctx) {
       defaultFields: DEFAULT_FIELDS,
       fields: FIELD_META,
       variants: VARIANT_META,
+      wavelengths: Object.values(WAVELENGTHS),
+      defaultWavelength: '0193',
+      placements: ['left', 'right'],
       themes: listBadgeThemes().map(publicTheme),
     });
+  });
+
+  app.get('/api/badge/sun.png', async (req, res) => {
+    try {
+      const png = await renderDiskBadge('sun', {
+        theme: req.query.theme,
+        variant: req.query.variant,
+        wl: req.query.wl,
+        ctx,
+      });
+      res.set('Content-Type', 'image/png');
+      res.set('Cache-Control', 'public, max-age=900');
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.send(png);
+    } catch (error) {
+      logErrorOnce?.('Sun badge', error.message);
+      res.status(500).json({ error: 'Failed to render sun badge' });
+    }
+  });
+
+  app.get('/api/badge/moon.png', async (req, res) => {
+    try {
+      const png = await renderDiskBadge('moon', {
+        theme: req.query.theme,
+        variant: req.query.variant,
+        ctx,
+      });
+      res.set('Content-Type', 'image/png');
+      res.set('Cache-Control', 'public, max-age=3600');
+      res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+      res.send(png);
+    } catch (error) {
+      logErrorOnce?.('Moon badge', error.message);
+      res.status(500).json({ error: 'Failed to render moon badge' });
+    }
   });
 
   app.get('/api/badge/solar.png', async (req, res) => {
@@ -38,6 +83,9 @@ module.exports = function (app, ctx) {
         theme: req.query.theme,
         fields: req.query.fields,
         variant: req.query.variant,
+        sun: req.query.sun,
+        moon: req.query.moon,
+        wl: req.query.wl,
         ctx,
       });
       res.set('Content-Type', 'image/png');
