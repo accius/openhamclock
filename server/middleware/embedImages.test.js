@@ -44,7 +44,10 @@ describe('CORP through Helmet', () => {
 
   function start() {
     const app = express();
-    app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+    // Default Helmet, including its content security policy. The assertions
+    // below only care about CORP, which stays same-origin until the embed
+    // middleware overrides it.
+    app.use(helmet());
     app.use(allowEmbeddableImages);
     const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xd9]);
     app.get('/api/solar/image/:type', (req, res) => {
