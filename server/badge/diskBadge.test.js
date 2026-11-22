@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { formatIllumination, moonPhaseName, parsePlacement, parseWavelength, resolvePlacements } from './diskBadge.js';
 
-const { buildBadgeModel, buildSolarBadgeSvg, svgToPng, renderDiskBadge, clearBadgeCache } = require('./solarBadge.js');
+const {
+  buildBadgeModel,
+  buildSolarBadgeSvg,
+  svgToPng,
+  renderDiskBadge,
+  clearBadgeCache,
+  setRenderBudget,
+} = require('./solarBadge.js');
 
 describe('sun and moon badge options', () => {
   it('defaults wavelength and accepts the SDO set', () => {
@@ -149,5 +156,25 @@ describe('sun and moon badge options', () => {
     expect(svg).toContain('<path');
     expect(svg).toContain('data:image/png;base64,SUN');
     expect(svg).toContain('data:image/png;base64,MOON');
+  });
+
+  it('serves the default sun badge for uncached combinations once the render budget is spent', async () => {
+    const photo = await svgToPng(
+      '<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="14" fill="#ffaa22"/></svg>',
+      '#000000',
+    );
+    const ctx = {
+      getSolarImage: async () => ({ buffer: photo, contentType: 'image/png', source: 'SDO', timestamp: 0 }),
+    };
+    clearBadgeCache();
+    setRenderBudget(1);
+    try {
+      const defaults = await renderDiskBadge('sun', { ctx });
+      const red = await renderDiskBadge('sun', { theme: 'red', ctx });
+      expect(red.equals(defaults)).toBe(true);
+    } finally {
+      setRenderBudget(60);
+      clearBadgeCache();
+    }
   });
 });

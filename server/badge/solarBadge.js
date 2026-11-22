@@ -834,6 +834,13 @@ async function renderDiskBadge(kind, opts) {
     return hit.png;
   }
   if (diskInflight.has(key)) return diskInflight.get(key);
+  // Same render budget as the conditions badge: past it, an uncached
+  // combination gets its stale copy or the default sun/moon badge.
+  const isDefault = !opts.theme && !opts.variant && !opts.wl;
+  if (!takeRenderSlot() && !isDefault) {
+    if (hit) return hit.png;
+    return renderDiskBadge(kind, { ctx: opts.ctx });
+  }
   const job = (async () => {
     const loaded =
       kind === 'sun'
