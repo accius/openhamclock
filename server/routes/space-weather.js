@@ -599,6 +599,29 @@ module.exports = function (app, ctx) {
     return inflight;
   };
 
+  // In-process SDO image for the sun badge. Same cache and fallback chain as
+  // GET /api/solar/image/:type — callers must not HTTP back into this server.
+  async function getSolarImage(type) {
+    if (!SDO_VALID_TYPES.has(type)) return null;
+    const cached = sdoImageCache.get(type);
+    const now = Date.now();
+    if (cached?.buffer && now - cached.timestamp < SDO_CACHE_TTL) return cached;
+    const negTs = SDO_NEGATIVE_CACHE.get(type) || 0;
+    const backoff = cached?.buffer ? 60_000 : 45_000;
+    if (now - negTs < backoff) {
+      if (cached?.buffer && now - cached.timestamp < SDO_STALE_SERVE) return { ...cached, stale: true };
+      return null;
+    }
+    try {
+      await runSolarImageChain(type);
+      return sdoImageCache.get(type) || null;
+    } catch (error) {
+      logErrorOnce(`Solar image ${type}`, error.message);
+      if (cached?.buffer && now - cached.timestamp < SDO_STALE_SERVE) return { ...cached, stale: true };
+      return null;
+    }
+  }
+
   app.get('/api/solar/image/:type', async (req, res) => {
     const type = req.params.type;
     if (!SDO_VALID_TYPES.has(type)) {
@@ -944,6 +967,27 @@ module.exports = function (app, ctx) {
   // Latest GOES 0.1–0.8 nm flux already in the NOAA cache, or null.
   // Does not fetch — the badge must not pull the multi-megabyte X-ray file
   // on its own. Callers fall back to the N0NBH class string.
+  // Image plus phase metadata, sharing the Dial-A-Moon cache (about 1 hour).
+  async function getMoonSnapshot() {
+    const fresh = moonImageCache.buffer && Date.now() - moonImageCache.timestamp < MOON_CACHE_TTL;
+    if (!fresh && Date.now() - moonImageNegativeCache >= MOON_NEGATIVE_CACHE_TTL) {
+      try {
+        await refreshDialAMoon();
+      } catch (error) {
+        moonImageNegativeCache = Date.now();
+        logErrorOnce('Moon Image', error.message);
+      }
+    }
+    if (!moonImageCache.buffer) return null;
+    return {
+      buffer: moonImageCache.buffer,
+      contentType: moonImageCache.contentType,
+      phase: moonMetaCache.data?.phase ?? null,
+      age: moonMetaCache.data?.age ?? null,
+      timestamp: moonImageCache.timestamp,
+    };
+  }
+
   function getCachedXrayFlux() {
     const data = noaaCache.xray.data;
     if (!Array.isArray(data)) return null;
@@ -954,5 +998,14 @@ module.exports = function (app, ctx) {
     return null;
   }
 
-  return { n0nbhCache, parseN0NBHxml, prewarmN0NBH, getSolarCycle, getSolarIndices, getCachedXrayFlux };
+  return {
+    n0nbhCache,
+    parseN0NBHxml,
+    prewarmN0NBH,
+    getSolarCycle,
+    getSolarIndices,
+    getCachedXrayFlux,
+    getSolarImage,
+    getMoonSnapshot,
+  };
 };

@@ -14,6 +14,19 @@ const path = require('path');
 const { mixHex } = require('./color');
 const { resolveBadgeTheme } = require('./themes');
 const {
+  parseWavelength,
+  resolvePlacements,
+  sideDiskSize,
+  diskElement,
+  buildDiskBadgeSvg,
+  moonPhaseName,
+  formatIllumination,
+  formatUpdated: formatDiskTime,
+  WAVELENGTHS,
+  DEFAULT_WAVELENGTH,
+  toDataUri,
+} = require('./diskBadge');
+const {
   rateSfi,
   rateSsn,
   rateKp,
@@ -110,7 +123,8 @@ function firstQuery(value) {
 
 function parseBadgeFields(raw) {
   const text = firstQuery(raw);
-  if (text == null || !String(text).trim()) return DEFAULT_FIELDS.slice();
+  if (text == null || !String(text).trim() || String(text).trim().toLowerCase() === 'all')
+    return DEFAULT_FIELDS.slice();
   const wanted = new Set();
   for (const part of String(text).split(',')) {
     const id = part.trim().toLowerCase();
@@ -369,16 +383,25 @@ function buildSolarBadgeSvg(model) {
     theme.text,
     theme.group === 'color' && theme.id === 'neutral-light' ? 0.14 : 0.16,
   );
-  const width = spec.width;
+  const disk = model.left || model.right ? sideDiskSize(model.variant) : 0;
+  const col = disk ? disk + 22 : 0;
+  const leftCol = model.left ? col : 0;
+  const rightCol = model.right ? col : 0;
+  const width = spec.width + leftCol + rightCol;
   let y = spec.pad;
 
   const headerY = y;
   y += spec.logo + 14;
 
+  // Side photos sit beside the stat cards. The row is tall enough for the
+  // disk and its caption, and the sparklines and HF bands start below that
+  // so they are not covered by the photos.
+  const captionH = disk ? 22 : 0;
+  const rowH = disk ? Math.max(spec.cardH, disk + captionH) : spec.cardH;
   let cardsY = null;
-  if (model.stats.length) {
+  if (model.stats.length || disk) {
     cardsY = y;
-    y += spec.cardH + 12;
+    y += rowH + 12;
   }
 
   let unavailableY = null;
@@ -398,6 +421,8 @@ function buildSolarBadgeSvg(model) {
     bandsY = y;
     y += model.bands ? 70 : 24;
   }
+
+  const bodyTop = spec.pad + spec.logo + 14;
 
   const footerBaseline = y + 14;
   y = footerBaseline + spec.pad - 2;
@@ -450,8 +475,8 @@ function buildSolarBadgeSvg(model) {
   }
 
   if (cardsY != null) {
-    const left = spec.pad + 6;
-    const right = width - spec.pad;
+    const left = spec.pad + 6 + leftCol;
+    const right = width - spec.pad - rightCol;
     const gap = 8;
     const n = model.stats.length;
     const maxCard = spec.width > 800 ? 220 : 180;
@@ -472,7 +497,9 @@ function buildSolarBadgeSvg(model) {
   }
 
   if (trendY != null && model.trend) {
-    chunks.push(trendRow(model.trend, spec.pad + 6, trendY, width - spec.pad * 2 - 6, theme, spec));
+    const trendX = spec.pad + 6 + leftCol;
+    const trendW = width - spec.pad * 2 - 6 - leftCol - rightCol;
+    chunks.push(trendRow(model.trend, trendX, trendY, trendW, theme, spec));
   } else if (trendY != null && model.trendNote) {
     chunks.push(
       `<text x="${spec.pad + 8}" y="${trendY + 14}" fill="${theme.muted}" font-family="IBM Plex Sans" font-size="${spec.label}">${esc(model.trendNote)}</text>`,
@@ -480,11 +507,20 @@ function buildSolarBadgeSvg(model) {
   }
 
   if (bandsY != null && model.bands) {
-    chunks.push(bandRow(model.bands, spec.pad + 6, bandsY, width - spec.pad * 2 - 6, theme, spec));
+    const bandX = spec.pad + 6 + leftCol;
+    const bandW = width - spec.pad * 2 - 6 - leftCol - rightCol;
+    chunks.push(bandRow(model.bands, bandX, bandsY, bandW, theme, spec));
   } else if (bandsY != null && model.bandsNote) {
     chunks.push(
       `<text x="${spec.pad + 8}" y="${bandsY + 16}" fill="${theme.muted}" font-family="IBM Plex Sans" font-size="${spec.label}">${esc(model.bandsNote)}</text>`,
     );
+  }
+
+  if (model.left) {
+    chunks.push(sideColumn(model.left, spec.pad + 4, bodyTop, disk, theme));
+  }
+  if (model.right) {
+    chunks.push(sideColumn(model.right, width - spec.pad - disk - 4, bodyTop, disk, theme));
   }
 
   chunks.push(
@@ -492,6 +528,13 @@ function buildSolarBadgeSvg(model) {
   );
   chunks.push(`</svg>`);
   return chunks.join('');
+}
+
+function sideColumn(slot, x, y, size, theme) {
+  return `<g>
+    ${diskElement(x, y, size, slot.href, slot.missing, theme.accent)}
+    <text x="${x + size / 2}" y="${y + size + 16}" text-anchor="middle" fill="${theme.text}" font-family="IBM Plex Sans" font-weight="700" font-size="11">${esc(slot.caption || '')}</text>
+  </g>`;
 }
 
 function statCard(stat, x, y, w, spec, theme, track) {
@@ -605,7 +648,7 @@ function ensureWasm() {
   return wasmReady;
 }
 
-async function svgToPng(svg, background) {
+async function svgToPng(svg, background, images) {
   await ensureWasm();
   const { Resvg } = require('@resvg/resvg-wasm');
   const resvg = new Resvg(svg, {
@@ -621,6 +664,14 @@ async function svgToPng(svg, background) {
     shapeRendering: 2,
   });
   try {
+    if (images) {
+      const pending = typeof resvg.imagesToResolve === 'function' ? resvg.imagesToResolve() : [];
+      for (const item of pending) {
+        const href = typeof item === 'string' ? item : item?.url || item?.href;
+        const buf = href && images[href];
+        if (buf) resvg.resolveImage(href, buf);
+      }
+    }
     const rendered = resvg.render();
     try {
       return Buffer.from(rendered.asPng());
@@ -653,8 +704,10 @@ function takeRenderSlot(now = Date.now()) {
   return true;
 }
 
-function cacheKey(themeId, fields, variant) {
-  return `${themeId}|${variant}|${fields.join(',')}`;
+function cacheKey(themeId, fields, variant, sun, moon, wl) {
+  let key = `${themeId}|${variant}|${fields.join(',')}`;
+  if (sun || moon) key += `|${sun || '-'}|${moon || '-'}|${wl || DEFAULT_WAVELENGTH}`;
+  return key;
 }
 
 function touch(key, entry) {
@@ -663,7 +716,44 @@ function touch(key, entry) {
   while (pngCache.size > CACHE_MAX) pngCache.delete(pngCache.keys().next().value);
 }
 
-async function renderFresh(themeId, fields, variant, ctx) {
+async function loadSideImages(ctx, placements, wl) {
+  let sun = null;
+  let moon = null;
+  if (placements.sun && ctx && typeof ctx.getSolarImage === 'function') {
+    try {
+      sun = await ctx.getSolarImage(wl);
+    } catch (error) {
+      ctx.logErrorOnce?.('Sun badge', error.message);
+    }
+  }
+  if (placements.moon && ctx && typeof ctx.getMoonSnapshot === 'function') {
+    try {
+      moon = await ctx.getMoonSnapshot();
+    } catch (error) {
+      ctx.logErrorOnce?.('Moon badge', error.message);
+    }
+  }
+  return { sun, moon };
+}
+
+function slotFor(kind, photo, wl) {
+  const href = toDataUri(photo?.buffer, photo?.contentType);
+  if (kind === 'sun') {
+    return {
+      href,
+      missing: 'Sun',
+      caption: WAVELENGTHS[wl]?.label || 'AIA 193 Å',
+    };
+  }
+  const name = moonPhaseName(photo?.phase, photo?.age);
+  return {
+    href,
+    missing: 'Moon',
+    caption: name || 'Moon',
+  };
+}
+
+async function renderFresh(themeId, fields, variant, ctx, placements, wl) {
   let indices = null;
   try {
     if (ctx && typeof ctx.getSolarIndices === 'function') indices = await ctx.getSolarIndices();
@@ -676,6 +766,8 @@ async function renderFresh(themeId, fields, variant, ctx) {
   } catch {
     xrayFlux = null;
   }
+  const sides = placements || { sun: null, moon: null };
+  const loaded = sides.sun || sides.moon ? await loadSideImages(ctx, sides, wl) : {};
   const model = buildBadgeModel({
     indices,
     n0nbh: ctx?.n0nbhCache,
@@ -684,6 +776,12 @@ async function renderFresh(themeId, fields, variant, ctx) {
     fields,
     variant,
   });
+  if (sides.sun === 'left' || sides.moon === 'left') {
+    model.left = slotFor(sides.sun === 'left' ? 'sun' : 'moon', sides.sun === 'left' ? loaded.sun : loaded.moon, wl);
+  }
+  if (sides.sun === 'right' || sides.moon === 'right') {
+    model.right = slotFor(sides.sun === 'right' ? 'sun' : 'moon', sides.sun === 'right' ? loaded.sun : loaded.moon, wl);
+  }
   const svg = buildSolarBadgeSvg(model);
   return svgToPng(svg, model.palette.background);
 }
@@ -696,25 +794,76 @@ async function renderSolarBadgePng(opts) {
   const theme = resolveBadgeTheme(opts.theme);
   const fields = parseBadgeFields(opts.fields);
   const variant = parseBadgeVariant(opts.variant);
-  const key = cacheKey(theme.id, fields, variant);
+  const placements = resolvePlacements(opts.sun, opts.moon);
+  const wl = parseWavelength(opts.wl);
+  const key = cacheKey(theme.id, fields, variant, placements.sun, placements.moon, wl);
   const hit = pngCache.get(key);
   if (hit && Date.now() - hit.timestamp < CACHE_TTL_MS) {
     touch(key, hit);
     return hit.png;
   }
   if (inflight.has(key)) return inflight.get(key);
-  const isDefault = !opts.theme && !opts.fields && !opts.variant;
+  const isDefault = !opts.theme && !opts.fields && !opts.variant && !opts.sun && !opts.moon;
   if (!takeRenderSlot() && !isDefault) {
     if (hit) return hit.png; // stale beats nothing
     return renderSolarBadgePng({ ctx: opts.ctx });
   }
-  const job = renderFresh(theme.id, fields, variant, opts.ctx)
+  const job = renderFresh(theme.id, fields, variant, opts.ctx, placements, wl)
     .then((png) => {
       touch(key, { png, timestamp: Date.now() });
       return png;
     })
     .finally(() => inflight.delete(key));
   inflight.set(key, job);
+  return job;
+}
+
+const diskCache = new Map();
+const diskInflight = new Map();
+
+async function renderDiskBadge(kind, opts) {
+  const theme = resolveBadgeTheme(opts.theme);
+  const variant = parseBadgeVariant(opts.variant);
+  const wl = parseWavelength(opts.wl);
+  const ttl = kind === 'moon' ? 60 * 60 * 1000 : 15 * 60 * 1000;
+  const key = `${kind}|${theme.id}|${variant}|${kind === 'sun' ? wl : ''}`;
+  const hit = diskCache.get(key);
+  if (hit && Date.now() - hit.timestamp < ttl) {
+    diskCache.delete(key);
+    diskCache.set(key, hit);
+    return hit.png;
+  }
+  if (diskInflight.has(key)) return diskInflight.get(key);
+  // Same render budget as the conditions badge: past it, an uncached
+  // combination gets its stale copy or the default sun/moon badge.
+  const isDefault = !opts.theme && !opts.variant && !opts.wl;
+  if (!takeRenderSlot() && !isDefault) {
+    if (hit) return hit.png;
+    return renderDiskBadge(kind, { ctx: opts.ctx });
+  }
+  const job = (async () => {
+    const loaded =
+      kind === 'sun'
+        ? await loadSideImages(opts.ctx, { sun: 'left', moon: null }, wl)
+        : await loadSideImages(opts.ctx, { sun: null, moon: 'right' }, wl);
+    const photo = kind === 'sun' ? loaded.sun : loaded.moon;
+    const phase = kind === 'moon' ? moonPhaseName(photo?.phase, photo?.age) : null;
+    const svg = buildDiskBadgeSvg({
+      kind,
+      palette: theme,
+      variant,
+      title: kind === 'sun' ? 'SUN' : 'MOON',
+      subtitle: kind === 'sun' ? WAVELENGTHS[wl].label : phase || 'Moon',
+      detail: kind === 'moon' ? formatIllumination(photo?.phase) : photo?.source || null,
+      updated: formatDiskTime(photo?.lastModified || photo?.timestamp) || 'Updated --',
+      imageHref: toDataUri(photo?.buffer, photo?.contentType),
+    });
+    const png = await svgToPng(svg, theme.background);
+    diskCache.set(key, { png, timestamp: Date.now() });
+    while (diskCache.size > 24) diskCache.delete(diskCache.keys().next().value);
+    return png;
+  })().finally(() => diskInflight.delete(key));
+  diskInflight.set(key, job);
   return job;
 }
 
@@ -726,6 +875,8 @@ function setRenderBudget(n) {
 function clearBadgeCache() {
   pngCache.clear();
   inflight.clear();
+  diskCache.clear();
+  diskInflight.clear();
   renderWindowStart = 0;
   rendersInWindow = 0;
 }
@@ -740,6 +891,7 @@ module.exports = {
   buildBadgeModel,
   buildSolarBadgeSvg,
   renderSolarBadgePng,
+  renderDiskBadge,
   clearBadgeCache,
   setRenderBudget,
   svgToPng,
