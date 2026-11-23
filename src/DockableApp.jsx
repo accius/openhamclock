@@ -1591,7 +1591,7 @@ export const DockableApp = ({
           break;
 
         case 'digital-modes':
-          content = <DigitalModesPanel />;
+          content = <DigitalModesPanel apiToken={config.rigControl?.apiToken || ''} />;
           break;
 
         case 'decoder':
@@ -1613,6 +1613,7 @@ export const DockableApp = ({
               solarIndices={solarIndices}
               units={config.allUnits?.dist}
               onSelectGateway={handleSelectWinlinkGateway}
+              apiToken={config.rigControl?.apiToken || ''}
             />
           );
           break;

@@ -9,6 +9,8 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useWinlink } from '../hooks/useWinlink';
+import { useRigOptional } from '../contexts/RigContext.jsx';
+import { directRigUrl } from '../utils/aprsMessageSend.js';
 import WinlinkReachView from './WinlinkReachView.jsx';
 
 const TAB_STORAGE_KEY = 'ohc_winlinkPanelTab';
@@ -21,8 +23,10 @@ function loadTab() {
   }
 }
 
-const WinlinkPanel = ({ deLocation, propConfig, solarIndices, units, onSelectGateway } = {}) => {
+const WinlinkPanel = ({ deLocation, propConfig, solarIndices, units, onSelectGateway, apiToken = '' } = {}) => {
   const { t } = useTranslation();
+  // Local installs: Pat status/mail routes live only on Rig Bridge (#1281)
+  const rigUrl = directRigUrl(useRigOptional());
   const {
     status,
     inbox,
@@ -34,7 +38,7 @@ const WinlinkPanel = ({ deLocation, propConfig, solarIndices, units, onSelectGat
     searchGateways,
     compose,
     connectGateway,
-  } = useWinlink();
+  } = useWinlink({ rigUrl, apiToken });
 
   const [tab, setTab] = useState(loadTab); // reach | inbox | outbox | gateways | compose
   // The Reachable view stays mounted once opened so the map layer keeps its

@@ -8,6 +8,8 @@
  */
 import { useState, useCallback } from 'react';
 import { useDigitalModes } from '../hooks/useDigitalModes';
+import { useRigOptional } from '../contexts/RigContext.jsx';
+import { directRigUrl } from '../utils/aprsMessageSend.js';
 
 const PLUGIN_LABELS = {
   mshv: 'MSHV',
@@ -21,8 +23,10 @@ const formatFreq = (hz) => {
   return `${mhz.toFixed(6)} MHz`;
 };
 
-const DigitalModesPanel = () => {
-  const { statuses, loading, plugins, haltTx, sendFreeText } = useDigitalModes();
+const DigitalModesPanel = ({ apiToken = '' } = {}) => {
+  // Local installs: the plugin routes live only on Rig Bridge (#1279)
+  const rigUrl = directRigUrl(useRigOptional());
+  const { statuses, loading, plugins, haltTx, sendFreeText } = useDigitalModes({ rigUrl, apiToken });
   const [freeTextInputs, setFreeTextInputs] = useState({});
   const [expandedPlugin, setExpandedPlugin] = useState(null);
   const [actionFeedback, setActionFeedback] = useState({});
