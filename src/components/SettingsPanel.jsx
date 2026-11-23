@@ -82,6 +82,7 @@ import {
 import { SPOT_LABEL_MODES } from '../utils/spotLabel.js';
 import RemoteControlSettings from './RemoteControlSettings.jsx';
 import DisplayExtrasSettings from './DisplayExtrasSettings.jsx';
+import SidebarPanelsSettings from './SidebarPanelsSettings.jsx';
 
 export const SettingsPanel = ({
   isOpen,
@@ -152,6 +153,8 @@ export const SettingsPanel = ({
   const [remoteEnabled, setRemoteEnabled] = useState(config?.remoteControl?.enabled ?? null);
   const [callsignTitles, setCallsignTitles] = useState(config?.callsignTitles || '');
   const [grayscale, setGrayscale] = useState(config?.grayscale || 'off');
+  // Modern layout sidebar panels (show/hide + right-column size, #1272)
+  const [panelsDraft, setPanelsDraft] = useState(config?.panels || {});
   const [distUnits, setDistUnits] = useState(config?.allUnits?.dist || config?.units || 'imperial');
   const [tempUnits, setTempUnits] = useState(config?.allUnits?.temp || config?.units || 'imperial');
   const [pressUnits, setPressUnits] = useState(config?.allUnits?.press || config?.units || 'imperial');
@@ -486,6 +489,7 @@ export const SettingsPanel = ({
       setRemoteEnabled(config.remoteControl?.enabled ?? null);
       setCallsignTitles(config.callsignTitles || '');
       setGrayscale(config.grayscale || 'off');
+      setPanelsDraft(config.panels || {});
       setMouseZoom(config.mouseZoom || 50);
       setTimezone(config.timezone || '');
       setDxClusterSource(config.dxClusterSource || 'dxspider-proxy');
@@ -775,6 +779,7 @@ export const SettingsPanel = ({
       remoteControl: { ...(config.remoteControl || {}), enabled: remoteEnabled },
       callsignTitles,
       grayscale,
+      panels: panelsDraft,
       gpsFollow,
       displayBrightness,
       // units,
@@ -4765,6 +4770,9 @@ export const SettingsPanel = ({
                 )}
               </div>
 
+              {/* Sidebar panels — only the Modern layout (ModernLayout) has them */}
+              {layout === 'modern' && <SidebarPanelsSettings panels={panelsDraft} onChange={setPanelsDraft} />}
+
               {/* Scene rotation (kiosk mode) */}
               <div style={{ marginBottom: '24px' }}>
                 <label
@@ -5164,7 +5172,9 @@ export const SettingsPanel = ({
             <div>
               {(() => {
                 const togglePanelVisible = (panelKey) => {
-                  const panels = { ...config.panels };
+                  // Start from the Display tab's sidebar draft so its unsaved
+                  // edits are kept rather than reset by this immediate save
+                  const panels = { ...panelsDraft };
                   panels[panelKey] = { ...panels[panelKey], visible: !(panels[panelKey]?.visible !== false) };
                   onSave({ ...config, panels });
                 };
@@ -5181,7 +5191,7 @@ export const SettingsPanel = ({
                   },
                   {
                     id: 'dx-target-panel',
-                    checked: config.panels?.dxLocation?.visible !== false,
+                    checked: panelsDraft?.dxLocation?.visible !== false,
                     onChange: () => togglePanelVisible('dxLocation'),
                     icon: '🎯',
                     title: 'DX Target Panel',
