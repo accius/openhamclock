@@ -19,13 +19,17 @@ Refresh: data 60s, clock 1s, terminator 5min. `Back` exits (system default).
 
 ## Point it at your own server
 
-Default is `https://openhamclock.com`. To use a self-hosted install:
+Default is `https://openhamclock.com`. No repackaging needed:
 
-1. Edit the `def = "https://openhamclock.com"` line in
+1. **On-device:** press `*` (Options) on the remote → **Save** a self-hosted
+   `http(s)://` URL, **Reset to default**, or Cancel. Empty + Save also
+   resets. The status line shows the effective host.
+2. **ECP deep link (no remote typing):**
+   `curl "http://ROKU_IP:8060/launch/dev?serverUrl=http%3A%2F%2F192.168.1.10%3A3000"`
+   — persisted to the `OpenHamClock` / `serverUrl` registry entry on launch.
+   A URL stuffed into `contentID` is accepted too.
+3. **Rebuild default:** change the `def = "https://openhamclock.com"` line in
    `components/MainScene.brs` (`getServerBase()`), then `bash package.sh`.
-2. Or, without repackaging, write the registry key the channel reads on
-   start (`OpenHamClock` section, `serverUrl` value, e.g.
-   `http://your-pi:3000` — trailing `/` is stripped automatically).
 
 ## Sideload (no store needed)
 
