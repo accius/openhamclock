@@ -1,19 +1,23 @@
 /**
  * Aircraft tracking layer (#996).
  *
- * Plots live aircraft positions from the server-side OpenSky proxy. Each
- * aircraft is a heading-oriented icon; click shows callsign / country /
- * altitude / speed / squawk. Refilters to the current map viewport on pan/zoom
- * so we never try to plot 5000+ markers at once.
+ * Plots live aircraft positions from the server's adsb.lol proxy. adsb.lol
+ * only answers within 250 NM of a point (#1284), so the layer asks for the
+ * area around the station when zoomed out, or around the map centre from
+ * zoom 5, and refetches when that point crosses into another 0.5° cell. Each aircraft is a heading-oriented icon; click shows callsign /
+ * type / altitude / speed / squawk. Refilters to the current viewport on
+ * pan/zoom and caps the marker count.
  */
 import { useState, useEffect, useRef } from 'react';
 import { esc } from '../../utils/escapeHtml.js';
 import { deadReckonPosition, destinationPoint, getGreatCirclePoints } from '../../utils/geo.js';
+import { aircraftCell, aircraftUrl } from '../../utils/aircraftQuery.js';
 
 export const metadata = {
   id: 'aircraft',
   name: 'Aircraft',
-  description: 'Live aircraft positions from OpenSky Network',
+  description:
+    'Live aircraft within 250 NM of your station, or of the map centre when zoomed in (adsb.lol community feed)',
   icon: '✈️',
   category: 'transport',
   defaultEnabled: false,
@@ -31,6 +35,8 @@ const MAX_VIEWPORT_MARKERS = 400;
 const MAX_VIEWPORT_MARKERS_LOW = 80;
 const POLL_MS = 30_000; // server caches for 60 s; 30 s polls keep us cache-warm
 const POLL_MS_LOW = 60_000;
+// From this zoom the query follows the map centre; below it, the station (#1284)
+const FOLLOW_VIEW_MIN_ZOOM = 5;
 
 // Track-prediction (lead time) vectors only draw at this zoom or closer.
 // The layer has no persistent hover/selection concept (markers are rebuilt on
@@ -59,10 +65,20 @@ function planeSvg(heading, color) {
   </svg>`;
 }
 
-export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemoryMode = false, config = null }) {
+export function useLayer({
+  enabled = false,
+  opacity = 0.9,
+  map = null,
+  lowMemoryMode = false,
+  config = null,
+  deLat = null,
+  deLon = null,
+}) {
   const [aircraft, setAircraft] = useState([]);
   const markersRef = useRef([]);
   const [viewportTick, setViewportTick] = useState(0);
+  // Cell around the map centre — the area the server is asked about (#1284)
+  const [centerKey, setCenterKey] = useState(null);
 
   const maxMarkers = lowMemoryMode ? MAX_VIEWPORT_MARKERS_LOW : MAX_VIEWPORT_MARKERS;
   const pollMs = lowMemoryMode ? POLL_MS_LOW : POLL_MS;
@@ -72,9 +88,13 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
     if (!enabled) return;
     let alive = true;
 
+    const [cLat, cLon] = (centerKey || '').split(',').map(Number);
+    const url = centerKey ? aircraftUrl(cLat, cLon) : null;
+    if (!url) return;
+
     const fetchAircraft = async () => {
       try {
-        const res = await fetch('/api/aircraft');
+        const res = await fetch(url);
         if (!res.ok) return;
         const body = await res.json();
         if (!alive) return;
@@ -90,7 +110,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
       alive = false;
       clearInterval(interval);
     };
-  }, [enabled, pollMs]);
+  }, [enabled, pollMs, centerKey]);
 
   // Broadcast the fetched aircraft list to the text view panel (#1002).
   // Updates arrive at poll cadence (30-60s), no throttling needed.
@@ -104,14 +124,31 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, lowMemory
   // Bump viewportTick on map pan/zoom so the render effect refilters.
   useEffect(() => {
     if (!map || !enabled) return;
-    const bump = () => setViewportTick((t) => t + 1);
+    // Zoomed out, the view is far wider than one 250 NM query and its centre
+    // is often empty ocean or desert — ask about the station's area instead.
+    // Zoomed in, follow the view so panning to an airport shows its traffic.
+    const syncCenter = () => {
+      try {
+        const c = map.getCenter();
+        const followView = map.getZoom() >= FOLLOW_VIEW_MIN_ZOOM || !Number.isFinite(deLat) || !Number.isFinite(deLon);
+        const cell = followView ? aircraftCell(c.lat, c.lng) : aircraftCell(deLat, deLon);
+        if (cell) setCenterKey(cell.key);
+      } catch {
+        /* map not ready */
+      }
+    };
+    syncCenter();
+    const bump = () => {
+      setViewportTick((t) => t + 1);
+      syncCenter();
+    };
     map.on('moveend', bump);
     map.on('zoomend', bump);
     return () => {
       map.off('moveend', bump);
       map.off('zoomend', bump);
     };
-  }, [map, enabled]);
+  }, [map, enabled, deLat, deLon]);
 
   // Render markers
   useEffect(() => {

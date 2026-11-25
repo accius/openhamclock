@@ -58,6 +58,7 @@ import { ACTIVITY_COLORS } from '../utils/activityColors.js';
 // Project icon set — exists because bare glyphs/emoji render inconsistently
 // (or as tofu) depending on the platform's font coverage.
 import { LiEye, LiEyeOff, LiRotate } from './Icons.jsx';
+import { aircraftUrl } from '../utils/aircraftQuery.js';
 import SatelliteInfoPanel from './SatelliteInfoPanel.jsx';
 
 const DEG = Math.PI / 180;
@@ -2339,14 +2340,15 @@ export default function Globe3D({
     };
   }, [tornadoOverlayOn]);
 
-  // Aircraft: the server's world snapshot (adsb.lol proxy, 60 s cache).
-  // The globe shows the whole planet, so cap hard for canvas sanity.
+  // Aircraft around DE (adsb.lol proxy, 60 s cache per 0.5° cell). adsb.lol
+  // only answers within 250 NM of a point (#1284), so no world snapshot.
+  const aircraftUrlForDE = aircraftUrl(deLocation?.lat, deLocation?.lon);
   useEffect(() => {
-    if (!aircraftOverlayOn) return undefined;
+    if (!aircraftOverlayOn || !aircraftUrlForDE) return undefined;
     let alive = true;
     const fetchPlanes = async () => {
       try {
-        const res = await fetch('/api/aircraft');
+        const res = await fetch(aircraftUrlForDE);
         if (!res.ok) return;
         const data = await res.json();
         if (alive && Array.isArray(data.aircraft)) {
@@ -2366,7 +2368,7 @@ export default function Globe3D({
       clearInterval(id);
       setOverlayAircraft(null);
     };
-  }, [aircraftOverlayOn]);
+  }, [aircraftOverlayOn, aircraftUrlForDE]);
 
   // ATC sectors: static-ish boundaries (7-day server cache), densified like
   // the flat layer so long edges follow the projection honestly.

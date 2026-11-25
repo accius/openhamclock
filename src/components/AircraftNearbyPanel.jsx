@@ -1,17 +1,21 @@
 /**
  * AircraftNearbyPanel — live aircraft within a selectable radius of the DE
  * location, sorted nearest-first: flight, type, altitude, speed, heading,
- * distance and bearing. Client-side filter over the /api/aircraft world
- * snapshot (adsb.lol via the server's shared 60 s cache) — no new upstream
- * traffic. Companion to the Air Traffic layout's map overlays.
+ * distance and bearing. Asks /api/aircraft for the area around DE (adsb.lol
+ * answers within 250 NM of a point, #1284; the server caches per 0.5° cell
+ * for 60 s) and filters to the chosen radius. Companion to the Air Traffic
+ * layout's map overlays.
  */
 import { useEffect, useRef, useState } from 'react';
 import { apiFetch } from '../utils/apiFetch';
+import { aircraftUrl } from '../utils/aircraftQuery.js';
 import { calculateDistance, calculateBearing } from '../utils/geo.js';
 import { formatBearing, useBearingMode } from '../utils/bearing.js';
 
 const POLL_MS = 60 * 1000;
-const RADIUS_OPTIONS_KM = [50, 100, 250, 500];
+// Largest option stays inside the server query's guaranteed coverage
+// (AIRCRAFT_COVERAGE_KM, ~424 km) — adsb.lol's 250 NM cap (#1284).
+const RADIUS_OPTIONS_KM = [50, 100, 250, 400];
 const RADIUS_KEY = 'ohc_aircraft_radius';
 const MAX_ROWS = 40;
 
@@ -41,13 +45,14 @@ export const AircraftNearbyPanel = ({ config }) => {
   const fetchRef = useRef(null);
 
   useEffect(() => {
-    if (lat == null || lon == null) {
+    const url = aircraftUrl(lat, lon);
+    if (!url) {
       setLoading(false);
       return undefined;
     }
     const fetchAircraft = async () => {
       try {
-        const response = await apiFetch('/api/aircraft');
+        const response = await apiFetch(url);
         if (response?.ok) {
           const payload = await response.json();
           setAircraft(Array.isArray(payload.aircraft) ? payload.aircraft : []);
