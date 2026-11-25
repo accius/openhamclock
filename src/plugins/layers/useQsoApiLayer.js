@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react';
 import { esc } from '../../utils/escapeHtml.js';
-import { getGreatCirclePoints, replicatePath, maidenheadToLatLon } from '../../utils/geo.js';
+import { getGreatCirclePoints, replicatePath, replicatePoint, maidenheadToLatLon } from '../../utils/geo.js';
 import { makeCallLabel } from './callLabel.js';
 
 export const metadata = {
@@ -88,6 +88,8 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, showLabel
     if (!enabled || !qsos.length) return;
 
     const layers = [];
+    // The azimuthal projection has no world copies to replicate into
+    const isAzimuthal = map.options?.crs?.code === 'AzimuthalEquidistant';
     const station = readStationPosition();
 
     qsos.forEach((q) => {
@@ -97,16 +99,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, showLabel
       const call = (q.call || '').trim() || '(unknown)';
       const freqStr = typeof q.freq === 'number' && Number.isFinite(q.freq) ? `${q.freq.toFixed(3)} MHz` : '';
 
-      const marker = L.circleMarker([q.lat, q.lon], {
-        radius: 6,
-        color,
-        fillColor: color,
-        opacity,
-        fillOpacity: Math.min(1, opacity * 0.8),
-      }).addTo(map);
-
-      marker.bindPopup(
-        `<div style="font-family: var(--font-mono);">
+      const popupHtml = `<div style="font-family: var(--font-mono);">
           <b>${esc(call)}</b><br/>
           ${q.band ? `Band: ${esc(q.band)}<br/>` : ''}
           ${q.mode ? `Mode: ${esc(q.mode)}<br/>` : ''}
@@ -115,20 +108,32 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, showLabel
           ${q.ts_utc ? `Time: ${esc(q.ts_utc)}<br/>` : ''}
           ${q.label ? `${esc(q.label)}<br/>` : ''}
           <span style="opacity:0.7;">via open API · retention ${retentionMinutes} min</span>
-        </div>`,
-      );
-      layers.push(marker);
+        </div>`;
 
-      // Callsign pill beside the dot (a dot alone says nothing about who was
-      // worked). Honours the map's global Calls toggle like DX spot labels do.
-      if (showLabels) {
-        layers.push(makeCallLabel(L, [q.lat, q.lon], call, color, { opacity }).addTo(map));
+      // Dot + label in every world copy, like the paths, so they don't
+      // vanish once the map is panned across the date line (#1285).
+      for (const latlng of isAzimuthal ? [[q.lat, q.lon]] : replicatePoint(q.lat, q.lon)) {
+        const marker = L.circleMarker(latlng, {
+          radius: 6,
+          color,
+          fillColor: color,
+          opacity,
+          fillOpacity: Math.min(1, opacity * 0.8),
+        }).addTo(map);
+        marker.bindPopup(popupHtml);
+        layers.push(marker);
+
+        // Callsign pill beside the dot (a dot alone says nothing about who was
+        // worked). Honours the map's global Calls toggle like DX spot labels do.
+        if (showLabels) {
+          layers.push(makeCallLabel(L, latlng, call, color, { opacity }).addTo(map));
+        }
       }
 
       // Great-circle path from DE to the worked station
       if (station) {
         const arcPoints = getGreatCirclePoints(station.lat, station.lon, q.lat, q.lon, 64);
-        replicatePath(arcPoints).forEach((seg) => {
+        (isAzimuthal ? [arcPoints] : replicatePath(arcPoints)).forEach((seg) => {
           if (seg.length < 2) return;
           const line = L.polyline(seg, { opacity, color, weight: 2 }).addTo(map);
           layers.push(line);

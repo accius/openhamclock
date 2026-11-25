@@ -2,7 +2,13 @@ import { useEffect, useState, useRef } from 'react';
 import { esc } from '../../utils/escapeHtml.js';
 import { addMinimizeToggle } from './addMinimizeToggle.js';
 import { makeDraggable } from './makeDraggable.js';
-import { getGreatCirclePoints, replicatePath, maidenheadToLatLon } from '../../utils/geo.js';
+import {
+  getGreatCirclePoints,
+  replicatePath,
+  replicatePoint,
+  maidenheadToLatLon,
+  WORLD_COPY_OFFSETS,
+} from '../../utils/geo.js';
 import { makeCallLabel } from './callLabel.js';
 
 export const metadata = {
@@ -275,6 +281,8 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, showLabel
     }
 
     const newLayers = [];
+    // The azimuthal projection has no world copies to replicate into
+    const isAzimuthal = map.options?.crs?.code === 'AzimuthalEquidistant';
 
     // Optional: show station marker
     if (station) {
@@ -304,36 +312,7 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, showLabel
       }
       const ts = q.ts_utc || '';
 
-      const dxMarker = L.circleMarker([lat, lon], {
-        radius: isPreview ? 7 : 6,
-        color,
-        fillColor: color,
-        opacity,
-        fillOpacity: Math.min(1, opacity * 0.8),
-      }).addTo(map);
-
-      // Tag marker so we can re-open its popup after a redraw
-      dxMarker.__dxCall = dxCall;
-      // User intent: keep THIS call's popup open across redraws
-      dxMarker.on('click', () => {
-        lastOpenDxCallRef.current = dxCall;
-        suppressReopenRef.current = false;
-      });
-
-      dxMarker.on('popupclose', () => {
-        // If the marker was removed from the map (our redraw does this every POLL_MS),
-        // Leaflet will close the popup. That's NOT a user close.
-        if (!map || !map.hasLayer(dxMarker)) return;
-
-        // This is a real user close (clicked X or clicked map/another marker)
-        if (lastOpenDxCallRef.current === dxCall) {
-          suppressReopenRef.current = true;
-          lastOpenDxCallRef.current = null;
-        }
-      });
-
-      dxMarker.bindPopup(
-        `<div style="font-family: var(--font-mono);">
+      const popupHtml = `<div style="font-family: var(--font-mono);">
           <b>${esc(dxCall)}</b>${isPreview ? ' <span style="opacity:0.7;">(preview)</span>' : ''}<br/>
           ${mode ? `Mode: ${esc(mode)}<br/>` : ''}
           ${freqMhz ? `Freq: ${esc(freqMhz)} MHz<br/>` : ''}
@@ -342,32 +321,67 @@ export function useLayer({ enabled = false, opacity = 0.9, map = null, showLabel
           ${q.loc_source ? `Loc: ${esc(q.loc_source)}<br/>` : ''}
           ${q.dx_grid ? `Grid: ${esc(q.dx_grid)}<br/>` : ''}
           <span style="opacity:0.7;">Retention: ${retentionMinutes} min</span>
-        </div>`,
-      );
+        </div>`;
 
-      newLayers.push(dxMarker);
+      // Dot + label in every world copy, like the arcs, so they don't vanish
+      // once the map is panned across the date line (#1285). The unshifted
+      // copy is the one whose popup is re-opened after a redraw.
+      const copies = isAzimuthal ? [[lat, lon]] : replicatePoint(lat, lon);
+      const primaryCopy = isAzimuthal ? 0 : WORLD_COPY_OFFSETS.indexOf(0);
+      copies.forEach((latlng, copyIndex) => {
+        const dxMarker = L.circleMarker(latlng, {
+          radius: isPreview ? 7 : 6,
+          color,
+          fillColor: color,
+          opacity,
+          fillOpacity: Math.min(1, opacity * 0.8),
+        }).addTo(map);
 
-      // Callsign pill beside the dot, following the map's global Calls toggle.
-      // Previews get a "?" suffix so a half-typed call reads as tentative.
-      if (showLabels) {
-        newLayers.push(makeCallLabel(L, [lat, lon], isPreview ? `${dxCall}?` : dxCall, color, { opacity }).addTo(map));
-      }
+        // Tag marker so we can re-open its popup after a redraw
+        dxMarker.__dxCall = dxCall;
+        // User intent: keep THIS call's popup open across redraws
+        dxMarker.on('click', () => {
+          lastOpenDxCallRef.current = dxCall;
+          suppressReopenRef.current = false;
+        });
 
-      // If this was the popup that was open before redraw, re-open it now
-      if (!suppressReopenRef.current && openDxCall && dxCall === openDxCall) {
-        setTimeout(() => {
-          try {
-            dxMarker.openPopup();
-          } catch {}
-        }, 0);
-      }
+        dxMarker.on('popupclose', () => {
+          // If the marker was removed from the map (our redraw does this every POLL_MS),
+          // Leaflet will close the popup. That's NOT a user close.
+          if (!map || !map.hasLayer(dxMarker)) return;
+
+          // This is a real user close (clicked X or clicked map/another marker)
+          if (lastOpenDxCallRef.current === dxCall) {
+            suppressReopenRef.current = true;
+            lastOpenDxCallRef.current = null;
+          }
+        });
+
+        dxMarker.bindPopup(popupHtml);
+        newLayers.push(dxMarker);
+
+        // Callsign pill beside the dot, following the map's global Calls toggle.
+        // Previews get a "?" suffix so a half-typed call reads as tentative.
+        if (showLabels) {
+          newLayers.push(makeCallLabel(L, latlng, isPreview ? `${dxCall}?` : dxCall, color, { opacity }).addTo(map));
+        }
+
+        // If this was the popup that was open before redraw, re-open it now
+        if (copyIndex === primaryCopy && !suppressReopenRef.current && openDxCall && dxCall === openDxCall) {
+          setTimeout(() => {
+            try {
+              dxMarker.openPopup();
+            } catch {}
+          }, 0);
+        }
+      });
 
       // Draw great circle arc from station -> DX if we have station coords.
       // Preview arcs are dashed so a tentative contact reads differently from a
       // logged one at a glance, on top of the colour difference.
       if (station) {
         const arcPoints = getGreatCirclePoints(station.lat, station.lon, lat, lon, 64);
-        const segments = replicatePath(arcPoints);
+        const segments = isAzimuthal ? [arcPoints] : replicatePath(arcPoints);
         segments.forEach((seg) => {
           if (seg.length < 2) return;
           const line = L.polyline(seg, {
